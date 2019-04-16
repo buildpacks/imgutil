@@ -239,25 +239,6 @@ func ImageID(t *testing.T, repoName string) string {
 	return inspect.ID
 }
 
-// func Run(t *testing.T, cmd *exec.Cmd) string {
-// 	t.Helper()
-// 	txt, err := RunE(cmd)
-// 	AssertNil(t, err)
-// 	return txt
-// }
-
-// func RunE(cmd *exec.Cmd) (string, error) {
-// 	var stderr bytes.Buffer
-// 	cmd.Stderr = &stderr
-//
-// 	output, err := cmd.Output()
-// 	if err != nil {
-// 		return "", fmt.Errorf("Failed to execute command: %v, %s, %s, %s", cmd.Args, err, stderr.String(), output)
-// 	}
-//
-// 	return string(output), nil
-// }
-
 func CreateSingleFileTar(path, txt string) (io.Reader, error) {
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
