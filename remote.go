@@ -21,9 +21,9 @@ import (
 
 type RemoteImage struct {
 	keychain   authn.Keychain
-	RepoName   string
-	Image      v1.Image
-	PrevLayers []v1.Layer
+	repoName   string
+	image      v1.Image
+	prevLayers []v1.Layer
 	prevOnce   *sync.Once
 }
 
@@ -35,8 +35,8 @@ func NewRemoteImage(repoName string, keychain authn.Keychain) (*RemoteImage, err
 
 	return &RemoteImage{
 		keychain: keychain,
-		RepoName: repoName,
-		Image:    image,
+		repoName: repoName,
+		image:    image,
 		prevOnce: &sync.Once{},
 	}, nil
 }
@@ -68,9 +68,9 @@ func referenceForRepoName(keychain authn.Keychain, ref string) (name.Reference, 
 }
 
 func (r *RemoteImage) Label(key string) (string, error) {
-	cfg, err := r.Image.ConfigFile()
+	cfg, err := r.image.ConfigFile()
 	if err != nil || cfg == nil {
-		return "", fmt.Errorf("failed to get label, image '%s' does not exist", r.RepoName)
+		return "", fmt.Errorf("failed to get label, image '%s' does not exist", r.repoName)
 	}
 	labels := cfg.Config.Labels
 	return labels[key], nil
@@ -78,9 +78,9 @@ func (r *RemoteImage) Label(key string) (string, error) {
 }
 
 func (r *RemoteImage) Env(key string) (string, error) {
-	cfg, err := r.Image.ConfigFile()
+	cfg, err := r.image.ConfigFile()
 	if err != nil || cfg == nil {
-		return "", fmt.Errorf("failed to get env var, image '%s' does not exist", r.RepoName)
+		return "", fmt.Errorf("failed to get env var, image '%s' does not exist", r.repoName)
 	}
 	for _, envVar := range cfg.Config.Env {
 		parts := strings.Split(envVar, "=")
@@ -92,15 +92,15 @@ func (r *RemoteImage) Env(key string) (string, error) {
 }
 
 func (r *RemoteImage) Rename(name string) {
-	r.RepoName = name
+	r.repoName = name
 }
 
 func (r *RemoteImage) Name() string {
-	return r.RepoName
+	return r.repoName
 }
 
 func (r *RemoteImage) Found() (bool, error) {
-	if _, err := r.Image.RawManifest(); err != nil {
+	if _, err := r.image.RawManifest(); err != nil {
 		if transportErr, ok := err.(*transport.Error); ok && len(transportErr.Errors) > 0 {
 			switch transportErr.Errors[0].Code {
 			case transport.UnauthorizedErrorCode, transport.ManifestUnknownErrorCode:
@@ -113,17 +113,17 @@ func (r *RemoteImage) Found() (bool, error) {
 }
 
 func (r *RemoteImage) Digest() (string, error) {
-	hash, err := r.Image.Digest()
+	hash, err := r.image.Digest()
 	if err != nil {
-		return "", fmt.Errorf("failed to get digest for image '%s': %s", r.RepoName, err)
+		return "", fmt.Errorf("failed to get digest for image '%s': %s", r.repoName, err)
 	}
 	return hash.String(), nil
 }
 
 func (r *RemoteImage) CreatedAt() (time.Time, error) {
-	configFile, err := r.Image.ConfigFile()
+	configFile, err := r.image.ConfigFile()
 	if err != nil {
-		return time.Time{}, fmt.Errorf("failed to get createdAt time for image '%s': %s", r.RepoName, err)
+		return time.Time{}, fmt.Errorf("failed to get createdAt time for image '%s': %s", r.repoName, err)
 	}
 	return configFile.Created.UTC(), nil
 }
@@ -134,16 +134,16 @@ func (r *RemoteImage) Rebase(baseTopLayer string, newBase Image) error {
 		return errors.New("expected new base to be a remote image")
 	}
 
-	newImage, err := mutate.Rebase(r.Image, &subImage{img: r.Image, topSHA: baseTopLayer}, newBaseRemote.Image)
+	newImage, err := mutate.Rebase(r.image, &subImage{img: r.image, topSHA: baseTopLayer}, newBaseRemote.image)
 	if err != nil {
 		return errors.Wrap(err, "rebase")
 	}
-	r.Image = newImage
+	r.image = newImage
 	return nil
 }
 
 func (r *RemoteImage) SetLabel(key, val string) error {
-	configFile, err := r.Image.ConfigFile()
+	configFile, err := r.image.ConfigFile()
 	if err != nil {
 		return err
 	}
@@ -152,12 +152,12 @@ func (r *RemoteImage) SetLabel(key, val string) error {
 		config.Labels = map[string]string{}
 	}
 	config.Labels[key] = val
-	r.Image, err = mutate.Config(r.Image, config)
+	r.image, err = mutate.Config(r.image, config)
 	return err
 }
 
 func (r *RemoteImage) SetEnv(key, val string) error {
-	configFile, err := r.Image.ConfigFile()
+	configFile, err := r.image.ConfigFile()
 	if err != nil {
 		return err
 	}
@@ -166,7 +166,7 @@ func (r *RemoteImage) SetEnv(key, val string) error {
 		parts := strings.Split(e, "=")
 		if parts[0] == key {
 			config.Env[i] = fmt.Sprintf("%s=%s", key, val)
-			r.Image, err = mutate.Config(r.Image, config)
+			r.image, err = mutate.Config(r.image, config)
 			if err != nil {
 				return err
 			}
@@ -174,34 +174,34 @@ func (r *RemoteImage) SetEnv(key, val string) error {
 		}
 	}
 	config.Env = append(config.Env, fmt.Sprintf("%s=%s", key, val))
-	r.Image, err = mutate.Config(r.Image, config)
+	r.image, err = mutate.Config(r.image, config)
 	return err
 }
 
 func (r *RemoteImage) SetEntrypoint(ep ...string) error {
-	configFile, err := r.Image.ConfigFile()
+	configFile, err := r.image.ConfigFile()
 	if err != nil {
 		return err
 	}
 	config := *configFile.Config.DeepCopy()
 	config.Entrypoint = ep
-	r.Image, err = mutate.Config(r.Image, config)
+	r.image, err = mutate.Config(r.image, config)
 	return err
 }
 
 func (r *RemoteImage) SetCmd(cmd ...string) error {
-	configFile, err := r.Image.ConfigFile()
+	configFile, err := r.image.ConfigFile()
 	if err != nil {
 		return err
 	}
 	config := *configFile.Config.DeepCopy()
 	config.Cmd = cmd
-	r.Image, err = mutate.Config(r.Image, config)
+	r.image, err = mutate.Config(r.image, config)
 	return err
 }
 
 func (r *RemoteImage) TopLayer() (string, error) {
-	all, err := r.Image.Layers()
+	all, err := r.image.Layers()
 	if err != nil {
 		return "", err
 	}
@@ -222,7 +222,7 @@ func (r *RemoteImage) AddLayer(path string) error {
 	if err != nil {
 		return err
 	}
-	r.Image, err = mutate.AppendLayers(r.Image, layer)
+	r.image, err = mutate.AppendLayers(r.image, layer)
 	if err != nil {
 		return errors.Wrap(err, "add layer")
 	}
@@ -233,25 +233,25 @@ func (r *RemoteImage) ReuseLayer(sha string) error {
 	var outerErr error
 
 	r.prevOnce.Do(func() {
-		prevImage, err := newV1Image(r.keychain, r.RepoName)
+		prevImage, err := newV1Image(r.keychain, r.repoName)
 		if err != nil {
 			outerErr = err
 			return
 		}
-		r.PrevLayers, err = prevImage.Layers()
+		r.prevLayers, err = prevImage.Layers()
 		if err != nil {
-			outerErr = fmt.Errorf("failed to get layers for previous image with repo name '%s': %s", r.RepoName, err)
+			outerErr = fmt.Errorf("failed to get layers for previous image with repo name '%s': %s", r.repoName, err)
 		}
 	})
 	if outerErr != nil {
 		return outerErr
 	}
 
-	layer, err := findLayerWithSha(r.PrevLayers, sha)
+	layer, err := findLayerWithSha(r.prevLayers, sha)
 	if err != nil {
 		return err
 	}
-	r.Image, err = mutate.AppendLayers(r.Image, layer)
+	r.image, err = mutate.AppendLayers(r.image, layer)
 	return err
 }
 
@@ -269,21 +269,21 @@ func findLayerWithSha(layers []v1.Layer, sha string) (v1.Layer, error) {
 }
 
 func (r *RemoteImage) Save() (string, error) {
-	ref, auth, err := referenceForRepoName(r.keychain, r.RepoName)
+	ref, auth, err := referenceForRepoName(r.keychain, r.repoName)
 	if err != nil {
 		return "", err
 	}
 
-	r.Image, err = mutate.CreatedAt(r.Image, v1.Time{Time: time.Now()})
+	r.image, err = mutate.CreatedAt(r.image, v1.Time{Time: time.Now()})
 	if err != nil {
 		return "", err
 	}
 
-	if err := remote.Write(ref, r.Image, auth, http.DefaultTransport); err != nil {
+	if err := remote.Write(ref, r.image, auth, http.DefaultTransport); err != nil {
 		return "", err
 	}
 
-	hex, err := r.Image.Digest()
+	hex, err := r.image.Digest()
 	if err != nil {
 		return "", err
 	}
