@@ -20,8 +20,8 @@ func NewImage(t *testing.T, name, topLayerSha, digest string) *Image {
 	return &Image{
 		t:            t,
 		alreadySaved: false,
-		labels:       make(map[string]string),
-		env:          make(map[string]string),
+		labels:       map[string]string{},
+		env:          map[string]string{},
 		topLayerSha:  topLayerSha,
 		digest:       digest,
 		name:         name,
