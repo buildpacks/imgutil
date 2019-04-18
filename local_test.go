@@ -41,9 +41,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 	var dockerClient *client.Client
 
 	it.Before(func() {
-		var err error
 		dockerClient = h.DockerCli(t)
-		h.AssertNil(t, err)
 		repoName = "pack-image-test-" + h.RandString(10)
 	})
 
