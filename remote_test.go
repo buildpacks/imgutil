@@ -229,6 +229,37 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#SetWorkingDir", func() {
+		var (
+			img imgutil.Image
+		)
+		it.Before(func() {
+			var err error
+			h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
+					FROM scratch
+					LABEL repo_name_for_randomisation=%s
+				`, repoName), nil)
+			img, err = imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
+			h.AssertNil(t, err)
+		})
+
+		it("sets the environment", func() {
+			err := img.SetWorkingDir("/some/work/dir")
+			h.AssertNil(t, err)
+
+			_, err = img.Save()
+			h.AssertNil(t, err)
+
+			h.AssertNil(t, h.PullImage(dockerClient, repoName))
+			defer h.DockerRmi(dockerClient, repoName)
+
+			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
+			h.AssertNil(t, err)
+
+			h.AssertEq(t, inspect.Config.WorkingDir, "/some/work/dir")
+		})
+	})
+
 	when("#SetEntrypoint", func() {
 		var (
 			img imgutil.Image
