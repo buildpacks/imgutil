@@ -78,12 +78,13 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("image NOT exists", func() {
-			it("returns an error", func() {
+			it("returns an empty label", func() {
 				img, err := imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
-				_, err = img.Label("mykey")
-				h.AssertError(t, err, fmt.Sprintf("failed to get label, image '%s' does not exist", repoName))
+				label, err := img.Label("some-label")
+				h.AssertNil(t, err)
+				h.AssertEq(t, label, "")
 			})
 		})
 	})
@@ -118,12 +119,13 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("image NOT exists", func() {
-			it("returns an error", func() {
+			it("returns an empty string", func() {
 				img, err := imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
-				_, err = img.Env("MISSING_VAR")
-				h.AssertError(t, err, fmt.Sprintf("failed to get env var, image '%s' does not exist", repoName))
+				val, err := img.Env("SOME_VAR")
+				h.AssertNil(t, err)
+				h.AssertEq(t, val, "")
 			})
 		})
 	})
@@ -154,8 +156,8 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 	when("#Digest", func() {
 		it("returns the image digest", func() {
 			// The SHA of a particular iteration of busybox:1.29
-			expectedDigest := "sha256:2a03a6059f21e150ae84b0973863609494aad70f0a80eaeb64bddd8d92465812"
-			img, err := imgutil.NewRemoteImage("busybox@sha256:2a03a6059f21e150ae84b0973863609494aad70f0a80eaeb64bddd8d92465812", authn.DefaultKeychain)
+			expectedDigest := "sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"
+			img, err := imgutil.NewRemoteImage("busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5", authn.DefaultKeychain)
 			h.AssertNil(t, err)
 			digest, err := img.Digest()
 			h.AssertNil(t, err)
@@ -526,7 +528,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 			err = img.ReuseLayer("some-bad-sha")
 
-			h.AssertError(t, err, "failed to get layers for previous image with repo name 'some-bad-repo-name'")
+			h.AssertError(t, err, "there is no previous image with name 'some-bad-repo-name'")
 		})
 	})
 
@@ -598,10 +600,8 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			it("returns true, nil", func() {
 				image, err := imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
-				exists, err := image.Found()
 
-				h.AssertNil(t, err)
-				h.AssertEq(t, exists, true)
+				h.AssertEq(t, image.Found(), true)
 			})
 		})
 
@@ -609,10 +609,8 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			it("returns false, nil", func() {
 				image, err := imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
-				exists, err := image.Found()
 
-				h.AssertNil(t, err)
-				h.AssertEq(t, exists, false)
+				h.AssertEq(t, image.Found(), false)
 			})
 		})
 	})
