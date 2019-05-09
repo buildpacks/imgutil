@@ -64,8 +64,8 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 							ENV MY_VAR=my_val
 							`, repoName), labels)
 
-				localImage, e := imgutil.NewLocalImage(repoName, dockerClient)
-				h.AssertNil(t, e)
+				localImage, err := imgutil.NewLocalImage(repoName, dockerClient)
+				h.AssertNil(t, err)
 
 				labelValue, err := localImage.Label("some.label")
 				h.AssertNil(t, err)
@@ -74,13 +74,13 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("image is not available locally", func() {
-			it("returns an error", func() {
+			it("returns an empty image", func() {
 				repoName = "localhost:" + localTestRegistry.Port + "/pack-image-test-" + h.RandString(10)
 
 				localImage, e := imgutil.NewLocalImage(repoName, dockerClient)
 				h.AssertNil(t, e)
 
-				_, err := localImage.Label("remote.label")
+				_, err := localImage.Digest()
 				h.AssertError(t, err, "does not exist")
 			})
 		})
@@ -131,12 +131,13 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("image NOT exists", func() {
-			it("returns an error", func() {
+			it("returns an empty string", func() {
 				img, err := imgutil.NewLocalImage(repoName, dockerClient)
 				h.AssertNil(t, err)
 
-				_, err = img.Label("mykey")
-				h.AssertError(t, err, fmt.Sprintf("failed to get label, image '%s' does not exist", repoName))
+				label, err := img.Label("some-label")
+				h.AssertNil(t, err)
+				h.AssertEq(t, label, "")
 			})
 		})
 	})
@@ -175,12 +176,13 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("image NOT exists", func() {
-			it("returns an error", func() {
+			it("returns an empty string", func() {
 				img, err := imgutil.NewLocalImage(repoName, dockerClient)
 				h.AssertNil(t, err)
 
-				_, err = img.Env("MISSING_VAR")
-				h.AssertError(t, err, fmt.Sprintf("failed to get env var, image '%s' does not exist", repoName))
+				val, err := img.Env("SOME_VAR")
+				h.AssertNil(t, err)
+				h.AssertEq(t, val, "")
 			})
 		})
 	})
@@ -801,20 +803,18 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 			it("returns true, nil", func() {
 				image, err := imgutil.NewLocalImage(repoName, dockerClient)
-				exists, err := image.Found()
-
 				h.AssertNil(t, err)
-				h.AssertEq(t, exists, true)
+
+				h.AssertEq(t, image.Found(), true)
 			})
 		})
 
 		when("it does not exist", func() {
 			it("returns false, nil", func() {
 				image, err := imgutil.NewLocalImage(repoName, dockerClient)
-				exists, err := image.Found()
-
 				h.AssertNil(t, err)
-				h.AssertEq(t, exists, false)
+
+				h.AssertEq(t, image.Found(), false)
 			})
 		})
 	})
@@ -849,18 +849,14 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("should delete the image", func() {
-				found, err := origImg.Found()
-				h.AssertNil(t, err)
-				h.AssertEq(t, found, true)
+				h.AssertEq(t, origImg.Found(), true)
 
 				h.AssertNil(t, origImg.Delete())
 
 				img, err := imgutil.NewLocalImage(origID, dockerClient)
 				h.AssertNil(t, err)
 
-				found, err = img.Found()
-				h.AssertNil(t, err)
-				h.AssertEq(t, found, false)
+				h.AssertEq(t, img.Found(), false)
 			})
 
 			when("the image has been re-tagged", func() {
@@ -874,18 +870,14 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				it("should delete the image", func() {
-					found, err := origImg.Found()
-					h.AssertNil(t, err)
-					h.AssertEq(t, found, true)
+					h.AssertEq(t, origImg.Found(), true)
 
 					h.AssertNil(t, origImg.Delete())
 
-					origImg, err = imgutil.NewLocalImage(newTag, dockerClient)
+					origImg, err := imgutil.NewLocalImage(newTag, dockerClient)
 					h.AssertNil(t, err)
 
-					found, err = origImg.Found()
-					h.AssertNil(t, err)
-					h.AssertEq(t, found, false)
+					h.AssertEq(t, origImg.Found(), false)
 				})
 			})
 		})
