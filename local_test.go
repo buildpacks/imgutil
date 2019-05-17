@@ -266,36 +266,67 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				img    imgutil.Image
 				origID string
 			)
-			it.Before(func() {
-				var err error
-				h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-					LABEL some-key=some-value
-				`, repoName), nil)
-				img, err = imgutil.NewLocalImage(repoName, dockerClient)
-				h.AssertNil(t, err)
-				origID = h.ImageID(t, repoName)
-			})
-
 			it.After(func() {
 				h.AssertNil(t, h.DockerRmi(dockerClient, repoName, origID))
 			})
 
-			it("sets label and saves label to docker daemon", func() {
-				h.AssertNil(t, img.SetLabel("somekey", "new-val"))
-				t.Log("set label")
-				label, err := img.Label("somekey")
-				h.AssertNil(t, err)
-				h.AssertEq(t, label, "new-val")
-				t.Log("save label")
-				_, err = img.Save()
-				h.AssertNil(t, err)
+			when("image has labels", func() {
+				it.Before(func() {
+					var err error
+					h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
+					FROM scratch
+					LABEL repo_name_for_randomisation=%s
+					LABEL some-key=some-value
+				`, repoName), nil)
+					img, err = imgutil.NewLocalImage(repoName, dockerClient)
+					h.AssertNil(t, err)
+					origID = h.ImageID(t, repoName)
+				})
 
-				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
-				h.AssertNil(t, err)
-				label = inspect.Config.Labels["somekey"]
-				h.AssertEq(t, strings.TrimSpace(label), "new-val")
+				it("sets label and saves label to docker daemon", func() {
+					h.AssertNil(t, img.SetLabel("somekey", "new-val"))
+					t.Log("set label")
+					label, err := img.Label("somekey")
+					h.AssertNil(t, err)
+					h.AssertEq(t, label, "new-val")
+					t.Log("save label")
+					_, err = img.Save()
+					h.AssertNil(t, err)
+
+					inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
+					h.AssertNil(t, err)
+					label = inspect.Config.Labels["somekey"]
+					h.AssertEq(t, strings.TrimSpace(label), "new-val")
+				})
+			})
+
+			when("no labels exists", func() {
+				it.Before(func() {
+					var err error
+					h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
+					FROM scratch
+					CMD ['/usr/bin/run']
+				`), nil)
+					img, err = imgutil.NewLocalImage(repoName, dockerClient)
+					h.AssertNil(t, err)
+					origID = h.ImageID(t, repoName)
+				})
+
+				it("sets label and saves label to docker daemon", func() {
+					h.AssertNil(t, img.SetLabel("somekey", "new-val"))
+					t.Log("set label")
+					label, err := img.Label("somekey")
+					h.AssertNil(t, err)
+					h.AssertEq(t, label, "new-val")
+					t.Log("save label")
+					_, err = img.Save()
+					h.AssertNil(t, err)
+
+					inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
+					h.AssertNil(t, err)
+					label = inspect.Config.Labels["somekey"]
+					h.AssertEq(t, strings.TrimSpace(label), "new-val")
+				})
 			})
 		})
 	})
