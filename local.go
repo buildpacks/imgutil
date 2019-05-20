@@ -193,6 +193,11 @@ func (l *localImage) SetLabel(key, val string) error {
 	if l.inspect.Config == nil {
 		return fmt.Errorf("failed to set label, image '%s' does not exist", l.repoName)
 	}
+
+	if l.inspect.Config.Labels == nil {
+		l.inspect.Config.Labels = map[string]string{}
+	}
+
 	l.inspect.Config.Labels[key] = val
 	return nil
 }
