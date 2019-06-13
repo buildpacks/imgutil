@@ -19,37 +19,39 @@ import (
 
 func NewImage(name, topLayerSha, digest string) *Image {
 	return &Image{
-		alreadySaved:  false,
-		labels:        map[string]string{},
-		env:           map[string]string{},
-		topLayerSha:   topLayerSha,
-		digest:        digest,
-		name:          name,
-		cmd:           []string{"initialCMD"},
-		layersMap:     map[string]string{},
-		prevLayersMap: map[string]string{},
-		createdAt:     time.Now(),
+		alreadySaved:   false,
+		labels:         map[string]string{},
+		env:            map[string]string{},
+		topLayerSha:    topLayerSha,
+		digest:         digest,
+		name:           name,
+		cmd:            []string{"initialCMD"},
+		layersMap:      map[string]string{},
+		prevLayersMap:  map[string]string{},
+		createdAt:      time.Now(),
+		savedRepoNames: make(map[string]interface{}),
 	}
 }
 
 type Image struct {
-	alreadySaved  bool
-	deleted       bool
-	layers        []string
-	layersMap     map[string]string
-	prevLayersMap map[string]string
-	reusedLayers  []string
-	labels        map[string]string
-	env           map[string]string
-	topLayerSha   string
-	digest        string
-	name          string
-	entryPoint    []string
-	cmd           []string
-	base          string
-	createdAt     time.Time
-	layerDir      string
-	workingDir    string
+	alreadySaved   bool
+	deleted        bool
+	layers         []string
+	layersMap      map[string]string
+	prevLayersMap  map[string]string
+	reusedLayers   []string
+	labels         map[string]string
+	env            map[string]string
+	topLayerSha    string
+	digest         string
+	name           string
+	entryPoint     []string
+	cmd            []string
+	base           string
+	createdAt      time.Time
+	layerDir       string
+	workingDir     string
+	savedRepoNames map[string]interface{}
 }
 
 func (f *Image) CreatedAt() (time.Time, error) {
@@ -173,6 +175,8 @@ func (f *Image) Save() (string, error) {
 		layerPath := f.layers[i]
 		f.layers[i] = filepath.Join(f.layerDir, filepath.Base(layerPath))
 	}
+
+	f.savedRepoNames[f.name] = nil
 
 	return "saved-digest-from-fake-run-image", nil
 }
@@ -299,4 +303,12 @@ func (f *Image) IsSaved() bool {
 
 func (f *Image) Base() string {
 	return f.base
+}
+
+func (f *Image) SavedRepoNames() []string {
+	var t []string
+	for k := range f.savedRepoNames {
+		t = append(t, k)
+	}
+	return t
 }
