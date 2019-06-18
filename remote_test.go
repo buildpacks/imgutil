@@ -49,7 +49,34 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		repoName = "localhost:" + registryPort + "/pack-image-test-" + h.RandString(10)
 	})
 
-	when("#label", func() {
+	when("#NewRemote", func() {
+		when("#FromRemoteBaseImage", func() {
+			when("base image does not exist", func() {
+				it("fails", func() {
+				})
+			})
+			when("base image exists", func() {
+				it("sets the initial state to match the base image", func() {
+				})
+			})
+		})
+
+		when("#WithPreviousImage", func() {
+			when("then previous image does not exist", func() {
+				//it("returns errors on nonexistent prev image", func() {
+				//	img, err := imgutil.NewRemoteImage("busybox", authn.DefaultKeychain)
+				//	h.AssertNil(t, err)
+				//	img.Rename("some-bad-repo-name")
+				//
+				//	err = img.ReuseLayer("some-bad-sha")
+				//
+				//	h.AssertError(t, err, "there is no previous image with name 'some-bad-repo-name'")
+				//})
+			})
+		})
+	})
+
+	when("#Label", func() {
 		when("image exists", func() {
 			var img imgutil.Image
 			it.Before(func() {
@@ -60,7 +87,10 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				`, repoName), nil)
 
 				var err error
-				img, err = imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
+				img, err = imgutil.NewRemoteImage(
+					repoName, authn.DefaultKeychain,
+					imgutil.FromRemoteImageBase(repoName),
+				)
 				h.AssertNil(t, err)
 			})
 
@@ -77,7 +107,8 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 
-		when("image NOT exists", func() {
+		//TODO do we still need this?
+		when("image is empty", func() {
 			it("returns an empty label", func() {
 				img, err := imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
@@ -91,34 +122,40 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#Env", func() {
 		when("image exists", func() {
+			var (
+				img imgutil.Image
+			)
 			it.Before(func() {
 				h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
 					FROM scratch
 					LABEL repo_name_for_randomisation=%s
 					ENV MY_VAR=my_val
 				`, repoName), nil)
+
+				var err error
+				img, err = imgutil.NewRemoteImage(
+					repoName,
+					authn.DefaultKeychain,
+					imgutil.FromRemoteImageBase(repoName),
+				)
+				h.AssertNil(t, err)
 			})
 
 			it("returns the label value", func() {
-				img, err := imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
-				h.AssertNil(t, err)
-
 				val, err := img.Env("MY_VAR")
 				h.AssertNil(t, err)
 				h.AssertEq(t, val, "my_val")
 			})
 
 			it("returns an empty string for a missing label", func() {
-				img, err := imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
-				h.AssertNil(t, err)
-
 				val, err := img.Env("MISSING_VAR")
 				h.AssertNil(t, err)
 				h.AssertEq(t, val, "")
 			})
 		})
 
-		when("image NOT exists", func() {
+		//TODO do we still need this test
+		when("image is empty", func() {
 			it("returns an empty string", func() {
 				img, err := imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
@@ -141,7 +178,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 	when("#CreatedAt", func() {
 		const reference = "busybox@sha256:f79f7a10302c402c052973e3fa42be0344ae6453245669783a9e16da3d56d5b4"
 		it("returns the containers created at time", func() {
-			img, err := imgutil.NewRemoteImage(reference, authn.DefaultKeychain)
+			img, err := imgutil.NewRemoteImage(repoName, authn.DefaultKeychain, imgutil.FromRemoteImageBase(reference))
 			h.AssertNil(t, err)
 
 			expectedTime := time.Date(2019, 4, 2, 23, 32, 10, 727183061, time.UTC)
@@ -157,7 +194,11 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		it("returns the image digest", func() {
 			// The SHA of a particular iteration of busybox:1.29
 			expectedDigest := "sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"
-			img, err := imgutil.NewRemoteImage("busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5", authn.DefaultKeychain)
+			img, err := imgutil.NewRemoteImage(
+				repoName,
+				authn.DefaultKeychain,
+				imgutil.FromRemoteImageBase("busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"),
+			)
 			h.AssertNil(t, err)
 			digest, err := img.Digest()
 			h.AssertNil(t, err)
@@ -169,12 +210,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		var img imgutil.Image
 		when("image exists", func() {
 			it.Before(func() {
-				h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-					LABEL mykey=myvalue other=data
-				`, repoName), nil)
-
 				var err error
 				img, err = imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
@@ -205,11 +240,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		)
 		it.Before(func() {
 			var err error
-			h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-					LABEL some-key=some-value
-				`, repoName), nil)
 			img, err = imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
 			h.AssertNil(t, err)
 		})
@@ -237,10 +267,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		)
 		it.Before(func() {
 			var err error
-			h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-				`, repoName), nil)
 			img, err = imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
 			h.AssertNil(t, err)
 		})
@@ -268,10 +294,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		)
 		it.Before(func() {
 			var err error
-			h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-				`, repoName), nil)
 			img, err = imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
 			h.AssertNil(t, err)
 		})
@@ -299,10 +321,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		)
 		it.Before(func() {
 			var err error
-			h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-				`, repoName), nil)
 			img, err = imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
 			h.AssertNil(t, err)
 		})
@@ -376,9 +394,9 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				)
 
 				// Run rebase
-				img, err := imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
+				img, err := imgutil.NewRemoteImage(repoName, authn.DefaultKeychain, imgutil.FromRemoteImageBase(repoName))
 				h.AssertNil(t, err)
-				newBaseImg, err := imgutil.NewRemoteImage(newBase, authn.DefaultKeychain)
+				newBaseImg, err := imgutil.NewRemoteImage(newBase, authn.DefaultKeychain, imgutil.FromRemoteImageBase(newBase))
 				h.AssertNil(t, err)
 				err = img.Rebase(oldTopLayer, newBaseImg)
 				h.AssertNil(t, err)
@@ -404,13 +422,19 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 					RUN echo text-old-base > otherfile.txt
 				`, repoName), nil)
 
-				img, err := imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
+				img, err := imgutil.NewRemoteImage(repoName, authn.DefaultKeychain, imgutil.FromRemoteImageBase(repoName))
 				h.AssertNil(t, err)
 
 				actualTopLayer, err := img.TopLayer()
 				h.AssertNil(t, err)
 
 				h.AssertEq(t, actualTopLayer, expectedTopLayer)
+			})
+		})
+
+		when("the image has no layers", func() {
+			it("returns an error", func() {
+
 			})
 		})
 	})
@@ -435,7 +459,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, err)
 			tarPath = tarFile.Name()
 
-			img, err = imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
+			img, err = imgutil.NewRemoteImage(repoName, authn.DefaultKeychain, imgutil.FromRemoteImageBase(repoName))
 			h.AssertNil(t, err)
 		})
 
@@ -467,35 +491,42 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 	when("#ReuseLayer", func() {
 		when("previous image", func() {
 			var (
-				layer2SHA string
-				img       imgutil.Image
+				layer2SHA     string
+				img           imgutil.Image
+				prevImageName string
 			)
 
 			it.Before(func() {
 				var err error
 
-				h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
+				prevImageName = "localhost:" + registryPort + "/pack-image-test-" + h.RandString(10)
+				h.CreateImageOnRemote(t, dockerClient, prevImageName, fmt.Sprintf(`
 					FROM busybox
 					LABEL repo_name_for_randomisation=%s
 					RUN echo -n old-layer-1 > layer-1.txt
 					RUN echo -n old-layer-2 > layer-2.txt
 				`, repoName), nil)
 
-				h.AssertNil(t, h.PullImage(dockerClient, repoName))
-				defer func() {
-					h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
-				}()
-				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
+				h.AssertNil(t, h.PullImage(dockerClient, prevImageName))
+				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), prevImageName)
 				h.AssertNil(t, err)
 
 				layer2SHA = inspect.RootFS.Layers[2]
 
-				img, err = imgutil.NewRemoteImage("busybox", authn.DefaultKeychain)
+				img, err = imgutil.NewRemoteImage(
+					repoName,
+					authn.DefaultKeychain,
+					imgutil.WithPreviousRemoteImage(prevImageName),
+					imgutil.FromRemoteImageBase("busybox"),
+				)
 				h.AssertNil(t, err)
 			})
 
+			it.After(func() {
+				h.AssertNil(t, h.DockerRmi(dockerClient, prevImageName))
+			})
+
 			it("reuses a layer", func() {
-				img.Rename(repoName)
 				err := img.ReuseLayer(layer2SHA)
 				h.AssertNil(t, err)
 
@@ -520,28 +551,10 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertError(t, err, "previous image did not have layer with sha 'some-bad-sha'")
 			})
 		})
-
-		it("returns errors on nonexistent prev image", func() {
-			img, err := imgutil.NewRemoteImage("busybox", authn.DefaultKeychain)
-			h.AssertNil(t, err)
-			img.Rename("some-bad-repo-name")
-
-			err = img.ReuseLayer("some-bad-sha")
-
-			h.AssertError(t, err, "there is no previous image with name 'some-bad-repo-name'")
-		})
 	})
 
 	when("#Save", func() {
 		when("image exists", func() {
-			it.Before(func() {
-				h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM busybox
-					LABEL repo_name_for_randomisation=%s
-					LABEL mykey=oldValue
-				`, repoName), nil)
-			})
-
 			it("returns the image digest", func() {
 				img, err := imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
@@ -588,6 +601,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	//TODO this is weird now
 	when("#Found", func() {
 		when("it exists", func() {
 			it.Before(func() {
