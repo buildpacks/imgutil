@@ -6,6 +6,12 @@ Helpful utilities for working with images
 
 ## Development
 
+To format:
+
+```bash
+$ ./bin/format
+```
+
 To run tests:
 
 ```bash

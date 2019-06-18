@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/pkg/errors"
 
@@ -19,7 +20,6 @@ import (
 
 func NewImage(name, topLayerSha, digest string) *Image {
 	return &Image{
-		alreadySaved:  false,
 		labels:        map[string]string{},
 		env:           map[string]string{},
 		topLayerSha:   topLayerSha,
@@ -29,11 +29,11 @@ func NewImage(name, topLayerSha, digest string) *Image {
 		layersMap:     map[string]string{},
 		prevLayersMap: map[string]string{},
 		createdAt:     time.Now(),
+		savedNames:    map[string]bool{},
 	}
 }
 
 type Image struct {
-	alreadySaved  bool
 	deleted       bool
 	layers        []string
 	layersMap     map[string]string
@@ -50,6 +50,7 @@ type Image struct {
 	createdAt     time.Time
 	layerDir      string
 	workingDir    string
+	savedNames    map[string]bool
 }
 
 func (f *Image) CreatedAt() (time.Time, error) {
@@ -154,13 +155,14 @@ func (f *Image) ReuseLayer(sha string) error {
 	return nil
 }
 
-func (f *Image) Save() (string, error) {
-	f.alreadySaved = true
-
+func (f *Image) Save(additionalNames ...string) imgutil.SaveResult {
 	var err error
 	f.layerDir, err = ioutil.TempDir("", "fake-image")
 	if err != nil {
-		return "", errors.Wrap(err, "failed to create tmpDir")
+		return imgutil.NewFailedResult(
+			append([]string{f.name}, additionalNames...),
+			errors.Wrap(err, "failed to create tmpDir"),
+		)
 	}
 
 	for sha, path := range f.layersMap {
@@ -174,7 +176,31 @@ func (f *Image) Save() (string, error) {
 		f.layers[i] = filepath.Join(f.layerDir, filepath.Base(layerPath))
 	}
 
-	return "saved-digest-from-fake-run-image", nil
+	allNames := append([]string{f.name}, additionalNames...)
+
+	errs := map[string]error{}
+	for _, n := range allNames {
+		if !isASCII(n) {
+			errs[n] = errors.New("could not parse reference")
+		} else {
+			errs[n] = nil
+			f.savedNames[n] = true
+		}
+	}
+
+	return imgutil.SaveResult{
+		Outcomes: errs,
+		Digest:   "saved-digest-from-fake-run-image",
+	}
+}
+
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] > unicode.MaxASCII {
+			return false
+		}
+	}
+	return true
 }
 
 func (f *Image) copyLayer(path, newPath string) error {
@@ -294,9 +320,18 @@ func (f *Image) NumberOfAddedLayers() int {
 }
 
 func (f *Image) IsSaved() bool {
-	return f.alreadySaved
+	return len(f.savedNames) > 0
 }
 
 func (f *Image) Base() string {
 	return f.base
+}
+
+func (f *Image) SavedNames() []string {
+	var names []string
+	for k := range f.savedNames {
+		names = append(names, k)
+	}
+
+	return names
 }

@@ -5,6 +5,24 @@ import (
 	"time"
 )
 
+type SaveResult struct {
+	// Digest is the digest of the image
+	Digest string
+	// Outcomes is a map of image name to `error` or `nil` if saved properly.
+	Outcomes map[string]error
+}
+
+func NewFailedResult(imageNames []string, err error) SaveResult {
+	errs := map[string]error{}
+	for _, n := range imageNames {
+		errs[n] = err
+	}
+
+	return SaveResult{
+		Outcomes: errs,
+	}
+}
+
 type Image interface {
 	Name() string
 	Rename(name string)
@@ -20,9 +38,11 @@ type Image interface {
 	AddLayer(path string) error
 	ReuseLayer(sha string) error
 	TopLayer() (string, error)
-	Save() (string, error)
+	// Save saves the image as `Name()` and any additional names provided to this method.
+	Save(additionalNames ...string) SaveResult
+	// Found tells whether the image exists in the repository by `Name()`.
 	Found() bool
-	GetLayer(string) (io.ReadCloser, error)
+	GetLayer(sha string) (io.ReadCloser, error)
 	Delete() error
 	CreatedAt() (time.Time, error)
 }
