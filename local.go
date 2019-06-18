@@ -43,7 +43,8 @@ type LocalImageOption func(image *LocalImage) (*LocalImage, error)
 func WithPreviousLocalImage(imageName string) LocalImageOption {
 	return func(l *LocalImage) (*LocalImage, error) {
 		if _, _, err := l.docker.ImageInspectWithRaw(context.Background(), imageName); err != nil && client.IsErrNotFound(err) {
-			return nil, fmt.Errorf("there is no previous image with name '%s'", imageName)
+			//			return nil, fmt.Errorf("there is no previous image with name '%s'", imageName)
+			return l, nil
 		} else if err != nil {
 			return nil, errors.Wrapf(err, "verifying image '%s'", imageName)
 		}
@@ -59,7 +60,8 @@ func FromLocalImageBase(imageName string) LocalImageOption {
 		var err error
 
 		if l.inspect, _, err = l.docker.ImageInspectWithRaw(context.Background(), imageName); err != nil && client.IsErrNotFound(err) {
-			return nil, fmt.Errorf("there is no base image with name '%s'", imageName)
+			//return nil, fmt.Errorf("there is no base image with name '%s'", imageName)
+			return l, nil
 		} else if err != nil {
 			return nil, errors.Wrapf(err, "verifying image '%s'", imageName)
 		}
