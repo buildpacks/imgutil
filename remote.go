@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -24,9 +23,7 @@ type RemoteImage struct {
 	keychain   authn.Keychain
 	repoName   string
 	image      v1.Image
-	prevImage  v1.Image
 	prevLayers []v1.Layer
-	prevOnce   *sync.Once
 }
 
 type RemoteImageOption func(*RemoteImage) (*RemoteImage, error)
@@ -34,10 +31,22 @@ type RemoteImageOption func(*RemoteImage) (*RemoteImage, error)
 func WithPreviousRemoteImage(imageName string) RemoteImageOption {
 	return func(r *RemoteImage) (*RemoteImage, error) {
 		var err error
-		r.prevImage, err = newV1Image(r.keychain, imageName)
+
+		prevImage, err := newV1Image(r.keychain, imageName)
 		if err != nil {
 			return nil, err
 		}
+
+		prevLayers, err := prevImage.Layers()
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get layers for previous image with repo name '%s'", imageName)
+		}
+
+		if len(prevLayers) == 0 {
+			return nil, fmt.Errorf("there is no previous image with name '%s'", imageName)
+		}
+
+		r.prevLayers = prevLayers
 		return r, nil
 	}
 }
@@ -54,11 +63,6 @@ func FromRemoteImageBase(imageName string) RemoteImageOption {
 }
 
 func NewRemoteImage(repoName string, keychain authn.Keychain, ops ...RemoteImageOption) (Image, error) {
-	prevImage, err := emptyRemoteImage()
-	if err != nil {
-		return nil, err
-	}
-
 	image, err := emptyRemoteImage()
 	if err != nil {
 		return nil, err
@@ -68,8 +72,6 @@ func NewRemoteImage(repoName string, keychain authn.Keychain, ops ...RemoteImage
 		keychain: keychain,
 		repoName: repoName,
 		image:    image,
-		prevImage: prevImage,
-		prevOnce: &sync.Once{},
 	}
 
 	for _, op := range ops {
@@ -266,9 +268,9 @@ func (r *RemoteImage) TopLayer() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	//if len(all) == 0 {
-	//	return "", fmt.Errorf("image %s has no layers", r.Name())
-	//}
+	if len(all) == 0 {
+		return "", fmt.Errorf("image %s has no layers", r.Name())
+	}
 	topLayer := all[len(all)-1]
 	hex, err := topLayer.DiffID()
 	if err != nil {
@@ -294,22 +296,6 @@ func (r *RemoteImage) AddLayer(path string) error {
 }
 
 func (r *RemoteImage) ReuseLayer(sha string) error {
-	var outerErr error
-
-	r.prevOnce.Do(func() {
-		var err error
-		r.prevLayers, err = r.prevImage.Layers()
-		if err != nil {
-			outerErr = fmt.Errorf("failed to get layers for previous image with repo name '%s': %s", r.repoName, err)
-		}
-	})
-	if outerErr != nil {
-		return outerErr
-	}
-	if len(r.prevLayers) == 0 {
-		return fmt.Errorf("there is no previous image with name '%s'", r.repoName)
-	}
-
 	layer, err := findLayerWithSha(r.prevLayers, sha)
 	if err != nil {
 		return err

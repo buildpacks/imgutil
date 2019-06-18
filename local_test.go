@@ -64,7 +64,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 							ENV MY_VAR=my_val
 							`, repoName), labels)
 
-				localImage, err := imgutil.NewLocalImage(repoName, dockerClient)
+				localImage, err := imgutil.NewLocalImage(repoName, dockerClient, imgutil.FromLocalImageBase(repoName))
 				h.AssertNil(t, err)
 
 				labelValue, err := localImage.Label("some.label")
@@ -77,23 +77,50 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			it("returns an empty image", func() {
 				repoName = "localhost:" + localTestRegistry.Port + "/pack-image-test-" + h.RandString(10)
 
-				localImage, e := imgutil.NewLocalImage(repoName, dockerClient)
+				_, e := imgutil.NewLocalImage(repoName, dockerClient)
 				h.AssertNil(t, e)
+			})
 
-				_, err := localImage.Digest()
-				h.AssertError(t, err, "does not exist")
+			when("digest is requested", func() {
+				it("returns an error", func() {
+					repoName = "localhost:" + localTestRegistry.Port + "/pack-image-test-" + h.RandString(10)
+
+					localImage, e := imgutil.NewLocalImage(repoName, dockerClient)
+					h.AssertNil(t, e)
+
+					_, err := localImage.Digest()
+					h.AssertError(t, err, "does not exist")
+				})
 			})
 		})
-	})
 
-	when("#EmptyLocalImage", func() {
-		it("returns a scratch image", func() {
-			img := imgutil.EmptyLocalImage(repoName, dockerClient)
 
-			t.Log("check that the empty image is useable image")
-			h.AssertNil(t, img.SetLabel("some-key", "some-val"))
-			_, err := img.Save()
-			h.AssertNil(t, err)
+		when("#FromLocalImageBase", func() {
+			when("previous image does not exist", func() {
+				it("returns errors on nonexistent prev image", func() {
+					_, err := imgutil.NewLocalImage(
+						repoName,
+						dockerClient,
+						imgutil.FromLocalImageBase("some-bad-repo-name"),
+					)
+
+					h.AssertError(t, err, "no base image with name 'some-bad-repo-name'")
+				})
+			})
+		})
+
+		when("#WithPreviousLocalImage", func() {
+			when("previous image does not exist", func() {
+				it("returns errors on nonexistent prev image", func() {
+					_, err := imgutil.NewLocalImage(
+						"busybox",
+						dockerClient,
+						imgutil.WithPreviousLocalImage("some-bad-repo-name"),
+					)
+
+					h.AssertError(t, err, "no previous image with name 'some-bad-repo-name'")
+				})
+			})
 		})
 	})
 
@@ -112,7 +139,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns the label value", func() {
-				img, err := imgutil.NewLocalImage(repoName, dockerClient)
+				img, err := imgutil.NewLocalImage(repoName, dockerClient, imgutil.FromLocalImageBase(repoName))
 				h.AssertNil(t, err)
 
 				label, err := img.Label("mykey")
@@ -157,7 +184,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns the label value", func() {
-				img, err := imgutil.NewLocalImage(repoName, dockerClient)
+				img, err := imgutil.NewLocalImage(repoName, dockerClient, imgutil.FromLocalImageBase(repoName))
 				h.AssertNil(t, err)
 
 				val, err := img.Env("MY_VAR")
@@ -205,7 +232,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("returns the containers created at time", func() {
-			img, err := imgutil.NewLocalImage(reference, dockerClient)
+			img, err := imgutil.NewLocalImage(reference, dockerClient, imgutil.FromLocalImageBase(reference))
 			h.AssertNil(t, err)
 
 			expectedTime := time.Date(2018, 10, 2, 17, 19, 34, 239926273, time.UTC)
@@ -229,7 +256,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 			it("returns the image digest", func() {
 				expectedDigest = "sha256:2a03a6059f21e150ae84b0973863609494aad70f0a80eaeb64bddd8d92465812"
-				img, err := imgutil.NewLocalImage(reference, dockerClient)
+				img, err := imgutil.NewLocalImage(repoName, dockerClient, imgutil.FromLocalImageBase(reference))
 				h.AssertNil(t, err)
 				digest, err := img.Digest()
 				h.AssertNil(t, err)
@@ -251,7 +278,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns an empty string", func() {
-				img, err := imgutil.NewLocalImage(repoName, dockerClient)
+				img, err := imgutil.NewLocalImage(repoName, dockerClient, imgutil.FromLocalImageBase(repoName))
 				h.AssertNil(t, err)
 				digest, err := img.Digest()
 				h.AssertNil(t, err)
@@ -492,9 +519,9 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertEq(t, txt, "old-base\n")
 
 				// Run rebase
-				img, err := imgutil.NewLocalImage(repoName, dockerClient)
+				img, err := imgutil.NewLocalImage(repoName, dockerClient, imgutil.FromLocalImageBase(repoName))
 				h.AssertNil(t, err)
-				newBaseImg, err := imgutil.NewLocalImage(newBase, dockerClient)
+				newBaseImg, err := imgutil.NewLocalImage(newBase, dockerClient, imgutil.FromLocalImageBase(newBase))
 				h.AssertNil(t, err)
 				err = img.Rebase(oldTopLayer, newBaseImg)
 				h.AssertNil(t, err)
@@ -546,13 +573,23 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns the digest for the top layer (useful for rebasing)", func() {
-				img, err := imgutil.NewLocalImage(repoName, dockerClient)
+				img, err := imgutil.NewLocalImage(repoName, dockerClient, imgutil.FromLocalImageBase(repoName))
 				h.AssertNil(t, err)
 
 				actualTopLayer, err := img.TopLayer()
 				h.AssertNil(t, err)
 
 				h.AssertEq(t, actualTopLayer, expectedTopLayer)
+			})
+		})
+
+		when("image has no layers", func() {
+			it("returns error", func() {
+				img, err := imgutil.NewLocalImage(repoName, dockerClient)
+				h.AssertNil(t, err)
+
+				_, err = img.TopLayer()
+				h.AssertError(t, err, "has no layers")
 			})
 		})
 	})
@@ -578,7 +615,11 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, err)
 			tarPath = tarFile.Name()
 
-			img, err = imgutil.NewLocalImage(repoName, dockerClient)
+			img, err = imgutil.NewLocalImage(
+				repoName, dockerClient,
+				imgutil.FromLocalImageBase(repoName),
+				imgutil.WithPreviousLocalImage(repoName),
+			)
 			h.AssertNil(t, err)
 			origID = h.ImageID(t, repoName)
 		})
@@ -617,7 +658,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns a layer tar", func() {
-				img, err := imgutil.NewLocalImage(repoName, dockerClient)
+				img, err := imgutil.NewLocalImage(repoName, dockerClient, imgutil.FromLocalImageBase(repoName))
 				h.AssertNil(t, err)
 				topLayer, err := img.TopLayer()
 				h.AssertNil(t, err)
@@ -665,34 +706,35 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			layer1SHA string
 			layer2SHA string
 			img       imgutil.Image
-			origID    string
+			prevName  = "pack-image-test-" + h.RandString(10)
 		)
 		it.Before(func() {
 			var err error
 
-			h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
+			h.CreateImageOnLocal(t, dockerClient, prevName, fmt.Sprintf(`
 					FROM busybox
 					LABEL repo_name_for_randomisation=%s
 					RUN echo -n old-layer-1 > layer-1.txt
 					RUN echo -n old-layer-2 > layer-2.txt
-				`, repoName), nil)
+				`, prevName), nil)
 
-			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
+			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), prevName)
 			h.AssertNil(t, err)
-			origID = inspect.ID
 
 			layer1SHA = inspect.RootFS.Layers[1]
 			layer2SHA = inspect.RootFS.Layers[2]
 
-			img, err = imgutil.NewLocalImage("busybox", dockerClient)
-			h.AssertNil(t, err)
-
-			img.Rename(repoName)
+			img, err = imgutil.NewLocalImage(
+				repoName,
+				dockerClient,
+				imgutil.FromLocalImageBase("busybox"),
+				imgutil.WithPreviousLocalImage(prevName),
+			)
 			h.AssertNil(t, err)
 		})
 
 		it.After(func() {
-			h.AssertNil(t, h.DockerRmi(dockerClient, repoName, origID))
+			h.AssertNil(t, h.DockerRmi(dockerClient, repoName, prevName))
 		})
 
 		it("reuses a layer", func() {
@@ -802,7 +844,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns true, nil", func() {
-				image, err := imgutil.NewLocalImage(repoName, dockerClient)
+				image, err := imgutil.NewLocalImage(repoName, dockerClient, imgutil.FromLocalImageBase(repoName))
 				h.AssertNil(t, err)
 
 				h.AssertEq(t, image.Found(), true)
@@ -842,7 +884,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 					LABEL repo_name_for_randomisation=%s
 					LABEL mykey=oldValue
 				`, repoName), nil)
-				origImg, err = imgutil.NewLocalImage(repoName, dockerClient)
+				origImg, err = imgutil.NewLocalImage(repoName, dockerClient, imgutil.FromLocalImageBase(repoName))
 				h.AssertNil(t, err)
 
 				origID = h.ImageID(t, repoName)

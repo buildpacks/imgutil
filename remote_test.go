@@ -62,16 +62,16 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("#WithPreviousImage", func() {
-			when("then previous image does not exist", func() {
-				//it("returns errors on nonexistent prev image", func() {
-				//	img, err := imgutil.NewRemoteImage("busybox", authn.DefaultKeychain)
-				//	h.AssertNil(t, err)
-				//	img.Rename("some-bad-repo-name")
-				//
-				//	err = img.ReuseLayer("some-bad-sha")
-				//
-				//	h.AssertError(t, err, "there is no previous image with name 'some-bad-repo-name'")
-				//})
+			when("previous image does not exist", func() {
+				it("returns errors on nonexistent prev image", func() {
+					_, err := imgutil.NewRemoteImage(
+						"busybox",
+						authn.DefaultKeychain,
+						imgutil.WithPreviousRemoteImage("some-bad-repo-name"),
+					)
+
+					h.AssertError(t, err, "there is no previous image with name 'some-bad-repo-name'")
+				})
 			})
 		})
 	})
@@ -107,7 +107,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 
-		//TODO do we still need this?
 		when("image is empty", func() {
 			it("returns an empty label", func() {
 				img, err := imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
@@ -154,7 +153,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 
-		//TODO do we still need this test
 		when("image is empty", func() {
 			it("returns an empty string", func() {
 				img, err := imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
@@ -434,7 +432,11 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 		when("the image has no layers", func() {
 			it("returns an error", func() {
+				img, err := imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
 
+				_, err = img.TopLayer()
+				h.AssertError(t, err, "has no layers")
 			})
 		})
 	})
@@ -555,6 +557,14 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#Save", func() {
 		when("image exists", func() {
+			it.Before(func() {
+				h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
+					FROM busybox
+					LABEL repo_name_for_randomisation=%s
+					LABEL mykey=oldValue
+				`, repoName), nil)
+			})
+
 			it("returns the image digest", func() {
 				img, err := imgutil.NewRemoteImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
