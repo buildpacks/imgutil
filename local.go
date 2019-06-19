@@ -76,7 +76,7 @@ func WithPreviousLocalImage(imageName string) LocalImageOption {
 func FromLocalImageBase(imageName string) LocalImageOption {
 	return func(l *LocalImage) (*LocalImage, error) {
 		var (
-			err error
+			err     error
 			inspect types.ImageInspect
 		)
 

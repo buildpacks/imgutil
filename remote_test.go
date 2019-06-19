@@ -53,7 +53,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		when("#FromRemoteBaseImage", func() {
 			when("base image exists", func() {
 				var (
-					baseName                  = "busybox"
+					baseName         = "busybox"
 					err              error
 					existingLayerSha string
 				)
@@ -81,7 +81,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 					defer readCloser.Close()
 				})
 			})
-
 
 			when("base image does not exist", func() {
 				it("don't error", func() {

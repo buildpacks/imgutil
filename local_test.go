@@ -912,8 +912,8 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 		when("the image does exist", func() {
 			var (
-				origImg imgutil.Image
-				origID  string
+				origImg  imgutil.Image
+				origID   string
 				repoName = newTestImageName()
 			)
 
