@@ -51,26 +51,61 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#NewRemote", func() {
 		when("#FromRemoteBaseImage", func() {
-			when("base image does not exist", func() {
-				it("fails", func() {
+			when("base image exists", func() {
+				var (
+					baseName                  = "busybox"
+					err              error
+					existingLayerSha string
+				)
+
+				it.Before(func() {
+					err = h.PullImage(dockerClient, baseName)
+					h.AssertNil(t, err)
+
+					inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), baseName)
+					h.AssertNil(t, err)
+
+					existingLayerSha = inspect.RootFS.Layers[0]
+				})
+
+				it("sets the initial state to match the base image", func() {
+					img, err := imgutil.NewRemoteImage(
+						repoName,
+						authn.DefaultKeychain,
+						imgutil.FromRemoteImageBase(baseName),
+					)
+					h.AssertNil(t, err)
+
+					readCloser, err := img.GetLayer(existingLayerSha)
+					h.AssertNil(t, err)
+					defer readCloser.Close()
 				})
 			})
-			when("base image exists", func() {
-				it("sets the initial state to match the base image", func() {
+
+
+			when("base image does not exist", func() {
+				it("don't error", func() {
+					_, err := imgutil.NewRemoteImage(
+						repoName,
+						authn.DefaultKeychain,
+						imgutil.FromRemoteImageBase("some-bad-repo-name"),
+					)
+
+					h.AssertNil(t, err)
 				})
 			})
 		})
 
 		when("#WithPreviousImage", func() {
 			when("previous image does not exist", func() {
-				it("returns errors on nonexistent prev image", func() {
+				it("don't error", func() {
 					_, err := imgutil.NewRemoteImage(
-						"busybox",
+						repoName,
 						authn.DefaultKeychain,
 						imgutil.WithPreviousRemoteImage("some-bad-repo-name"),
 					)
 
-					h.AssertError(t, err, "there is no previous image with name 'some-bad-repo-name'")
+					h.AssertNil(t, err)
 				})
 			})
 		})

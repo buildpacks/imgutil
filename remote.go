@@ -42,10 +42,6 @@ func WithPreviousRemoteImage(imageName string) RemoteImageOption {
 			return nil, errors.Wrapf(err, "failed to get layers for previous image with repo name '%s'", imageName)
 		}
 
-		if len(prevLayers) == 0 {
-			return nil, fmt.Errorf("there is no previous image with name '%s'", imageName)
-		}
-
 		r.prevLayers = prevLayers
 		return r, nil
 	}
@@ -279,8 +275,18 @@ func (r *RemoteImage) TopLayer() (string, error) {
 	return hex.String(), nil
 }
 
-func (r *RemoteImage) GetLayer(string) (io.ReadCloser, error) {
-	panic("not implemented")
+func (r *RemoteImage) GetLayer(sha string) (io.ReadCloser, error) {
+	layers, err := r.image.Layers()
+	if err != nil {
+		return nil, err
+	}
+
+	layer, err := findLayerWithSha(layers, sha)
+	if err != nil {
+		return nil, err
+	}
+
+	return layer.Compressed()
 }
 
 func (r *RemoteImage) AddLayer(path string) error {

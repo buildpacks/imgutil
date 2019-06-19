@@ -22,7 +22,7 @@ type Image interface {
 	TopLayer() (string, error)
 	Save() (string, error)
 	Found() bool
-	GetLayer(string) (io.ReadCloser, error)
+	GetLayer(sha string) (io.ReadCloser, error)
 	Delete() error
 	CreatedAt() (time.Time, error)
 }

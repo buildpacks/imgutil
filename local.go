@@ -40,13 +40,31 @@ type FileSystemLocalImage struct {
 
 type LocalImageOption func(image *LocalImage) (*LocalImage, error)
 
+func verifyImage(docker *client.Client, imageName string, optional bool) (types.ImageInspect, error) {
+	var (
+		err     error
+		inspect types.ImageInspect
+	)
+
+	if inspect, _, err = docker.ImageInspectWithRaw(context.Background(), imageName); err != nil {
+		if client.IsErrNotFound(err) {
+			if optional {
+				return inspect, nil
+			} else {
+				return inspect, fmt.Errorf("there is no image with name '%s'", imageName)
+			}
+		}
+
+		return inspect, errors.Wrapf(err, "verifying image '%s'", imageName)
+	}
+
+	return inspect, nil
+}
+
 func WithPreviousLocalImage(imageName string) LocalImageOption {
 	return func(l *LocalImage) (*LocalImage, error) {
-		if _, _, err := l.docker.ImageInspectWithRaw(context.Background(), imageName); err != nil && client.IsErrNotFound(err) {
-			//			return nil, fmt.Errorf("there is no previous image with name '%s'", imageName)
-			return l, nil
-		} else if err != nil {
-			return nil, errors.Wrapf(err, "verifying image '%s'", imageName)
+		if _, err := verifyImage(l.docker, imageName, true); err != nil {
+			return l, err
 		}
 
 		l.prevName = imageName
@@ -57,15 +75,16 @@ func WithPreviousLocalImage(imageName string) LocalImageOption {
 
 func FromLocalImageBase(imageName string) LocalImageOption {
 	return func(l *LocalImage) (*LocalImage, error) {
-		var err error
+		var (
+			err error
+			inspect types.ImageInspect
+		)
 
-		if l.inspect, _, err = l.docker.ImageInspectWithRaw(context.Background(), imageName); err != nil && client.IsErrNotFound(err) {
-			//return nil, fmt.Errorf("there is no base image with name '%s'", imageName)
-			return l, nil
-		} else if err != nil {
-			return nil, errors.Wrapf(err, "verifying image '%s'", imageName)
+		if inspect, err = verifyImage(l.docker, imageName, true); err != nil {
+			return l, err
 		}
 
+		l.inspect = inspect
 		l.layerPaths = make([]string, len(l.inspect.RootFS.Layers))
 
 		return l, nil
