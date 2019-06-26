@@ -185,6 +185,8 @@ func (i *Image) Save(additionalNames ...string) error {
 		}
 	}
 
+	i.digest = i.digest + "-saved"
+
 	if len(errs) > 0 {
 		return imgutil.SaveError{Errors: errs}
 	}
