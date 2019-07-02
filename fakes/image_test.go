@@ -41,7 +41,7 @@ func testFake(t *testing.T, when spec.G, it spec.S) {
 			)
 
 			it("returns list of saved names", func() {
-				image := fakes.NewImage(repoName, "", "")
+				image := fakes.NewImage(repoName, "", nil)
 
 				_ = image.Save(additionalNames...)
 
@@ -53,7 +53,7 @@ func testFake(t *testing.T, when spec.G, it spec.S) {
 				it("returns a list of image names with errors", func() {
 					badImageName := repoName + ":🧨"
 
-					image := fakes.NewImage(repoName, "", "")
+					image := fakes.NewImage(repoName, "", nil)
 
 					err := image.Save(append([]string{badImageName}, additionalNames...)...)
 					saveErr, ok := err.(imgutil.SaveError)

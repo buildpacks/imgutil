@@ -227,19 +227,37 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
-	when("#Digest", func() {
-		it("returns the image digest", func() {
-			// The SHA of a particular iteration of busybox:1.29
-			expectedDigest := "sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"
-			img, err := remote.NewImage(
-				repoName,
+	when("#Identifier", func() {
+		var img imgutil.Image
+
+		it.Before(func() {
+			var err error
+			img, err = remote.NewImage(
+				repoName+":some-tag",
 				authn.DefaultKeychain,
 				remote.FromBaseImage("busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"),
 			)
 			h.AssertNil(t, err)
-			digest, err := img.Digest()
+		})
+
+		it("returns a digest reference", func() {
+			identifier, err := img.Identifier()
 			h.AssertNil(t, err)
-			h.AssertEq(t, digest, expectedDigest)
+			h.AssertEq(t, identifier.String(), repoName+"@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5")
+		})
+
+		when("the image has been modified and saved", func() {
+			it("returns the new digest reference", func() {
+				h.AssertNil(t, img.SetLabel("new", "label"))
+
+				h.AssertNil(t, img.Save())
+
+				id, err := img.Identifier()
+				h.AssertNil(t, err)
+
+				label := remoteLabel(t, dockerClient, id.String(), "new")
+				h.AssertEq(t, "label", label)
+			})
 		})
 	})
 
@@ -606,11 +624,11 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 				h.AssertNil(t, img.Save())
 
-				digest, err := img.Digest()
+				identifier, err := img.Identifier()
 				h.AssertNil(t, err)
 
 				// After Pull
-				label := remoteLabel(t, dockerClient, repoName+"@"+digest, "mykey")
+				label := remoteLabel(t, dockerClient, identifier.String(), "mykey")
 				h.AssertEq(t, "newValue", label)
 
 			})

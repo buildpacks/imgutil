@@ -26,7 +26,6 @@ func (e SaveError) Error() string {
 type Image interface {
 	Name() string
 	Rename(name string)
-	Digest() (string, error)
 	Label(string) (string, error)
 	SetLabel(string, string) error
 	Env(key string) (string, error)
@@ -45,4 +44,7 @@ type Image interface {
 	GetLayer(sha string) (io.ReadCloser, error)
 	Delete() error
 	CreatedAt() (time.Time, error)
+	Identifier() (Identifier, error)
 }
+
+type Identifier fmt.Stringer

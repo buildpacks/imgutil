@@ -34,7 +34,7 @@ func TestLocal(t *testing.T) {
 	localTestRegistry.Start(t)
 	defer localTestRegistry.Stop(t)
 
-	spec.Run(t, "LocalImage", testLocalImage, spec.Parallel(), spec.Report(report.Terminal{}))
+	spec.Run(t, "LocalImage", testLocalImage, spec.Sequential(), spec.Report(report.Terminal{}))
 }
 
 func newTestImageName() string {
@@ -243,28 +243,64 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
-	when("#Digest", func() {
-		const reference = "busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"
-		var expectedDigest string
+	when("#Identifier", func() {
+		var (
+			repoName = newTestImageName()
+		)
+
 		it.Before(func() {
-			// The SHA of a particular iteration of busybox:1.29
-			err := h.PullImage(dockerClient, reference)
-			h.AssertNil(t, err)
+			h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
+					FROM scratch
+					LABEL repo_name_for_randomisation=%s
+				`, repoName), nil)
 		})
 
 		it.After(func() {
-			h.AssertNil(t, h.DockerRmi(dockerClient, reference))
+			h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
 		})
 
-		it("returns the image digest", func() {
-			expectedDigest = "sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"
-			img, err := local.NewImage(newTestImageName(), dockerClient, local.FromBaseImage(reference))
+		it("returns an Docker Image ID type identifier", func() {
+			img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
 			h.AssertNil(t, err)
 
-			digest, err := img.Digest()
+			id, err := img.Identifier()
 			h.AssertNil(t, err)
 
-			h.AssertEq(t, digest, expectedDigest)
+			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), id.String())
+			h.AssertNil(t, err)
+			label := inspect.Config.Labels["repo_name_for_randomisation"]
+			h.AssertEq(t, strings.TrimSpace(label), repoName)
+		})
+
+		when("the image has been modified and saved", func() {
+			var origID string
+
+			it.Before(func() {
+				origID = h.ImageID(t, repoName)
+			})
+
+			it.After(func() {
+				h.AssertNil(t, h.DockerRmi(dockerClient, origID))
+			})
+
+			it("returns the new image ID", func() {
+				img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, img.SetLabel("new", "label"))
+
+				h.AssertNil(t, img.Save())
+				h.AssertNil(t, err)
+
+				id, err := img.Identifier()
+				h.AssertNil(t, err)
+
+				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), id.String())
+				h.AssertNil(t, err)
+
+				label := inspect.Config.Labels["new"]
+				h.AssertEq(t, strings.TrimSpace(label), "label")
+			})
 		})
 	})
 
@@ -851,30 +887,27 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, h.DockerRmi(dockerClient, repoName, origID))
 		})
 
-		it("image can be pulled by new digest", func() {
+		it("saved image can be inspected with new ID", func() {
 			err := img.SetLabel("mykey", "newValue")
 			h.AssertNil(t, err)
 
 			err = img.AddLayer(tarPath)
 			h.AssertNil(t, err)
 
-			digestBefore, err := img.Digest()
-			h.AssertNil(t, err)
-
 			h.AssertNil(t, img.Save())
 
-			digest, err := img.Digest()
+			identifier, err := img.Identifier()
 			h.AssertNil(t, err)
 
-			h.AssertEq(t, digestBefore != digest, true)
+			h.AssertEq(t, origID != identifier.String(), true)
 
-			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), digest)
+			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), identifier.String())
 			h.AssertNil(t, err)
 			label := inspect.Config.Labels["mykey"]
 			h.AssertEq(t, strings.TrimSpace(label), "newValue")
 
 			t.Log("image has history")
-			history, err := dockerClient.ImageHistory(context.TODO(), digest)
+			history, err := dockerClient.ImageHistory(context.TODO(), identifier.String())
 			h.AssertNil(t, err)
 			h.AssertEq(t, len(history), len(inspect.RootFS.Layers))
 		})

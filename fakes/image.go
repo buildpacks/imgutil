@@ -18,12 +18,12 @@ import (
 	"github.com/buildpack/imgutil"
 )
 
-func NewImage(name, topLayerSha, digest string) *Image {
+func NewImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
 	return &Image{
 		labels:        map[string]string{},
 		env:           map[string]string{},
 		topLayerSha:   topLayerSha,
-		digest:        digest,
+		identifier:    identifier,
 		name:          name,
 		cmd:           []string{"initialCMD"},
 		layersMap:     map[string]string{},
@@ -42,7 +42,7 @@ type Image struct {
 	labels        map[string]string
 	env           map[string]string
 	topLayerSha   string
-	digest        string
+	identifier    imgutil.Identifier
 	name          string
 	entryPoint    []string
 	cmd           []string
@@ -69,8 +69,8 @@ func (i *Image) Name() string {
 	return i.name
 }
 
-func (i *Image) Digest() (string, error) {
-	return i.digest, nil
+func (i *Image) Identifier() (imgutil.Identifier, error) {
+	return i.identifier, nil
 }
 
 func (i *Image) Rebase(baseTopLayer string, newBase imgutil.Image) error {
@@ -185,8 +185,6 @@ func (i *Image) Save(additionalNames ...string) error {
 		}
 	}
 
-	i.digest = i.digest + "-saved"
-
 	if len(errs) > 0 {
 		return imgutil.SaveError{Errors: errs}
 	}
@@ -224,6 +222,10 @@ func (i *Image) Found() bool {
 }
 
 // test methods
+
+func (i *Image) SetIdentifier(identifier imgutil.Identifier) {
+	i.identifier = identifier
+}
 
 func (i *Image) Cleanup() error {
 	return os.RemoveAll(i.layerDir)
