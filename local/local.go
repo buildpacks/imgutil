@@ -25,7 +25,6 @@ import (
 )
 
 type Image struct {
-	baseInspect      *types.ImageInspect
 	repoName         string
 	docker           *client.Client
 	inspect          types.ImageInspect
@@ -69,29 +68,8 @@ func FromBaseImage(imageName string) ImageOption {
 		i.inspect = inspect
 		i.layerPaths = make([]string, len(i.inspect.RootFS.Layers))
 
-		baseInspect, err := copyInspect(inspect)
-		if err != nil {
-			return nil, err
-		}
-
-		i.baseInspect = &baseInspect
-
 		return i, nil
 	}
-}
-
-func copyInspect(inspect types.ImageInspect) (types.ImageInspect, error) {
-	bytes, err := json.Marshal(inspect)
-	if err != nil {
-		return types.ImageInspect{}, err
-	}
-
-	ret := types.ImageInspect{}
-	if json.Unmarshal(bytes, &ret) != nil {
-		return types.ImageInspect{}, err
-	}
-
-	return ret, nil
 }
 
 func NewImage(repoName string, dockerClient *client.Client, ops ...ImageOption) (imgutil.Image, error) {
@@ -161,51 +139,10 @@ func (i *Image) Found() bool {
 	return i.inspect.ID != ""
 }
 
-func (i *Image) Digest() (string, error) {
-	eq, err := inspectsEqual(i.baseInspect, i.inspect)
-	if err != nil {
-		return "", err
-	}
-
-	if eq {
-		return parseDigest(*i.baseInspect, i.repoName)
-	}
-
-	configFile, err := i.configFile()
-	if err != nil {
-		return "", errors.Wrap(err, "generate config file")
-	}
-	return fmt.Sprintf("sha256:%x", sha256.Sum256(configFile)), nil
-}
-
-func inspectsEqual(baseInspect *types.ImageInspect, currentInspect types.ImageInspect) (bool, error) {
-	if baseInspect == nil {
-		return false, nil
-	}
-
-	baseBytes, err := json.Marshal(baseInspect)
-	if err != nil {
-		return false, err
-	}
-
-	currentBytes, err := json.Marshal(currentInspect)
-	if err != nil {
-		return false, err
-	}
-
-	return string(baseBytes) == string(currentBytes), nil
-}
-
-func parseDigest(inspect types.ImageInspect, repoName string) (string, error) {
-	if len(inspect.RepoDigests) == 0 {
-		return "", nil
-	}
-	repoDigest := inspect.RepoDigests[0]
-	parts := strings.Split(repoDigest, "@")
-	if len(parts) != 2 {
-		return "", fmt.Errorf("failed to get digest, image '%s' has malformed digest '%s'", repoName, repoDigest)
-	}
-	return parts[1], nil
+func (i *Image) Identifier() (imgutil.Identifier, error) {
+	return IDIdentifier{
+		ImageID: strings.TrimPrefix(i.inspect.ID, "sha256:"),
+	}, nil
 }
 
 func (i *Image) CreatedAt() (time.Time, error) {
@@ -368,15 +305,15 @@ func (i *Image) ReuseLayer(sha string) error {
 }
 
 func (i *Image) Save(additionalNames ...string) error {
-	i.inspect.Created = time.Now().Format(time.RFC3339)
-
-	if err := i.doSave(); err != nil {
+	inspect, err := i.doSave()
+	if err != nil {
 		saveErr := imgutil.SaveError{}
 		for _, n := range append([]string{i.Name()}, additionalNames...) {
 			saveErr.Errors = append(saveErr.Errors, imgutil.SaveDiagnostic{ImageName: n, Cause: err})
 		}
 		return saveErr
 	}
+	i.inspect = inspect
 
 	var errs []imgutil.SaveDiagnostic
 	for _, n := range additionalNames {
@@ -392,13 +329,13 @@ func (i *Image) Save(additionalNames ...string) error {
 	return nil
 }
 
-func (i *Image) doSave() error {
+func (i *Image) doSave() (types.ImageInspect, error) {
 	ctx := context.Background()
 	done := make(chan error)
 
 	t, err := name.NewTag(i.repoName, name.WeakValidation)
 	if err != nil {
-		return err
+		return types.ImageInspect{}, err
 	}
 	repoName := t.String()
 
@@ -419,14 +356,14 @@ func (i *Image) doSave() error {
 	tw := tar.NewWriter(pw)
 	defer tw.Close()
 
-	configFile, err := i.configFile()
+	configFile, err := i.newConfigFile()
 	if err != nil {
-		return errors.Wrap(err, "generate config file")
+		return types.ImageInspect{}, errors.Wrap(err, "generate config file")
 	}
 
-	digest := fmt.Sprintf("%x", sha256.Sum256(configFile))
-	if err := addTextToTar(tw, digest+".json", configFile); err != nil {
-		return err
+	id := fmt.Sprintf("%x", sha256.Sum256(configFile))
+	if err := addTextToTar(tw, id+".json", configFile); err != nil {
+		return types.ImageInspect{}, err
 	}
 
 	var layerPaths []string
@@ -438,11 +375,11 @@ func (i *Image) doSave() error {
 		layerName := fmt.Sprintf("/%x.tar", sha256.Sum256([]byte(path)))
 		f, err := os.Open(path)
 		if err != nil {
-			return err
+			return types.ImageInspect{}, err
 		}
 		defer f.Close()
 		if err := addFileToTar(tw, layerName, f); err != nil {
-			return err
+			return types.ImageInspect{}, err
 		}
 		f.Close()
 		layerPaths = append(layerPaths, layerName)
@@ -451,17 +388,17 @@ func (i *Image) doSave() error {
 
 	manifest, err := json.Marshal([]map[string]interface{}{
 		{
-			"Config":   digest + ".json",
+			"Config":   id + ".json",
 			"RepoTags": []string{repoName},
 			"Layers":   layerPaths,
 		},
 	})
 	if err != nil {
-		return err
+		return types.ImageInspect{}, err
 	}
 
 	if err := addTextToTar(tw, "manifest.json", manifest); err != nil {
-		return err
+		return types.ImageInspect{}, err
 	}
 
 	tw.Close()
@@ -470,21 +407,21 @@ func (i *Image) doSave() error {
 
 	i.requestGroup.Forget(i.repoName)
 
-	_, _, err = i.docker.ImageInspectWithRaw(context.Background(), digest)
+	inspect, _, err := i.docker.ImageInspectWithRaw(context.Background(), id)
 	if err != nil {
 		if client.IsErrNotFound(err) {
-			return errors.Wrapf(err, "save image '%s'", i.repoName)
+			return types.ImageInspect{}, errors.Wrapf(err, "save image '%s'", i.repoName)
 		}
-		return err
+		return types.ImageInspect{}, err
 	}
 
-	return nil
+	return inspect, nil
 }
 
-func (i *Image) configFile() ([]byte, error) {
+func (i *Image) newConfigFile() ([]byte, error) {
 	imgConfig := map[string]interface{}{
 		"os":      "linux",
-		"created": i.inspect.Created,
+		"created": time.Now().Format(time.RFC3339),
 		"config":  i.inspect.Config,
 		"rootfs": map[string][]string{
 			"diff_ids": i.inspect.RootFS.Layers,

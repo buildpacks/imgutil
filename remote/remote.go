@@ -162,12 +162,20 @@ func (i *Image) Found() bool {
 	return true
 }
 
-func (i *Image) Digest() (string, error) {
+func (i *Image) Identifier() (imgutil.Identifier, error) {
 	hash, err := i.image.Digest()
 	if err != nil {
-		return "", fmt.Errorf("failed to get digest for image '%s': %s", i.repoName, err)
+		return nil, fmt.Errorf("failed to get digest for image '%s': %s", i.repoName, err)
 	}
-	return hash.String(), nil
+
+	digestRef, err := name.NewDigest(i.repoName+"@"+hash.String(), name.WeakValidation)
+	if err != nil {
+		return nil, errors.Wrap(err, "creating digest reference")
+	}
+
+	return DigestIdentifier{
+		Digest: digestRef,
+	}, nil
 }
 
 func (i *Image) CreatedAt() (time.Time, error) {
