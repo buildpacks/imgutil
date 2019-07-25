@@ -737,6 +737,38 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 	})
+
+	when("#Delete", func() {
+		when("it exists", func() {
+			var img imgutil.Image
+			it.Before(func() {
+				h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
+					FROM scratch
+					LABEL repo_name_for_randomisation=%s
+				`, repoName), nil)
+
+				var err error
+				img, err = remote.NewImage(
+					repoName, authn.DefaultKeychain,
+					remote.FromBaseImage(repoName),
+				)
+				h.AssertNil(t, err)
+			})
+
+			it("returns nil", func() {
+				h.AssertNil(t, img.Delete())
+			})
+		})
+
+		when("it does not exists", func() {
+			it("returns an error", func() {
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				h.AssertError(t, img.Delete(), "Not Found")
+			})
+		})
+	})
 }
 
 func manifestLayers(t *testing.T, repoName string) []string {
