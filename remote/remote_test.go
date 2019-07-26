@@ -755,8 +755,12 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 			})
 
-			it("returns nil", func() {
-				h.AssertNil(t, img.Delete())
+			it("returns nil and is deleted", func() {
+				h.AssertEq(t, origImg.Found(), true)
+
+				h.AssertNil(t, origImg.Delete())
+
+				h.AssertEq(t, img.Found(), false)
 			})
 		})
 
@@ -765,6 +769,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
+				h.AssertEq(t, img.Found(), false)
 				h.AssertError(t, img.Delete(), "Not Found")
 			})
 		})
