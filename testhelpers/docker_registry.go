@@ -29,6 +29,7 @@ func (registry *DockerRegistry) Start(t *testing.T) {
 	ctx := context.Background()
 	ctr, err := DockerCli(t).ContainerCreate(ctx, &container.Config{
 		Image: "registry:2",
+		Env:   []string{"REGISTRY_STORAGE_DELETE_ENABLED=true"},
 	}, &container.HostConfig{
 		AutoRemove: true,
 		PortBindings: nat.PortMap{
