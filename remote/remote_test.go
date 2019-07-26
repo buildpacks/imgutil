@@ -756,9 +756,9 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns nil and is deleted", func() {
-				h.AssertEq(t, origImg.Found(), true)
+				h.AssertEq(t, img.Found(), true)
 
-				h.AssertNil(t, origImg.Delete())
+				h.AssertNil(t, img.Delete())
 
 				h.AssertEq(t, img.Found(), false)
 			})
