@@ -1,7 +1,13 @@
 package fakes_test
 
 import (
+	"archive/tar"
+	"fmt"
+	"io/ioutil"
 	"math/rand"
+	"os"
+	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -69,4 +75,95 @@ func testFake(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 	})
+
+	when("#FindLayerWithPath", func() {
+
+		var (
+			image      *fakes.Image
+			layer1Path string
+			layer2Path string
+		)
+
+		it.Before(func() {
+			var err error
+
+			image = fakes.NewImage("some-image", "", nil)
+
+			layer1Path, err = createLayerTar(map[string]string{})
+			h.AssertNil(t, err)
+
+			err = image.AddLayer(layer1Path)
+			h.AssertNil(t, err)
+
+			layer2Path, err = createLayerTar(map[string]string{
+				"/layer2/file1": "file-1-contents",
+				"/layer2/file2": "file-2-contents",
+				"/layer2/some.toml": "[[something]]",
+			})
+			h.AssertNil(t, err)
+
+			err = image.AddLayer(layer2Path)
+			h.AssertNil(t, err)
+		})
+
+		it.After(func() {
+			os.RemoveAll(layer1Path)
+			os.RemoveAll(layer2Path)
+		})
+
+		when("path not found in image", func() {
+			it("should list out contents", func() {
+				_, err := image.FindLayerWithPath("/non-existent/file")
+
+				h.AssertError(t, err, fmt.Sprintf(`could not find '/non-existent/file' in any layer.
+
+Layers
+-------
+%s
+  (empty)
+
+%s
+  - [F] /layer2/file1
+  - [F] /layer2/file2
+  - [F] /layer2/some.toml
+`,
+					filepath.Base(layer1Path),
+					filepath.Base(layer2Path)),
+				)
+			})
+		})
+	})
+}
+
+func createLayerTar(contents map[string]string) (string, error) {
+	file, err := ioutil.TempFile("", "layer-*.tar")
+	if err != nil {
+		return "", nil
+	}
+	defer file.Close()
+	
+	tw := tar.NewWriter(file)
+
+	var paths []string
+	for k := range contents {
+		paths = append(paths, k)
+	}
+	sort.Strings(paths)
+
+	for _, path := range paths {
+		txt := contents[path]
+		
+		if err := tw.WriteHeader(&tar.Header{Name: path, Size: int64(len(txt)), Mode: 0644}); err != nil {
+			return "", err
+		}
+		if _, err := tw.Write([]byte(txt)); err != nil {
+			return "", err
+		}
+	}
+	
+	if err := tw.Close(); err != nil {
+		return "", err
+	}
+	
+	return file.Name(), nil
 }

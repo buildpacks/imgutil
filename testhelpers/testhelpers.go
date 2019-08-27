@@ -78,7 +78,12 @@ func AssertError(t *testing.T, actual error, expected string) {
 		t.Fatalf("Expected an error but got nil")
 	}
 	if !strings.Contains(actual.Error(), expected) {
-		t.Fatalf(`Expected error to contain "%s", got "%s"`, expected, actual.Error())
+		t.Fatalf(
+			`Expected error to contain "%s", got "%s"\n\n Diff:\n%s`,
+			expected,
+			actual.Error(),
+			cmp.Diff(expected, actual.Error()),
+		)
 	}
 }
 
