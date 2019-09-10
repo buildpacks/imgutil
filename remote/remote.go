@@ -87,7 +87,15 @@ func newV1Image(keychain authn.Keychain, repoName string) (v1.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	image, err := remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport))
+	image, err := remote.Image(
+		ref,
+		remote.WithAuth(auth),
+		remote.WithTransport(http.DefaultTransport),
+		remote.WithPlatform(v1.Platform{
+			OS:           "windows",
+			Architecture: "amd64",
+		}),
+	)
 	if err != nil {
 		if transportErr, ok := err.(*transport.Error); ok && len(transportErr.Errors) > 0 {
 			switch transportErr.Errors[0].Code {
@@ -361,7 +369,15 @@ func (i *Image) doSave(imageName string) error {
 	if err != nil {
 		return err
 	}
-	return remote.Write(ref, i.image, remote.WithAuth(auth))
+	return remote.Write(
+		ref,
+		i.image,
+		remote.WithAuth(auth),
+		remote.WithPlatform(v1.Platform{
+			OS:           "windows",
+			Architecture: "amd64",
+		}),
+	)
 }
 
 func (i *Image) Delete() error {
