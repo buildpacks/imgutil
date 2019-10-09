@@ -96,8 +96,8 @@ func testFake(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, err)
 
 			layer2Path, err = createLayerTar(map[string]string{
-				"/layer2/file1": "file-1-contents",
-				"/layer2/file2": "file-2-contents",
+				"/layer2/file1":     "file-1-contents",
+				"/layer2/file2":     "file-2-contents",
 				"/layer2/some.toml": "[[something]]",
 			})
 			h.AssertNil(t, err)
@@ -141,7 +141,7 @@ func createLayerTar(contents map[string]string) (string, error) {
 		return "", nil
 	}
 	defer file.Close()
-	
+
 	tw := tar.NewWriter(file)
 
 	var paths []string
@@ -152,7 +152,7 @@ func createLayerTar(contents map[string]string) (string, error) {
 
 	for _, path := range paths {
 		txt := contents[path]
-		
+
 		if err := tw.WriteHeader(&tar.Header{Name: path, Size: int64(len(txt)), Mode: 0644}); err != nil {
 			return "", err
 		}
@@ -160,10 +160,10 @@ func createLayerTar(contents map[string]string) (string, error) {
 			return "", err
 		}
 	}
-	
+
 	if err := tw.Close(); err != nil {
 		return "", err
 	}
-	
+
 	return file.Name(), nil
 }
