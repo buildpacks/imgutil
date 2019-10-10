@@ -1,8 +1,10 @@
 sudo: required
+dist: trusty
 services:
 - docker
 install:
 - set -e
+
 jobs:
   include:
   - stage: unit test
