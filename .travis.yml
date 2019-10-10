@@ -1,6 +1,7 @@
 sudo: required
 services:
 - docker
+dist: trusty
 install:
 - set -e
 jobs:
