@@ -1,23 +1,18 @@
 # Go parameters
 GOCMD?=go
 GOTEST=$(GOCMD) test -mod=vendor
-PACKAGE_BASE=github.com/buildpack/imgutil
-PACKAGES:=$(shell $(GOCMD) list -mod=vendor ./... | grep -v /testdata/)
-SRC:=$(shell find . -type f -name '*.go' -not -path "*/vendor/*")
 
 all: test
 
-install-goimports:
-	@echo "> Installing goimports..."
-	cd tools; $(GOCMD) install -mod=vendor golang.org/x/tools/cmd/goimports
+imports:
+	$(GOCMD) install -mod=vendor golang.org/x/tools/cmd/goimports
+	test -z $$(goimports -l -w -local github.com/buildpack/imgutil $$(find . -type f -name '*.go' -not -path "./vendor/*"))
 
-format: install-goimports
-	@echo "> Formating code..."
-	@goimports -l -w -local ${PACKAGE_BASE} ${SRC}
+format:
+	test -z $$($(GOCMD) fmt ./...)
 
 vet:
-	@echo "> Vetting code..."
-	@$(GOCMD) vet -mod=vendor ${PACKAGES}
+	$(GOCMD) vet $$($(GOCMD) list ./... | grep -v /testdata/)
 
-test: format vet
+test: format imports vet
 	$(GOTEST) -parallel=1 -count=1 -v ./...
