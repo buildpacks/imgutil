@@ -1,6 +1,7 @@
 language: go
 go: 1.12.x
 dist: trusty
+
 env:
   global:
     - GO111MODULE=on
