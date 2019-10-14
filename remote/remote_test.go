@@ -246,6 +246,20 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertEq(t, identifier.String(), repoName+"@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5")
 		})
 
+		it("accurately parses the reference for an image with a sha", func() {
+			var err error
+			img, err = remote.NewImage(
+				repoName+"@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5",
+				authn.DefaultKeychain,
+				remote.FromBaseImage("busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"),
+			)
+			h.AssertNil(t, err)
+
+			identifier, err := img.Identifier()
+			h.AssertNil(t, err)
+			h.AssertEq(t, identifier.String(), repoName+"@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5")
+		})
+
 		when("the image has been modified and saved", func() {
 			it("returns the new digest reference", func() {
 				h.AssertNil(t, img.SetLabel("new", "label"))
