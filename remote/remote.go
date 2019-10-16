@@ -163,12 +163,17 @@ func (i *Image) Found() bool {
 }
 
 func (i *Image) Identifier() (imgutil.Identifier, error) {
+	ref, err := name.ParseReference(i.repoName, name.WeakValidation)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse reference for image '%s': %s", i.repoName, err)
+	}
+
 	hash, err := i.image.Digest()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get digest for image '%s': %s", i.repoName, err)
 	}
 
-	digestRef, err := name.NewDigest(i.repoName+"@"+hash.String(), name.WeakValidation)
+	digestRef, err := name.NewDigest(fmt.Sprintf("%s@%s", ref.Context().Name(), hash.String()), name.WeakValidation)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating digest reference")
 	}
