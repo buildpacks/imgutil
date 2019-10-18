@@ -520,9 +520,11 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				`, repoName), nil)
 			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
 			h.AssertNil(t, err)
+
 			tarFile, err := ioutil.TempFile("", "add-layer-test")
 			h.AssertNil(t, err)
 			defer tarFile.Close()
+
 			_, err = io.Copy(tarFile, tr)
 			h.AssertNil(t, err)
 			tarPath = tarFile.Name()
@@ -614,7 +616,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				img.Rename(repoName)
 				err := img.ReuseLayer("some-bad-sha")
 
-				h.AssertError(t, err, "previous image did not have layer with sha 'some-bad-sha'")
+				h.AssertError(t, err, "previous image did not have layer with diff id 'some-bad-sha'")
 			})
 		})
 	})
@@ -708,7 +710,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					err = image.Save(append([]string{failingName}, additionalRepoNames...)...)
-					h.AssertError(t, err, fmt.Sprintf("failed to write image to the following tags: [%s]", failingName))
+					h.AssertError(t, err, fmt.Sprintf("failed to write image to the following tags: [%s:", failingName))
 
 					// check all but failing name
 					saveErr, ok := err.(imgutil.SaveError)

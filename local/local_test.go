@@ -865,9 +865,10 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 					LABEL repo_name_for_randomisation=%s
 					LABEL mykey=oldValue
 				`, repoName), nil)
+			origID = h.ImageID(t, repoName)
+
 			img, err = local.NewImage(repoName, dockerClient)
 			h.AssertNil(t, err)
-			origID = h.ImageID(t, repoName)
 
 			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
 			h.AssertNil(t, err)
@@ -887,7 +888,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, h.DockerRmi(dockerClient, repoName, origID))
 		})
 
-		it("saved image can be inspected with new ID", func() {
+		it("saved image overrides image with new ID", func() {
 			err := img.SetLabel("mykey", "newValue")
 			h.AssertNil(t, err)
 
@@ -900,6 +901,9 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, err)
 
 			h.AssertEq(t, origID != identifier.String(), true)
+
+			newImageID := h.ImageID(t, repoName)
+			h.AssertNotEq(t, origID, newImageID)
 
 			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), identifier.String())
 			h.AssertNil(t, err)
@@ -940,7 +944,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 					failingName := newTestImageName() + ":🧨"
 
 					err := img.Save(append([]string{failingName}, additionalRepoNames...)...)
-					h.AssertError(t, err, fmt.Sprintf("failed to write image to the following tags: [%s]", failingName))
+					h.AssertError(t, err, fmt.Sprintf("failed to write image to the following tags: [%s:", failingName))
 
 					saveErr, ok := err.(imgutil.SaveError)
 					h.AssertEq(t, ok, true)
