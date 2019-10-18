@@ -428,3 +428,4 @@ func (si *subImage) Manifest() (*v1.Manifest, error)         { panic("Not Implem
 func (si *subImage) RawManifest() ([]byte, error)            { panic("Not Implemented") }
 func (si *subImage) LayerByDigest(v1.Hash) (v1.Layer, error) { panic("Not Implemented") }
 func (si *subImage) LayerByDiffID(v1.Hash) (v1.Layer, error) { panic("Not Implemented") }
+func (si *subImage) Size() (int64, error)                    { panic("Not Implemented") }
