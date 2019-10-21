@@ -38,6 +38,14 @@ func AssertEq(t *testing.T, actual, expected interface{}) {
 	}
 }
 
+func AssertNotEq(t *testing.T, v1, v2 interface{}) {
+	t.Helper()
+
+	if diff := cmp.Diff(v1, v2); diff == "" {
+		t.Fatalf("expected values not to be equal, both equal to %v", v1)
+	}
+}
+
 func AssertContains(t *testing.T, slice []string, elements ...string) {
 	t.Helper()
 
