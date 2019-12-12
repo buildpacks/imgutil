@@ -20,9 +20,9 @@ import (
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 
-	"github.com/buildpack/imgutil"
-	"github.com/buildpack/imgutil/remote"
-	h "github.com/buildpack/imgutil/testhelpers"
+	"github.com/buildpacks/imgutil"
+	"github.com/buildpacks/imgutil/remote"
+	h "github.com/buildpacks/imgutil/testhelpers"
 )
 
 var registryPort string
