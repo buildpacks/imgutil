@@ -90,6 +90,7 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	it("local/local", func() {
+		h.AssertNil(t, h.PullImage(dockerClient, "busybox"))
 		img1, err := local.NewImage(imageName1, dockerClient, local.FromBaseImage("busybox"))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img1)
@@ -108,6 +109,7 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 		h.AssertNil(t, err)
 		mutateAndSave(t, img1)
 
+		h.AssertNil(t, h.PullImage(dockerClient, "busybox"))
 		img2, err := local.NewImage(imageName2, dockerClient, local.FromBaseImage("busybox"))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img2)
