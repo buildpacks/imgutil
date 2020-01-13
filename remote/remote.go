@@ -11,8 +11,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
-	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
@@ -102,7 +102,15 @@ func newV1Image(keychain authn.Keychain, repoName string) (v1.Image, error) {
 }
 
 func emptyImage() (v1.Image, error) {
-	return random.Image(0, 0)
+	cfg := &v1.ConfigFile{
+		Architecture: "amd64",
+		OS:           "linux",
+		RootFS: v1.RootFS{
+			Type:    "layers",
+			DiffIDs: []v1.Hash{},
+		},
+	}
+	return mutate.ConfigFile(empty.Image, cfg)
 }
 
 func referenceForRepoName(keychain authn.Keychain, ref string) (name.Reference, authn.Authenticator, error) {

@@ -607,7 +607,9 @@ func inspectOptionalImage(docker *client.Client, imageName string) (types.ImageI
 
 func defaultInspect() types.ImageInspect {
 	return types.ImageInspect{
-		Config: &container.Config{},
+		Os:           "linux",
+		Architecture: "amd64",
+		Config:       &container.Config{},
 	}
 }
 

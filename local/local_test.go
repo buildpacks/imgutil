@@ -51,40 +51,53 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#NewImage", func() {
-		when("image is available locally", func() {
-			var repoName = newTestImageName()
-
-			it.After(func() {
-				h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
+		when("no base image is given", func() {
+			it("returns an empty image", func() {
+				_, err := local.NewImage(newTestImageName(), dockerClient)
+				h.AssertNil(t, err)
 			})
 
-			it("returns the local image", func() {
-				labels := make(map[string]string)
-				labels["some.label"] = "some.value"
+			it("sets sensible defaults for all required fields", func() {
+				// os, architecture, and rootfs are required per https://github.com/opencontainers/image-spec/blob/master/config.md
+				img, err := local.NewImage(newTestImageName(), dockerClient)
+				h.AssertNil(t, err)
+				h.AssertNil(t, img.Save())
+				defer h.DockerRmi(dockerClient, img.Name())
+				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
+				h.AssertNil(t, err)
+				h.AssertEq(t, inspect.Os, "linux")
+				h.AssertEq(t, inspect.Architecture, "amd64")
+				h.AssertEq(t, inspect.RootFS.Type, "layers")
+			})
+		})
 
-				h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
+		when("#FromBaseImage", func() {
+			when("base image exists", func() {
+				var repoName = newTestImageName()
+
+				it.After(func() {
+					h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
+				})
+
+				it("returns the local image", func() {
+					labels := make(map[string]string)
+					labels["some.label"] = "some.value"
+
+					h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
 							FROM scratch
 							LABEL repo_name_for_randomisation=%s
 							ENV MY_VAR=my_val
 							`, repoName), labels)
 
-				localImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
-				h.AssertNil(t, err)
+					localImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
+					h.AssertNil(t, err)
 
-				labelValue, err := localImage.Label("some.label")
-				h.AssertNil(t, err)
-				h.AssertEq(t, labelValue, "some.value")
+					labelValue, err := localImage.Label("some.label")
+					h.AssertNil(t, err)
+					h.AssertEq(t, labelValue, "some.value")
+				})
 			})
-		})
 
-		when("image is not available locally", func() {
-			it("returns an empty image", func() {
-				_, err := local.NewImage(newTestImageName(), dockerClient)
-				h.AssertNil(t, err)
-			})
-		})
-
-		when("#FromBaseImage", func() {
 			when("base image does not exist", func() {
 				it("doesn't error", func() {
 					_, err := local.NewImage(

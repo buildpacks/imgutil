@@ -55,6 +55,27 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#NewRemote", func() {
+		when("no base image is given", func() {
+			it("returns an empty image", func() {
+				_, err := remote.NewImage(newTestImageName(), authn.DefaultKeychain)
+				h.AssertNil(t, err)
+			})
+
+			it("sets sensible defaults for all required fields", func() {
+				// os, architecture, and rootfs are required per https://github.com/opencontainers/image-spec/blob/master/config.md
+				img, err := remote.NewImage(newTestImageName(), authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertNil(t, img.Save())
+				h.AssertNil(t, h.PullImage(dockerClient, img.Name()))
+				defer h.DockerRmi(dockerClient, img.Name())
+				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
+				h.AssertNil(t, err)
+				h.AssertEq(t, inspect.Os, "linux")
+				h.AssertEq(t, inspect.Architecture, "amd64")
+				h.AssertEq(t, inspect.RootFS.Type, "layers")
+			})
+		})
+
 		when("#FromRemoteBaseImage", func() {
 			when("base image exists", func() {
 				var (
