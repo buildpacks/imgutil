@@ -675,6 +675,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, img.Save())
 
 				h.AssertNil(t, h.PullImage(dockerClient, repoName))
+				defer h.DockerRmi(dockerClient, repoName)
 				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 				h.AssertNil(t, err)
 
