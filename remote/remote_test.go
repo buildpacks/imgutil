@@ -623,12 +623,29 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#Save", func() {
 		when("image exists", func() {
+			var tarPath string
+
 			it.Before(func() {
 				h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
 					FROM busybox
 					LABEL repo_name_for_randomisation=%s
 					LABEL mykey=oldValue
 				`, repoName), nil)
+
+				tarFile, err := ioutil.TempFile("", "add-layer-test")
+				h.AssertNil(t, err)
+				defer tarFile.Close()
+
+				tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+				h.AssertNil(t, err)
+
+				_, err = io.Copy(tarFile, tr)
+				h.AssertNil(t, err)
+				tarPath = tarFile.Name()
+			})
+
+			it.After(func() {
+				os.Remove(tarPath)
 			})
 
 			it("can be pulled by digest", func() {
@@ -649,30 +666,28 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 			})
 
-			it("updates the createdAt time", func() {
-				h.AssertNil(t, h.PullImage(dockerClient, repoName))
-				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
-				h.AssertNil(t, err)
-
-				originalCreatedAtTime := inspect.Created
-
+			it("zeroes all times and client specific fields", func() {
 				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
+
+				h.AssertNil(t, img.AddLayer(tarPath))
 
 				h.AssertNil(t, img.Save())
 
 				h.AssertNil(t, h.PullImage(dockerClient, repoName))
-				inspect, _, err = dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
+				defer h.DockerRmi(dockerClient, repoName)
+				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 				h.AssertNil(t, err)
 
-				originalTime, err := time.Parse(time.RFC3339Nano, originalCreatedAtTime)
-				h.AssertNil(t, err)
+				h.AssertEq(t, inspect.Created, imgutil.NormalizedDateTime.Format(time.RFC3339))
+				h.AssertEq(t, inspect.Container, "")
+				h.AssertEq(t, inspect.DockerVersion, "")
 
-				newTime, err := time.Parse(time.RFC3339Nano, inspect.Created)
+				history, err := dockerClient.ImageHistory(context.TODO(), repoName)
 				h.AssertNil(t, err)
-
-				if !originalTime.Before(newTime) {
-					t.Fatalf("the new createdAt time %s was not after the original createdAt time %s", inspect.Created, originalCreatedAtTime)
+				h.AssertEq(t, len(history), len(inspect.RootFS.Layers))
+				for _, item := range history {
+					h.AssertEq(t, item.Created, imgutil.NormalizedDateTime.Unix())
 				}
 			})
 		})

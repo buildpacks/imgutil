@@ -909,11 +909,30 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, err)
 			label := inspect.Config.Labels["mykey"]
 			h.AssertEq(t, strings.TrimSpace(label), "newValue")
+		})
 
-			t.Log("image has history")
-			history, err := dockerClient.ImageHistory(context.TODO(), identifier.String())
+		it("zeroes times and client specific fields", func() {
+			err := img.SetLabel("mykey", "newValue")
+			h.AssertNil(t, err)
+
+			err = img.AddLayer(tarPath)
+			h.AssertNil(t, err)
+
+			h.AssertNil(t, img.Save())
+
+			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
+			h.AssertNil(t, err)
+
+			h.AssertEq(t, inspect.Created, imgutil.NormalizedDateTime.Format(time.RFC3339))
+			h.AssertEq(t, inspect.Container, "")
+			h.AssertEq(t, inspect.DockerVersion, "")
+
+			history, err := dockerClient.ImageHistory(context.TODO(), repoName)
 			h.AssertNil(t, err)
 			h.AssertEq(t, len(history), len(inspect.RootFS.Layers))
+			for i, _ := range inspect.RootFS.Layers {
+				h.AssertEq(t, history[i].Created, imgutil.NormalizedDateTime.Unix())
+			}
 		})
 
 		when("additional names are provided", func() {

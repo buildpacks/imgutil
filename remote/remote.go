@@ -344,7 +344,7 @@ func (i *Image) Save(additionalNames ...string) error {
 
 	allNames := append([]string{i.repoName}, additionalNames...)
 
-	i.image, err = mutate.CreatedAt(i.image, v1.Time{Time: time.Now()})
+	i.image, err = mutate.CreatedAt(i.image, v1.Time{Time: imgutil.NormalizedDateTime})
 	if err != nil {
 		return errors.Wrap(err, "set creation time")
 	}
@@ -353,13 +353,21 @@ func (i *Image) Save(additionalNames ...string) error {
 	if err != nil {
 		return errors.Wrap(err, "get image config")
 	}
+	cfg = cfg.DeepCopy()
 
 	layers, err := i.image.Layers()
 	if err != nil {
 		return errors.Wrap(err, "get image layers")
 	}
-
 	cfg.History = make([]v1.History, len(layers))
+	for i, _ := range cfg.History {
+		cfg.History[i] = v1.History{
+			Created: v1.Time{Time: imgutil.NormalizedDateTime},
+		}
+	}
+
+	cfg.DockerVersion = ""
+	cfg.Container = ""
 	i.image, err = mutate.ConfigFile(i.image, cfg)
 	if err != nil {
 		return errors.Wrap(err, "zeroing history")

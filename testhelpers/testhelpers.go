@@ -168,7 +168,7 @@ func CreateImageOnRemote(t *testing.T, dockerCli *dockercli.Client, repoName, do
 		topLayer = "N/A"
 	}
 
-	AssertNil(t, pushImage(dockerCli, repoName))
+	AssertNil(t, PushImage(dockerCli, repoName))
 
 	return topLayer
 }
@@ -234,7 +234,7 @@ func CopySingleFileFromImage(dockerCli *dockercli.Client, repoName, path string)
 	return CopySingleFileFromContainer(dockerCli, ctr.ID, path)
 }
 
-func pushImage(dockerCli *dockercli.Client, ref string) error {
+func PushImage(dockerCli *dockercli.Client, ref string) error {
 	rc, err := dockerCli.ImagePush(context.Background(), ref, dockertypes.ImagePushOptions{RegistryAuth: "{}"})
 	if err != nil {
 		return err
