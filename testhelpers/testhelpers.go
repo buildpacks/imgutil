@@ -102,10 +102,10 @@ func AssertNil(t *testing.T, actual interface{}) {
 	}
 }
 
-var dockerCliVal *dockercli.Client
+var dockerCliVal dockercli.CommonAPIClient
 var dockerCliOnce sync.Once
 
-func DockerCli(t *testing.T) *dockercli.Client {
+func DockerCli(t *testing.T) dockercli.CommonAPIClient {
 	dockerCliOnce.Do(func() {
 		var dockerCliErr error
 		dockerCliVal, dockerCliErr = dockercli.NewClientWithOpts(dockercli.FromEnv, dockercli.WithVersion("1.38"))
@@ -134,7 +134,7 @@ func Eventually(t *testing.T, test func() bool, every time.Duration, timeout tim
 	}
 }
 
-func CreateImageOnLocal(t *testing.T, dockerCli *dockercli.Client, repoName, dockerFile string, labels map[string]string) {
+func CreateImageOnLocal(t *testing.T, dockerCli dockercli.CommonAPIClient, repoName, dockerFile string, labels map[string]string) {
 	ctx := context.Background()
 
 	buildContext, err := CreateSingleFileTar("Dockerfile", dockerFile)
@@ -153,7 +153,7 @@ func CreateImageOnLocal(t *testing.T, dockerCli *dockercli.Client, repoName, doc
 	res.Body.Close()
 }
 
-func CreateImageOnRemote(t *testing.T, dockerCli *dockercli.Client, repoName, dockerFile string, labels map[string]string) string {
+func CreateImageOnRemote(t *testing.T, dockerCli dockercli.CommonAPIClient, repoName, dockerFile string, labels map[string]string) string {
 	t.Helper()
 	defer DockerRmi(dockerCli, repoName)
 
@@ -173,7 +173,7 @@ func CreateImageOnRemote(t *testing.T, dockerCli *dockercli.Client, repoName, do
 	return topLayer
 }
 
-func PullImage(dockerCli *dockercli.Client, ref string) error {
+func PullImage(dockerCli dockercli.CommonAPIClient, ref string) error {
 	rc, err := dockerCli.ImagePull(context.Background(), ref, dockertypes.ImagePullOptions{})
 	if err != nil {
 		// Retry
@@ -188,7 +188,7 @@ func PullImage(dockerCli *dockercli.Client, ref string) error {
 	return rc.Close()
 }
 
-func DockerRmi(dockerCli *dockercli.Client, repoNames ...string) error {
+func DockerRmi(dockerCli dockercli.CommonAPIClient, repoNames ...string) error {
 	var err error
 	ctx := context.Background()
 	for _, name := range repoNames {
@@ -204,7 +204,7 @@ func DockerRmi(dockerCli *dockercli.Client, repoNames ...string) error {
 	return err
 }
 
-func CopySingleFileFromContainer(dockerCli *dockercli.Client, ctrID, path string) (string, error) {
+func CopySingleFileFromContainer(dockerCli dockercli.CommonAPIClient, ctrID, path string) (string, error) {
 	r, _, err := dockerCli.CopyFromContainer(context.Background(), ctrID, path)
 	if err != nil {
 		return "", err
@@ -219,7 +219,7 @@ func CopySingleFileFromContainer(dockerCli *dockercli.Client, ctrID, path string
 	return string(b), err
 }
 
-func CopySingleFileFromImage(dockerCli *dockercli.Client, repoName, path string) (string, error) {
+func CopySingleFileFromImage(dockerCli dockercli.CommonAPIClient, repoName, path string) (string, error) {
 	ctr, err := dockerCli.ContainerCreate(context.Background(),
 		&container.Config{
 			Image: repoName,
@@ -234,7 +234,7 @@ func CopySingleFileFromImage(dockerCli *dockercli.Client, repoName, path string)
 	return CopySingleFileFromContainer(dockerCli, ctr.ID, path)
 }
 
-func PushImage(dockerCli *dockercli.Client, ref string) error {
+func PushImage(dockerCli dockercli.CommonAPIClient, ref string) error {
 	rc, err := dockerCli.ImagePush(context.Background(), ref, dockertypes.ImagePushOptions{RegistryAuth: "{}"})
 	if err != nil {
 		return err

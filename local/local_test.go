@@ -42,7 +42,7 @@ func newTestImageName() string {
 }
 
 func testLocalImage(t *testing.T, when spec.G, it spec.S) {
-	var dockerClient *client.Client
+	var dockerClient client.CommonAPIClient
 
 	it.Before(func() {
 		var err error

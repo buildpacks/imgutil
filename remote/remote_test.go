@@ -45,7 +45,7 @@ func TestRemoteImage(t *testing.T) {
 
 func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 	var repoName string
-	var dockerClient *client.Client
+	var dockerClient client.CommonAPIClient
 
 	it.Before(func() {
 		var err error
@@ -863,7 +863,7 @@ func manifestLayers(t *testing.T, repoName string) []string {
 	return outSlice
 }
 
-func remoteLabel(t *testing.T, dockerCli *client.Client, repoName, label string) string {
+func remoteLabel(t *testing.T, dockerCli client.CommonAPIClient, repoName, label string) string {
 	t.Helper()
 
 	h.AssertNil(t, h.PullImage(dockerCli, repoName))

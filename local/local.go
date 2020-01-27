@@ -27,7 +27,7 @@ import (
 
 type Image struct {
 	repoName         string
-	docker           *client.Client
+	docker           client.CommonAPIClient
 	inspect          types.ImageInspect
 	layerPaths       []string
 	currentTempImage string
@@ -73,7 +73,7 @@ func FromBaseImage(imageName string) ImageOption {
 	}
 }
 
-func NewImage(repoName string, dockerClient *client.Client, ops ...ImageOption) (imgutil.Image, error) {
+func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...ImageOption) (imgutil.Image, error) {
 	inspect := defaultInspect()
 
 	image := &Image{
@@ -451,7 +451,7 @@ func (i *Image) downloadImageOnce(imageName string) (*FileSystemLocalImage, erro
 	return v.(*FileSystemLocalImage), nil
 }
 
-func downloadImage(docker *client.Client, imageName string) (*FileSystemLocalImage, error) {
+func downloadImage(docker client.CommonAPIClient, imageName string) (*FileSystemLocalImage, error) {
 	ctx := context.Background()
 
 	tarFile, err := docker.ImageSave(ctx, []string{imageName})
@@ -588,7 +588,7 @@ func untar(r io.Reader, dest string) error {
 	}
 }
 
-func inspectOptionalImage(docker *client.Client, imageName string) (types.ImageInspect, error) {
+func inspectOptionalImage(docker client.CommonAPIClient, imageName string) (types.ImageInspect, error) {
 	var (
 		err     error
 		inspect types.ImageInspect

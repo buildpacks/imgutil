@@ -43,7 +43,7 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 	var (
 		imageName1, imageName2 string
 		mutateAndSave          func(t *testing.T, image imgutil.Image)
-		dockerClient           *dockerclient.Client
+		dockerClient           dockerclient.CommonAPIClient
 	)
 
 	it.Before(func() {
