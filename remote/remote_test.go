@@ -2,6 +2,8 @@ package remote_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -561,6 +563,60 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 		it("appends a layer", func() {
 			err := img.AddLayer(tarPath)
+			h.AssertNil(t, err)
+
+			h.AssertNil(t, img.Save())
+
+			// After Pull
+			h.AssertNil(t, h.PullImage(dockerClient, repoName))
+
+			output, err := h.CopySingleFileFromImage(dockerClient, repoName, "old-layer.txt")
+			h.AssertNil(t, err)
+			h.AssertEq(t, output, "old-layer")
+
+			output, err = h.CopySingleFileFromImage(dockerClient, repoName, "new-layer.txt")
+			h.AssertNil(t, err)
+			h.AssertEq(t, output, "new-layer")
+		})
+	})
+
+	when("#AddLayerWithDiffID", func() {
+		var (
+			tarPath string
+			diffID  string
+			img     imgutil.Image
+		)
+
+		it.Before(func() {
+			h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
+					FROM busybox
+					LABEL repo_name_for_randomisation=%s
+					RUN echo -n old-layer > old-layer.txt
+				`, repoName), nil)
+			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+			h.AssertNil(t, err)
+
+			tarFile, err := ioutil.TempFile("", "add-layer-test")
+			h.AssertNil(t, err)
+			defer tarFile.Close()
+			hasher := sha256.New()
+			mw := io.MultiWriter(tarFile, hasher)
+			_, err = io.Copy(mw, tr)
+			h.AssertNil(t, err)
+			tarPath = tarFile.Name()
+			diffID = "sha256:" + hex.EncodeToString(hasher.Sum(make([]byte, 0, hasher.Size())))
+
+			img, err = remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
+			h.AssertNil(t, err)
+		})
+
+		it.After(func() {
+			h.AssertNil(t, os.Remove(tarPath))
+			h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
+		})
+
+		it("appends a layer", func() {
+			err := img.AddLayerWithDiffID(tarPath, diffID)
 			h.AssertNil(t, err)
 
 			h.AssertNil(t, img.Save())
