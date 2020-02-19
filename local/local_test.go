@@ -82,14 +82,12 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				it("returns the local image", func() {
-					labels := make(map[string]string)
-					labels["some.label"] = "some.value"
+					baseImage, err := local.NewImage(repoName, dockerClient)
+					h.AssertNil(t, err)
 
-					h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-							FROM scratch
-							LABEL repo_name_for_randomisation=%s
-							ENV MY_VAR=my_val
-							`, repoName), labels)
+					h.AssertNil(t, baseImage.SetLabel("some.label", "some.value"))
+					h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+					h.AssertNil(t, baseImage.Save())
 
 					localImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
 					h.AssertNil(t, err)
@@ -133,11 +131,13 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			var repoName = newTestImageName()
 
 			it.Before(func() {
-				h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-					LABEL mykey=myvalue other=data
-				`, repoName), nil)
+				baseImage, err := local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, baseImage.SetLabel("mykey", "myvalue"))
+				h.AssertNil(t, baseImage.SetLabel("other", "data"))
+				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+				h.AssertNil(t, baseImage.Save())
 			})
 
 			it.After(func() {
@@ -180,11 +180,12 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			var repoName = newTestImageName()
 
 			it.Before(func() {
-				h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-					ENV MY_VAR=my_val
-				`, repoName), nil)
+				baseImage, err := local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, baseImage.SetEnv("MY_VAR", "my_val"))
+				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+				h.AssertNil(t, baseImage.Save())
 			})
 
 			it.After(func() {
@@ -264,10 +265,11 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		)
 
 		it.Before(func() {
-			h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-				`, repoName), nil)
+			baseImage, err := local.NewImage(repoName, dockerClient)
+			h.AssertNil(t, err)
+
+			h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+			h.AssertNil(t, baseImage.Save())
 		})
 
 		it.After(func() {
@@ -333,11 +335,12 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		when("image has labels", func() {
 			it.Before(func() {
 				var err error
-				h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-					LABEL some-key=some-value
-				`, repoName), nil)
+				baseImage, err := local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, baseImage.SetLabel("some-key", "some-value"))
+				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+				h.AssertNil(t, baseImage.Save())
 
 				img, err = local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
 				h.AssertNil(t, err)
@@ -364,10 +367,11 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		when("no labels exists", func() {
 			it.Before(func() {
 				var err error
-				h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					CMD ['/usr/bin/run']
-				`), nil)
+				baseImage, err := local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, baseImage.SetCmd("/usr/bin/run"))
+				h.AssertNil(t, baseImage.Save())
 
 				img, err = local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
 				h.AssertNil(t, err)
@@ -401,11 +405,13 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		)
 		it.Before(func() {
 			var err error
-			h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-					LABEL some-key=some-value
-				`, repoName), nil)
+			baseImage, err := local.NewImage(repoName, dockerClient)
+			h.AssertNil(t, err)
+
+			h.AssertNil(t, baseImage.SetLabel("some-key", "some-value"))
+			h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+			h.AssertNil(t, baseImage.Save())
+
 			img, err = local.NewImage(repoName, dockerClient)
 			h.AssertNil(t, err)
 			origID = h.ImageID(t, repoName)
@@ -436,10 +442,12 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		)
 		it.Before(func() {
 			var err error
-			h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-				`, repoName), nil)
+			baseImage, err := local.NewImage(repoName, dockerClient)
+			h.AssertNil(t, err)
+
+			h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+			h.AssertNil(t, baseImage.Save())
+
 			img, err = local.NewImage(repoName, dockerClient)
 			h.AssertNil(t, err)
 			origID = h.ImageID(t, repoName)
@@ -470,10 +478,12 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		)
 		it.Before(func() {
 			var err error
-			h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-				`, repoName), nil)
+			baseImage, err := local.NewImage(repoName, dockerClient)
+			h.AssertNil(t, err)
+
+			h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+			h.AssertNil(t, baseImage.Save())
+
 			img, err = local.NewImage(repoName, dockerClient)
 			h.AssertNil(t, err)
 			origID = h.ImageID(t, repoName)
@@ -505,12 +515,13 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 		it.Before(func() {
 			var err error
-			h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-				`, repoName), nil)
-			img, err = local.NewImage(repoName, dockerClient)
+			baseImage, err := local.NewImage(repoName, dockerClient)
 			h.AssertNil(t, err)
+
+			h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+			h.AssertNil(t, baseImage.Save())
+
+			img, err = local.NewImage(repoName, dockerClient)
 			origID = h.ImageID(t, repoName)
 		})
 
@@ -782,11 +793,26 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			var repoName = newTestImageName()
 
 			it.Before(func() {
-				h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM busybox
-					LABEL repo_name_for_randomisation=%s
-					RUN mkdir /dir && echo -n file-contents > /dir/file.txt
-				`, repoName), nil)
+				baseImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+
+				tr, err := h.CreateSingleFileTar("file.txt", "file-contents")
+				h.AssertNil(t, err)
+				tarFile, err := ioutil.TempFile("", "get-layer-test")
+				h.AssertNil(t, err)
+				defer tarFile.Close()
+				defer os.RemoveAll(tarFile.Name())
+
+				_, err = io.Copy(tarFile, tr)
+				h.AssertNil(t, err)
+				tarPath := tarFile.Name()
+
+				err = baseImage.AddLayer(tarPath)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, baseImage.Save())
 			})
 
 			it.After(func() {
@@ -801,12 +827,11 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				r, err := img.GetLayer(topLayer)
 				h.AssertNil(t, err)
 				tr := tar.NewReader(r)
+
 				header, err := tr.Next()
 				h.AssertNil(t, err)
-				h.AssertEq(t, header.Name, "dir/")
-				header, err = tr.Next()
-				h.AssertNil(t, err)
-				h.AssertEq(t, header.Name, "dir/file.txt")
+				h.AssertEq(t, header.Name, "file.txt")
+
 				contents := make([]byte, len("file-contents"), len("file-contents"))
 				_, err = tr.Read(contents)
 				if err != io.EOF {
@@ -820,10 +845,11 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			var repoName = newTestImageName()
 
 			it.Before(func() {
-				h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM busybox
-					LABEL repo_name_for_randomisation=%s
-				`, repoName), nil)
+				baseImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+				h.AssertNil(t, baseImage.Save())
 			})
 
 			it.After(func() {
@@ -932,11 +958,14 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 		it.Before(func() {
 			var err error
-			h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM busybox
-					LABEL repo_name_for_randomisation=%s
-					LABEL mykey=oldValue
-				`, repoName), nil)
+
+			baseImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
+			h.AssertNil(t, err)
+
+			h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+			h.AssertNil(t, baseImage.SetLabel("mykey", "oldValue"))
+			h.AssertNil(t, baseImage.Save())
+
 			origID = h.ImageID(t, repoName)
 
 			img, err = local.NewImage(repoName, dockerClient)
@@ -1057,10 +1086,11 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			var repoName = newTestImageName()
 
 			it.Before(func() {
-				h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-				`, repoName), nil)
+				baseImage, err := local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+				h.AssertNil(t, baseImage.Save())
 			})
 
 			it.After(func() {
@@ -1104,11 +1134,13 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 			it.Before(func() {
 				var err error
-				h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM busybox
-					LABEL repo_name_for_randomisation=%s
-					LABEL mykey=oldValue
-				`, repoName), nil)
+				baseImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, baseImage.SetLabel("mykey", "oldValue"))
+				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+				h.AssertNil(t, baseImage.Save())
+
 				origImg, err = local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
 				h.AssertNil(t, err)
 
