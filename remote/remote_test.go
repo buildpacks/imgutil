@@ -27,20 +27,18 @@ import (
 	h "github.com/buildpacks/imgutil/testhelpers"
 )
 
-var registryPort string
+var localTestRegistry *h.DockerRegistry
 
 func newTestImageName() string {
-	return "localhost:" + registryPort + "/pack-image-test-" + h.RandString(10)
+	return fmt.Sprintf("%s:%s/pack-image-test-%s", localTestRegistry.Host, localTestRegistry.Port, h.RandString(10))
 }
 
 func TestRemoteImage(t *testing.T) {
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	dockerRegistry := h.NewDockerRegistry()
-	dockerRegistry.Start(t)
-	defer dockerRegistry.Stop(t)
-
-	registryPort = dockerRegistry.Port
+	localTestRegistry = h.NewDockerRegistry()
+	localTestRegistry.Start(t)
+	defer localTestRegistry.Stop(t)
 
 	spec.Run(t, "RemoteImage", testRemoteImage, spec.Sequential(), spec.Report(report.Terminal{}))
 }
@@ -438,7 +436,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				var wg sync.WaitGroup
 				wg.Add(1)
 
-				newBase = "localhost:" + registryPort + "/pack-newbase-test-" + h.RandString(10)
+				newBase = fmt.Sprintf("%s:%s/pack-newbase-test-%s", localTestRegistry.Host, localTestRegistry.Port, h.RandString(10))
 				go func() {
 					defer wg.Done()
 					h.CreateImageOnRemote(t, dockerClient, newBase, fmt.Sprintf(`
@@ -450,7 +448,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 					newBaseLayers = manifestLayers(t, newBase)
 				}()
 
-				oldBase = "localhost:" + registryPort + "/pack-oldbase-test-" + h.RandString(10)
+				oldBase = fmt.Sprintf("%s:%s/pack-oldbase-test-%s", localTestRegistry.Host, localTestRegistry.Port, h.RandString(10))
 				oldTopLayer = h.CreateImageOnRemote(t, dockerClient, oldBase, fmt.Sprintf(`
 					FROM busybox
 					LABEL repo_name_for_randomisation=%s
@@ -645,7 +643,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			it.Before(func() {
 				var err error
 
-				prevImageName = "localhost:" + registryPort + "/pack-image-test-" + h.RandString(10)
+				prevImageName = fmt.Sprintf("%s:%s/pack-image-test-%s", localTestRegistry.Host, localTestRegistry.Port, h.RandString(10))
 				h.CreateImageOnRemote(t, dockerClient, prevImageName, fmt.Sprintf(`
 					FROM busybox
 					LABEL repo_name_for_randomisation=%s

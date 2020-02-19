@@ -21,20 +21,18 @@ import (
 	h "github.com/buildpacks/imgutil/testhelpers"
 )
 
-var registryPort string
+var localTestRegistry *h.DockerRegistry
 
 func newTestImageName() string {
-	return "localhost:" + registryPort + "/imgutil-acceptance-" + h.RandString(10)
+	return fmt.Sprintf("%s:%s/imgutil-acceptance-%s", localTestRegistry.Host, localTestRegistry.Port, h.RandString(10))
 }
 
 func TestAcceptance(t *testing.T) {
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	dockerRegistry := h.NewDockerRegistry()
-	dockerRegistry.Start(t)
-	defer dockerRegistry.Stop(t)
-
-	registryPort = dockerRegistry.Port
+	localTestRegistry = h.NewDockerRegistry()
+	localTestRegistry.Start(t)
+	defer localTestRegistry.Stop(t)
 
 	spec.Run(t, "Reproducibility", testReproducibility, spec.Sequential(), spec.Report(report.Terminal{}))
 }

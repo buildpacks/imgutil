@@ -3,6 +3,8 @@ package testhelpers
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -11,9 +13,12 @@ import (
 	"github.com/docker/go-connections/nat"
 )
 
+var registryBaseImage = "micahyoung/registry:2"
+
 type DockerRegistry struct {
-	Port string
-	Name string
+	Host              string
+	Port              string
+	Name              string
 }
 
 func NewDockerRegistry() *DockerRegistry {
@@ -25,10 +30,10 @@ func (registry *DockerRegistry) Start(t *testing.T) {
 	t.Helper()
 	registry.Name = "test-registry-" + RandString(10)
 
-	AssertNil(t, PullImage(DockerCli(t), "registry:2"))
+	AssertNil(t, PullImage(DockerCli(t), registryBaseImage))
 	ctx := context.Background()
 	ctr, err := DockerCli(t).ContainerCreate(ctx, &container.Config{
-		Image: "registry:2",
+		Image: registryBaseImage,
 		Env:   []string{"REGISTRY_STORAGE_DELETE_ENABLED=true"},
 	}, &container.HostConfig{
 		AutoRemove: true,
@@ -44,8 +49,11 @@ func (registry *DockerRegistry) Start(t *testing.T) {
 	AssertNil(t, err)
 	registry.Port = inspect.NetworkSettings.Ports["5000/tcp"][0].HostPort
 
+	registry.Host, err = getRegistryHostname()
+	AssertNil(t, err)
+
 	Eventually(t, func() bool {
-		txt, err := HttpGetE(fmt.Sprintf("http://localhost:%s/v2/", registry.Port))
+		txt, err := HttpGetE(fmt.Sprintf("http://%s:%s/v2/", registry.Host, registry.Port))
 		return err == nil && txt != ""
 	}, 100*time.Millisecond, 10*time.Second)
 }
@@ -57,4 +65,16 @@ func (registry *DockerRegistry) Stop(t *testing.T) {
 		DockerCli(t).ContainerKill(context.Background(), registry.Name, "SIGKILL")
 		DockerCli(t).ContainerRemove(context.TODO(), registry.Name, types.ContainerRemoveOptions{Force: true})
 	}
+}
+
+func getRegistryHostname() (string, error) {
+	dockerHost := os.Getenv(("DOCKER_HOST"))
+	if dockerHost != "" {
+		url, err := url.Parse(dockerHost)
+		if err != nil {
+			return "", err
+		}
+		return url.Hostname(), nil
+	}
+	return "localhost", nil
 }
