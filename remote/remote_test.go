@@ -539,7 +539,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 					LABEL repo_name_for_randomisation=%s
 					RUN echo -n old-layer > old-layer.txt
 				`, repoName), nil)
-			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer", "linux")
 			h.AssertNil(t, err)
 
 			tarFile, err := ioutil.TempFile("", "add-layer-test")
@@ -591,7 +591,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 					LABEL repo_name_for_randomisation=%s
 					RUN echo -n old-layer > old-layer.txt
 				`, repoName), nil)
-			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer", "linux")
 			h.AssertNil(t, err)
 
 			tarFile, err := ioutil.TempFile("", "add-layer-test")
@@ -711,7 +711,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				defer tarFile.Close()
 
-				tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+				tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer", "linux")
 				h.AssertNil(t, err)
 
 				_, err = io.Copy(tarFile, tr)

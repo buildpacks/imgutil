@@ -27,7 +27,9 @@ import (
 	h "github.com/buildpacks/imgutil/testhelpers"
 )
 
-var localTestRegistry *h.DockerRegistry
+var (
+	localTestRegistry *h.DockerRegistry
+)
 
 func TestLocal(t *testing.T) {
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -44,12 +46,26 @@ func newTestImageName() string {
 }
 
 func testLocalImage(t *testing.T, when spec.G, it spec.S) {
-	var dockerClient client.CommonAPIClient
+	var (
+		dockerClient          client.CommonAPIClient
+		daemonInfo            types.Info
+		runnableBaseImageName string
+	)
 
 	it.Before(func() {
 		var err error
 		dockerClient = h.DockerCli(t)
 		h.AssertNil(t, err)
+
+		daemonInfo, err = dockerClient.Info(context.TODO())
+		h.AssertNil(t, err)
+
+		runnableBaseImageName = "busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"
+		if daemonInfo.OSType == "windows" {
+			runnableBaseImageName = "mcr.microsoft.com/windows/nanoserver@sha256:06281772b6a561411d4b338820d94ab1028fdeb076c85350bbc01e80c4bfa2b4"
+		}
+
+		h.PullImage(dockerClient, runnableBaseImageName)
 	})
 
 	when("#NewImage", func() {
@@ -59,15 +75,19 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 			})
 
-			it("sets sensible defaults for all required fields", func() {
+			it("sets sensible defaults from daemon for all required fields", func() {
 				// os, architecture, and rootfs are required per https://github.com/opencontainers/image-spec/blob/master/config.md
 				img, err := local.NewImage(newTestImageName(), dockerClient)
 				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
+
 				defer h.DockerRmi(dockerClient, img.Name())
 				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
 				h.AssertNil(t, err)
-				h.AssertEq(t, inspect.Os, "linux")
+
+				// os, architecture come from daemon
+				h.AssertEq(t, inspect.Os, daemonInfo.OSType)
+				h.AssertEq(t, inspect.OsVersion, daemonInfo.OSVersion)
 				h.AssertEq(t, inspect.Architecture, "amd64")
 				h.AssertEq(t, inspect.RootFS.Type, "layers")
 			})
@@ -109,13 +129,59 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 				})
 			})
+
+			when("base image and daemon os/architecture match", func() {
+				it("uses the base image architecture/OS", func() {
+					img, err := local.NewImage(newTestImageName(), dockerClient, local.FromBaseImage(runnableBaseImageName))
+					h.AssertNil(t, err)
+					h.AssertNil(t, img.Save())
+					defer h.DockerRmi(dockerClient, img.Name())
+
+					imgOS, err := img.OS()
+					h.AssertNil(t, err)
+					h.AssertEq(t, imgOS, daemonInfo.OSType)
+
+					inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
+					h.AssertNil(t, err)
+					h.AssertEq(t, inspect.Os, daemonInfo.OSType)
+					h.AssertEq(t, inspect.OsVersion, daemonInfo.OSVersion)
+					h.AssertEq(t, inspect.Architecture, "amd64")
+					h.AssertEq(t, inspect.RootFS.Type, "layers")
+
+					h.AssertEq(t, img.Found(), true)
+				})
+			})
+
+			when("base image and daemon architecture do not match", func() {
+				it("uses the base image architecture", func() {
+					armBaseImageName := "arm64v8/busybox@sha256:50edf1d080946c6a76989d1c3b0e753b62f7d9b5f5e66e88bef23ebbd1e9709c"
+					expectedArmArch := "arm64"
+					if daemonInfo.OSType == "windows" {
+						// this nanoserver windows/arm image exists and pulls. Not sure whether it works for anything else.
+						armBaseImageName = "mcr.microsoft.com/windows/nanoserver@sha256:29e2270953589a12de7a77a7e77d39e3b3e9cdfd243c922b3b8a63e2d8a71026"
+						expectedArmArch = "arm"
+					}
+
+					h.PullImage(dockerClient, armBaseImageName)
+
+					img, err := local.NewImage(newTestImageName(), dockerClient, local.FromBaseImage(armBaseImageName))
+					h.AssertNil(t, err)
+					h.AssertNil(t, img.Save())
+					defer h.DockerRmi(dockerClient, img.Name())
+
+					imgArch, err := img.Architecture()
+					h.AssertNil(t, err)
+
+					h.AssertEq(t, imgArch, expectedArmArch)
+				})
+			})
 		})
 
 		when("#WithPreviousImage", func() {
 			when("previous image does not exist", func() {
 				it("doesn't error", func() {
 					_, err := local.NewImage(
-						"busybox",
+						runnableBaseImageName,
 						dockerClient,
 						local.WithPreviousImage("some-bad-repo-name"),
 					)
@@ -235,22 +301,15 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#CreatedAt", func() {
-		const reference = "busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"
-		it.Before(func() {
-			// The SHA of a particular iteration of busybox:1.29
-			err := h.PullImage(dockerClient, reference)
-			h.AssertNil(t, err)
-		})
-
-		it.After(func() {
-			h.AssertNil(t, h.DockerRmi(dockerClient, reference))
-		})
-
 		it("returns the containers created at time", func() {
-			img, err := local.NewImage(reference, dockerClient, local.FromBaseImage(reference))
+			img, err := local.NewImage(newTestImageName(), dockerClient, local.FromBaseImage(runnableBaseImageName))
 			h.AssertNil(t, err)
 
+			// based on static base image refs
 			expectedTime := time.Date(2018, 10, 2, 17, 19, 34, 239926273, time.UTC)
+			if daemonInfo.OSType == "windows" {
+				expectedTime = time.Date(2020, 02, 16, 01, 25, 57, 339000000, time.UTC)
+			}
 
 			createdTime, err := img.CreatedAt()
 
@@ -557,20 +616,20 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 					defer wg.Done()
 					newBase = "pack-newbase-test-" + h.RandString(10)
 					h.CreateImageOnLocal(t, dockerClient, newBase, fmt.Sprintf(`
-						FROM busybox
+						FROM %s
 						LABEL repo_name_for_randomisation=%s
 						RUN echo new-base > base.txt
 						RUN echo text-new-base > otherfile.txt
-					`, newBase), nil)
+					`, runnableBaseImageName, newBase), nil)
 				}()
 
 				oldBase = "pack-oldbase-test-" + h.RandString(10)
 				h.CreateImageOnLocal(t, dockerClient, oldBase, fmt.Sprintf(`
-					FROM busybox
+					FROM %s
 					LABEL repo_name_for_randomisation=%s
 					RUN echo old-base > base.txt
 					RUN echo text-old-base > otherfile.txt
-				`, oldBase), nil)
+				`, runnableBaseImageName, oldBase), nil)
 				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), oldBase)
 				h.AssertNil(t, err)
 				oldTopLayer = inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
@@ -597,7 +656,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				// Before
 				txt, err := h.CopySingleFileFromImage(dockerClient, repoName, "base.txt")
 				h.AssertNil(t, err)
-				h.AssertEq(t, txt, "old-base\n")
+				h.AssertMatch(t, txt, regexp.MustCompile(`old-base[ \r\n]*$`))
 
 				// Run rebase
 				img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
@@ -611,17 +670,17 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 				// After
 				expected := map[string]string{
-					"base.txt":      "new-base\n",
-					"otherfile.txt": "text-new-base\n",
-					"myimage.txt":   "text-from-image\n",
-					"myimage2.txt":  "text-from-image\n",
+					"base.txt":      "new-base",
+					"otherfile.txt": "text-new-base",
+					"myimage.txt":   "text-from-image",
+					"myimage2.txt":  "text-from-image",
 				}
 				ctr, err := dockerClient.ContainerCreate(context.Background(), &container.Config{Image: repoName}, &container.HostConfig{}, nil, "")
 				defer dockerClient.ContainerRemove(context.Background(), ctr.ID, types.ContainerRemoveOptions{})
 				for filename, expectedText := range expected {
 					actualText, err := h.CopySingleFileFromContainer(dockerClient, ctr.ID, filename)
 					h.AssertNil(t, err)
-					h.AssertEq(t, actualText, expectedText)
+					h.AssertMatch(t, actualText, regexp.MustCompile(expectedText+`[ \r\n]*$`))
 				}
 
 				// Final Image should have same number of layers as initial image
@@ -635,28 +694,21 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#TopLayer", func() {
 		when("image exists", func() {
-			var (
-				expectedTopLayer string
-				repoName         = newTestImageName()
-			)
-			it.Before(func() {
+			it("returns the digest for the top layer (useful for rebasing)", func() {
+				repoName := newTestImageName()
+
 				h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-				FROM busybox
+				FROM %s
 				LABEL repo_name_for_randomisation=%s
 				RUN echo old-base > base.txt
 				RUN echo text-old-base > otherfile.txt
-				`, repoName), nil)
+				`, runnableBaseImageName, repoName), nil)
+				defer h.DockerRmi(dockerClient, repoName)
 
 				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 				h.AssertNil(t, err)
-				expectedTopLayer = inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
-			})
+				expectedTopLayer := inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
 
-			it.After(func() {
-				h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
-			})
-
-			it("returns the digest for the top layer (useful for rebasing)", func() {
 				img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
 				h.AssertNil(t, err)
 
@@ -681,17 +733,12 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 	when("#AddLayer", func() {
 		var (
 			tarPath  string
-			img      imgutil.Image
 			origID   string
 			repoName = newTestImageName()
 		)
+
 		it.Before(func() {
-			h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM busybox
-					LABEL repo_name_for_randomisation=%s
-					RUN echo -n old-layer > old-layer.txt
-				`, repoName), nil)
-			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer", daemonInfo.OSType)
 			h.AssertNil(t, err)
 			tarFile, err := ioutil.TempFile("", "add-layer-test")
 			h.AssertNil(t, err)
@@ -699,35 +746,78 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			_, err = io.Copy(tarFile, tr)
 			h.AssertNil(t, err)
 			tarPath = tarFile.Name()
-
-			img, err = local.NewImage(
-				repoName, dockerClient,
-				local.FromBaseImage(repoName),
-				local.WithPreviousImage(repoName),
-			)
-			h.AssertNil(t, err)
-			origID = h.ImageID(t, repoName)
 		})
 
 		it.After(func() {
-			err := os.Remove(tarPath)
-			h.AssertNil(t, err)
-			h.AssertNil(t, h.DockerRmi(dockerClient, repoName, origID))
+			h.AssertNil(t, os.Remove(tarPath))
 		})
 
-		it("appends a layer", func() {
-			err := img.AddLayer(tarPath)
-			h.AssertNil(t, err)
+		when("empty image", func() {
+			it("fails to save", func() {
+				if daemonInfo.OSType == "windows" {
+					t.Skip("not yet implemented on windows: fails to Save without base-image")
+					return
+				}
 
-			h.AssertNil(t, img.Save())
+				img, err := local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
 
-			output, err := h.CopySingleFileFromImage(dockerClient, repoName, "old-layer.txt")
-			h.AssertNil(t, err)
-			h.AssertEq(t, output, "old-layer")
+				err = img.AddLayer(tarPath)
+				h.AssertNil(t, err)
 
-			output, err = h.CopySingleFileFromImage(dockerClient, repoName, "new-layer.txt")
-			h.AssertNil(t, err)
-			h.AssertEq(t, output, "new-layer")
+				h.AssertNil(t, img.Save())
+
+				defer h.DockerRmi(dockerClient, repoName)
+			})
+		})
+
+		when("new image from base-image", func() {
+			it("appends a layer", func() {
+				img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(runnableBaseImageName))
+				h.AssertNil(t, err)
+
+				err = img.AddLayer(tarPath)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, img.Save())
+				defer h.DockerRmi(dockerClient, repoName)
+
+				output, err := h.CopySingleFileFromImage(dockerClient, repoName, "new-layer.txt")
+				h.AssertNil(t, err)
+				h.AssertMatch(t, output, regexp.MustCompile(`new-layer[ \r\n]*$`))
+			})
+		})
+
+		when("Dockerfile generated base-image", func() {
+			it("appends a layer", func() {
+				h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
+					FROM %s
+					LABEL repo_name_for_randomisation=%s
+					RUN echo old-layer > old-layer.txt
+				`, runnableBaseImageName, repoName), nil)
+
+				img, err := local.NewImage(
+					repoName, dockerClient,
+					local.FromBaseImage(repoName),
+					local.WithPreviousImage(repoName),
+				)
+				h.AssertNil(t, err)
+				origID = h.ImageID(t, repoName)
+
+				err = img.AddLayer(tarPath)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, img.Save())
+				defer h.DockerRmi(dockerClient, repoName, origID)
+
+				output, err := h.CopySingleFileFromImage(dockerClient, repoName, "old-layer.txt")
+				h.AssertNil(t, err)
+				h.AssertMatch(t, output, regexp.MustCompile(`old-layer[ \r\n]*$`))
+
+				output, err = h.CopySingleFileFromImage(dockerClient, repoName, "new-layer.txt")
+				h.AssertNil(t, err)
+				h.AssertMatch(t, output, regexp.MustCompile(`new-layer[ \r\n]*$`))
+			})
 		})
 	})
 
@@ -741,11 +831,11 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		)
 		it.Before(func() {
 			h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM busybox
+					FROM %s
 					LABEL repo_name_for_randomisation=%s
-					RUN echo -n old-layer > old-layer.txt
-				`, repoName), nil)
-			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+					RUN echo old-layer > old-layer.txt
+				`, runnableBaseImageName, repoName), nil)
+			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer", daemonInfo.OSType)
 			h.AssertNil(t, err)
 			tarFile, err := ioutil.TempFile("", "add-layer-test")
 			h.AssertNil(t, err)
@@ -780,11 +870,11 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 			output, err := h.CopySingleFileFromImage(dockerClient, repoName, "old-layer.txt")
 			h.AssertNil(t, err)
-			h.AssertEq(t, output, "old-layer")
+			h.AssertMatch(t, output, regexp.MustCompile(`old-layer[ \r\n]*$`))
 
 			output, err = h.CopySingleFileFromImage(dockerClient, repoName, "new-layer.txt")
 			h.AssertNil(t, err)
-			h.AssertEq(t, output, "new-layer")
+			h.AssertMatch(t, output, regexp.MustCompile(`new-layer[ \r\n]*$`))
 		})
 	})
 
@@ -793,12 +883,12 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			var repoName = newTestImageName()
 
 			it.Before(func() {
-				baseImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
+				baseImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(runnableBaseImageName))
 				h.AssertNil(t, err)
 
 				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
 
-				tr, err := h.CreateSingleFileTar("file.txt", "file-contents")
+				tr, err := h.CreateSingleFileTar("file.txt", "file-contents", daemonInfo.OSType)
 				h.AssertNil(t, err)
 				tarFile, err := ioutil.TempFile("", "get-layer-test")
 				h.AssertNil(t, err)
@@ -828,9 +918,21 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				tr := tar.NewReader(r)
 
-				header, err := tr.Next()
-				h.AssertNil(t, err)
-				h.AssertEq(t, header.Name, "file.txt")
+				if daemonInfo.OSType == "windows" {
+					_, err = tr.Next() //Files dir
+					h.AssertNil(t, err)
+
+					_, err = tr.Next() //Hives dir
+					h.AssertNil(t, err)
+
+					header, err := tr.Next()
+					h.AssertNil(t, err)
+					h.AssertEq(t, header.Name, "Files/file.txt")
+				} else {
+					header, err := tr.Next()
+					h.AssertNil(t, err)
+					h.AssertEq(t, header.Name, "file.txt")
+				}
 
 				contents := make([]byte, len("file-contents"), len("file-contents"))
 				_, err = tr.Read(contents)
@@ -845,7 +947,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			var repoName = newTestImageName()
 
 			it.Before(func() {
-				baseImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
+				baseImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(runnableBaseImageName))
 				h.AssertNil(t, err)
 
 				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
@@ -892,22 +994,22 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			var err error
 
 			h.CreateImageOnLocal(t, dockerClient, prevName, fmt.Sprintf(`
-					FROM busybox
+					FROM %s
 					LABEL repo_name_for_randomisation=%s
-					RUN echo -n old-layer-1 > layer-1.txt
-					RUN echo -n old-layer-2 > layer-2.txt
-				`, prevName), nil)
+					RUN echo old-layer-1 > layer-1.txt
+					RUN echo old-layer-2 > layer-2.txt
+				`, runnableBaseImageName, prevName), nil)
 
 			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), prevName)
 			h.AssertNil(t, err)
 
-			layer1SHA = inspect.RootFS.Layers[1]
-			layer2SHA = inspect.RootFS.Layers[2]
+			layer1SHA = inspect.RootFS.Layers[len(inspect.RootFS.Layers)-2]
+			layer2SHA = inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
 
 			img, err = local.NewImage(
 				repoName,
 				dockerClient,
-				local.FromBaseImage("busybox"),
+				local.FromBaseImage(runnableBaseImageName),
 				local.WithPreviousImage(prevName),
 			)
 			h.AssertNil(t, err)
@@ -925,7 +1027,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 			output, err := h.CopySingleFileFromImage(dockerClient, repoName, "layer-2.txt")
 			h.AssertNil(t, err)
-			h.AssertEq(t, output, "old-layer-2")
+			h.AssertMatch(t, output, regexp.MustCompile(`old-layer-2[ \r\n]*$`))
 
 			// Confirm layer-1.txt does not exist
 			_, err = h.CopySingleFileFromImage(dockerClient, repoName, "layer-1.txt")
@@ -940,7 +1042,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 			output, err := h.CopySingleFileFromImage(dockerClient, repoName, "layer-1.txt")
 			h.AssertNil(t, err)
-			h.AssertEq(t, output, "old-layer-1")
+			h.AssertMatch(t, output, regexp.MustCompile(`old-layer-1[ \r\n]*$`))
 
 			// Confirm layer-2.txt does not exist
 			_, err = h.CopySingleFileFromImage(dockerClient, repoName, "layer-2.txt")
@@ -959,7 +1061,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		it.Before(func() {
 			var err error
 
-			baseImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
+			baseImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(runnableBaseImageName))
 			h.AssertNil(t, err)
 
 			h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
@@ -968,19 +1070,16 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 			origID = h.ImageID(t, repoName)
 
-			img, err = local.NewImage(repoName, dockerClient)
+			img, err = local.NewImage(repoName, dockerClient, local.FromBaseImage(runnableBaseImageName))
 			h.AssertNil(t, err)
 
-			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer-content", daemonInfo.OSType)
 			h.AssertNil(t, err)
-
-			tarFile, err := ioutil.TempFile("", "add-layer-test")
+			tarFile, err := ioutil.TempFile("", "save-test")
 			h.AssertNil(t, err)
 			defer tarFile.Close()
-
 			_, err = io.Copy(tarFile, tr)
 			h.AssertNil(t, err)
-
 			tarPath = tarFile.Name()
 		})
 
@@ -1134,7 +1233,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 			it.Before(func() {
 				var err error
-				baseImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
+				baseImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(runnableBaseImageName))
 				h.AssertNil(t, err)
 
 				h.AssertNil(t, baseImage.SetLabel("mykey", "oldValue"))

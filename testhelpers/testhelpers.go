@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -137,7 +138,7 @@ func Eventually(t *testing.T, test func() bool, every time.Duration, timeout tim
 func CreateImageOnLocal(t *testing.T, dockerCli dockercli.CommonAPIClient, repoName, dockerFile string, labels map[string]string) {
 	ctx := context.Background()
 
-	buildContext, err := CreateSingleFileTar("Dockerfile", dockerFile)
+	buildContext, err := CreateSingleFileTar("Dockerfile", dockerFile, "linux")
 	AssertNil(t, err)
 
 	res, err := dockerCli.ImageBuild(ctx, buildContext, dockertypes.ImageBuildOptions{
@@ -268,17 +269,56 @@ func ImageID(t *testing.T, repoName string) string {
 	return inspect.ID
 }
 
-func CreateSingleFileTar(path, txt string) (io.Reader, error) {
+func CreateSingleFileTar(containerPath, txt, osType string) (io.Reader, error) {
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
-	if err := tw.WriteHeader(&tar.Header{Name: path, Size: int64(len(txt)), Mode: 0644}); err != nil {
+
+	writeFunc := writeTarSingleFileLinux
+	if osType == "windows" {
+		writeFunc = writeTarSingleFileWindows
+	}
+
+	err := writeFunc(tw, containerPath, txt)
+	if err != nil {
 		return nil, err
 	}
-	if _, err := tw.Write([]byte(txt)); err != nil {
-		return nil, err
-	}
+
 	if err := tw.Close(); err != nil {
 		return nil, err
 	}
 	return bytes.NewReader(buf.Bytes()), nil
+}
+
+func writeTarSingleFileLinux(tw *tar.Writer, layerPath, txt string) error {
+	if err := tw.WriteHeader(&tar.Header{Name: layerPath, Size: int64(len(txt)), Mode: 0644}); err != nil {
+		return err
+	}
+
+	if _, err := tw.Write([]byte(txt)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeTarSingleFileWindows(tw *tar.Writer, containerPath, txt string) error {
+	// root Windows layer directories
+	if err := tw.WriteHeader(&tar.Header{Name: "Files", Typeflag: tar.TypeDir}); err != nil {
+		return err
+	}
+	if err := tw.WriteHeader(&tar.Header{Name: "Hives", Typeflag: tar.TypeDir}); err != nil {
+		return err
+	}
+
+	// prepend file entries with "Files"
+	layerPath := path.Join("Files", containerPath)
+	if err := tw.WriteHeader(&tar.Header{Name: layerPath, Size: int64(len(txt)), Mode: 0644}); err != nil {
+		return err
+	}
+
+	if _, err := tw.Write([]byte(txt)); err != nil {
+		return err
+	}
+
+	return nil
 }

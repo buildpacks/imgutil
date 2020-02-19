@@ -118,7 +118,7 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 }
 
 func randomLayer(t *testing.T) string {
-	tr, err := h.CreateSingleFileTar(fmt.Sprintf("/new-layer-%s.txt", h.RandString(10)), "new-layer-"+h.RandString(10))
+	tr, err := h.CreateSingleFileTar(fmt.Sprintf("/new-layer-%s.txt", h.RandString(10)), "new-layer-"+h.RandString(10), "linux")
 	h.AssertNil(t, err)
 
 	tarFile, err := ioutil.TempFile("", "add-layer-test")
