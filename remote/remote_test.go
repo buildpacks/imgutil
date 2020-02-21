@@ -4,15 +4,16 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
+	ggcrname "github.com/google/go-containerregistry/pkg/name"
+	ggcrv1 "github.com/google/go-containerregistry/pkg/v1"
+	ggcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"io"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
 	"regexp"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -44,14 +45,30 @@ func TestRemoteImage(t *testing.T) {
 }
 
 func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
-	var repoName string
-	var dockerClient client.CommonAPIClient
+	var (
+		repoName              string
+		dockerClient          client.CommonAPIClient
+		runnableBaseImageName string
+		daemonOSType          string
+	)
 
 	it.Before(func() {
 		var err error
 		dockerClient = h.DockerCli(t)
 		h.AssertNil(t, err)
 		repoName = newTestImageName()
+
+		daemonInfo, err := dockerClient.Info(context.TODO())
+		h.AssertNil(t, err)
+
+		daemonOSType = daemonInfo.OSType
+
+		runnableBaseImageName = "amd64/busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"
+		if daemonOSType == "windows" {
+			runnableBaseImageName = "mcr.microsoft.com/windows/nanoserver@sha256:06281772b6a561411d4b338820d94ab1028fdeb076c85350bbc01e80c4bfa2b4"
+		}
+
+		h.PullImage(dockerClient, runnableBaseImageName)
 	})
 
 	when("#NewRemote", func() {
@@ -66,45 +83,168 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				img, err := remote.NewImage(newTestImageName(), authn.DefaultKeychain)
 				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
-				h.AssertNil(t, h.PullImage(dockerClient, img.Name()))
-				defer h.DockerRmi(dockerClient, img.Name())
-				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
-				h.AssertNil(t, err)
-				h.AssertEq(t, inspect.Os, "linux")
-				h.AssertEq(t, inspect.Architecture, "amd64")
-				h.AssertEq(t, inspect.RootFS.Type, "layers")
+
+				os, err := img.OS()
+				h.AssertEq(t, os, "linux")
+
+				arch, err := img.Architecture()
+				h.AssertEq(t, arch, "amd64")
+
+				topLayer, err := img.TopLayer()
+				h.AssertEq(t, topLayer, "")
+			})
+		})
+
+		when("#WithDefaultPlatform", func() {
+			when("no base image is given", func() {
+				it("sets os and architecture", func() {
+					img, err := remote.NewImage(
+						newTestImageName(),
+						authn.DefaultKeychain,
+						remote.WithDefaultPlatform(
+							ggcrv1.Platform{OS: "windows", Architecture: "arm"}),
+					)
+					h.AssertNil(t, err)
+					h.AssertNil(t, img.Save())
+
+					os, err := img.OS()
+					h.AssertEq(t, os, "windows")
+
+					arch, err := img.Architecture()
+					h.AssertEq(t, arch, "arm")
+
+					topLayer, err := img.TopLayer()
+					h.AssertEq(t, topLayer, "")
+				})
 			})
 		})
 
 		when("#FromRemoteBaseImage", func() {
 			when("base image exists", func() {
-				var (
-					baseName         = "busybox"
-					err              error
-					existingLayerSha string
-				)
+				it("sets the initial state from a linux/amd64 base image", func() {
+					baseImageName := "amd64/busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"
+					existingLayerSha := "sha256:8a788232037eaf17794408ff3df6b922a1aedf9ef8de36afdae3ed0b0381907b"
 
-				it.Before(func() {
-					err = h.PullImage(dockerClient, baseName)
-					h.AssertNil(t, err)
-
-					inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), baseName)
-					h.AssertNil(t, err)
-
-					existingLayerSha = inspect.RootFS.Layers[0]
-				})
-
-				it("sets the initial state to match the base image", func() {
 					img, err := remote.NewImage(
 						repoName,
 						authn.DefaultKeychain,
-						remote.FromBaseImage(baseName),
+						remote.FromBaseImage(baseImageName),
 					)
 					h.AssertNil(t, err)
+
+					os, err := img.OS()
+					h.AssertNil(t, err)
+					h.AssertEq(t, os, "linux")
+
+					arch, err := img.Architecture()
+					h.AssertNil(t, err)
+					h.AssertEq(t, arch, "amd64")
 
 					readCloser, err := img.GetLayer(existingLayerSha)
 					h.AssertNil(t, err)
 					defer readCloser.Close()
+				})
+
+				it("sets the initial state from a linux/arm base image", func() {
+					baseImageName := "arm64v8/busybox@sha256:50edf1d080946c6a76989d1c3b0e753b62f7d9b5f5e66e88bef23ebbd1e9709c"
+					existingLayerSha := "sha256:5a0b973aa300cd2650869fd76d8546b361fcd6dfc77bd37b9d4f082cca9874e4"
+
+					img, err := remote.NewImage(
+						repoName,
+						authn.DefaultKeychain,
+						remote.FromBaseImage(baseImageName),
+					)
+					h.AssertNil(t, err)
+
+					os, err := img.OS()
+					h.AssertNil(t, err)
+					h.AssertEq(t, os, "linux")
+
+					arch, err := img.Architecture()
+					h.AssertNil(t, err)
+					h.AssertEq(t, arch, "arm64")
+
+					readCloser, err := img.GetLayer(existingLayerSha)
+					h.AssertNil(t, err)
+					defer readCloser.Close()
+				})
+
+				it("sets the initial state from a windows/amd64 base image", func() {
+					baseImageName := "mcr.microsoft.com/windows/nanoserver@sha256:06281772b6a561411d4b338820d94ab1028fdeb076c85350bbc01e80c4bfa2b4"
+					existingLayerSha := "sha256:26fd2d9d4c64a4f965bbc77939a454a31b607470f430b5d69fc21ded301fa55e"
+
+					img, err := remote.NewImage(
+						repoName,
+						authn.DefaultKeychain,
+						remote.FromBaseImage(baseImageName),
+					)
+					h.AssertNil(t, err)
+
+					os, err := img.OS()
+					h.AssertNil(t, err)
+					h.AssertEq(t, os, "windows")
+
+					arch, err := img.Architecture()
+					h.AssertNil(t, err)
+					h.AssertEq(t, arch, "amd64")
+
+					readCloser, err := img.GetLayer(existingLayerSha)
+					h.AssertNil(t, err)
+					defer readCloser.Close()
+				})
+
+				when("base image is a multi-OS/Arch manifest list", func() {
+					it("returns a base image matching the runtime GOOS/GOARCH", func() {
+						manifestListName := "golang:1.13.8"
+						existingLayerSha := "sha256:427da4a135b0869c1a274ba38e23d45bdbda93134c4ad99c8900cb0cfe9f0c9e"
+
+						img, err := remote.NewImage(
+							repoName,
+							authn.DefaultKeychain,
+							remote.FromBaseImage(manifestListName),
+						)
+						h.AssertNil(t, err)
+
+						os, err := img.OS()
+						h.AssertNil(t, err)
+						h.AssertEq(t, os, "linux")
+
+						arch, err := img.Architecture()
+						h.AssertNil(t, err)
+						h.AssertEq(t, arch, "amd64")
+
+						readCloser, err := img.GetLayer(existingLayerSha)
+						h.AssertNil(t, err)
+						defer readCloser.Close()
+					})
+
+					when("and WithDefaultPlatform is set to windows/amd64", func() {
+						it("returns a base image matching the runtime GOOS/GOARCH", func() {
+							manifestListName := "golang:1.13.8"
+							existingLayerSha := "sha256:daf52c42c7d1d7b71581d309f4150b06fa5da3a0f53616f48bfdbdbb0e4fd171"
+
+							img, err := remote.NewImage(
+								repoName,
+								authn.DefaultKeychain,
+								remote.WithDefaultPlatform(
+									ggcrv1.Platform{OS: "windows", Architecture: "amd64", OSVersion: "10.0.17763.1040"}),
+								remote.FromBaseImage(manifestListName),
+							)
+							h.AssertNil(t, err)
+
+							os, err := img.OS()
+							h.AssertNil(t, err)
+							h.AssertEq(t, os, "windows")
+
+							arch, err := img.Architecture()
+							h.AssertNil(t, err)
+							h.AssertEq(t, arch, "amd64")
+
+							readCloser, err := img.GetLayer(existingLayerSha)
+							h.AssertNil(t, err)
+							defer readCloser.Close()
+						})
+					})
 				})
 			})
 
@@ -140,13 +280,15 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		when("image exists", func() {
 			var img imgutil.Image
 			it.Before(func() {
-				h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-					LABEL mykey=myvalue other=data
-				`, repoName), nil)
-
 				var err error
+				baseImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, baseImage.SetLabel("mykey", "myvalue"))
+				h.AssertNil(t, baseImage.SetLabel("other", "data"))
+				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+				h.AssertNil(t, baseImage.Save())
+
 				img, err = remote.NewImage(
 					repoName, authn.DefaultKeychain,
 					remote.FromBaseImage(repoName),
@@ -185,13 +327,14 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				img imgutil.Image
 			)
 			it.Before(func() {
-				h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-					ENV MY_VAR=my_val
-				`, repoName), nil)
-
 				var err error
+				baseImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, baseImage.SetEnv("MY_VAR", "my_val"))
+				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+				h.AssertNil(t, baseImage.Save())
+
 				img, err = remote.NewImage(
 					repoName,
 					authn.DefaultKeychain,
@@ -290,8 +433,16 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				id, err := img.Identifier()
 				h.AssertNil(t, err)
 
-				label := remoteLabel(t, dockerClient, id.String(), "new")
-				h.AssertEq(t, "label", label)
+				testImg, err := remote.NewImage(
+					"test",
+					authn.DefaultKeychain,
+					remote.FromBaseImage(id.String()),
+				)
+
+				remoteLabel, err := testImg.Label("new")
+				h.AssertNil(t, err)
+
+				h.AssertEq(t, remoteLabel, "label")
 			})
 		})
 	})
@@ -317,9 +468,16 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 				h.AssertNil(t, img.Save())
 
-				// After Pull
-				label := remoteLabel(t, dockerClient, repoName, "mykey")
-				h.AssertEq(t, "new-val", label)
+				testImg, err := remote.NewImage(
+					"test",
+					authn.DefaultKeychain,
+					remote.FromBaseImage(repoName),
+				)
+
+				remoteLabel, err := testImg.Label("mykey")
+				h.AssertNil(t, err)
+
+				h.AssertEq(t, remoteLabel, "new-val")
 			})
 		})
 	})
@@ -340,13 +498,14 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 			h.AssertNil(t, img.Save())
 
-			h.AssertNil(t, h.PullImage(dockerClient, repoName))
-			defer h.DockerRmi(dockerClient, repoName)
+			testImg, err := remote.NewImage(
+				"test",
+				authn.DefaultKeychain,
+				remote.FromBaseImage(repoName),
+			)
 
-			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
-			h.AssertNil(t, err)
-
-			h.AssertContains(t, inspect.Config.Env, "ENV_KEY=ENV_VAL")
+			remoteEnv, err := testImg.Env("ENV_KEY")
+			h.AssertEq(t, remoteEnv, "ENV_VAL")
 		})
 	})
 
@@ -366,13 +525,9 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 			h.AssertNil(t, img.Save())
 
-			h.AssertNil(t, h.PullImage(dockerClient, repoName))
-			defer h.DockerRmi(dockerClient, repoName)
+			config := manifestImageConfig(t, repoName, daemonOSType)
 
-			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
-			h.AssertNil(t, err)
-
-			h.AssertEq(t, inspect.Config.WorkingDir, "/some/work/dir")
+			h.AssertEq(t, config.WorkingDir, "/some/work/dir")
 		})
 	})
 
@@ -392,13 +547,9 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 			h.AssertNil(t, img.Save())
 
-			h.AssertNil(t, h.PullImage(dockerClient, repoName))
-			defer h.DockerRmi(dockerClient, repoName)
+			config := manifestImageConfig(t, repoName, daemonOSType)
 
-			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
-			h.AssertNil(t, err)
-
-			h.AssertEq(t, []string(inspect.Config.Entrypoint), []string{"some", "entrypoint"})
+			h.AssertEq(t, []string(config.Entrypoint), []string{"some", "entrypoint"})
 		})
 	})
 
@@ -418,17 +569,13 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 			h.AssertNil(t, img.Save())
 
-			h.AssertNil(t, h.PullImage(dockerClient, repoName))
-			defer h.DockerRmi(dockerClient, repoName)
+			config := manifestImageConfig(t, repoName, daemonOSType)
 
-			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
-			h.AssertNil(t, err)
-
-			h.AssertEq(t, []string(inspect.Config.Cmd), []string{"some", "cmd"})
+			h.AssertEq(t, config.Cmd, []string{"some", "cmd"})
 		})
 	})
 
-	when("#Rebase", func() {
+	when.Pend("#Rebase", func() {
 		when("image exists", func() {
 			var oldBase, oldTopLayer, newBase string
 			var oldBaseLayers, newBaseLayers, repoTopLayers []string
@@ -440,22 +587,22 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				go func() {
 					defer wg.Done()
 					h.CreateImageOnRemote(t, dockerClient, newBase, fmt.Sprintf(`
-						FROM busybox
+						FROM %s
 						LABEL repo_name_for_randomisation=%s
 						RUN echo new-base > base.txt
 						RUN echo text-new-base > otherfile.txt
-					`, repoName), nil)
-					newBaseLayers = manifestLayers(t, newBase)
+					`, runnableBaseImageName, repoName), nil)
+					newBaseLayers = manifestLayers(t, newBase, daemonOSType)
 				}()
 
 				oldBase = fmt.Sprintf("%s:%s/pack-oldbase-test-%s", localTestRegistry.Host, localTestRegistry.Port, h.RandString(10))
 				oldTopLayer = h.CreateImageOnRemote(t, dockerClient, oldBase, fmt.Sprintf(`
-					FROM busybox
+					FROM %s
 					LABEL repo_name_for_randomisation=%s
 					RUN echo old-base > base.txt
 					RUN echo text-old-base > otherfile.txt
-				`, oldBase), nil)
-				oldBaseLayers = manifestLayers(t, oldBase)
+				`, runnableBaseImageName, oldBase), nil)
+				oldBaseLayers = manifestLayers(t, oldBase, daemonOSType)
 
 				h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
 					FROM %s
@@ -463,7 +610,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 					RUN echo text-from-image-1 > myimage.txt
 					RUN echo text-from-image-2 > myimage2.txt
 				`, oldBase, repoName), nil)
-				repoTopLayers = manifestLayers(t, repoName)[len(oldBaseLayers):]
+				repoTopLayers = manifestLayers(t, repoName, daemonOSType)[len(oldBaseLayers):]
 
 				wg.Wait()
 			})
@@ -475,7 +622,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			it("switches the base", func() {
 				// Before
 				h.AssertEq(t,
-					manifestLayers(t, repoName),
+					manifestLayers(t, repoName, daemonOSType),
 					append(oldBaseLayers, repoTopLayers...),
 				)
 
@@ -490,7 +637,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 				// After
 				h.AssertEq(t,
-					manifestLayers(t, repoName),
+					manifestLayers(t, repoName, daemonOSType),
 					append(newBaseLayers, repoTopLayers...),
 				)
 			})
@@ -501,11 +648,11 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		when("image exists", func() {
 			it("returns the digest for the top layer (useful for rebasing)", func() {
 				expectedTopLayer := h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM busybox
+					FROM %s
 					LABEL repo_name_for_randomisation=%s
 					RUN echo old-base > base.txt
 					RUN echo text-old-base > otherfile.txt
-				`, repoName), nil)
+				`, runnableBaseImageName, repoName), nil)
 
 				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
 				h.AssertNil(t, err)
@@ -535,11 +682,12 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		)
 		it.Before(func() {
 			h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM busybox
+					FROM %s
 					LABEL repo_name_for_randomisation=%s
-					RUN echo -n old-layer > old-layer.txt
-				`, repoName), nil)
-			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer", "linux")
+					RUN echo old-layer > old-layer.txt
+				`, runnableBaseImageName, repoName), nil)
+
+			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer", daemonOSType)
 			h.AssertNil(t, err)
 
 			tarFile, err := ioutil.TempFile("", "add-layer-test")
@@ -556,7 +704,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 		it.After(func() {
 			h.AssertNil(t, os.Remove(tarPath))
-			h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
 		})
 
 		it("appends a layer", func() {
@@ -570,11 +717,11 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 			output, err := h.CopySingleFileFromImage(dockerClient, repoName, "old-layer.txt")
 			h.AssertNil(t, err)
-			h.AssertEq(t, output, "old-layer")
+			h.AssertMatch(t, output, regexp.MustCompile(`old-layer[ \r\n]*$`))
 
 			output, err = h.CopySingleFileFromImage(dockerClient, repoName, "new-layer.txt")
 			h.AssertNil(t, err)
-			h.AssertEq(t, output, "new-layer")
+			h.AssertMatch(t, output, regexp.MustCompile(`new-layer[ \r\n]*$`))
 		})
 	})
 
@@ -587,11 +734,11 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 		it.Before(func() {
 			h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM busybox
+					FROM %s
 					LABEL repo_name_for_randomisation=%s
-					RUN echo -n old-layer > old-layer.txt
-				`, repoName), nil)
-			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer", "linux")
+					RUN echo old-layer > old-layer.txt
+				`, runnableBaseImageName, repoName), nil)
+			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer", daemonOSType)
 			h.AssertNil(t, err)
 
 			tarFile, err := ioutil.TempFile("", "add-layer-test")
@@ -624,11 +771,11 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 			output, err := h.CopySingleFileFromImage(dockerClient, repoName, "old-layer.txt")
 			h.AssertNil(t, err)
-			h.AssertEq(t, output, "old-layer")
+			h.AssertMatch(t, output, regexp.MustCompile(`old-layer[ \r\n]*$`))
 
 			output, err = h.CopySingleFileFromImage(dockerClient, repoName, "new-layer.txt")
 			h.AssertNil(t, err)
-			h.AssertEq(t, output, "new-layer")
+			h.AssertMatch(t, output, regexp.MustCompile(`new-layer[ \r\n]*$`))
 		})
 	})
 
@@ -645,23 +792,23 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 				prevImageName = fmt.Sprintf("%s:%s/pack-image-test-%s", localTestRegistry.Host, localTestRegistry.Port, h.RandString(10))
 				h.CreateImageOnRemote(t, dockerClient, prevImageName, fmt.Sprintf(`
-					FROM busybox
+					FROM %s
 					LABEL repo_name_for_randomisation=%s
-					RUN echo -n old-layer-1 > layer-1.txt
-					RUN echo -n old-layer-2 > layer-2.txt
-				`, repoName), nil)
+					RUN echo old-layer-1 > layer-1.txt
+					RUN echo old-layer-2 > layer-2.txt
+				`, runnableBaseImageName, repoName), nil)
 
 				h.AssertNil(t, h.PullImage(dockerClient, prevImageName))
 				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), prevImageName)
 				h.AssertNil(t, err)
 
-				layer2SHA = inspect.RootFS.Layers[2]
+				layer2SHA = inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
 
 				img, err = remote.NewImage(
 					repoName,
 					authn.DefaultKeychain,
 					remote.WithPreviousImage(prevImageName),
-					remote.FromBaseImage("busybox"),
+					remote.FromBaseImage(runnableBaseImageName),
 				)
 				h.AssertNil(t, err)
 			})
@@ -680,7 +827,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				defer h.DockerRmi(dockerClient, repoName)
 				output, err := h.CopySingleFileFromImage(dockerClient, repoName, "layer-2.txt")
 				h.AssertNil(t, err)
-				h.AssertEq(t, output, "old-layer-2")
+				h.AssertMatch(t, output, regexp.MustCompile(`old-layer-2[ \r\n]*$`))
 
 				// Confirm layer-1.txt does not exist
 				_, err = h.CopySingleFileFromImage(dockerClient, repoName, "layer-1.txt")
@@ -701,17 +848,18 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			var tarPath string
 
 			it.Before(func() {
-				h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM busybox
-					LABEL repo_name_for_randomisation=%s
-					LABEL mykey=oldValue
-				`, repoName), nil)
+				baseImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+				h.AssertNil(t, baseImage.SetLabel("mykey", "oldValue"))
+				h.AssertNil(t, baseImage.Save())
 
 				tarFile, err := ioutil.TempFile("", "add-layer-test")
 				h.AssertNil(t, err)
 				defer tarFile.Close()
 
-				tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer", "linux")
+				tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer", daemonOSType)
 				h.AssertNil(t, err)
 
 				_, err = io.Copy(tarFile, tr)
@@ -720,6 +868,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it.After(func() {
+				defer h.DockerRmi(dockerClient, repoName)
 				os.Remove(tarPath)
 			})
 
@@ -735,14 +884,20 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				identifier, err := img.Identifier()
 				h.AssertNil(t, err)
 
-				// After Pull
-				label := remoteLabel(t, dockerClient, identifier.String(), "mykey")
-				h.AssertEq(t, "newValue", label)
+				testImg, err := remote.NewImage(
+					"test",
+					authn.DefaultKeychain,
+					remote.FromBaseImage(identifier.String()),
+				)
 
+				remoteLabel, err := testImg.Label("mykey")
+				h.AssertNil(t, err)
+
+				h.AssertEq(t, remoteLabel, "newValue")
 			})
 
 			it("zeroes all times and client specific fields", func() {
-				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(runnableBaseImageName))
 				h.AssertNil(t, err)
 
 				h.AssertNil(t, img.AddLayer(tarPath))
@@ -783,7 +938,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("saves to multiple names", func() {
-				image, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				image, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(runnableBaseImageName))
 				h.AssertNil(t, err)
 
 				h.AssertNil(t, image.Save(additionalRepoNames...))
@@ -796,7 +951,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				it("returns results with errors for those that failed", func() {
 					failingName := newTestImageName() + ":🧨"
 
-					image, err := remote.NewImage(repoName, authn.DefaultKeychain)
+					image, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(runnableBaseImageName))
 					h.AssertNil(t, err)
 
 					err = image.Save(append([]string{failingName}, additionalRepoNames...)...)
@@ -819,14 +974,11 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#Found", func() {
 		when("it exists", func() {
-			it.Before(func() {
-				h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-				`, repoName), nil)
-			})
-
 			it("returns true, nil", func() {
+				origImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertNil(t, origImage.Save())
+
 				image, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
@@ -847,21 +999,19 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 	when("#Delete", func() {
 		when("it exists", func() {
 			var img imgutil.Image
-			it.Before(func() {
-				h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM scratch
-					LABEL repo_name_for_randomisation=%s
-				`, repoName), nil)
-
+			it("returns nil and is deleted", func() {
 				var err error
+
+				origImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertNil(t, origImage.Save())
+
 				img, err = remote.NewImage(
 					repoName, authn.DefaultKeychain,
 					remote.FromBaseImage(repoName),
 				)
-				h.AssertNil(t, err)
-			})
 
-			it("returns nil and is deleted", func() {
+				h.AssertNil(t, err)
 				h.AssertEq(t, img.Found(), true)
 
 				h.AssertNil(t, img.Delete())
@@ -882,47 +1032,48 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 	})
 }
 
-func manifestLayers(t *testing.T, repoName string) []string {
+func manifestLayers(t *testing.T, repoName, imageOS string) []string {
 	t.Helper()
 
-	arr := strings.SplitN(repoName, "/", 2)
-	if len(arr) != 2 {
-		t.Fatalf("expected repoName to have 1 slash (remote test registry): '%s'", repoName)
-	}
-
-	url := "http://" + arr[0] + "/v2/" + arr[1] + "/manifests/latest"
-	req, err := http.NewRequest("GET", url, nil)
-	h.AssertNil(t, err)
-	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
-	resp, err := http.DefaultClient.Do(req)
-	h.AssertNil(t, err)
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		t.Fatalf("HTTP Status was bad: %s => %d", url, resp.StatusCode)
-	}
-
-	var manifest struct {
-		Layers []struct {
-			Digest string `json:"digest"`
-		} `json:"layers"`
-	}
-	json.NewDecoder(resp.Body).Decode(&manifest)
+	r, err := ggcrname.ParseReference(repoName, ggcrname.WeakValidation)
 	h.AssertNil(t, err)
 
-	outSlice := make([]string, 0, len(manifest.Layers))
-	for _, layer := range manifest.Layers {
-		outSlice = append(outSlice, layer.Digest)
+	gImg, err := ggcrremote.Image(
+		r,
+		ggcrremote.WithPlatform(ggcrv1.Platform{OS: imageOS}),
+		ggcrremote.WithTransport(http.DefaultTransport),
+	)
+	h.AssertNil(t, err)
+
+	gLayers, err := gImg.Layers()
+	h.AssertNil(t, err)
+
+	var manifestLayers []string
+	for _, gLayer := range gLayers {
+		diffID, err := gLayer.DiffID()
+		h.AssertNil(t, err)
+
+		manifestLayers = append(manifestLayers, diffID.String())
 	}
 
-	return outSlice
+	return manifestLayers
 }
 
-func remoteLabel(t *testing.T, dockerCli client.CommonAPIClient, repoName, label string) string {
+func manifestImageConfig(t *testing.T, repoName, imageOS string) ggcrv1.Config {
 	t.Helper()
 
-	h.AssertNil(t, h.PullImage(dockerCli, repoName))
-	defer func() { h.AssertNil(t, h.DockerRmi(dockerCli, repoName)) }()
-	inspect, _, err := dockerCli.ImageInspectWithRaw(context.TODO(), repoName)
+	r, err := ggcrname.ParseReference(repoName, ggcrname.WeakValidation)
 	h.AssertNil(t, err)
-	return inspect.Config.Labels[label]
+
+	gImg, err := ggcrremote.Image(
+		r,
+		ggcrremote.WithPlatform(ggcrv1.Platform{OS: imageOS}),
+		ggcrremote.WithTransport(http.DefaultTransport),
+	)
+	h.AssertNil(t, err)
+
+	configFile, err := gImg.ConfigFile()
+	h.AssertNil(t, err)
+
+	return configFile.Config
 }
