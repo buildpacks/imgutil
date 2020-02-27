@@ -41,8 +41,12 @@ func TestLocal(t *testing.T) {
 	spec.Run(t, "LocalImage", testLocalImage, spec.Sequential(), spec.Report(report.Terminal{}))
 }
 
-func newTestImageName() string {
-	return fmt.Sprintf("%s:%s/pack-image-test-%s", localTestRegistry.Host, localTestRegistry.Port, h.RandString(10))
+func newTestImageName(suffixOpt ...string) string {
+	suffix := ":latest"
+	if len(suffixOpt) == 1 {
+		suffix = suffixOpt[0]
+	}
+	return fmt.Sprintf("%s:%s/pack-image-test-%s%s", localTestRegistry.Host, localTestRegistry.Port, h.RandString(10), suffix)
 }
 
 func testLocalImage(t *testing.T, when spec.G, it spec.S) {
@@ -614,7 +618,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					newBase = "pack-newbase-test-" + h.RandString(10)
+					newBase = newTestImageName(":new-base")
 					h.CreateImageOnLocal(t, dockerClient, newBase, fmt.Sprintf(`
 						FROM %s
 						LABEL repo_name_for_randomisation=%s
@@ -623,7 +627,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 					`, runnableBaseImageName, newBase), nil)
 				}()
 
-				oldBase = "pack-oldbase-test-" + h.RandString(10)
+				oldBase = newTestImageName(":old-base")
 				h.CreateImageOnLocal(t, dockerClient, oldBase, fmt.Sprintf(`
 					FROM %s
 					LABEL repo_name_for_randomisation=%s
@@ -1138,7 +1142,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		when("additional names are provided", func() {
 			var (
 				additionalRepoNames = []string{
-					repoName + ":" + h.RandString(5),
+					newTestImageName(":"+h.RandString(5)),
 					newTestImageName(),
 					newTestImageName(),
 				}

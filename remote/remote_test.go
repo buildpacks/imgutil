@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -30,8 +31,12 @@ import (
 
 var localTestRegistry *h.DockerRegistry
 
-func newTestImageName() string {
-	return fmt.Sprintf("%s:%s/pack-image-test-%s", localTestRegistry.Host, localTestRegistry.Port, h.RandString(10))
+func newTestImageName(suffixOpt ...string) string {
+	suffix := ":latest"
+	if len(suffixOpt) == 1 {
+		suffix = suffixOpt[0]
+	}
+	return fmt.Sprintf("%s:%s/pack-image-test-%s%s", localTestRegistry.Host, localTestRegistry.Port, h.RandString(10), suffix)
 }
 
 func TestRemoteImage(t *testing.T) {
@@ -74,13 +79,13 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 	when("#NewRemote", func() {
 		when("no base image is given", func() {
 			it("returns an empty image", func() {
-				_, err := remote.NewImage(newTestImageName(), authn.DefaultKeychain)
+				_, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 			})
 
 			it("sets sensible defaults for all required fields", func() {
 				// os, architecture, and rootfs are required per https://github.com/opencontainers/image-spec/blob/master/config.md
-				img, err := remote.NewImage(newTestImageName(), authn.DefaultKeychain)
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
 
@@ -99,7 +104,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			when("no base image is given", func() {
 				it("sets os and architecture", func() {
 					img, err := remote.NewImage(
-						newTestImageName(),
+						repoName,
 						authn.DefaultKeychain,
 						remote.WithDefaultPlatform(
 							ggcrv1.Platform{OS: "windows", Architecture: "arm"}),
@@ -397,7 +402,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		it.Before(func() {
 			var err error
 			img, err = remote.NewImage(
-				repoName+":some-tag",
+				repoName,
 				authn.DefaultKeychain,
 				remote.FromBaseImage("busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"),
 			)
@@ -407,13 +412,15 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		it("returns a digest reference", func() {
 			identifier, err := img.Identifier()
 			h.AssertNil(t, err)
-			h.AssertEq(t, identifier.String(), repoName+"@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5")
+			repoDigestName := strings.Replace(repoName, ":latest", "@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5", 1)
+			h.AssertEq(t, identifier.String(), repoDigestName)
 		})
 
 		it("accurately parses the reference for an image with a sha", func() {
 			var err error
+			repoDigestName := newTestImageName("@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5")
 			img, err = remote.NewImage(
-				repoName+"@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5",
+				repoDigestName,
 				authn.DefaultKeychain,
 				remote.FromBaseImage("busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"),
 			)
@@ -421,7 +428,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 			identifier, err := img.Identifier()
 			h.AssertNil(t, err)
-			h.AssertEq(t, identifier.String(), repoName+"@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5")
+			h.AssertEq(t, identifier.String(), repoDigestName)
 		})
 
 		when("the image has been modified and saved", func() {
@@ -926,7 +933,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			var (
 				repoName            = newTestImageName()
 				additionalRepoNames = []string{
-					repoName + ":" + h.RandString(5),
+					newTestImageName(":"+h.RandString(5)) ,
 					newTestImageName(),
 					newTestImageName(),
 				}
@@ -949,7 +956,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 			when("a single image name fails", func() {
 				it("returns results with errors for those that failed", func() {
-					failingName := newTestImageName() + ":🧨"
+					failingName := newTestImageName(":🧨")
 
 					image, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(runnableBaseImageName))
 					h.AssertNil(t, err)
