@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/docker/pkg/jsonmessage"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -362,7 +364,19 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 			return
 		}
 		defer res.Body.Close()
-		io.Copy(ioutil.Discard, res.Body)
+
+		decoder := json.NewDecoder(res.Body)
+		var jsonMessage jsonmessage.JSONMessage
+		err = decoder.Decode(&jsonMessage)
+		if err != nil {
+			done <- errors.Wrapf(err, "parsing response")
+			return
+		}
+
+		if jsonMessage.Error != nil {
+			done <- errors.Wrap(jsonMessage.Error, "response error")
+			return
+		}
 
 		done <- nil
 	}()
@@ -418,6 +432,9 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 	tw.Close()
 	pw.Close()
 	err = <-done
+	if err != nil {
+		return types.ImageInspect{}, errors.Wrapf(err, "image load '%s'", i.repoName)
+	}
 
 	i.requestGroup.Forget(i.repoName)
 

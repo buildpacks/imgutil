@@ -981,7 +981,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 				readCloser, err := image.GetLayer(h.RandString(10))
 				h.AssertNil(t, readCloser)
-				h.AssertError(t, err, "No such image")
+				h.AssertError(t, err, "reference does not exist")
 			})
 		})
 	})
