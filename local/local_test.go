@@ -757,21 +757,53 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("empty image", func() {
-			it("fails to save", func() {
-				if daemonInfo.OSType == "windows" {
-					t.Skip("not yet implemented on windows: fails to Save without base-image")
-					return
-				}
+			when("linux", func() {
+				it("adds and saves successfully", func() {
+					if daemonInfo.OSType == "windows" {
+						t.Skip("not yet implemented on windows: fails to Save without base-image")
+						return
+					}
 
-				img, err := local.NewImage(repoName, dockerClient)
-				h.AssertNil(t, err)
+					img, err := local.NewImage(repoName, dockerClient)
+					h.AssertNil(t, err)
 
-				err = img.AddLayer(tarPath)
-				h.AssertNil(t, err)
+					err = img.AddLayer(tarPath)
+					h.AssertNil(t, err)
 
-				h.AssertNil(t, img.Save())
+					h.AssertNil(t, img.Save())
 
-				defer h.DockerRmi(dockerClient, repoName)
+					defer h.DockerRmi(dockerClient, repoName)
+				})
+			})
+
+			when("windows", func() {
+				it("requires base layer before adding additional layers successfully", func() {
+					if daemonInfo.OSType == "linux" {
+						t.Skip("does not fail on linux")
+						return
+					}
+
+					baseLayerFile, err := ioutil.TempFile("", "windows-base-layer1")
+					h.AssertNil(t, err)
+					baseLayerPath := baseLayerFile.Name()
+					defer os.RemoveAll(baseLayerPath)
+
+					h.AssertNil(t, h.WriteWindowsBaseLayerTar(baseLayerPath))
+
+					img, err := local.NewImage(repoName, dockerClient)
+					h.AssertNil(t, err)
+
+					err = img.AddLayer(baseLayerPath)
+					h.AssertNil(t, err)
+
+					err = img.AddLayer(tarPath)
+					h.AssertNil(t, err)
+
+					h.AssertNil(t, img.Save())
+
+					defer h.DockerRmi(dockerClient, repoName)
+				})
+
 			})
 		})
 
@@ -1142,7 +1174,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		when("additional names are provided", func() {
 			var (
 				additionalRepoNames = []string{
-					newTestImageName(":"+h.RandString(5)),
+					newTestImageName(":" + h.RandString(5)),
 					newTestImageName(),
 					newTestImageName(),
 				}

@@ -3,12 +3,15 @@ package testhelpers
 import (
 	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"os"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -268,6 +271,49 @@ func ImageID(t *testing.T, repoName string) string {
 	inspect, _, err := DockerCli(t).ImageInspectWithRaw(context.Background(), repoName)
 	AssertNil(t, err)
 	return inspect.ID
+}
+
+func WriteWindowsBaseLayerTar(outputPath string) error {
+	tarFile, err := os.OpenFile(outputPath, os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	tw := tar.NewWriter(tarFile)
+
+	//Valid BCD file required, containing Windows Boot Manager and Windows Boot Loader sections
+	//Note: Gzip/Base64 encoded only to inline the binary BCD file here
+	//CMD: `bcdedit /createstore c:\output-bcd & bcdedit /create {6a6c1f1b-59d4-11ea-9438-9402e6abd998} /d buildpacks.io /application osloader /store c:\output-bcd & bcdedit /create {bootmgr} /store c:\output-bcd & bcdedit /set {bootmgr} default {6a6c1f1b-59d4-11ea-9438-9402e6abd998} /store c:\output-bcd & bcdedit /enum all /store c:\output-bcd`
+	//BASH: `gzip --stdout --best output-bcd | base64`
+	bcdGzipBase64 := "H4sIABeDWF4CA+1YTWgTQRR+m2zSFItGkaJQcKXgyZX8bNKklxatUvyJoh4qKjS7O7GxzQ9Jai210JtFQXrUW4/e2ostCF4EoSCCF6HHQi9FWsxJepH43s5us02XYlFBcL7l7U7evHnzzZtvoJ0Ke5A7BABkoU/f3qxvfZEkbPuBg9oKNcK8fQ/68LkHBvTiuwTjUIOy9VZBR68J++NZ/sXU/J2vR99d/thxdzOz0PqbYp63+CqFWuH7wg+LGwj8MfRuvnovqiAgICAgICAgICAgIPB/YETPF8H+/96Bcw9A7flGo1EcPQvrRVginw99Q6cAfHbsEDYwpEFt+s7Y306PuTrQMmziVq1UYTdLpRr5HmNsdRSg38+N8o5Z9w7yzCDlt8ceB+rT7HlPQB8cAYn/CND9hOLjUZaf3xIEjlGelhiJX2wE7gOfy7lQeG2tU4Gt7vZlZ50KNNd5I7B7ncSVvlc91tmGdl1/yIxaFbYxph4EmLXzq/2nd/KHpGZ+RfbO71XHM2hTyWzSiOaiuppIm5oajbKsmtbiKXxFYiyZ1c10OjUNUMccZZxkGDkMsKpBfBS/s68KPHlbX3Kv10HDBvnXkKezr06/Yu0CB90dUe5KvlzLl7icNjB2LOeDbYn30VqpJmvofzTaZo2d8/H6k11hk5lsgQH1n4cLMACRlofDi/eItJc3ueoS15SbdwhN3od33eItQQqDorFIhPOVacyMH5SwbPO9PVlmgy79Un3I2n9Rvych+Ff0+6Grc9ldF6c/7PfWV9hDX1Sji2OswIq1qrOPiz5eqxU/7/Oab8XvvQ+f5b37cBityzUf1RqhOfqgvkW5qQ+bj6UPHcYhj1U2oQxZMGAUqnAOPSWMI33Pyc3z5j7P7vM2GDzgeUubLJtKxgw1YZimqrGeiJo1jKiai8f0uKaZWk86Md3UPdWezuiqzMd66XZV9q7XRuDgunXr1AfhXToFuy4rgaZOup82dvFwdLIW/D2djAQ4t3qA961avMIWL8leA30v5SuFiWyFXSuZ+VyemV68KIdXfYYlbz1lXLxicUtPcec8zwa5z9EXxYbb9uqLeExBEnWVRGVFIYemgwoJSKPeNGxF8WHYr6JHgzik7FYEYuinkTpGpvFJwfQO/5ch8beGgICAgICAwL+BnwAgqcMAIAAA"
+	bcdGzip, _ := base64.StdEncoding.DecodeString(bcdGzipBase64)
+	bcdReader, _ := gzip.NewReader(bytes.NewBuffer(bcdGzip))
+	bcdBytes, _ := ioutil.ReadAll(bcdReader)
+
+	tw.WriteHeader(&tar.Header{Name: "Files", Typeflag: tar.TypeDir})
+	tw.WriteHeader(&tar.Header{Name: "Files/Windows", Typeflag: tar.TypeDir})
+	tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32", Typeflag: tar.TypeDir})
+	tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config", Typeflag: tar.TypeDir})
+
+	tw.WriteHeader(&tar.Header{Name: "UtilityVM", Typeflag: tar.TypeDir})
+	tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files", Typeflag: tar.TypeDir})
+	tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files/EFI", Typeflag: tar.TypeDir})
+	tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files/EFI/Microsoft", Typeflag: tar.TypeDir})
+	tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files/EFI/Microsoft/Boot", Typeflag: tar.TypeDir})
+
+	tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/DEFAULT", Size: 0, Mode: 0644})
+	tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/SAM", Size: 0, Mode: 0644})
+	tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/SECURITY", Size: 0, Mode: 0644})
+	tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/SOFTWARE", Size: 0, Mode: 0644})
+	tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/SYSTEM", Size: 0, Mode: 0644})
+
+	tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files/EFI/Microsoft/Boot/BCD", Size: int64(len(bcdBytes)), Mode: 0644})
+	tw.Write(bcdBytes)
+
+	if err := tw.Close(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func CreateSingleFileTar(containerPath, txt, osType string) (io.Reader, error) {
