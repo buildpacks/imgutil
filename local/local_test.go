@@ -42,7 +42,7 @@ func TestLocal(t *testing.T) {
 }
 
 func newTestImageName(suffixOpt ...string) string {
-	suffix := ":latest"
+	suffix := ""
 	if len(suffixOpt) == 1 {
 		suffix = suffixOpt[0]
 	}
@@ -1009,7 +1009,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 				readCloser, err := image.GetLayer(h.RandString(10))
 				h.AssertNil(t, readCloser)
-				h.AssertError(t, err, "reference does not exist")
+				h.AssertError(t, err, "No such image")
 			})
 		})
 	})

@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"regexp"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -33,7 +32,7 @@ import (
 var localTestRegistry *h.DockerRegistry
 
 func newTestImageName(suffixOpt ...string) string {
-	suffix := ":latest"
+	suffix := ""
 	if len(suffixOpt) == 1 {
 		suffix = suffixOpt[0]
 	}
@@ -412,7 +411,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		it("returns a digest reference", func() {
 			identifier, err := img.Identifier()
 			h.AssertNil(t, err)
-			repoDigestName := strings.Replace(repoName, ":latest", "@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5", 1)
+			repoDigestName := repoName + "@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"
 			h.AssertEq(t, identifier.String(), repoDigestName)
 		})
 

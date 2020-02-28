@@ -27,7 +27,7 @@ import (
 var localTestRegistry *h.DockerRegistry
 
 func newTestImageName(suffixOpt ...string) string {
-	suffix := ":latest"
+	suffix := ""
 	if len(suffixOpt) == 1 {
 		suffix = suffixOpt[0]
 	}

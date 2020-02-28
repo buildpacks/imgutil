@@ -373,7 +373,7 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 			return
 		}
 
-		if jsonMessage.Error != nil {
+		if jsonMessage.Error != nil && !strings.HasPrefix(jsonMessage.Error.Message, "invalid tag") {
 			done <- errors.Wrap(jsonMessage.Error, "response error")
 			return
 		}
