@@ -16,9 +16,9 @@ import (
 var registryBaseImage = "micahyoung/registry:2"
 
 type DockerRegistry struct {
-	Host              string
-	Port              string
-	Name              string
+	Host string
+	Port string
+	Name string
 }
 
 func NewDockerRegistry() *DockerRegistry {

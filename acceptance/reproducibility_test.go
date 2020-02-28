@@ -1,12 +1,15 @@
 package acceptance
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
 	"testing"
 	"time"
+
+	dockertypes "github.com/docker/docker/api/types"
 
 	dockerclient "github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -23,8 +26,12 @@ import (
 
 var localTestRegistry *h.DockerRegistry
 
-func newTestImageName() string {
-	return fmt.Sprintf("%s:%s/imgutil-acceptance-%s", localTestRegistry.Host, localTestRegistry.Port, h.RandString(10))
+func newTestImageName(suffixOpt ...string) string {
+	suffix := ":latest"
+	if len(suffixOpt) == 1 {
+		suffix = suffixOpt[0]
+	}
+	return fmt.Sprintf("%s:%s/imgutil-acceptance-%s%s", localTestRegistry.Host, localTestRegistry.Port, h.RandString(10), suffix)
 }
 
 func TestAcceptance(t *testing.T) {
@@ -42,10 +49,22 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 		imageName1, imageName2 string
 		mutateAndSave          func(t *testing.T, image imgutil.Image)
 		dockerClient           dockerclient.CommonAPIClient
+		daemonInfo             dockertypes.Info
+		runnableBaseImageName  string
 	)
 
 	it.Before(func() {
+		var err error
+
 		dockerClient = h.DockerCli(t)
+
+		daemonInfo, err = dockerClient.Info(context.TODO())
+		h.AssertNil(t, err)
+
+		runnableBaseImageName = "busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"
+		if daemonInfo.OSType == "windows" {
+			runnableBaseImageName = "mcr.microsoft.com/windows/nanoserver@sha256:06281772b6a561411d4b338820d94ab1028fdeb076c85350bbc01e80c4bfa2b4"
+		}
 
 		imageName1 = newTestImageName()
 		imageName2 = newTestImageName()
@@ -54,8 +73,8 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 		envKey := "env-key-" + h.RandString(10)
 		envVal := "env-val-" + h.RandString(10)
 		workingDir := "working-dir-" + h.RandString(10)
-		layer1 := randomLayer(t)
-		layer2 := randomLayer(t)
+		layer1 := randomLayer(t, daemonInfo.OSType)
+		layer2 := randomLayer(t, daemonInfo.OSType)
 
 		mutateAndSave = func(t *testing.T, img imgutil.Image) {
 			h.AssertNil(t, img.AddLayer(layer1))
@@ -76,11 +95,11 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	it("remote/remote", func() {
-		img1, err := remote.NewImage(imageName1, authn.DefaultKeychain, remote.FromBaseImage("busybox"))
+		img1, err := remote.NewImage(imageName1, authn.DefaultKeychain, remote.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img1)
 
-		img2, err := remote.NewImage(imageName2, authn.DefaultKeychain, remote.FromBaseImage("busybox"))
+		img2, err := remote.NewImage(imageName2, authn.DefaultKeychain, remote.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img2)
 
@@ -88,13 +107,13 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	it("local/local", func() {
-		h.AssertNil(t, h.PullImage(dockerClient, "busybox"))
-		img1, err := local.NewImage(imageName1, dockerClient, local.FromBaseImage("busybox"))
+		h.AssertNil(t, h.PullImage(dockerClient, runnableBaseImageName))
+		img1, err := local.NewImage(imageName1, dockerClient, local.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img1)
 		h.PushImage(dockerClient, imageName1)
 
-		img2, err := local.NewImage(imageName2, dockerClient, local.FromBaseImage("busybox"))
+		img2, err := local.NewImage(imageName2, dockerClient, local.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img2)
 		h.PushImage(dockerClient, imageName2)
@@ -103,12 +122,12 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	it("remote/local", func() {
-		img1, err := remote.NewImage(imageName1, authn.DefaultKeychain, remote.FromBaseImage("busybox"))
+		img1, err := remote.NewImage(imageName1, authn.DefaultKeychain, remote.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img1)
 
-		h.AssertNil(t, h.PullImage(dockerClient, "busybox"))
-		img2, err := local.NewImage(imageName2, dockerClient, local.FromBaseImage("busybox"))
+		h.AssertNil(t, h.PullImage(dockerClient, runnableBaseImageName))
+		img2, err := local.NewImage(imageName2, dockerClient, local.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img2)
 		h.PushImage(dockerClient, imageName2)
@@ -117,8 +136,8 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 	})
 }
 
-func randomLayer(t *testing.T) string {
-	tr, err := h.CreateSingleFileTar(fmt.Sprintf("/new-layer-%s.txt", h.RandString(10)), "new-layer-"+h.RandString(10), "linux")
+func randomLayer(t *testing.T, osType string) string {
+	tr, err := h.CreateSingleFileTar(fmt.Sprintf("/new-layer-%s.txt", h.RandString(10)), "new-layer-"+h.RandString(10), osType)
 	h.AssertNil(t, err)
 
 	tarFile, err := ioutil.TempFile("", "add-layer-test")

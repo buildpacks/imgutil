@@ -59,7 +59,6 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 	it.Before(func() {
 		var err error
 		dockerClient = h.DockerCli(t)
-		h.AssertNil(t, err)
 
 		daemonInfo, err = dockerClient.Info(context.TODO())
 		h.AssertNil(t, err)
@@ -767,8 +766,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 					img, err := local.NewImage(repoName, dockerClient)
 					h.AssertNil(t, err)
 
-					err = img.AddLayer(tarPath)
-					h.AssertNil(t, err)
+					h.AssertNil(t, img.AddLayer(tarPath))
 
 					h.AssertNil(t, img.Save())
 
@@ -793,11 +791,9 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 					img, err := local.NewImage(repoName, dockerClient)
 					h.AssertNil(t, err)
 
-					err = img.AddLayer(baseLayerPath)
-					h.AssertNil(t, err)
+					h.AssertNil(t, img.AddLayer(baseLayerPath))
 
-					err = img.AddLayer(tarPath)
-					h.AssertNil(t, err)
+					h.AssertNil(t, img.AddLayer(tarPath))
 
 					h.AssertNil(t, img.Save())
 

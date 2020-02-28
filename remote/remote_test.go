@@ -5,9 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	ggcrname "github.com/google/go-containerregistry/pkg/name"
-	ggcrv1 "github.com/google/go-containerregistry/pkg/v1"
-	ggcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -18,6 +15,10 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	ggcrname "github.com/google/go-containerregistry/pkg/name"
+	ggcrv1 "github.com/google/go-containerregistry/pkg/v1"
+	ggcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 
 	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -60,7 +61,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 	it.Before(func() {
 		var err error
 		dockerClient = h.DockerCli(t)
-		h.AssertNil(t, err)
 		repoName = newTestImageName()
 
 		daemonInfo, err := dockerClient.Info(context.TODO())
@@ -933,7 +933,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			var (
 				repoName            = newTestImageName()
 				additionalRepoNames = []string{
-					newTestImageName(":"+h.RandString(5)) ,
+					newTestImageName(":" + h.RandString(5)),
 					newTestImageName(),
 					newTestImageName(),
 				}
