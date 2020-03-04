@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -67,6 +68,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 		daemonOSType = daemonInfo.OSType
 
+		// pick base image that is runnable on Daemon for Dockerfile tests
 		runnableBaseImageName = "amd64/busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"
 		if daemonOSType == "windows" {
 			runnableBaseImageName = "mcr.microsoft.com/windows/nanoserver@sha256:06281772b6a561411d4b338820d94ab1028fdeb076c85350bbc01e80c4bfa2b4"
@@ -581,11 +583,17 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
-	when.Pend("#Rebase", func() {
+	when("#Rebase", func() {
 		when("image exists", func() {
 			var oldBase, oldTopLayer, newBase string
 			var oldBaseLayers, newBaseLayers, repoTopLayers []string
 			it.Before(func() {
+				if strings.Contains(runnableBaseImageName, "windows") {
+					// currently go-gcr cannot rebase images with foreign layers. We opened an issue to resolve this: https://github.com/google/go-containerregistry/issues/683
+					t.Skip("rebase does not work with with foreign layers")
+					return
+				}
+
 				var wg sync.WaitGroup
 				wg.Add(1)
 
