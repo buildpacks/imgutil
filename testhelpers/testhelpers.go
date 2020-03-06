@@ -20,8 +20,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+
 	dockertypes "github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	dockercli "github.com/docker/docker/client"
 	"github.com/google/go-cmp/cmp"
 )
@@ -158,31 +163,25 @@ func CreateImageOnLocal(t *testing.T, dockerCli dockercli.CommonAPIClient, repoN
 	res.Body.Close()
 }
 
-func CreateImageOnRemote(t *testing.T, dockerCli dockercli.CommonAPIClient, repoName, dockerFile string, labels map[string]string) string {
+func CreateImageOnRemote(t *testing.T, dockerCli dockercli.CommonAPIClient, repoName, dockerFile, registryAuth string, labels map[string]string) {
 	t.Helper()
 	defer DockerRmi(dockerCli, repoName)
 
 	CreateImageOnLocal(t, dockerCli, repoName, dockerFile, labels)
 
-	var topLayer string
-	inspect, _, err := dockerCli.ImageInspectWithRaw(context.TODO(), repoName)
-	AssertNil(t, err)
-	if len(inspect.RootFS.Layers) > 0 {
-		topLayer = inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
-	} else {
-		topLayer = "N/A"
-	}
-
-	AssertNil(t, PushImage(dockerCli, repoName))
-
-	return topLayer
+	PushImage(dockerCli, repoName, registryAuth)
 }
 
-func PullImage(dockerCli dockercli.CommonAPIClient, ref string) error {
-	rc, err := dockerCli.ImagePull(context.Background(), ref, dockertypes.ImagePullOptions{})
+func PullImage(dockerCli dockercli.CommonAPIClient, ref string, registryAuth ...string) error {
+	pullOptions := dockertypes.ImagePullOptions{}
+	if len(registryAuth) == 1 {
+		pullOptions = dockertypes.ImagePullOptions{RegistryAuth: registryAuth[0]}
+	}
+
+	rc, err := dockerCli.ImagePull(context.Background(), ref, pullOptions)
 	if err != nil {
 		// Retry
-		rc, err = dockerCli.ImagePull(context.Background(), ref, dockertypes.ImagePullOptions{})
+		rc, err = dockerCli.ImagePull(context.Background(), ref, pullOptions)
 		if err != nil {
 			return err
 		}
@@ -226,9 +225,9 @@ func CopySingleFileFromContainer(dockerCli dockercli.CommonAPIClient, ctrID, pat
 
 func CopySingleFileFromImage(dockerCli dockercli.CommonAPIClient, repoName, path string) (string, error) {
 	ctr, err := dockerCli.ContainerCreate(context.Background(),
-		&container.Config{
+		&dockercontainer.Config{
 			Image: repoName,
-		}, &container.HostConfig{
+		}, &dockercontainer.HostConfig{
 			AutoRemove: true,
 		}, nil, "",
 	)
@@ -239,8 +238,13 @@ func CopySingleFileFromImage(dockerCli dockercli.CommonAPIClient, repoName, path
 	return CopySingleFileFromContainer(dockerCli, ctr.ID, path)
 }
 
-func PushImage(dockerCli dockercli.CommonAPIClient, ref string) error {
-	rc, err := dockerCli.ImagePush(context.Background(), ref, dockertypes.ImagePushOptions{RegistryAuth: "{}"})
+func PushImage(dockerCli dockercli.CommonAPIClient, ref string, registryAuth ...string) error {
+	pushOptions := dockertypes.ImagePushOptions{RegistryAuth: "{}"}
+	if len(registryAuth) == 1 {
+		pushOptions = dockertypes.ImagePushOptions{RegistryAuth: registryAuth[0]}
+	}
+
+	rc, err := dockerCli.ImagePush(context.Background(), ref, pushOptions)
 	if err != nil {
 		return err
 	}
@@ -250,8 +254,11 @@ func PushImage(dockerCli dockercli.CommonAPIClient, ref string) error {
 	return rc.Close()
 }
 
-func HttpGetE(url string) (string, error) {
-	resp, err := http.DefaultClient.Get(url)
+func HttpGetAuthE(url, username, password string) (string, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	req.SetBasicAuth(username, password)
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -368,4 +375,52 @@ func writeTarSingleFileWindows(tw *tar.Writer, containerPath, txt string) error 
 	}
 
 	return nil
+}
+
+func FetchManifestLayers(t *testing.T, repoName, imageOS string, keychain authn.Keychain) []string {
+	t.Helper()
+
+	r, err := name.ParseReference(repoName, name.WeakValidation)
+	AssertNil(t, err)
+
+	gImg, err := remote.Image(
+		r,
+		remote.WithTransport(http.DefaultTransport),
+		remote.WithPlatform(v1.Platform{OS: imageOS}),
+		remote.WithAuthFromKeychain(keychain),
+	)
+	AssertNil(t, err)
+
+	gLayers, err := gImg.Layers()
+	AssertNil(t, err)
+
+	var manifestLayers []string
+	for _, gLayer := range gLayers {
+		diffID, err := gLayer.DiffID()
+		AssertNil(t, err)
+
+		manifestLayers = append(manifestLayers, diffID.String())
+	}
+
+	return manifestLayers
+}
+
+func FetchManifestImageConfigFile(t *testing.T, repoName, imageOS string, keychain authn.Keychain) *v1.ConfigFile {
+	t.Helper()
+
+	r, err := name.ParseReference(repoName, name.WeakValidation)
+	AssertNil(t, err)
+
+	gImg, err := remote.Image(
+		r,
+		remote.WithTransport(http.DefaultTransport),
+		remote.WithPlatform(v1.Platform{OS: imageOS}),
+		remote.WithAuthFromKeychain(keychain),
+	)
+	AssertNil(t, err)
+
+	configFile, err := gImg.ConfigFile()
+	AssertNil(t, err)
+
+	return configFile
 }

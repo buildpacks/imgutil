@@ -9,6 +9,7 @@ require (
 	github.com/google/go-containerregistry v0.0.0-20191018211754-b77a90c667af
 	github.com/pkg/errors v0.8.1
 	github.com/sclevine/spec v1.0.0
+	golang.org/x/crypto v0.0.0-20190510104115-cbcb75029529
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
 )

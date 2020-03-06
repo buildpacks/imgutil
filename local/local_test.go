@@ -68,7 +68,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			runnableBaseImageName = "mcr.microsoft.com/windows/nanoserver@sha256:06281772b6a561411d4b338820d94ab1028fdeb076c85350bbc01e80c4bfa2b4"
 		}
 
-		h.PullImage(dockerClient, runnableBaseImageName)
+		h.PullImage(dockerClient, runnableBaseImageName, localTestRegistry.DockerRegistryAuth())
 	})
 
 	when("#NewImage", func() {
@@ -867,6 +867,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 					LABEL repo_name_for_randomisation=%s
 					RUN echo old-layer > old-layer.txt
 				`, runnableBaseImageName, repoName), nil)
+
 			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer", daemonInfo.OSType)
 			h.AssertNil(t, err)
 			tarFile, err := ioutil.TempFile("", "add-layer-test")

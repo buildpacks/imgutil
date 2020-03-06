@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	dockertypes "github.com/docker/docker/api/types"
+	ggcrauthn "github.com/google/go-containerregistry/pkg/authn"
 
+	dockertypes "github.com/docker/docker/api/types"
 	dockerclient "github.com/docker/docker/client"
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/name"
+	ggcrname "github.com/google/go-containerregistry/pkg/name"
 	ggcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
@@ -65,6 +65,7 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 		if daemonInfo.OSType == "windows" {
 			runnableBaseImageName = "mcr.microsoft.com/windows/nanoserver@sha256:06281772b6a561411d4b338820d94ab1028fdeb076c85350bbc01e80c4bfa2b4"
 		}
+		h.PullImage(dockerClient, runnableBaseImageName)
 
 		imageName1 = newTestImageName()
 		imageName2 = newTestImageName()
@@ -95,44 +96,42 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	it("remote/remote", func() {
-		img1, err := remote.NewImage(imageName1, authn.DefaultKeychain, remote.FromBaseImage(runnableBaseImageName))
+		img1, err := remote.NewImage(imageName1, localTestRegistry.GGCRKeychain(), remote.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img1)
 
-		img2, err := remote.NewImage(imageName2, authn.DefaultKeychain, remote.FromBaseImage(runnableBaseImageName))
+		img2, err := remote.NewImage(imageName2, localTestRegistry.GGCRKeychain(), remote.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img2)
 
-		compare(t, imageName1, imageName2)
+		compare(t, imageName1, imageName2, localTestRegistry.GGCRKeychain())
 	})
 
 	it("local/local", func() {
-		h.AssertNil(t, h.PullImage(dockerClient, runnableBaseImageName))
 		img1, err := local.NewImage(imageName1, dockerClient, local.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img1)
-		h.PushImage(dockerClient, imageName1)
+		h.AssertNil(t, h.PushImage(dockerClient, imageName1, localTestRegistry.DockerRegistryAuth()))
 
 		img2, err := local.NewImage(imageName2, dockerClient, local.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img2)
-		h.PushImage(dockerClient, imageName2)
+		h.AssertNil(t, h.PushImage(dockerClient, imageName2, localTestRegistry.DockerRegistryAuth()))
 
-		compare(t, imageName1, imageName2)
+		compare(t, imageName1, imageName2, localTestRegistry.GGCRKeychain())
 	})
 
 	it("remote/local", func() {
-		img1, err := remote.NewImage(imageName1, authn.DefaultKeychain, remote.FromBaseImage(runnableBaseImageName))
+		img1, err := remote.NewImage(imageName1, localTestRegistry.GGCRKeychain(), remote.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img1)
 
-		h.AssertNil(t, h.PullImage(dockerClient, runnableBaseImageName))
 		img2, err := local.NewImage(imageName2, dockerClient, local.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img2)
-		h.PushImage(dockerClient, imageName2)
+		h.AssertNil(t, h.PushImage(dockerClient, imageName2, localTestRegistry.DockerRegistryAuth()))
 
-		compare(t, imageName1, imageName2)
+		compare(t, imageName1, imageName2, localTestRegistry.GGCRKeychain())
 	})
 }
 
@@ -149,17 +148,17 @@ func randomLayer(t *testing.T, osType string) string {
 	return tarFile.Name()
 }
 
-func compare(t *testing.T, img1, img2 string) {
-	ref1, err := name.ParseReference(img1, name.WeakValidation)
+func compare(t *testing.T, img1, img2 string, keychain ggcrauthn.Keychain) {
+	ref1, err := ggcrname.ParseReference(img1, ggcrname.WeakValidation)
 	h.AssertNil(t, err)
 
-	ref2, err := name.ParseReference(img2, name.WeakValidation)
+	ref2, err := ggcrname.ParseReference(img2, ggcrname.WeakValidation)
 	h.AssertNil(t, err)
 
-	v1img1, err := ggcrremote.Image(ref1)
+	v1img1, err := ggcrremote.Image(ref1, ggcrremote.WithAuthFromKeychain(keychain))
 	h.AssertNil(t, err)
 
-	v1img2, err := ggcrremote.Image(ref2)
+	v1img2, err := ggcrremote.Image(ref2, ggcrremote.WithAuthFromKeychain(keychain))
 	h.AssertNil(t, err)
 
 	cfg1, err := v1img1.ConfigFile()
