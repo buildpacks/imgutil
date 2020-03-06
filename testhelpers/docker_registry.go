@@ -49,9 +49,7 @@ func (registry *DockerRegistry) Start(t *testing.T) {
 	t.Log("run registry")
 	t.Helper()
 
-	htpasswdTar := generateHtpasswd(t, registry.Username, registry.Password)
-
-	AssertNil(t, PullImage(DockerCli(t), registryBaseImage, ""))
+	AssertNil(t, PullImage(DockerCli(t), registryBaseImage))
 	ctx := context.Background()
 	ctr, err := DockerCli(t).ContainerCreate(ctx, &container.Config{
 		Image: registryBaseImage,
@@ -68,6 +66,9 @@ func (registry *DockerRegistry) Start(t *testing.T) {
 		},
 	}, nil, registry.Name)
 	AssertNil(t, err)
+
+	htpasswdTar := generateHtpasswd(t, registry.Username, registry.Password)
+
 	err = DockerCli(t).CopyToContainer(ctx, ctr.ID, "/", htpasswdTar, types.CopyToContainerOptions{})
 	AssertNil(t, err)
 

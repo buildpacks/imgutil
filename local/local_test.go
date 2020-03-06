@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
@@ -68,7 +67,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			runnableBaseImageName = "mcr.microsoft.com/windows/nanoserver@sha256:06281772b6a561411d4b338820d94ab1028fdeb076c85350bbc01e80c4bfa2b4"
 		}
 
-		h.PullImage(dockerClient, runnableBaseImageName, localTestRegistry.DockerRegistryAuth())
+		h.AssertNil(t, h.PullImage(dockerClient, runnableBaseImageName))
 	})
 
 	when("#NewImage", func() {
@@ -678,10 +677,8 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 					"myimage.txt":   "text-from-image",
 					"myimage2.txt":  "text-from-image",
 				}
-				ctr, err := dockerClient.ContainerCreate(context.Background(), &container.Config{Image: repoName}, &container.HostConfig{}, nil, "")
-				defer dockerClient.ContainerRemove(context.Background(), ctr.ID, types.ContainerRemoveOptions{})
 				for filename, expectedText := range expected {
-					actualText, err := h.CopySingleFileFromContainer(dockerClient, ctr.ID, filename)
+					actualText, err := h.CopySingleFileFromImage(dockerClient, repoName, filename)
 					h.AssertNil(t, err)
 					h.AssertMatch(t, actualText, regexp.MustCompile(expectedText+`[ \r\n]*$`))
 				}

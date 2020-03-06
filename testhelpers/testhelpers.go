@@ -156,11 +156,23 @@ func CreateImageOnLocal(t *testing.T, dockerCli dockercli.CommonAPIClient, repoN
 		Remove:         true,
 		ForceRemove:    true,
 		Labels:         labels,
+		Isolation:      dockerProcessIsolation(dockerCli),
 	})
 	AssertNil(t, err)
 
 	io.Copy(ioutil.Discard, res.Body)
 	res.Body.Close()
+}
+
+func dockerProcessIsolation(dockerCli dockercli.CommonAPIClient) dockercontainer.Isolation {
+	daemonInfo, _ := dockerCli.Info(context.TODO())
+
+	//speed up Windows builds by running as natively processes
+	//requires base images that are compatible with host OS
+	if daemonInfo.OSType == "windows" {
+		return dockercontainer.IsolationProcess
+	}
+	return dockercontainer.IsolationDefault
 }
 
 func CreateImageOnRemote(t *testing.T, dockerCli dockercli.CommonAPIClient, repoName, dockerFile, registryAuth string, labels map[string]string) {
@@ -169,7 +181,7 @@ func CreateImageOnRemote(t *testing.T, dockerCli dockercli.CommonAPIClient, repo
 
 	CreateImageOnLocal(t, dockerCli, repoName, dockerFile, labels)
 
-	PushImage(dockerCli, repoName, registryAuth)
+	AssertNil(t, PushImage(dockerCli, repoName, registryAuth))
 }
 
 func PullImage(dockerCli dockercli.CommonAPIClient, ref string, registryAuth ...string) error {
@@ -229,6 +241,7 @@ func CopySingleFileFromImage(dockerCli dockercli.CommonAPIClient, repoName, path
 			Image: repoName,
 		}, &dockercontainer.HostConfig{
 			AutoRemove: true,
+			Isolation:  dockerProcessIsolation(dockerCli),
 		}, nil, "",
 	)
 	if err != nil {

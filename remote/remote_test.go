@@ -69,7 +69,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			runnableBaseImageName = "mcr.microsoft.com/windows/nanoserver@sha256:06281772b6a561411d4b338820d94ab1028fdeb076c85350bbc01e80c4bfa2b4"
 		}
 
-		h.AssertNil(t, h.PullImage(dockerClient, runnableBaseImageName, localTestRegistry.DockerRegistryAuth()))
+		h.AssertNil(t, h.PullImage(dockerClient, runnableBaseImageName))
 	})
 
 	when("#NewRemote", func() {
@@ -614,13 +614,16 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				oldBaseLayers = h.FetchManifestLayers(t, oldBase, daemonOSType, localTestRegistry.GGCRKeychain())
 				oldTopLayer = oldBaseLayers[len(oldBaseLayers)-1]
 
+				h.AssertNil(t, h.PullImage(dockerClient, oldBase, localTestRegistry.DockerRegistryAuth()))
+
 				h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
 					FROM %s
 					LABEL repo_name_for_randomisation=%s
 					RUN echo text-from-image-1 > myimage.txt
 					RUN echo text-from-image-2 > myimage2.txt
 				`, oldBase, repoName), localTestRegistry.DockerRegistryAuth(), nil)
-				repoTopLayers = h.FetchManifestLayers(t, repoName, daemonOSType, localTestRegistry.GGCRKeychain())[len(oldBaseLayers):]
+				repoLayers := h.FetchManifestLayers(t, repoName, daemonOSType, localTestRegistry.GGCRKeychain())
+				repoTopLayers = repoLayers[len(oldBaseLayers):]
 
 				wg.Wait()
 			})
