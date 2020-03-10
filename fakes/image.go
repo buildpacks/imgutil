@@ -30,6 +30,8 @@ func NewImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
 		prevLayersMap: map[string]string{},
 		createdAt:     time.Now(),
 		savedNames:    map[string]bool{},
+		os:            "linux",
+		architecture:  "amd64",
 	}
 }
 
@@ -44,6 +46,8 @@ type Image struct {
 	topLayerSha   string
 	identifier    imgutil.Identifier
 	name          string
+	os            string
+	architecture  string
 	entryPoint    []string
 	cmd           []string
 	base          string
@@ -67,6 +71,14 @@ func (i *Image) Rename(name string) {
 
 func (i *Image) Name() string {
 	return i.name
+}
+
+func (i *Image) OS() (string, error) {
+	return i.os, nil
+}
+
+func (i *Image) Architecture() (string, error) {
+	return i.architecture, nil
 }
 
 func (i *Image) Identifier() (imgutil.Identifier, error) {
