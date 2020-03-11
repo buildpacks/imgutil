@@ -443,7 +443,6 @@ func (i *Image) Delete() error {
 func (i *Image) downloadImageOnce(imageName string) error {
 	var err error
 	i.downloadOnce.Do(func() {
-		fmt.Println("DOWNLOADING IMAGE")
 		var fsimg *FileSystemLocalImage
 		fsimg, err = downloadImage(i.docker, imageName)
 		i.prevImage = fsimg
