@@ -878,7 +878,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 
 				h.AssertEq(t, img.Found(), false)
-				h.AssertError(t, img.Delete(), "Not Found")
+				h.AssertError(t, img.Delete(), "MANIFEST_UNKNOWN")
 			})
 		})
 	})
