@@ -686,9 +686,11 @@ func v1Config(inspect types.ImageInspect) (v1.ConfigFile, error) {
 	}, nil
 }
 
+// ensureReaderClosed drains and closes and reader, returning the first error
 func ensureReaderClosed(r io.ReadCloser) error {
-	if _, err := io.Copy(ioutil.Discard, r); err !=nil {
-		return err
+	_, err := io.Copy(ioutil.Discard, r)
+	if closeErr := r.Close(); closeErr != nil && err == nil {
+		err = closeErr
 	}
-	return r.Close()
+	return err
 }
