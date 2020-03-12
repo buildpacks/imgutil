@@ -351,8 +351,10 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 			done <- err
 			return
 		}
-		defer res.Body.Close()
-		io.Copy(ioutil.Discard, res.Body)
+		if err := ensureReaderClosed(res.Body); err != nil {
+			done <- errors.Wrap(err, "failed to drain and close response from docker client")
+			return
+		}
 
 		done <- nil
 	}()
@@ -453,18 +455,18 @@ func (i *Image) downloadImageOnce(imageName string) error {
 func downloadImage(docker client.CommonAPIClient, imageName string) (*FileSystemLocalImage, error) {
 	ctx := context.Background()
 
-	tarFile, err := docker.ImageSave(ctx, []string{imageName})
+	imageReader, err := docker.ImageSave(ctx, []string{imageName})
 	if err != nil {
 		return nil, err
 	}
-	defer tarFile.Close()
+	defer ensureReaderClosed(imageReader)
 
 	tmpDir, err := ioutil.TempDir("", "imgutil.local.image.")
 	if err != nil {
 		return nil, errors.Wrap(err, "local reuse-layer create temp dir")
 	}
 
-	err = untar(tarFile, tmpDir)
+	err = untar(imageReader, tmpDir)
 	if err != nil {
 		return nil, err
 	}
@@ -682,4 +684,13 @@ func v1Config(inspect types.ImageInspect) (v1.ConfigFile, error) {
 		},
 		Config: config,
 	}, nil
+}
+
+// ensureReaderClosed drains and closes and reader, returning the first error
+func ensureReaderClosed(r io.ReadCloser) error {
+	_, err := io.Copy(ioutil.Discard, r)
+	if closeErr := r.Close(); closeErr != nil && err == nil {
+		err = closeErr
+	}
+	return err
 }
