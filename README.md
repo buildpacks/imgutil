@@ -1,6 +1,6 @@
 # imgutil
 
-[![Build Status](https://travis-ci.org/buildpack/imgutil.svg?branch=master)](https://travis-ci.org/buildpack/imgutil)
+[![Build Status](https://travis-ci.org/buildpacks/imgutil.svg?branch=master)](https://travis-ci.org/github/buildpacks/imgutil/branches)
 
 Helpful utilities for working with images
 
