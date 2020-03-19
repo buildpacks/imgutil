@@ -927,131 +927,158 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#Save", func() {
-		var (
-			img      imgutil.Image
-			origID   string
-			tarPath  string
-			repoName = newTestImageName()
-		)
+		when("image is valid", func() {
+			var (
+				img      imgutil.Image
+				origID   string
+				tarPath  string
+				repoName = newTestImageName()
+			)
 
-		it.Before(func() {
-			var err error
-			h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
+			it.Before(func() {
+				var err error
+				h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
 					FROM busybox
 					LABEL repo_name_for_randomisation=%s
 					LABEL mykey=oldValue
 				`, repoName), nil)
-			origID = h.ImageID(t, repoName)
+				origID = h.ImageID(t, repoName)
 
-			img, err = local.NewImage(repoName, dockerClient)
-			h.AssertNil(t, err)
+				img, err = local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
 
-			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
-			h.AssertNil(t, err)
+				tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+				h.AssertNil(t, err)
 
-			tarFile, err := ioutil.TempFile("", "add-layer-test")
-			h.AssertNil(t, err)
-			defer tarFile.Close()
+				tarFile, err := ioutil.TempFile("", "add-layer-test")
+				h.AssertNil(t, err)
+				defer tarFile.Close()
 
-			_, err = io.Copy(tarFile, tr)
-			h.AssertNil(t, err)
+				_, err = io.Copy(tarFile, tr)
+				h.AssertNil(t, err)
 
-			tarPath = tarFile.Name()
-		})
-
-		it.After(func() {
-			os.Remove(tarPath)
-			h.AssertNil(t, h.DockerRmi(dockerClient, repoName, origID))
-		})
-
-		it("saved image overrides image with new ID", func() {
-			err := img.SetLabel("mykey", "newValue")
-			h.AssertNil(t, err)
-
-			err = img.AddLayer(tarPath)
-			h.AssertNil(t, err)
-
-			h.AssertNil(t, img.Save())
-
-			identifier, err := img.Identifier()
-			h.AssertNil(t, err)
-
-			h.AssertEq(t, origID != identifier.String(), true)
-
-			newImageID := h.ImageID(t, repoName)
-			h.AssertNotEq(t, origID, newImageID)
-
-			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), identifier.String())
-			h.AssertNil(t, err)
-			label := inspect.Config.Labels["mykey"]
-			h.AssertEq(t, strings.TrimSpace(label), "newValue")
-		})
-
-		it("zeroes times and client specific fields", func() {
-			err := img.SetLabel("mykey", "newValue")
-			h.AssertNil(t, err)
-
-			err = img.AddLayer(tarPath)
-			h.AssertNil(t, err)
-
-			h.AssertNil(t, img.Save())
-
-			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
-			h.AssertNil(t, err)
-
-			h.AssertEq(t, inspect.Created, imgutil.NormalizedDateTime.Format(time.RFC3339))
-			h.AssertEq(t, inspect.Container, "")
-			h.AssertEq(t, inspect.DockerVersion, "")
-
-			history, err := dockerClient.ImageHistory(context.TODO(), repoName)
-			h.AssertNil(t, err)
-			h.AssertEq(t, len(history), len(inspect.RootFS.Layers))
-			for i, _ := range inspect.RootFS.Layers {
-				h.AssertEq(t, history[i].Created, imgutil.NormalizedDateTime.Unix())
-			}
-		})
-
-		when("additional names are provided", func() {
-			var (
-				additionalRepoNames = []string{
-					repoName + ":" + h.RandString(5),
-					newTestImageName(),
-					newTestImageName(),
-				}
-				successfulRepoNames = append([]string{repoName}, additionalRepoNames...)
-			)
+				tarPath = tarFile.Name()
+			})
 
 			it.After(func() {
-				h.AssertNil(t, h.DockerRmi(dockerClient, additionalRepoNames...))
+				os.Remove(tarPath)
+				h.AssertNil(t, h.DockerRmi(dockerClient, repoName, origID))
 			})
 
-			it("saves to multiple names", func() {
-				h.AssertNil(t, img.Save(additionalRepoNames...))
+			it("saved image overrides image with new ID", func() {
+				err := img.SetLabel("mykey", "newValue")
+				h.AssertNil(t, err)
 
-				for _, n := range successfulRepoNames {
-					_, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), n)
-					h.AssertNil(t, err)
+				err = img.AddLayer(tarPath)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, img.Save())
+
+				identifier, err := img.Identifier()
+				h.AssertNil(t, err)
+
+				h.AssertEq(t, origID != identifier.String(), true)
+
+				newImageID := h.ImageID(t, repoName)
+				h.AssertNotEq(t, origID, newImageID)
+
+				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), identifier.String())
+				h.AssertNil(t, err)
+				label := inspect.Config.Labels["mykey"]
+				h.AssertEq(t, strings.TrimSpace(label), "newValue")
+			})
+
+			it("zeroes times and client specific fields", func() {
+				err := img.SetLabel("mykey", "newValue")
+				h.AssertNil(t, err)
+
+				err = img.AddLayer(tarPath)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, img.Save())
+
+				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
+				h.AssertNil(t, err)
+
+				h.AssertEq(t, inspect.Created, imgutil.NormalizedDateTime.Format(time.RFC3339))
+				h.AssertEq(t, inspect.Container, "")
+				h.AssertEq(t, inspect.DockerVersion, "")
+
+				history, err := dockerClient.ImageHistory(context.TODO(), repoName)
+				h.AssertNil(t, err)
+				h.AssertEq(t, len(history), len(inspect.RootFS.Layers))
+				for i, _ := range inspect.RootFS.Layers {
+					h.AssertEq(t, history[i].Created, imgutil.NormalizedDateTime.Unix())
 				}
 			})
 
-			when("a single image name fails", func() {
-				it("returns results with errors for those that failed", func() {
-					failingName := newTestImageName() + ":🧨"
+			when("additional names are provided", func() {
+				var (
+					additionalRepoNames = []string{
+						repoName + ":" + h.RandString(5),
+						newTestImageName(),
+						newTestImageName(),
+					}
+					successfulRepoNames = append([]string{repoName}, additionalRepoNames...)
+				)
 
-					err := img.Save(append([]string{failingName}, additionalRepoNames...)...)
-					h.AssertError(t, err, fmt.Sprintf("failed to write image to the following tags: [%s:", failingName))
+				it.After(func() {
+					h.AssertNil(t, h.DockerRmi(dockerClient, additionalRepoNames...))
+				})
 
-					saveErr, ok := err.(imgutil.SaveError)
-					h.AssertEq(t, ok, true)
-					h.AssertEq(t, len(saveErr.Errors), 1)
-					h.AssertEq(t, saveErr.Errors[0].ImageName, failingName)
-					h.AssertError(t, saveErr.Errors[0].Cause, "invalid reference format")
+				it("saves to multiple names", func() {
+					h.AssertNil(t, img.Save(additionalRepoNames...))
 
 					for _, n := range successfulRepoNames {
-						_, _, err = dockerClient.ImageInspectWithRaw(context.TODO(), n)
+						_, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), n)
 						h.AssertNil(t, err)
 					}
 				})
+
+				when("a single image name fails", func() {
+					it("returns results with errors for those that failed", func() {
+						failingName := newTestImageName() + ":🧨"
+
+						err := img.Save(append([]string{failingName}, additionalRepoNames...)...)
+						h.AssertError(t, err, fmt.Sprintf("failed to write image to the following tags: [%s:", failingName))
+
+						saveErr, ok := err.(imgutil.SaveError)
+						h.AssertEq(t, ok, true)
+						h.AssertEq(t, len(saveErr.Errors), 1)
+						h.AssertEq(t, saveErr.Errors[0].ImageName, failingName)
+						h.AssertError(t, saveErr.Errors[0].Cause, "invalid reference format")
+
+						for _, n := range successfulRepoNames {
+							_, _, err = dockerClient.ImageInspectWithRaw(context.TODO(), n)
+							h.AssertNil(t, err)
+						}
+					})
+				})
+			})
+		})
+
+		when("invalid image content for daemon", func() {
+			it("returns errors from daemon", func() {
+				var err error
+
+				repoName := newTestImageName()
+
+				invalidLayerTarFile, err := ioutil.TempFile("", "daemon-error-test")
+				h.AssertNil(t, err)
+				defer func() { invalidLayerTarFile.Close(); os.Remove(invalidLayerTarFile.Name()) }()
+
+				invalidLayerTarFile.Write([]byte("NOT A TAR"))
+				invalidLayerPath := invalidLayerTarFile.Name()
+
+				img, err := local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
+
+				err = img.AddLayer(invalidLayerPath)
+				h.AssertNil(t, err)
+
+				err = img.Save(repoName)
+				h.AssertError(t, err, fmt.Sprintf("failed to write image to the following tags: [%s:", repoName))
+				h.AssertError(t, err, "daemon response")
 			})
 		})
 	})

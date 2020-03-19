@@ -18,6 +18,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/pkg/errors"
@@ -341,7 +342,9 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 	if err != nil {
 		return types.ImageInspect{}, err
 	}
-	repoName := t.String()
+
+	//returns valid 'name:tag' appending 'latest', if missing tag
+	repoName := t.Name()
 
 	pr, pw := io.Pipe()
 	defer pw.Close()
@@ -351,9 +354,16 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 			done <- err
 			return
 		}
-		if err := ensureReaderClosed(res.Body); err != nil {
-			done <- errors.Wrap(err, "failed to drain and close response from docker client")
+
+		//only return response error after response is drained and closed
+		responseErr := checkResponseError(res.Body)
+		drainCloseErr := ensureReaderClosed(res.Body)
+		if responseErr != nil {
+			done <- responseErr
 			return
+		}
+		if drainCloseErr != nil {
+			done <- drainCloseErr
 		}
 
 		done <- nil
@@ -389,7 +399,6 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 		}
 		f.Close()
 		layerPaths = append(layerPaths, layerName)
-
 	}
 
 	manifest, err := json.Marshal([]map[string]interface{}{
@@ -410,6 +419,9 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 	tw.Close()
 	pw.Close()
 	err = <-done
+	if err != nil {
+		return types.ImageInspect{}, errors.Wrapf(err, "image load '%s'. first error", i.repoName)
+	}
 
 	inspect, _, err := i.docker.ImageInspectWithRaw(context.Background(), id)
 	if err != nil {
@@ -684,6 +696,19 @@ func v1Config(inspect types.ImageInspect) (v1.ConfigFile, error) {
 		},
 		Config: config,
 	}, nil
+}
+
+func checkResponseError(r io.Reader) error {
+	decoder := json.NewDecoder(r)
+	var jsonMessage jsonmessage.JSONMessage
+	if err := decoder.Decode(&jsonMessage); err != nil {
+		return errors.Wrapf(err, "parsing daemon response")
+	}
+
+	if jsonMessage.Error != nil {
+		return errors.Wrap(jsonMessage.Error, "embedded daemon response")
+	}
+	return nil
 }
 
 // ensureReaderClosed drains and closes and reader, returning the first error
