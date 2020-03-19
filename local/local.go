@@ -355,14 +355,17 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 			return
 		}
 
-		if err := checkResponseError(res.Body); err != nil {
-			done <- err // add error but continue, to ensure reader is closed
-		}
-
-		if err := ensureReaderClosed(res.Body); err != nil {
-			done <- errors.Wrap(err, "failed to drain and close response from docker client")
+		//only return response error after response is drained and closed
+		responseErr := checkResponseError(res.Body)
+		drainCloseErr := ensureReaderClosed(res.Body)
+		if responseErr != nil {
+			done <- responseErr
 			return
 		}
+		if drainCloseErr != nil {
+			done <- drainCloseErr
+		}
+
 		done <- nil
 	}()
 
