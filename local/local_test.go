@@ -3,8 +3,6 @@ package local_test
 import (
 	"archive/tar"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -629,19 +627,15 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			repoName = newTestImageName()
 		)
 		it.Before(func() {
+			var err error
 			h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
 				FROM busybox
 				LABEL repo_name_for_randomisation=%s
 				RUN echo -n old-layer > old-layer.txt
 			`, repoName), nil)
-			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+
+			tarPath, err = h.CreateSingleFileTar("/new-layer.txt", "new-layer")
 			h.AssertNil(t, err)
-			tarFile, err := ioutil.TempFile("", "add-layer-test")
-			h.AssertNil(t, err)
-			defer tarFile.Close()
-			_, err = io.Copy(tarFile, tr)
-			h.AssertNil(t, err)
-			tarPath = tarFile.Name()
 
 			img, err = local.NewImage(
 				repoName, dockerClient,
@@ -683,22 +677,19 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			repoName = newTestImageName()
 		)
 		it.Before(func() {
+			var err error
+
 			h.CreateImageOnLocal(t, dockerClient, repoName, fmt.Sprintf(`
 				FROM busybox
 				LABEL repo_name_for_randomisation=%s
 				RUN echo -n old-layer > old-layer.txt
 			`, repoName), nil)
-			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+
+			tarPath, err = h.CreateSingleFileTar("/new-layer.txt", "new-layer")
 			h.AssertNil(t, err)
-			tarFile, err := ioutil.TempFile("", "add-layer-test")
+
+			diffID, err = h.FileDiffID(tarPath)
 			h.AssertNil(t, err)
-			defer tarFile.Close()
-			hasher := sha256.New()
-			mw := io.MultiWriter(tarFile, hasher)
-			_, err = io.Copy(mw, tr)
-			h.AssertNil(t, err)
-			tarPath = tarFile.Name()
-			diffID = "sha256:" + hex.EncodeToString(hasher.Sum(make([]byte, 0, hasher.Size())))
 
 			img, err = local.NewImage(
 				repoName, dockerClient,
@@ -706,6 +697,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				local.WithPreviousImage(repoName),
 			)
 			h.AssertNil(t, err)
+
 			origID = h.ImageID(t, repoName)
 		})
 
@@ -904,21 +896,12 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				img, err = local.NewImage(repoName, dockerClient)
 				h.AssertNil(t, err)
 
-				tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+				tarPath, err = h.CreateSingleFileTar("/new-layer.txt", "new-layer")
 				h.AssertNil(t, err)
-
-				tarFile, err := ioutil.TempFile("", "add-layer-test")
-				h.AssertNil(t, err)
-				defer tarFile.Close()
-
-				_, err = io.Copy(tarFile, tr)
-				h.AssertNil(t, err)
-
-				tarPath = tarFile.Name()
 			})
 
 			it.After(func() {
-				os.Remove(tarPath)
+				h.AssertNil(t, os.Remove(tarPath))
 				h.AssertNil(t, h.DockerRmi(dockerClient, repoName, origID))
 			})
 

@@ -2,11 +2,8 @@ package remote_test
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -542,22 +539,16 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			img     imgutil.Image
 		)
 		it.Before(func() {
+			var err error
+
 			h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
 				FROM busybox
 				LABEL repo_name_for_randomisation=%s
 				RUN echo -n old-layer > old-layer.txt
 			`, repoName), nil)
 
-			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+			tarPath, err = h.CreateSingleFileTar("/new-layer.txt", "new-layer")
 			h.AssertNil(t, err)
-
-			tarFile, err := ioutil.TempFile("", "add-layer-test")
-			h.AssertNil(t, err)
-			defer tarFile.Close()
-
-			_, err = io.Copy(tarFile, tr)
-			h.AssertNil(t, err)
-			tarPath = tarFile.Name()
 
 			img, err = remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
 			h.AssertNil(t, err)
@@ -595,24 +586,18 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		)
 
 		it.Before(func() {
+			var err error
 			h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
 				FROM busybox
 				LABEL repo_name_for_randomisation=%s
 				RUN echo -n old-layer > old-layer.txt
 			`, repoName), nil)
 
-			tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+			tarPath, err = h.CreateSingleFileTar("/new-layer.txt", "new-layer")
 			h.AssertNil(t, err)
 
-			tarFile, err := ioutil.TempFile("", "add-layer-test")
+			diffID, err = h.FileDiffID(tarPath)
 			h.AssertNil(t, err)
-			defer tarFile.Close()
-			hasher := sha256.New()
-			mw := io.MultiWriter(tarFile, hasher)
-			_, err = io.Copy(mw, tr)
-			h.AssertNil(t, err)
-			tarPath = tarFile.Name()
-			diffID = "sha256:" + hex.EncodeToString(hasher.Sum(make([]byte, 0, hasher.Size())))
 
 			img, err = remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
 			h.AssertNil(t, err)
@@ -726,16 +711,12 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				defer tarFile.Close()
 
-				tr, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+				tarPath, err = h.CreateSingleFileTar("/new-layer.txt", "new-layer")
 				h.AssertNil(t, err)
-
-				_, err = io.Copy(tarFile, tr)
-				h.AssertNil(t, err)
-				tarPath = tarFile.Name()
 			})
 
 			it.After(func() {
-				os.Remove(tarPath)
+				h.AssertNil(t, os.Remove(tarPath))
 			})
 
 			it("can be pulled by digest", func() {
