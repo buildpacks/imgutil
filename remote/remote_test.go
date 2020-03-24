@@ -188,19 +188,22 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			var (
 				img imgutil.Image
 			)
+
 			it.Before(func() {
 				var err error
-				baseImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				baseImageName := newTestImageName()
+
+				baseImage, err := remote.NewImage(baseImageName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
-				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", baseImageName))
 				h.AssertNil(t, baseImage.SetEnv("MY_VAR", "my_val"))
 				h.AssertNil(t, baseImage.Save())
 
 				img, err = remote.NewImage(
 					repoName,
 					authn.DefaultKeychain,
-					remote.FromBaseImage(repoName),
+					remote.FromBaseImage(baseImageName),
 				)
 				h.AssertNil(t, err)
 			})

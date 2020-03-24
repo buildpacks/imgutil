@@ -75,14 +75,15 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 		when("#FromBaseImage", func() {
 			when("base image exists", func() {
+				var baseImageName = newTestImageName()
 				var repoName = newTestImageName()
 
 				it.After(func() {
-					h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
+					h.AssertNil(t, h.DockerRmi(dockerClient, baseImageName))
 				})
 
 				it("returns the local image", func() {
-					baseImage, err := local.NewImage(repoName, dockerClient)
+					baseImage, err := local.NewImage(baseImageName, dockerClient)
 					h.AssertNil(t, err)
 
 					h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
@@ -90,7 +91,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, baseImage.SetLabel("some.label", "some.value"))
 					h.AssertNil(t, baseImage.Save())
 
-					localImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
+					localImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(baseImageName))
 					h.AssertNil(t, err)
 
 					labelValue, err := localImage.Label("some.label")
@@ -132,13 +133,13 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			var repoName = newTestImageName()
 
 			it.Before(func() {
-				baseImage, err := local.NewImage(repoName, dockerClient)
+				existingImage, err := local.NewImage(repoName, dockerClient)
 				h.AssertNil(t, err)
 
-				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
-				h.AssertNil(t, baseImage.SetLabel("mykey", "myvalue"))
-				h.AssertNil(t, baseImage.SetLabel("other", "data"))
-				h.AssertNil(t, baseImage.Save())
+				h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
+				h.AssertNil(t, existingImage.SetLabel("mykey", "myvalue"))
+				h.AssertNil(t, existingImage.SetLabel("other", "data"))
+				h.AssertNil(t, existingImage.Save())
 			})
 
 			it.After(func() {
@@ -181,12 +182,12 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			var repoName = newTestImageName()
 
 			it.Before(func() {
-				baseImage, err := local.NewImage(repoName, dockerClient)
+				existingImage, err := local.NewImage(repoName, dockerClient)
 				h.AssertNil(t, err)
 
-				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
-				h.AssertNil(t, baseImage.SetEnv("MY_VAR", "my_val"))
-				h.AssertNil(t, baseImage.Save())
+				h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
+				h.AssertNil(t, existingImage.SetEnv("MY_VAR", "my_val"))
+				h.AssertNil(t, existingImage.Save())
 			})
 
 			it.After(func() {
@@ -261,24 +262,23 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#Identifier", func() {
-		var (
-			repoName = newTestImageName()
-		)
+		var repoName = newTestImageName()
+		var baseImageName = newTestImageName()
 
 		it.Before(func() {
-			baseImage, err := local.NewImage(repoName, dockerClient)
+			baseImage, err := local.NewImage(baseImageName, dockerClient)
 			h.AssertNil(t, err)
 
-			h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+			h.AssertNil(t, baseImage.SetLabel("existingLabel", "existingValue"))
 			h.AssertNil(t, baseImage.Save())
 		})
 
 		it.After(func() {
-			h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
+			h.AssertNil(t, h.DockerRmi(dockerClient, baseImageName))
 		})
 
 		it("returns an Docker Image ID type identifier", func() {
-			img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
+			img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(baseImageName))
 			h.AssertNil(t, err)
 
 			id, err := img.Identifier()
@@ -286,23 +286,17 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), id.String())
 			h.AssertNil(t, err)
-			label := inspect.Config.Labels["repo_name_for_randomisation"]
-			h.AssertEq(t, strings.TrimSpace(label), repoName)
+			labelValue := inspect.Config.Labels["existingLabel"]
+			h.AssertEq(t, labelValue, "existingValue")
 		})
 
 		when("the image has been modified and saved", func() {
-			var origID string
-
-			it.Before(func() {
-				origID = h.ImageID(t, repoName)
-			})
-
 			it.After(func() {
-				h.AssertNil(t, h.DockerRmi(dockerClient, origID))
+				h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
 			})
 
 			it("returns the new image ID", func() {
-				img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
+				img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(baseImageName))
 				h.AssertNil(t, err)
 
 				h.AssertNil(t, img.SetLabel("new", "label"))
@@ -324,32 +318,29 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#SetLabel", func() {
 		var (
-			img      imgutil.Image
-			origID   string
-			repoName = newTestImageName()
+			img           imgutil.Image
+			repoName      = newTestImageName()
+			baseImageName = newTestImageName()
 		)
 
 		it.After(func() {
-			h.AssertNil(t, h.DockerRmi(dockerClient, repoName, origID))
+			h.AssertNil(t, h.DockerRmi(dockerClient, repoName, baseImageName))
 		})
 
-		when("image has labels", func() {
-			it.Before(func() {
+		when("base image has labels", func() {
+			it("sets label and saves label to docker daemon", func() {
 				var err error
-				baseImage, err := local.NewImage(repoName, dockerClient)
+
+				baseImage, err := local.NewImage(baseImageName, dockerClient)
 				h.AssertNil(t, err)
 
-				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
+				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", baseImageName))
 				h.AssertNil(t, baseImage.SetLabel("some-key", "some-value"))
 				h.AssertNil(t, baseImage.Save())
 
-				img, err = local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
+				img, err = local.NewImage(repoName, dockerClient, local.FromBaseImage(baseImageName))
 				h.AssertNil(t, err)
 
-				origID = h.ImageID(t, repoName)
-			})
-
-			it("sets label and saves label to docker daemon", func() {
 				h.AssertNil(t, img.SetLabel("somekey", "new-val"))
 
 				label, err := img.Label("somekey")
@@ -366,21 +357,17 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("no labels exists", func() {
-			it.Before(func() {
+			it("sets label and saves label to docker daemon", func() {
 				var err error
-				baseImage, err := local.NewImage(repoName, dockerClient)
+				baseImage, err := local.NewImage(baseImageName, dockerClient)
 				h.AssertNil(t, err)
 
 				h.AssertNil(t, baseImage.SetCmd("/usr/bin/run"))
 				h.AssertNil(t, baseImage.Save())
 
-				img, err = local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
+				img, err = local.NewImage(repoName, dockerClient, local.FromBaseImage(baseImageName))
 				h.AssertNil(t, err)
 
-				origID = h.ImageID(t, repoName)
-			})
-
-			it("sets label and saves label to docker daemon", func() {
 				h.AssertNil(t, img.SetLabel("somekey", "new-val"))
 
 				label, err := img.Label("somekey")
@@ -399,31 +386,19 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#SetEnv", func() {
-		var (
-			img      imgutil.Image
-			origID   string
-			repoName = newTestImageName()
-		)
-		it.Before(func() {
-			var err error
-			baseImage, err := local.NewImage(repoName, dockerClient)
-			h.AssertNil(t, err)
-
-			h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
-			h.AssertNil(t, baseImage.SetLabel("some-key", "some-value"))
-			h.AssertNil(t, baseImage.Save())
-
-			img, err = local.NewImage(repoName, dockerClient)
-			h.AssertNil(t, err)
-			origID = h.ImageID(t, repoName)
-		})
+		var repoName = newTestImageName()
 
 		it.After(func() {
-			h.AssertNil(t, h.DockerRmi(dockerClient, repoName, origID))
+			h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
 		})
 
 		it("sets the environment", func() {
-			err := img.SetEnv("ENV_KEY", "ENV_VAL")
+			var err error
+
+			img, err := local.NewImage(repoName, dockerClient)
+			h.AssertNil(t, err)
+
+			err = img.SetEnv("ENV_KEY", "ENV_VAL")
 			h.AssertNil(t, err)
 
 			h.AssertNil(t, img.Save())
@@ -436,30 +411,19 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#SetWorkingDir", func() {
-		var (
-			img      imgutil.Image
-			origID   string
-			repoName = newTestImageName()
-		)
-		it.Before(func() {
-			var err error
-			baseImage, err := local.NewImage(repoName, dockerClient)
-			h.AssertNil(t, err)
-
-			h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
-			h.AssertNil(t, baseImage.Save())
-
-			img, err = local.NewImage(repoName, dockerClient)
-			h.AssertNil(t, err)
-			origID = h.ImageID(t, repoName)
-		})
+		var repoName = newTestImageName()
 
 		it.After(func() {
-			h.AssertNil(t, h.DockerRmi(dockerClient, repoName, origID))
+			h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
 		})
 
 		it("sets the environment", func() {
-			err := img.SetWorkingDir("/some/work/dir")
+			var err error
+
+			img, err := local.NewImage(repoName, dockerClient)
+			h.AssertNil(t, err)
+
+			err = img.SetWorkingDir("/some/work/dir")
 			h.AssertNil(t, err)
 
 			h.AssertNil(t, img.Save())
@@ -472,30 +436,19 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#SetEntrypoint", func() {
-		var (
-			img      imgutil.Image
-			origID   string
-			repoName = newTestImageName()
-		)
-		it.Before(func() {
-			var err error
-			baseImage, err := local.NewImage(repoName, dockerClient)
-			h.AssertNil(t, err)
-
-			h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
-			h.AssertNil(t, baseImage.Save())
-
-			img, err = local.NewImage(repoName, dockerClient)
-			h.AssertNil(t, err)
-			origID = h.ImageID(t, repoName)
-		})
+		var repoName = newTestImageName()
 
 		it.After(func() {
-			h.AssertNil(t, h.DockerRmi(dockerClient, repoName, origID))
+			h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
 		})
 
 		it("sets the entrypoint", func() {
-			err := img.SetEntrypoint("some", "entrypoint")
+			var err error
+
+			img, err := local.NewImage(repoName, dockerClient)
+			h.AssertNil(t, err)
+
+			err = img.SetEntrypoint("some", "entrypoint")
 			h.AssertNil(t, err)
 
 			h.AssertNil(t, img.Save())
@@ -508,31 +461,19 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#SetCmd", func() {
-		var (
-			img      imgutil.Image
-			origID   string
-			repoName = newTestImageName()
-		)
-
-		it.Before(func() {
-			var err error
-			baseImage, err := local.NewImage(repoName, dockerClient)
-			h.AssertNil(t, err)
-
-			h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
-			h.AssertNil(t, baseImage.Save())
-
-			img, err = local.NewImage(repoName, dockerClient)
-			h.AssertNil(t, err)
-			origID = h.ImageID(t, repoName)
-		})
+		var repoName = newTestImageName()
 
 		it.After(func() {
-			h.AssertNil(t, h.DockerRmi(dockerClient, repoName, origID))
+			h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
 		})
 
 		it("sets the cmd", func() {
-			err := img.SetCmd("some", "cmd")
+			var err error
+
+			img, err := local.NewImage(repoName, dockerClient)
+			h.AssertNil(t, err)
+
+			err = img.SetCmd("some", "cmd")
 			h.AssertNil(t, err)
 
 			h.AssertNil(t, img.Save())
@@ -951,12 +892,12 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			it.Before(func() {
 				var err error
 
-				baseImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
+				oldImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
 				h.AssertNil(t, err)
 
-				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
-				h.AssertNil(t, baseImage.SetLabel("mykey", "oldValue"))
-				h.AssertNil(t, baseImage.Save())
+				h.AssertNil(t, oldImage.SetLabel("repo_name_for_randomisation", repoName))
+				h.AssertNil(t, oldImage.SetLabel("mykey", "oldValue"))
+				h.AssertNil(t, oldImage.Save())
 
 				origID = h.ImageID(t, repoName)
 
@@ -1104,11 +1045,11 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			var repoName = newTestImageName()
 
 			it.Before(func() {
-				baseImage, err := local.NewImage(repoName, dockerClient)
+				existingImage, err := local.NewImage(repoName, dockerClient)
 				h.AssertNil(t, err)
 
-				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
-				h.AssertNil(t, baseImage.Save())
+				h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
+				h.AssertNil(t, existingImage.Save())
 			})
 
 			it.After(func() {
@@ -1152,12 +1093,10 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 			it.Before(func() {
 				var err error
-				baseImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
+				existingImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
 				h.AssertNil(t, err)
 
-				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
-				h.AssertNil(t, baseImage.SetLabel("mykey", "oldValue"))
-				h.AssertNil(t, baseImage.Save())
+				h.AssertNil(t, existingImage.Save())
 
 				origImg, err = local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
 				h.AssertNil(t, err)
