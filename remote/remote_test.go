@@ -10,7 +10,6 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -435,49 +434,84 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#Rebase", func() {
 		when("image exists", func() {
-			var oldBase, oldTopLayer, newBase string
+			var oldBase, newBase, oldTopLayerDiffID string
 			var oldBaseLayers, newBaseLayers, repoTopLayers []string
 			it.Before(func() {
-				var wg sync.WaitGroup
-				wg.Add(1)
-
+				// new base
 				newBase = "localhost:" + registryPort + "/pack-newbase-test-" + h.RandString(10)
-				go func() {
-					defer wg.Done()
-					h.CreateImageOnRemote(t, dockerClient, newBase, fmt.Sprintf(`
-						FROM busybox
-						LABEL repo_name_for_randomisation=%s
-						RUN echo new-base > base.txt
-						RUN echo text-new-base > otherfile.txt
-					`, repoName), nil)
-					newBaseLayers = manifestLayers(t, newBase)
-				}()
+				newBaseLayer1Path, err := h.CreateSingleFileTar("/base.txt", "new-base")
+				h.AssertNil(t, err)
+				defer os.Remove(newBaseLayer1Path)
 
+				newBaseLayer2Path, err := h.CreateSingleFileTar("/otherfile.txt", "text-new-base")
+				h.AssertNil(t, err)
+				defer os.Remove(newBaseLayer2Path)
+
+				newBaseImage, err := remote.NewImage(newBase, authn.DefaultKeychain, remote.FromBaseImage("busybox"))
+				h.AssertNil(t, err)
+
+				err = newBaseImage.AddLayer(newBaseLayer1Path)
+				h.AssertNil(t, err)
+
+				err = newBaseImage.AddLayer(newBaseLayer2Path)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, newBaseImage.Save())
+
+				newBaseLayers = manifestLayers(t, newBase)
+
+				// old base image
 				oldBase = "localhost:" + registryPort + "/pack-oldbase-test-" + h.RandString(10)
-				oldTopLayer = h.CreateImageOnRemote(t, dockerClient, oldBase, fmt.Sprintf(`
-					FROM busybox
-					LABEL repo_name_for_randomisation=%s
-					RUN echo old-base > base.txt
-					RUN echo text-old-base > otherfile.txt
-				`, oldBase), nil)
+				oldBaseLayer1Path, err := h.CreateSingleFileTar("/base.txt", "old-base")
+				h.AssertNil(t, err)
+				defer os.Remove(oldBaseLayer1Path)
+
+				oldBaseLayer2Path, err := h.CreateSingleFileTar("/otherfile.txt", "text-old-base")
+				h.AssertNil(t, err)
+				defer os.Remove(oldBaseLayer2Path)
+
+				oldBaseImage, err := remote.NewImage(oldBase, authn.DefaultKeychain, remote.FromBaseImage("busybox"))
+				h.AssertNil(t, err)
+
+				err = oldBaseImage.AddLayer(oldBaseLayer1Path)
+				h.AssertNil(t, err)
+
+				err = oldBaseImage.AddLayer(oldBaseLayer2Path)
+				h.AssertNil(t, err)
+
+				oldTopLayerDiffID, err = h.FileDiffID(oldBaseLayer2Path)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, oldBaseImage.Save())
+
 				oldBaseLayers = manifestLayers(t, oldBase)
 
-				h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM %s
-					LABEL repo_name_for_randomisation=%s
-					RUN echo text-from-image-1 > myimage.txt
-					RUN echo text-from-image-2 > myimage2.txt
-				`, oldBase, repoName), nil)
+				// original image
+				origLayer1Path, err := h.CreateSingleFileTar("/bmyimage.txt", "text-from-image-1")
+				h.AssertNil(t, err)
+				defer os.Remove(origLayer1Path)
+
+				origLayer2Path, err := h.CreateSingleFileTar("/myimage2.txt", "text-from-image-2")
+				h.AssertNil(t, err)
+				defer os.Remove(origLayer2Path)
+
+				origImage, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(oldBase))
+				h.AssertNil(t, err)
+
+				err = origImage.AddLayer(origLayer1Path)
+				h.AssertNil(t, err)
+
+				err = origImage.AddLayer(origLayer2Path)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, origImage.Save())
+
 				repoTopLayers = manifestLayers(t, repoName)[len(oldBaseLayers):]
-
-				wg.Wait()
-			})
-
-			it.After(func() {
-				h.AssertNil(t, h.DockerRmi(dockerClient, oldBase))
 			})
 
 			it("switches the base", func() {
+				var err error
+
 				// Before
 				h.AssertEq(t,
 					manifestLayers(t, repoName),
@@ -489,7 +523,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				newBaseImg, err := remote.NewImage(newBase, authn.DefaultKeychain, remote.FromBaseImage(newBase))
 				h.AssertNil(t, err)
-				err = img.Rebase(oldTopLayer, newBaseImg)
+				err = img.Rebase(oldTopLayerDiffID, newBaseImg)
 				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
 
@@ -505,20 +539,35 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 	when("#TopLayer", func() {
 		when("image exists", func() {
 			it("returns the digest for the top layer (useful for rebasing)", func() {
-				expectedTopLayer := h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
-					FROM busybox
-					LABEL repo_name_for_randomisation=%s
-					RUN echo old-base > base.txt
-					RUN echo text-old-base > otherfile.txt
-				`, repoName), nil)
+				baseLayerPath, err := h.CreateSingleFileTar("/old-base.txt", "old-base")
+				h.AssertNil(t, err)
+				defer os.Remove(baseLayerPath)
+
+				topLayerPath, err := h.CreateSingleFileTar("/top-layer.txt", "top-layer")
+				h.AssertNil(t, err)
+				defer os.Remove(topLayerPath)
+
+				expectedTopLayerDiffID, err := h.FileDiffID(topLayerPath)
+				h.AssertNil(t, err)
+
+				existingImage, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
+				h.AssertNil(t, err)
+
+				err = existingImage.AddLayer(baseLayerPath)
+				h.AssertNil(t, err)
+
+				err = existingImage.AddLayer(topLayerPath)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, existingImage.Save())
 
 				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
 				h.AssertNil(t, err)
 
-				actualTopLayer, err := img.TopLayer()
+				actualTopLayerDiffID, err := img.TopLayer()
 				h.AssertNil(t, err)
 
-				h.AssertEq(t, actualTopLayer, expectedTopLayer)
+				h.AssertEq(t, actualTopLayerDiffID, expectedTopLayerDiffID)
 			})
 		})
 
@@ -534,33 +583,43 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#AddLayer", func() {
-		var (
-			tarPath string
-			img     imgutil.Image
-		)
 		it.Before(func() {
 			var err error
 
-			h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
-				FROM busybox
-				LABEL repo_name_for_randomisation=%s
-				RUN echo -n old-layer > old-layer.txt
-			`, repoName), nil)
-
-			tarPath, err = h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+			existingImage, err := remote.NewImage(
+				repoName,
+				authn.DefaultKeychain,
+				remote.FromBaseImage("busybox"),
+			)
 			h.AssertNil(t, err)
 
-			img, err = remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
+			h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
+
+			oldLayerPath, err := h.CreateSingleFileTar("/old-layer.txt", "old-layer")
 			h.AssertNil(t, err)
+			defer os.Remove(oldLayerPath)
+
+			h.AssertNil(t, existingImage.AddLayer(oldLayerPath))
+
+			h.AssertNil(t, existingImage.Save())
+
 		})
 
 		it.After(func() {
-			h.AssertNil(t, os.Remove(tarPath))
 			h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
 		})
 
 		it("appends a layer", func() {
-			err := img.AddLayer(tarPath)
+			var err error
+
+			newLayerPath, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+			h.AssertNil(t, err)
+			defer os.Remove(newLayerPath)
+
+			img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
+			h.AssertNil(t, err)
+
+			err = img.AddLayer(newLayerPath)
 			h.AssertNil(t, err)
 
 			h.AssertNil(t, img.Save())
@@ -579,37 +638,45 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#AddLayerWithDiffID", func() {
-		var (
-			tarPath string
-			diffID  string
-			img     imgutil.Image
-		)
-
 		it.Before(func() {
 			var err error
-			h.CreateImageOnRemote(t, dockerClient, repoName, fmt.Sprintf(`
-				FROM busybox
-				LABEL repo_name_for_randomisation=%s
-				RUN echo -n old-layer > old-layer.txt
-			`, repoName), nil)
 
-			tarPath, err = h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+			existingImage, err := remote.NewImage(
+				repoName,
+				authn.DefaultKeychain,
+				remote.FromBaseImage("busybox"),
+			)
 			h.AssertNil(t, err)
 
-			diffID, err = h.FileDiffID(tarPath)
-			h.AssertNil(t, err)
+			h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
 
-			img, err = remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
+			oldLayerPath, err := h.CreateSingleFileTar("/old-layer.txt", "old-layer")
 			h.AssertNil(t, err)
+			defer os.Remove(oldLayerPath)
+
+			h.AssertNil(t, existingImage.AddLayer(oldLayerPath))
+
+			h.AssertNil(t, existingImage.Save())
 		})
 
 		it.After(func() {
-			h.AssertNil(t, os.Remove(tarPath))
 			h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
 		})
 
 		it("appends a layer", func() {
-			err := img.AddLayerWithDiffID(tarPath, diffID)
+			var err error
+
+			img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
+			h.AssertNil(t, err)
+
+			newLayerPath, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+			h.AssertNil(t, err)
+			defer os.Remove(newLayerPath)
+
+			diffID, err := h.FileDiffID(newLayerPath)
+			h.AssertNil(t, err)
+
+			err = img.AddLayerWithDiffID(newLayerPath, diffID)
 			h.AssertNil(t, err)
 
 			h.AssertNil(t, img.Save())
@@ -631,7 +698,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		when("previous image", func() {
 			var (
 				layer2SHA     string
-				img           imgutil.Image
 				prevImageName string
 			)
 
@@ -639,34 +705,44 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				var err error
 
 				prevImageName = "localhost:" + registryPort + "/pack-image-test-" + h.RandString(10)
-				h.CreateImageOnRemote(t, dockerClient, prevImageName, fmt.Sprintf(`
-					FROM busybox
-					LABEL repo_name_for_randomisation=%s
-					RUN echo -n old-layer-1 > layer-1.txt
-					RUN echo -n old-layer-2 > layer-2.txt
-				`, repoName), nil)
-
-				h.AssertNil(t, h.PullImage(dockerClient, prevImageName))
-				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), prevImageName)
+				prevImage, err := remote.NewImage(
+					prevImageName,
+					authn.DefaultKeychain,
+					remote.FromBaseImage("busybox"),
+				)
 				h.AssertNil(t, err)
 
-				layer2SHA = inspect.RootFS.Layers[2]
+				h.AssertNil(t, prevImage.SetLabel("repo_name_for_randomisation", repoName))
 
-				img, err = remote.NewImage(
+				layer1Path, err := h.CreateSingleFileTar("/layer-1.txt", "old-layer-1")
+				h.AssertNil(t, err)
+				defer os.Remove(layer1Path)
+
+				layer2Path, err := h.CreateSingleFileTar("/layer-2.txt", "old-layer-2")
+				h.AssertNil(t, err)
+				defer os.Remove(layer2Path)
+
+				h.AssertNil(t, prevImage.AddLayer(layer1Path))
+				h.AssertNil(t, prevImage.AddLayer(layer2Path))
+
+				h.AssertNil(t, prevImage.Save())
+
+				layer2SHA, err = h.FileDiffID(layer2Path)
+				h.AssertNil(t, err)
+			})
+
+			it("reuses a layer", func() {
+				var err error
+
+				img, err := remote.NewImage(
 					repoName,
 					authn.DefaultKeychain,
 					remote.WithPreviousImage(prevImageName),
 					remote.FromBaseImage("busybox"),
 				)
 				h.AssertNil(t, err)
-			})
 
-			it.After(func() {
-				h.AssertNil(t, h.DockerRmi(dockerClient, prevImageName))
-			})
-
-			it("reuses a layer", func() {
-				err := img.ReuseLayer(layer2SHA)
+				err = img.ReuseLayer(layer2SHA)
 				h.AssertNil(t, err)
 
 				h.AssertNil(t, img.Save())
@@ -683,8 +759,17 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns error on nonexistent layer", func() {
+				img, err := remote.NewImage(
+					repoName,
+					authn.DefaultKeychain,
+					remote.WithPreviousImage(prevImageName),
+					remote.FromBaseImage("busybox"),
+				)
+				h.AssertNil(t, err)
+
 				img.Rename(repoName)
-				err := img.ReuseLayer("some-bad-sha")
+
+				err = img.ReuseLayer("some-bad-sha")
 
 				h.AssertError(t, err, "previous image did not have layer with diff id 'some-bad-sha'")
 			})

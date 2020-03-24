@@ -136,50 +136,6 @@ func Eventually(t *testing.T, test func() bool, every time.Duration, timeout tim
 	}
 }
 
-func CreateImageOnLocal(t *testing.T, dockerCli dockercli.CommonAPIClient, repoName, dockerFile string, labels map[string]string) {
-	ctx := context.Background()
-
-	buildContextTarPath, err := CreateSingleFileTar("Dockerfile", dockerFile)
-	AssertNil(t, err)
-	defer os.Remove(buildContextTarPath)
-
-	buildContext, err := os.Open(buildContextTarPath)
-	AssertNil(t, err)
-	defer buildContext.Close()
-
-	res, err := dockerCli.ImageBuild(ctx, buildContext, dockertypes.ImageBuildOptions{
-		Tags:           []string{repoName},
-		SuppressOutput: true,
-		Remove:         true,
-		ForceRemove:    true,
-		Labels:         labels,
-	})
-	AssertNil(t, err)
-
-	io.Copy(ioutil.Discard, res.Body)
-	res.Body.Close()
-}
-
-func CreateImageOnRemote(t *testing.T, dockerCli dockercli.CommonAPIClient, repoName, dockerFile string, labels map[string]string) string {
-	t.Helper()
-	defer DockerRmi(dockerCli, repoName)
-
-	CreateImageOnLocal(t, dockerCli, repoName, dockerFile, labels)
-
-	var topLayer string
-	inspect, _, err := dockerCli.ImageInspectWithRaw(context.TODO(), repoName)
-	AssertNil(t, err)
-	if len(inspect.RootFS.Layers) > 0 {
-		topLayer = inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
-	} else {
-		topLayer = "N/A"
-	}
-
-	AssertNil(t, PushImage(dockerCli, repoName))
-
-	return topLayer
-}
-
 func PullImage(dockerCli dockercli.CommonAPIClient, ref string) error {
 	rc, err := dockerCli.ImagePull(context.Background(), ref, dockertypes.ImagePullOptions{})
 	if err != nil {
