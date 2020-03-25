@@ -158,7 +158,7 @@ func DockerRmi(dockerCli dockercli.CommonAPIClient, repoNames ...string) error {
 		_, e := dockerCli.ImageRemove(
 			ctx,
 			name,
-			dockertypes.ImageRemoveOptions{Force: true, PruneChildren: true},
+			dockertypes.ImageRemoveOptions{PruneChildren: true},
 		)
 		if e != nil && err == nil {
 			err = e
@@ -185,10 +185,11 @@ func CopySingleFileFromContainer(dockerCli dockercli.CommonAPIClient, ctrID, pat
 	return string(b), err
 }
 
-func CopySingleFileFromImage(dockerCli dockercli.CommonAPIClient, repoName, path string) (string, error) {
+func CreateContainer(dockerCli dockercli.CommonAPIClient, repoName string) (string, error) {
 	ctr, err := dockerCli.ContainerCreate(context.Background(),
 		&container.Config{
 			Image: repoName,
+			Cmd:   []string{"noop"},
 		}, &container.HostConfig{
 			AutoRemove: true,
 		}, nil, "",
@@ -196,8 +197,16 @@ func CopySingleFileFromImage(dockerCli dockercli.CommonAPIClient, repoName, path
 	if err != nil {
 		return "", err
 	}
-	defer dockerCli.ContainerRemove(context.Background(), ctr.ID, dockertypes.ContainerRemoveOptions{})
-	return CopySingleFileFromContainer(dockerCli, ctr.ID, path)
+	return ctr.ID, nil
+}
+
+func CopySingleFileFromImage(dockerCli dockercli.CommonAPIClient, repoName, path string) (string, error) {
+	ctrID, err := CreateContainer(dockerCli, repoName)
+	if err != nil {
+		return "", err
+	}
+	defer dockerCli.ContainerRemove(context.Background(), ctrID, dockertypes.ContainerRemoveOptions{})
+	return CopySingleFileFromContainer(dockerCli, ctrID, path)
 }
 
 func PushImage(dockerCli dockercli.CommonAPIClient, ref string) error {
