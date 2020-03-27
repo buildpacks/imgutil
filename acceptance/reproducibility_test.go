@@ -2,9 +2,8 @@ package acceptance
 
 import (
 	"fmt"
-	"io"
-	"io/ioutil"
 	"math/rand"
+	"os"
 	"testing"
 	"time"
 
@@ -42,6 +41,7 @@ func TestAcceptance(t *testing.T) {
 func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 	var (
 		imageName1, imageName2 string
+		layer1, layer2         string
 		mutateAndSave          func(t *testing.T, image imgutil.Image)
 		dockerClient           dockerclient.CommonAPIClient
 	)
@@ -56,8 +56,8 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 		envKey := "env-key-" + h.RandString(10)
 		envVal := "env-val-" + h.RandString(10)
 		workingDir := "working-dir-" + h.RandString(10)
-		layer1 := randomLayer(t)
-		layer2 := randomLayer(t)
+		layer1 = randomLayer(t)
+		layer2 = randomLayer(t)
 
 		mutateAndSave = func(t *testing.T, img imgutil.Image) {
 			h.AssertNil(t, img.AddLayer(layer1))
@@ -75,6 +75,8 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 		// clean up any local images
 		h.DockerRmi(dockerClient, imageName1)
 		h.DockerRmi(dockerClient, imageName2)
+		h.AssertNil(t, os.Remove(layer1))
+		h.AssertNil(t, os.Remove(layer2))
 	})
 
 	it("remote/remote", func() {
@@ -120,16 +122,10 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 }
 
 func randomLayer(t *testing.T) string {
-	tr, err := h.CreateSingleFileTar(fmt.Sprintf("/new-layer-%s.txt", h.RandString(10)), "new-layer-"+h.RandString(10))
+	tarPath, err := h.CreateSingleFileTar(fmt.Sprintf("/new-layer-%s.txt", h.RandString(10)), "new-layer-"+h.RandString(10))
 	h.AssertNil(t, err)
 
-	tarFile, err := ioutil.TempFile("", "add-layer-test")
-	h.AssertNil(t, err)
-	defer tarFile.Close()
-
-	_, err = io.Copy(tarFile, tr)
-	h.AssertNil(t, err)
-	return tarFile.Name()
+	return tarPath
 }
 
 func compare(t *testing.T, img1, img2 string) {

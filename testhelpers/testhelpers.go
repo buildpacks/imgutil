@@ -2,13 +2,15 @@ package testhelpers
 
 import (
 	"archive/tar"
-	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -134,45 +136,6 @@ func Eventually(t *testing.T, test func() bool, every time.Duration, timeout tim
 	}
 }
 
-func CreateImageOnLocal(t *testing.T, dockerCli dockercli.CommonAPIClient, repoName, dockerFile string, labels map[string]string) {
-	ctx := context.Background()
-
-	buildContext, err := CreateSingleFileTar("Dockerfile", dockerFile)
-	AssertNil(t, err)
-
-	res, err := dockerCli.ImageBuild(ctx, buildContext, dockertypes.ImageBuildOptions{
-		Tags:           []string{repoName},
-		SuppressOutput: true,
-		Remove:         true,
-		ForceRemove:    true,
-		Labels:         labels,
-	})
-	AssertNil(t, err)
-
-	io.Copy(ioutil.Discard, res.Body)
-	res.Body.Close()
-}
-
-func CreateImageOnRemote(t *testing.T, dockerCli dockercli.CommonAPIClient, repoName, dockerFile string, labels map[string]string) string {
-	t.Helper()
-	defer DockerRmi(dockerCli, repoName)
-
-	CreateImageOnLocal(t, dockerCli, repoName, dockerFile, labels)
-
-	var topLayer string
-	inspect, _, err := dockerCli.ImageInspectWithRaw(context.TODO(), repoName)
-	AssertNil(t, err)
-	if len(inspect.RootFS.Layers) > 0 {
-		topLayer = inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
-	} else {
-		topLayer = "N/A"
-	}
-
-	AssertNil(t, PushImage(dockerCli, repoName))
-
-	return topLayer
-}
-
 func PullImage(dockerCli dockercli.CommonAPIClient, ref string) error {
 	rc, err := dockerCli.ImagePull(context.Background(), ref, dockertypes.ImagePullOptions{})
 	if err != nil {
@@ -268,17 +231,43 @@ func ImageID(t *testing.T, repoName string) string {
 	return inspect.ID
 }
 
-func CreateSingleFileTar(path, txt string) (io.Reader, error) {
-	var buf bytes.Buffer
-	tw := tar.NewWriter(&buf)
+func CreateSingleFileTar(path, txt string) (string, error) {
+	tarFile, err := ioutil.TempFile("", "create-single-file-tar-path")
+	if err != nil {
+		return "", err
+	}
+	defer tarFile.Close()
+
+	tw := tar.NewWriter(tarFile)
+	defer tw.Close()
+
 	if err := tw.WriteHeader(&tar.Header{Name: path, Size: int64(len(txt)), Mode: 0644}); err != nil {
-		return nil, err
+		return "", err
 	}
 	if _, err := tw.Write([]byte(txt)); err != nil {
-		return nil, err
+		return "", err
 	}
 	if err := tw.Close(); err != nil {
-		return nil, err
+		return "", err
 	}
-	return bytes.NewReader(buf.Bytes()), nil
+
+	return tarFile.Name(), nil
+}
+
+func FileDiffID(path string) (string, error) {
+	tarFile, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer tarFile.Close()
+
+	hasher := sha256.New()
+	_, err = io.Copy(hasher, tarFile)
+	if err != nil {
+		return "", err
+	}
+
+	diffID := "sha256:" + hex.EncodeToString(hasher.Sum(make([]byte, 0, hasher.Size())))
+
+	return diffID, nil
 }
