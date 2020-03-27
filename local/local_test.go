@@ -781,11 +781,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			it.Before(func() {
 				var err error
 
-				existingImage, err := local.NewImage(
-					repoName,
-					dockerClient,
-					local.FromBaseImage("busybox"),
-				)
+				existingImage, err := local.NewImage(repoName, dockerClient)
 
 				h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
 
