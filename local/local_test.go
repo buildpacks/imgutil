@@ -40,12 +40,25 @@ func newTestImageName() string {
 }
 
 func testImage(t *testing.T, when spec.G, it spec.S) {
-	var dockerClient client.CommonAPIClient
+	var (
+		dockerClient          client.CommonAPIClient
+		daemonOS              string
+		layerOSOption         h.LayerOption
+		runnableBaseImageName string
+	)
 
 	it.Before(func() {
 		var err error
 		dockerClient = h.DockerCli(t)
+
+		daemonInfo, err := dockerClient.Info(context.TODO())
 		h.AssertNil(t, err)
+
+		daemonOS = daemonInfo.OSType
+		layerOSOption = h.LayerOption(daemonOS)
+		runnableBaseImageName = h.RunnableBaseImage(daemonOS)
+
+		h.AssertNil(t, h.PullImage(dockerClient, runnableBaseImageName))
 	})
 
 	when("#NewImage", func() {
@@ -55,15 +68,18 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 			})
 
-			it("sets sensible defaults for all required fields", func() {
+			it("sets sensible defaults from daemon for all required fields", func() {
 				// os, architecture, and rootfs are required per https://github.com/opencontainers/image-spec/blob/master/config.md
 				img, err := local.NewImage(newTestImageName(), dockerClient)
 				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
+
 				defer h.DockerRmi(dockerClient, img.Name())
 				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
 				h.AssertNil(t, err)
-				h.AssertEq(t, inspect.Os, "linux")
+
+				// os, architecture come from daemon
+				h.AssertEq(t, inspect.Os, daemonOS)
 				h.AssertEq(t, inspect.Architecture, "amd64")
 				h.AssertEq(t, inspect.RootFS.Type, "layers")
 			})
@@ -104,6 +120,51 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					)
 
 					h.AssertNil(t, err)
+				})
+			})
+
+			when("base image and daemon os/architecture match", func() {
+				it("uses the base image architecture/OS", func() {
+					img, err := local.NewImage(newTestImageName(), dockerClient, local.FromBaseImage(runnableBaseImageName))
+					h.AssertNil(t, err)
+					h.AssertNil(t, img.Save())
+					defer h.DockerRmi(dockerClient, img.Name())
+
+					imgOS, err := img.OS()
+					h.AssertNil(t, err)
+					h.AssertEq(t, imgOS, daemonOS)
+
+					inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
+					h.AssertNil(t, err)
+					h.AssertEq(t, inspect.Os, daemonOS)
+					h.AssertEq(t, inspect.Architecture, "amd64")
+					h.AssertEq(t, inspect.RootFS.Type, "layers")
+
+					h.AssertEq(t, img.Found(), true)
+				})
+			})
+
+			when("base image and daemon architecture do not match", func() {
+				it("uses the base image architecture", func() {
+					armBaseImageName := "arm64v8/busybox@sha256:50edf1d080946c6a76989d1c3b0e753b62f7d9b5f5e66e88bef23ebbd1e9709c"
+					expectedArmArch := "arm64"
+					if daemonOS == "windows" {
+						// this nanoserver windows/arm image exists and pulls. Not sure whether it works for anything else.
+						armBaseImageName = "mcr.microsoft.com/windows/nanoserver@sha256:29e2270953589a12de7a77a7e77d39e3b3e9cdfd243c922b3b8a63e2d8a71026"
+						expectedArmArch = "arm"
+					}
+
+					h.PullImage(dockerClient, armBaseImageName)
+
+					img, err := local.NewImage(newTestImageName(), dockerClient, local.FromBaseImage(armBaseImageName))
+					h.AssertNil(t, err)
+					h.AssertNil(t, img.Save())
+					defer h.DockerRmi(dockerClient, img.Name())
+
+					imgArch, err := img.Architecture()
+					h.AssertNil(t, err)
+
+					h.AssertEq(t, imgArch, expectedArmArch)
 				})
 			})
 		})
@@ -230,22 +291,15 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#CreatedAt", func() {
-		const reference = "busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"
-		it.Before(func() {
-			// The SHA of a particular iteration of busybox:1.29
-			err := h.PullImage(dockerClient, reference)
-			h.AssertNil(t, err)
-		})
-
-		it.After(func() {
-			h.AssertNil(t, h.DockerRmi(dockerClient, reference))
-		})
-
 		it("returns the containers created at time", func() {
-			img, err := local.NewImage(reference, dockerClient, local.FromBaseImage(reference))
+			img, err := local.NewImage(newTestImageName(), dockerClient, local.FromBaseImage(runnableBaseImageName))
 			h.AssertNil(t, err)
 
+			// based on static base image refs
 			expectedTime := time.Date(2018, 10, 2, 17, 19, 34, 239926273, time.UTC)
+			if daemonOS == "windows" {
+				expectedTime = time.Date(2020, 03, 04, 13, 28, 48, 673000000, time.UTC)
+			}
 
 			createdTime, err := img.CreatedAt()
 
@@ -483,11 +537,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				newBaseImage, err := local.NewImage(newBase, dockerClient)
 				h.AssertNil(t, err)
 
-				newBaseLayer1Path, err := h.CreateSingleFileTar("/base.txt", "new-base")
+				newBaseLayer1Path, err := h.CreateSingleFileLayerTar("/base.txt", "new-base", h.BaseLayerOption, layerOSOption)
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayer1Path)
 
-				newBaseLayer2Path, err := h.CreateSingleFileTar("/otherfile.txt", "text-new-base")
+				newBaseLayer2Path, err := h.CreateSingleFileLayerTar("/otherfile.txt", "text-new-base", layerOSOption)
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayer2Path)
 
@@ -501,11 +555,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				oldBaseImage, err := local.NewImage(oldBase, dockerClient)
 				h.AssertNil(t, err)
 
-				oldBaseLayer1Path, err := h.CreateSingleFileTar("/base.txt", "old-base")
+				oldBaseLayer1Path, err := h.CreateSingleFileLayerTar("/base.txt", "old-base", h.BaseLayerOption, layerOSOption)
 				h.AssertNil(t, err)
 				defer os.Remove(oldBaseLayer1Path)
 
-				oldBaseLayer2Path, err := h.CreateSingleFileTar("/otherfile.txt", "text-old-base")
+				oldBaseLayer2Path, err := h.CreateSingleFileLayerTar("/otherfile.txt", "text-old-base", layerOSOption)
 				h.AssertNil(t, err)
 				defer os.Remove(oldBaseLayer2Path)
 
@@ -522,11 +576,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				origImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(oldBase))
 				h.AssertNil(t, err)
 
-				imgLayer1Path, err := h.CreateSingleFileTar("/myimage.txt", "text-from-image")
+				imgLayer1Path, err := h.CreateSingleFileLayerTar("/myimage.txt", "text-from-image", layerOSOption)
 				h.AssertNil(t, err)
 				defer os.Remove(imgLayer1Path)
 
-				imgLayer2Path, err := h.CreateSingleFileTar("/myimage2.txt", "text-from-image")
+				imgLayer2Path, err := h.CreateSingleFileLayerTar("/myimage2.txt", "text-from-image", layerOSOption)
 				h.AssertNil(t, err)
 				defer os.Remove(imgLayer2Path)
 
@@ -599,9 +653,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				)
 				h.AssertNil(t, err)
 
-				layer1Path, err := h.CreateSingleFileTar("/base.txt", "old-base")
+				layer1Path, err := h.CreateSingleFileLayerTar("/base.txt", "old-base", h.BaseLayerOption, layerOSOption)
 				h.AssertNil(t, err)
-				layer2Path, err := h.CreateSingleFileTar("/otherfile.txt", "text-old-base")
+				layer2Path, err := h.CreateSingleFileLayerTar("/otherfile.txt", "text-old-base", layerOSOption)
 				h.AssertNil(t, err)
 
 				h.AssertNil(t, existingImage.AddLayer(layer1Path))
@@ -641,56 +695,71 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#AddLayer", func() {
-		var (
-			repoName        = newTestImageName()
-			existingImageID string
-		)
+		when("empty image", func() {
+			var repoName = newTestImageName()
 
-		it.Before(func() {
-			existingImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
-			h.AssertNil(t, err)
+			it("appends a layer", func() {
+				img, err := local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
 
-			oldLayerPath, err := h.CreateSingleFileTar("/old-layer.txt", "old-layer")
-			h.AssertNil(t, err)
-			defer os.Remove(oldLayerPath)
+				newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", h.BaseLayerOption, layerOSOption)
+				h.AssertNil(t, err)
+				defer os.Remove(newLayerPath)
 
-			h.AssertNil(t, existingImage.AddLayer(oldLayerPath))
+				h.AssertNil(t, img.AddLayer(newLayerPath))
 
-			h.AssertNil(t, existingImage.Save())
+				h.AssertNil(t, img.Save())
+				defer h.DockerRmi(dockerClient, repoName)
 
-			id, err := existingImage.Identifier()
-			h.AssertNil(t, err)
-
-			existingImageID = id.String()
+				output, err := h.CopySingleFileFromImage(dockerClient, repoName, "new-layer.txt")
+				h.AssertNil(t, err)
+				h.AssertEq(t, output, "new-layer")
+			})
 		})
 
-		it.After(func() {
-			h.AssertNil(t, h.DockerRmi(dockerClient, repoName, existingImageID))
-		})
-
-		it("appends a layer", func() {
-			img, err := local.NewImage(
-				repoName, dockerClient,
-				local.FromBaseImage(repoName),
-				local.WithPreviousImage(repoName),
+		when("base image exists", func() {
+			var (
+				repoName      = newTestImageName()
+				baseImageName = newTestImageName()
 			)
-			h.AssertNil(t, err)
 
-			newLayerPath, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
-			h.AssertNil(t, err)
-			defer os.Remove(newLayerPath)
+			it("appends a layer", func() {
+				baseImage, err := local.NewImage(baseImageName, dockerClient)
+				h.AssertNil(t, err)
 
-			h.AssertNil(t, img.AddLayer(newLayerPath))
+				oldLayerPath, err := h.CreateSingleFileLayerTar("/old-layer.txt", "old-layer", h.BaseLayerOption, layerOSOption)
+				h.AssertNil(t, err)
+				defer os.Remove(oldLayerPath)
 
-			h.AssertNil(t, img.Save())
+				h.AssertNil(t, baseImage.AddLayer(oldLayerPath))
 
-			output, err := h.CopySingleFileFromImage(dockerClient, repoName, "old-layer.txt")
-			h.AssertNil(t, err)
-			h.AssertEq(t, output, "old-layer")
+				h.AssertNil(t, baseImage.Save())
+				defer h.DockerRmi(dockerClient, baseImageName)
 
-			output, err = h.CopySingleFileFromImage(dockerClient, repoName, "new-layer.txt")
-			h.AssertNil(t, err)
-			h.AssertEq(t, output, "new-layer")
+				img, err := local.NewImage(
+					repoName,
+					dockerClient,
+					local.FromBaseImage(baseImageName),
+				)
+				h.AssertNil(t, err)
+
+				newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", layerOSOption)
+				h.AssertNil(t, err)
+				defer os.Remove(newLayerPath)
+
+				h.AssertNil(t, img.AddLayer(newLayerPath))
+
+				h.AssertNil(t, img.Save())
+				defer h.DockerRmi(dockerClient, repoName)
+
+				output, err := h.CopySingleFileFromImage(dockerClient, repoName, "old-layer.txt")
+				h.AssertNil(t, err)
+				h.AssertEq(t, output, "old-layer")
+
+				output, err = h.CopySingleFileFromImage(dockerClient, repoName, "new-layer.txt")
+				h.AssertNil(t, err)
+				h.AssertEq(t, output, "new-layer")
+			})
 		})
 	})
 
@@ -704,7 +773,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			existingImage, err := local.NewImage(repoName, dockerClient)
 			h.AssertNil(t, err)
 
-			oldLayerPath, err := h.CreateSingleFileTar("/old-layer.txt", "old-layer")
+			oldLayerPath, err := h.CreateSingleFileLayerTar("/old-layer.txt", "old-layer", h.BaseLayerOption, layerOSOption)
 			h.AssertNil(t, err)
 			defer os.Remove(oldLayerPath)
 
@@ -732,7 +801,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			)
 			h.AssertNil(t, err)
 
-			newLayerPath, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+			newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", layerOSOption)
 			h.AssertNil(t, err)
 			defer os.Remove(newLayerPath)
 
@@ -762,8 +831,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				existingImage, err := local.NewImage(repoName, dockerClient)
 				h.AssertNil(t, err)
 
-				layerPath, err := h.CreateSingleFileTar("/file.txt", "file-contents")
+				layerPath, err := h.CreateSingleFileLayerTar("/file.txt", "file-contents", h.BaseLayerOption, layerOSOption)
 				h.AssertNil(t, err)
+				defer os.Remove(layerPath)
 
 				h.AssertNil(t, existingImage.AddLayer(layerPath))
 
@@ -786,10 +856,16 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 					tr := tar.NewReader(r)
 
-					header, err := tr.Next()
-					h.AssertNil(t, err)
+					// continue until reader is at matching file
+					for {
+						header, err := tr.Next()
+						h.AssertNil(t, err)
 
-					h.AssertEq(t, header.Name, "/file.txt")
+						if strings.HasSuffix(header.Name, "/file.txt") {
+							break
+						}
+					}
+
 					contents := make([]byte, len("file-contents"))
 					_, err = tr.Read(contents)
 					if err != io.EOF {
@@ -840,10 +916,13 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			)
 			h.AssertNil(t, err)
 
-			layer1Path, err := h.CreateSingleFileTar("/layer-1.txt", "old-layer-1")
+			layer1Path, err := h.CreateSingleFileLayerTar("/layer-1.txt", "old-layer-1", h.BaseLayerOption, layerOSOption)
 			h.AssertNil(t, err)
-			layer2Path, err := h.CreateSingleFileTar("/layer-2.txt", "old-layer-2")
+			defer os.Remove(layer1Path)
+
+			layer2Path, err := h.CreateSingleFileLayerTar("/layer-2.txt", "old-layer-2", layerOSOption)
 			h.AssertNil(t, err)
+			defer os.Remove(layer2Path)
 
 			h.AssertNil(t, prevImage.AddLayer(layer1Path))
 			h.AssertNil(t, prevImage.AddLayer(layer2Path))
@@ -868,6 +947,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				local.WithPreviousImage(prevName),
 			)
 			h.AssertNil(t, err)
+
+			newBaseLayerPath, err := h.CreateSingleFileLayerTar("/new-base.txt", "base-content", h.BaseLayerOption, layerOSOption)
+			h.AssertNil(t, err)
+			defer os.Remove(newBaseLayerPath)
+
+			h.AssertNil(t, img.AddLayer(newBaseLayerPath))
 
 			err = img.ReuseLayer(layer2SHA)
 			h.AssertNil(t, err)
@@ -924,10 +1009,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				origID = h.ImageID(t, repoName)
 
-				img, err = local.NewImage(repoName, dockerClient)
+				img, err = local.NewImage(repoName, dockerClient, local.FromBaseImage(runnableBaseImageName))
 				h.AssertNil(t, err)
 
-				tarPath, err = h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+				tarPath, err = h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", layerOSOption)
 				h.AssertNil(t, err)
 			})
 
