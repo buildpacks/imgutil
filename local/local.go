@@ -27,15 +27,14 @@ import (
 )
 
 type Image struct {
-	repoName         string
-	docker           client.CommonAPIClient
-	inspect          types.ImageInspect
-	layerPaths       []string
-	currentTempImage string
-	downloadOnce     *sync.Once
-	prevName         string
-	prevImage        *FileSystemLocalImage
-	easyAddLayers    []string
+	repoName      string
+	docker        client.CommonAPIClient
+	inspect       types.ImageInspect
+	layerPaths    []string
+	downloadOnce  *sync.Once
+	prevName      string
+	prevImage     *FileSystemLocalImage
+	easyAddLayers []string
 }
 
 type FileSystemLocalImage struct {
@@ -547,7 +546,7 @@ func addFileToTar(tw *tar.Writer, name string, contents *os.File) error {
 	if err != nil {
 		return err
 	}
-	hdr := &tar.Header{Name: name, Mode: 0644, Size: int64(fi.Size())}
+	hdr := &tar.Header{Name: name, Mode: 0644, Size: fi.Size()}
 	if err := tw.WriteHeader(hdr); err != nil {
 		return err
 	}
@@ -628,7 +627,7 @@ func defaultInspect() types.ImageInspect {
 
 func v1Config(inspect types.ImageInspect) (v1.ConfigFile, error) {
 	history := make([]v1.History, len(inspect.RootFS.Layers))
-	for i, _ := range history {
+	for i := range history {
 		// zero history
 		history[i] = v1.History{
 			Created: v1.Time{Time: imgutil.NormalizedDateTime},

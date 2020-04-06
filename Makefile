@@ -15,9 +15,13 @@ format: install-goimports
 	@echo "> Formating code..."
 	@goimports -l -w -local ${PACKAGE_BASE} ${SRC}
 
-vet:
-	@echo "> Vetting code..."
-	@$(GOCMD) vet -mod=vendor ${PACKAGES}
+install-golangci-lint:
+	@echo "> Installing golangci-lint..."
+	cd tools; $(GOCMD) install -mod=vendor github.com/golangci/golangci-lint/cmd/golangci-lint
 
-test: format vet
+lint: install-golangci-lint
+	@echo "> Linting code..."
+	@golangci-lint run -c golangci.yaml
+
+test: format lint
 	$(GOTEST) -parallel=1 -count=1 -v ./...
