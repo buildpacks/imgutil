@@ -29,7 +29,7 @@ func newTestImageName() string {
 	return "localhost:" + registryPort + "/pack-image-test-" + h.RandString(10)
 }
 
-func TestRemoteImage(t *testing.T) {
+func TestRemote(t *testing.T) {
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	dockerRegistry := h.NewDockerRegistry()
@@ -38,10 +38,10 @@ func TestRemoteImage(t *testing.T) {
 
 	registryPort = dockerRegistry.Port
 
-	spec.Run(t, "RemoteImage", testRemoteImage, spec.Sequential(), spec.Report(report.Terminal{}))
+	spec.Run(t, "Image", testImage, spec.Sequential(), spec.Report(report.Terminal{}))
 }
 
-func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
+func testImage(t *testing.T, when spec.G, it spec.S) {
 	var repoName string
 	var dockerClient client.CommonAPIClient
 
@@ -137,12 +137,9 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 	when("#Label", func() {
 		when("image exists", func() {
 			it.Before(func() {
-				var err error
-
 				baseImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
-				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
 				h.AssertNil(t, baseImage.SetLabel("mykey", "myvalue"))
 				h.AssertNil(t, baseImage.SetLabel("other", "data"))
 				h.AssertNil(t, baseImage.Save())
@@ -184,12 +181,8 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			var baseImageName = newTestImageName()
 
 			it.Before(func() {
-				var err error
-
 				baseImage, err := remote.NewImage(baseImageName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
-
-				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", baseImageName))
 				h.AssertNil(t, baseImage.SetEnv("MY_VAR", "my_val"))
 				h.AssertNil(t, baseImage.Save())
 			})
@@ -250,8 +243,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#Identifier", func() {
 		it("returns a digest reference", func() {
-			var err error
-
 			img, err := remote.NewImage(
 				repoName+":some-tag",
 				authn.DefaultKeychain,
@@ -265,8 +256,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("accurately parses the reference for an image with a sha", func() {
-			var err error
-
 			img, err := remote.NewImage(
 				repoName+"@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5",
 				authn.DefaultKeychain,
@@ -281,8 +270,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 		when("the image has been modified and saved", func() {
 			it("returns the new digest reference", func() {
-				var err error
-
 				img, err := remote.NewImage(
 					repoName+":some-tag",
 					authn.DefaultKeychain,
@@ -306,8 +293,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 	when("#SetLabel", func() {
 		when("image exists", func() {
 			it("sets label on img object", func() {
-				var err error
-
 				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
@@ -318,8 +303,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("saves label", func() {
-				var err error
-
 				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
@@ -336,8 +319,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#SetEnv", func() {
 		it("sets the environment", func() {
-			var err error
-
 			img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 			h.AssertNil(t, err)
 
@@ -358,8 +339,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#SetWorkingDir", func() {
 		it("sets the environment", func() {
-			var err error
-
 			img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 			h.AssertNil(t, err)
 
@@ -380,8 +359,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#SetEntrypoint", func() {
 		it("sets the entrypoint", func() {
-			var err error
-
 			img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 			h.AssertNil(t, err)
 
@@ -402,8 +379,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#SetCmd", func() {
 		it("sets the cmd", func() {
-			var err error
-
 			img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 			h.AssertNil(t, err)
 
@@ -437,7 +412,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayer2Path)
 
-				newBaseImage, err := remote.NewImage(newBase, authn.DefaultKeychain, remote.FromBaseImage("busybox"))
+				newBaseImage, err := remote.NewImage(newBase, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
 				err = newBaseImage.AddLayer(newBaseLayer1Path)
@@ -460,7 +435,7 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				defer os.Remove(oldBaseLayer2Path)
 
-				oldBaseImage, err := remote.NewImage(oldBase, authn.DefaultKeychain, remote.FromBaseImage("busybox"))
+				oldBaseImage, err := remote.NewImage(oldBase, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
 				err = oldBaseImage.AddLayer(oldBaseLayer1Path)
@@ -500,8 +475,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("switches the base", func() {
-				var err error
-
 				// Before
 				h.AssertEq(t,
 					manifestLayers(t, repoName),
@@ -574,16 +547,11 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#AddLayer", func() {
 		it.Before(func() {
-			var err error
-
 			existingImage, err := remote.NewImage(
 				repoName,
 				authn.DefaultKeychain,
-				remote.FromBaseImage("busybox"),
 			)
 			h.AssertNil(t, err)
-
-			h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
 
 			oldLayerPath, err := h.CreateSingleFileTar("/old-layer.txt", "old-layer")
 			h.AssertNil(t, err)
@@ -599,8 +567,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("appends a layer", func() {
-			var err error
-
 			newLayerPath, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
 			h.AssertNil(t, err)
 			defer os.Remove(newLayerPath)
@@ -628,16 +594,11 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#AddLayerWithDiffID", func() {
 		it.Before(func() {
-			var err error
-
 			existingImage, err := remote.NewImage(
 				repoName,
 				authn.DefaultKeychain,
-				remote.FromBaseImage("busybox"),
 			)
 			h.AssertNil(t, err)
-
-			h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
 
 			oldLayerPath, err := h.CreateSingleFileTar("/old-layer.txt", "old-layer")
 			h.AssertNil(t, err)
@@ -653,8 +614,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("appends a layer", func() {
-			var err error
-
 			img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
 			h.AssertNil(t, err)
 
@@ -691,16 +650,12 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			)
 
 			it.Before(func() {
-				var err error
-
 				prevImageName = "localhost:" + registryPort + "/pack-image-test-" + h.RandString(10)
 				prevImage, err := remote.NewImage(
 					prevImageName,
 					authn.DefaultKeychain,
 				)
 				h.AssertNil(t, err)
-
-				h.AssertNil(t, prevImage.SetLabel("repo_name_for_randomisation", repoName))
 
 				layer1Path, err := h.CreateSingleFileTar("/layer-1.txt", "old-layer-1")
 				h.AssertNil(t, err)
@@ -720,13 +675,10 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("reuses a layer", func() {
-				var err error
-
 				img, err := remote.NewImage(
 					repoName,
 					authn.DefaultKeychain,
 					remote.WithPreviousImage(prevImageName),
-					remote.FromBaseImage("busybox"),
 				)
 				h.AssertNil(t, err)
 
@@ -751,7 +703,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 					repoName,
 					authn.DefaultKeychain,
 					remote.WithPreviousImage(prevImageName),
-					remote.FromBaseImage("busybox"),
 				)
 				h.AssertNil(t, err)
 
@@ -772,7 +723,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				baseImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
-				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
 				h.AssertNil(t, baseImage.SetLabel("mykey", "oldValue"))
 				h.AssertNil(t, baseImage.Save())
 
@@ -886,7 +836,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			it("returns true, nil", func() {
 				origImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
-				h.AssertNil(t, origImage.SetLabel("repo_name_for_randomisation", repoName))
 				h.AssertNil(t, origImage.Save())
 
 				image, err := remote.NewImage(repoName, authn.DefaultKeychain)
@@ -910,11 +859,9 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 		when("it exists", func() {
 			var img imgutil.Image
 			it("returns nil and is deleted", func() {
-				var err error
-
 				origImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
-				h.AssertNil(t, origImage.SetLabel("repo_name_for_randomisation", repoName))
+				h.AssertNil(t, origImage.SetLabel("some-label", "some-val"))
 				h.AssertNil(t, origImage.Save())
 
 				img, err = remote.NewImage(

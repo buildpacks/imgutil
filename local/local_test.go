@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
@@ -33,14 +32,14 @@ func TestLocal(t *testing.T) {
 	localTestRegistry.Start(t)
 	defer localTestRegistry.Stop(t)
 
-	spec.Run(t, "LocalImage", testLocalImage, spec.Sequential(), spec.Report(report.Terminal{}))
+	spec.Run(t, "Image", testImage, spec.Sequential(), spec.Report(report.Terminal{}))
 }
 
 func newTestImageName() string {
 	return "localhost:" + localTestRegistry.Port + "/pack-image-test-" + h.RandString(10)
 }
 
-func testLocalImage(t *testing.T, when spec.G, it spec.S) {
+func testImage(t *testing.T, when spec.G, it spec.S) {
 	var dockerClient client.CommonAPIClient
 
 	it.Before(func() {
@@ -83,7 +82,6 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 					baseImage, err := local.NewImage(baseImageName, dockerClient)
 					h.AssertNil(t, err)
 
-					h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", repoName))
 					h.AssertNil(t, baseImage.SetEnv("MY_VAR", "my_val"))
 					h.AssertNil(t, baseImage.SetLabel("some.label", "some.value"))
 					h.AssertNil(t, baseImage.Save())
@@ -114,7 +112,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			when("previous image does not exist", func() {
 				it("doesn't error", func() {
 					_, err := local.NewImage(
-						"busybox",
+						newTestImageName(),
 						dockerClient,
 						local.WithPreviousImage("some-bad-repo-name"),
 					)
@@ -133,7 +131,6 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				existingImage, err := local.NewImage(repoName, dockerClient)
 				h.AssertNil(t, err)
 
-				h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
 				h.AssertNil(t, existingImage.SetLabel("mykey", "myvalue"))
 				h.AssertNil(t, existingImage.SetLabel("other", "data"))
 				h.AssertNil(t, existingImage.Save())
@@ -182,7 +179,6 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				existingImage, err := local.NewImage(repoName, dockerClient)
 				h.AssertNil(t, err)
 
-				h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
 				h.AssertNil(t, existingImage.SetEnv("MY_VAR", "my_val"))
 				h.AssertNil(t, existingImage.Save())
 			})
@@ -201,7 +197,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns an empty string for a missing label", func() {
-				img, err := local.NewImage(repoName, dockerClient)
+				img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
 				h.AssertNil(t, err)
 
 				val, err := img.Env("MISSING_VAR")
@@ -331,7 +327,6 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				baseImage, err := local.NewImage(baseImageName, dockerClient)
 				h.AssertNil(t, err)
 
-				h.AssertNil(t, baseImage.SetLabel("repo_name_for_randomisation", baseImageName))
 				h.AssertNil(t, baseImage.SetLabel("some-key", "some-value"))
 				h.AssertNil(t, baseImage.Save())
 
@@ -390,8 +385,6 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("sets the environment", func() {
-			var err error
-
 			img, err := local.NewImage(repoName, dockerClient)
 			h.AssertNil(t, err)
 
@@ -415,8 +408,6 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("sets the environment", func() {
-			var err error
-
 			img, err := local.NewImage(repoName, dockerClient)
 			h.AssertNil(t, err)
 
@@ -440,8 +431,6 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("sets the entrypoint", func() {
-			var err error
-
 			img, err := local.NewImage(repoName, dockerClient)
 			h.AssertNil(t, err)
 
@@ -465,8 +454,6 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("sets the cmd", func() {
-			var err error
-
 			img, err := local.NewImage(repoName, dockerClient)
 			h.AssertNil(t, err)
 
@@ -493,11 +480,8 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			it.Before(func() {
 				// new base image
 				newBase = "pack-newbase-test-" + h.RandString(10)
-
-				newBaseImage, err := local.NewImage(newBase, dockerClient, local.FromBaseImage("busybox"))
+				newBaseImage, err := local.NewImage(newBase, dockerClient)
 				h.AssertNil(t, err)
-
-				h.AssertNil(t, newBaseImage.SetLabel("repo_name_for_randomisation", repoName))
 
 				newBaseLayer1Path, err := h.CreateSingleFileTar("/base.txt", "new-base")
 				h.AssertNil(t, err)
@@ -514,10 +498,8 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 				// old base image
 				oldBase = "pack-oldbase-test-" + h.RandString(10)
-				oldBaseImage, err := local.NewImage(oldBase, dockerClient, local.FromBaseImage("busybox"))
+				oldBaseImage, err := local.NewImage(oldBase, dockerClient)
 				h.AssertNil(t, err)
-
-				h.AssertNil(t, oldBaseImage.SetLabel("repo_name_for_randomisation", repoName))
 
 				oldBaseLayer1Path, err := h.CreateSingleFileTar("/base.txt", "old-base")
 				h.AssertNil(t, err)
@@ -538,8 +520,6 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 				// original image
 				origImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(oldBase))
-
-				h.AssertNil(t, origImage.SetLabel("repo_name_for_randomisation", repoName))
 				h.AssertNil(t, err)
 
 				imgLayer1Path, err := h.CreateSingleFileTar("/myimage.txt", "text-from-image")
@@ -588,11 +568,11 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 					"/myimage.txt":   "text-from-image",
 					"/myimage2.txt":  "text-from-image",
 				}
-				ctr, err := dockerClient.ContainerCreate(context.Background(), &container.Config{Image: repoName}, &container.HostConfig{}, nil, "")
+				ctrID, err := h.CreateContainer(dockerClient, repoName)
 				h.AssertNil(t, err)
-				defer dockerClient.ContainerRemove(context.Background(), ctr.ID, types.ContainerRemoveOptions{})
+				defer dockerClient.ContainerRemove(context.Background(), ctrID, types.ContainerRemoveOptions{})
 				for filename, expectedText := range expected {
-					actualText, err := h.CopySingleFileFromContainer(dockerClient, ctr.ID, filename)
+					actualText, err := h.CopySingleFileFromContainer(dockerClient, ctrID, filename)
 					h.AssertNil(t, err)
 					h.AssertEq(t, actualText, expectedText)
 				}
@@ -616,11 +596,8 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				existingImage, err := local.NewImage(
 					repoName,
 					dockerClient,
-					local.FromBaseImage("busybox"),
 				)
 				h.AssertNil(t, err)
-
-				h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
 
 				layer1Path, err := h.CreateSingleFileTar("/base.txt", "old-base")
 				h.AssertNil(t, err)
@@ -673,8 +650,6 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			existingImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
 			h.AssertNil(t, err)
 
-			h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
-
 			oldLayerPath, err := h.CreateSingleFileTar("/old-layer.txt", "old-layer")
 			h.AssertNil(t, err)
 			defer os.Remove(oldLayerPath)
@@ -726,12 +701,8 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 		)
 
 		it.Before(func() {
-			var err error
-
-			existingImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
+			existingImage, err := local.NewImage(repoName, dockerClient)
 			h.AssertNil(t, err)
-
-			h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
 
 			oldLayerPath, err := h.CreateSingleFileTar("/old-layer.txt", "old-layer")
 			h.AssertNil(t, err)
@@ -791,8 +762,6 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				existingImage, err := local.NewImage(repoName, dockerClient)
 				h.AssertNil(t, err)
 
-				h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
-
 				layerPath, err := h.CreateSingleFileTar("/file.txt", "file-contents")
 				h.AssertNil(t, err)
 
@@ -805,52 +774,43 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
 			})
 
-			it("returns a layer tar", func() {
-				img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
-				h.AssertNil(t, err)
+			when("the layer exists", func() {
+				it("returns a layer tar", func() {
+					img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
+					h.AssertNil(t, err)
 
-				topLayer, err := img.TopLayer()
-				h.AssertNil(t, err)
+					topLayer, err := img.TopLayer()
+					h.AssertNil(t, err)
 
-				r, err := img.GetLayer(topLayer)
-				h.AssertNil(t, err)
-				tr := tar.NewReader(r)
+					r, err := img.GetLayer(topLayer)
+					h.AssertNil(t, err)
+					tr := tar.NewReader(r)
 
-				header, err := tr.Next()
-				h.AssertNil(t, err)
+					header, err := tr.Next()
+					h.AssertNil(t, err)
 
-				h.AssertEq(t, header.Name, "/file.txt")
-				contents := make([]byte, len("file-contents"))
-				_, err = tr.Read(contents)
-				if err != io.EOF {
-					t.Fatalf("expected end of file: %x", err)
-				}
-				h.AssertEq(t, string(contents), "file-contents")
-			})
-		})
-
-		when("the layer doesn't exist", func() {
-			var repoName = newTestImageName()
-
-			it.Before(func() {
-				baseImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
-				h.AssertNil(t, err)
-				h.AssertNil(t, baseImage.Save())
+					h.AssertEq(t, header.Name, "/file.txt")
+					contents := make([]byte, len("file-contents"))
+					_, err = tr.Read(contents)
+					if err != io.EOF {
+						t.Fatalf("expected end of file: %x", err)
+					}
+					h.AssertEq(t, string(contents), "file-contents")
+				})
 			})
 
-			it.After(func() {
-				h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
-			})
-
-			it("returns an error", func() {
-				img, err := local.NewImage(repoName, dockerClient)
-				h.AssertNil(t, err)
-				_, err = img.GetLayer("not-exist")
-				h.AssertError(
-					t,
-					err,
-					fmt.Sprintf("image '%s' does not contain layer with diff ID 'not-exist'", repoName),
-				)
+			when("the layer does not exist", func() {
+				it("returns an error", func() {
+					img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
+					h.AssertNil(t, err)
+					h.AssertNil(t, err)
+					_, err = img.GetLayer("not-exist")
+					h.AssertError(
+						t,
+						err,
+						fmt.Sprintf("image '%s' does not contain layer with diff ID 'not-exist'", repoName),
+					)
+				})
 			})
 		})
 
@@ -874,16 +834,11 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			repoName  = newTestImageName()
 		)
 		it.Before(func() {
-			var err error
-
 			prevImage, err := local.NewImage(
 				prevName,
 				dockerClient,
-				local.FromBaseImage("busybox"),
 			)
 			h.AssertNil(t, err)
-
-			h.AssertNil(t, prevImage.SetLabel("repo_name_for_randomisation", prevName))
 
 			layer1Path, err := h.CreateSingleFileTar("/layer-1.txt", "old-layer-1")
 			h.AssertNil(t, err)
@@ -898,8 +853,8 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), prevName)
 			h.AssertNil(t, err)
 
-			layer1SHA = inspect.RootFS.Layers[1]
-			layer2SHA = inspect.RootFS.Layers[2]
+			layer1SHA = inspect.RootFS.Layers[0]
+			layer2SHA = inspect.RootFS.Layers[1]
 		})
 
 		it.After(func() {
@@ -910,7 +865,6 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			img, err := local.NewImage(
 				repoName,
 				dockerClient,
-				local.FromBaseImage("busybox"),
 				local.WithPreviousImage(prevName),
 			)
 			h.AssertNil(t, err)
@@ -933,7 +887,6 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			img, err := local.NewImage(
 				repoName,
 				dockerClient,
-				local.FromBaseImage("busybox"),
 				local.WithPreviousImage(prevName),
 			)
 			h.AssertNil(t, err)
@@ -963,12 +916,9 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			)
 
 			it.Before(func() {
-				var err error
-
-				oldImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
+				oldImage, err := local.NewImage(repoName, dockerClient)
 				h.AssertNil(t, err)
 
-				h.AssertNil(t, oldImage.SetLabel("repo_name_for_randomisation", repoName))
 				h.AssertNil(t, oldImage.SetLabel("mykey", "oldValue"))
 				h.AssertNil(t, oldImage.Save())
 
@@ -1080,8 +1030,6 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 		when("invalid image content for daemon", func() {
 			it("returns errors from daemon", func() {
-				var err error
-
 				repoName := newTestImageName()
 
 				invalidLayerTarFile, err := ioutil.TempFile("", "daemon-error-test")
@@ -1097,7 +1045,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				err = img.AddLayer(invalidLayerPath)
 				h.AssertNil(t, err)
 
-				err = img.Save(repoName)
+				err = img.Save()
 				h.AssertError(t, err, fmt.Sprintf("failed to write image to the following tags: [%s:", repoName))
 				h.AssertError(t, err, "daemon response")
 			})
@@ -1111,8 +1059,6 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			it.Before(func() {
 				existingImage, err := local.NewImage(repoName, dockerClient)
 				h.AssertNil(t, err)
-
-				h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
 				h.AssertNil(t, existingImage.Save())
 			})
 
@@ -1156,10 +1102,9 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			)
 
 			it.Before(func() {
-				var err error
-				existingImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
+				existingImage, err := local.NewImage(repoName, dockerClient)
 				h.AssertNil(t, err)
-
+				h.AssertNil(t, existingImage.SetLabel("some", "label"))
 				h.AssertNil(t, existingImage.Save())
 
 				origImg, err = local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
