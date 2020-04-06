@@ -77,7 +77,6 @@ func testFake(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#FindLayerWithPath", func() {
-
 		var (
 			image      *fakes.Image
 			layer1Path string

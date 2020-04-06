@@ -146,7 +146,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, baseImage.SetLabel("mykey", "myvalue"))
 				h.AssertNil(t, baseImage.SetLabel("other", "data"))
 				h.AssertNil(t, baseImage.Save())
-
 			})
 
 			it("returns the label value", func() {
@@ -593,7 +592,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, existingImage.AddLayer(oldLayerPath))
 
 			h.AssertNil(t, existingImage.Save())
-
 		})
 
 		it.After(func() {
@@ -805,7 +803,6 @@ func testRemoteImage(t *testing.T, when spec.G, it spec.S) {
 				// After Pull
 				label := remoteLabel(t, dockerClient, identifier.String(), "mykey")
 				h.AssertEq(t, "newValue", label)
-
 			})
 
 			it("zeroes all times and client specific fields", func() {

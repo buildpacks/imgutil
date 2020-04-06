@@ -175,6 +175,9 @@ func CopySingleFileFromContainer(dockerCli dockercli.CommonAPIClient, ctrID, pat
 	defer r.Close()
 	tr := tar.NewReader(r)
 	hdr, err := tr.Next()
+	if err != nil {
+		return "", err
+	}
 	if hdr.Name != path && hdr.Name != filepath.Base(path) {
 		return "", fmt.Errorf("filenames did not match: %s and %s (%s)", hdr.Name, path, filepath.Base(path))
 	}
@@ -208,7 +211,7 @@ func PushImage(dockerCli dockercli.CommonAPIClient, ref string) error {
 	return rc.Close()
 }
 
-func HttpGetE(url string) (string, error) {
+func HTTPGetE(url string) (string, error) {
 	resp, err := http.DefaultClient.Get(url)
 	if err != nil {
 		return "", err

@@ -134,7 +134,6 @@ func (i *Image) Label(key string) (string, error) {
 	}
 	labels := cfg.Config.Labels
 	return labels[key], nil
-
 }
 
 func (i *Image) Env(key string) (string, error) {
@@ -165,10 +164,7 @@ func (i *Image) Found() bool {
 		return false
 	}
 	_, err = remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport))
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 func (i *Image) Identifier() (imgutil.Identifier, error) {
@@ -374,7 +370,7 @@ func (i *Image) Save(additionalNames ...string) error {
 		return errors.Wrap(err, "get image layers")
 	}
 	cfg.History = make([]v1.History, len(layers))
-	for i, _ := range cfg.History {
+	for i := range cfg.History {
 		cfg.History[i] = v1.History{
 			Created: v1.Time{Time: imgutil.NormalizedDateTime},
 		}

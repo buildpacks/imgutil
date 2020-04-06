@@ -495,6 +495,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				newBase = "pack-newbase-test-" + h.RandString(10)
 
 				newBaseImage, err := local.NewImage(newBase, dockerClient, local.FromBaseImage("busybox"))
+				h.AssertNil(t, err)
 
 				h.AssertNil(t, newBaseImage.SetLabel("repo_name_for_randomisation", repoName))
 
@@ -514,6 +515,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				// old base image
 				oldBase = "pack-oldbase-test-" + h.RandString(10)
 				oldBaseImage, err := local.NewImage(oldBase, dockerClient, local.FromBaseImage("busybox"))
+				h.AssertNil(t, err)
 
 				h.AssertNil(t, oldBaseImage.SetLabel("repo_name_for_randomisation", repoName))
 
@@ -538,6 +540,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				origImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(oldBase))
 
 				h.AssertNil(t, origImage.SetLabel("repo_name_for_randomisation", repoName))
+				h.AssertNil(t, err)
 
 				imgLayer1Path, err := h.CreateSingleFileTar("/myimage.txt", "text-from-image")
 				h.AssertNil(t, err)
@@ -586,6 +589,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 					"/myimage2.txt":  "text-from-image",
 				}
 				ctr, err := dockerClient.ContainerCreate(context.Background(), &container.Config{Image: repoName}, &container.HostConfig{}, nil, "")
+				h.AssertNil(t, err)
 				defer dockerClient.ContainerRemove(context.Background(), ctr.ID, types.ContainerRemoveOptions{})
 				for filename, expectedText := range expected {
 					actualText, err := h.CopySingleFileFromContainer(dockerClient, ctr.ID, filename)
@@ -614,6 +618,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 					dockerClient,
 					local.FromBaseImage("busybox"),
 				)
+				h.AssertNil(t, err)
 
 				h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
 
@@ -666,6 +671,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 
 		it.Before(func() {
 			existingImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
+			h.AssertNil(t, err)
 
 			h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
 
@@ -723,6 +729,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 			var err error
 
 			existingImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage("busybox"))
+			h.AssertNil(t, err)
 
 			h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
 
@@ -782,6 +789,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				var err error
 
 				existingImage, err := local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
 
 				h.AssertNil(t, existingImage.SetLabel("repo_name_for_randomisation", repoName))
 
@@ -812,7 +820,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 
 				h.AssertEq(t, header.Name, "/file.txt")
-				contents := make([]byte, len("file-contents"), len("file-contents"))
+				contents := make([]byte, len("file-contents"))
 				_, err = tr.Read(contents)
 				if err != io.EOF {
 					t.Fatalf("expected end of file: %x", err)
@@ -873,6 +881,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				dockerClient,
 				local.FromBaseImage("busybox"),
 			)
+			h.AssertNil(t, err)
 
 			h.AssertNil(t, prevImage.SetLabel("repo_name_for_randomisation", prevName))
 
@@ -1019,7 +1028,7 @@ func testLocalImage(t *testing.T, when spec.G, it spec.S) {
 				history, err := dockerClient.ImageHistory(context.TODO(), repoName)
 				h.AssertNil(t, err)
 				h.AssertEq(t, len(history), len(inspect.RootFS.Layers))
-				for i, _ := range inspect.RootFS.Layers {
+				for i := range inspect.RootFS.Layers {
 					h.AssertEq(t, history[i].Created, imgutil.NormalizedDateTime.Unix())
 				}
 			})
