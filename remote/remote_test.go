@@ -3,7 +3,6 @@ package remote_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"regexp"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/docker/docker/client"
 	ggcrauthn "github.com/google/go-containerregistry/pkg/authn"
-	ggcrv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 
@@ -82,29 +80,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				arch, err := img.Architecture()
 				h.AssertNil(t, err)
 				h.AssertEq(t, arch, "amd64")
-			})
-		})
-
-		when("#WithDefaultPlatform", func() {
-			when("no base image is given", func() {
-				it("sets os and architecture", func() {
-					img, err := remote.NewImage(
-						repoName,
-						ggcrauthn.DefaultKeychain,
-						remote.WithDefaultPlatform(
-							ggcrv1.Platform{OS: "windows", Architecture: "arm"}),
-					)
-					h.AssertNil(t, err)
-					h.AssertNil(t, img.Save())
-
-					os, err := img.OS()
-					h.AssertNil(t, err)
-					h.AssertEq(t, os, "windows")
-
-					arch, err := img.Architecture()
-					h.AssertNil(t, err)
-					h.AssertEq(t, arch, "arm")
-				})
 			})
 		})
 
@@ -181,34 +156,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						readCloser, err := img.GetLayer(existingLayerSha)
 						h.AssertNil(t, err)
 						defer readCloser.Close()
-					})
-
-					when("and WithDefaultPlatform is set to windows/amd64", func() {
-						it("returns a base image matching the runtime GOOS/GOARCH", func() {
-							manifestListName := "golang:1.13.8"
-							existingLayerSha := "sha256:cba908afa240240fceb312eb682bd7660fd5a404ddfd22843852dfdef141314b"
-
-							img, err := remote.NewImage(
-								repoName,
-								ggcrauthn.DefaultKeychain,
-								remote.WithDefaultPlatform(
-									ggcrv1.Platform{OS: "windows", Architecture: "amd64"}),
-								remote.FromBaseImage(manifestListName),
-							)
-							h.AssertNil(t, err)
-
-							os, err := img.OS()
-							h.AssertNil(t, err)
-							h.AssertEq(t, os, "windows")
-
-							arch, err := img.Architecture()
-							h.AssertNil(t, err)
-							h.AssertEq(t, arch, "amd64")
-
-							readCloser, err := img.GetLayer(existingLayerSha)
-							h.AssertNil(t, err)
-							defer readCloser.Close()
-						})
 					})
 				})
 			})
@@ -508,11 +455,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it.Before(func() {
 				// new base
 				newBase = "localhost:" + registryPort + "/pack-newbase-test-" + h.RandString(10)
-				newBaseLayer1Path, err := h.CreateSingleFileLayerTar("/base.txt", "new-base")
+				newBaseLayer1Path, err := h.CreateSingleFileBaseLayerTar("/base.txt", "new-base", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayer1Path)
 
-				newBaseLayer2Path, err := h.CreateSingleFileLayerTar("/otherfile.txt", "text-new-base")
+				newBaseLayer2Path, err := h.CreateSingleFileLayerTar("/otherfile.txt", "text-new-base", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayer2Path)
 
@@ -531,11 +478,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				// old base image
 				oldBase = "localhost:" + registryPort + "/pack-oldbase-test-" + h.RandString(10)
-				oldBaseLayer1Path, err := h.CreateSingleFileLayerTar("/base.txt", "old-base")
+				oldBaseLayer1Path, err := h.CreateSingleFileBaseLayerTar("/base.txt", "old-base", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(oldBaseLayer1Path)
 
-				oldBaseLayer2Path, err := h.CreateSingleFileLayerTar("/otherfile.txt", "text-old-base")
+				oldBaseLayer2Path, err := h.CreateSingleFileLayerTar("/otherfile.txt", "text-old-base", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(oldBaseLayer2Path)
 
@@ -556,11 +503,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				oldBaseLayers = h.FetchManifestLayers(t, oldBase)
 
 				// original image
-				origLayer1Path, err := h.CreateSingleFileLayerTar("/bmyimage.txt", "text-from-image-1")
+				origLayer1Path, err := h.CreateSingleFileBaseLayerTar("/bmyimage.txt", "text-from-image-1", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(origLayer1Path)
 
-				origLayer2Path, err := h.CreateSingleFileLayerTar("/myimage2.txt", "text-from-image-2")
+				origLayer2Path, err := h.CreateSingleFileLayerTar("/myimage2.txt", "text-from-image-2", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(origLayer2Path)
 
@@ -607,11 +554,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	when("#TopLayer", func() {
 		when("image exists", func() {
 			it("returns the digest for the top layer (useful for rebasing)", func() {
-				baseLayerPath, err := h.CreateSingleFileLayerTar("/old-base.txt", "old-base")
+				baseLayerPath, err := h.CreateSingleFileBaseLayerTar("/old-base.txt", "old-base", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(baseLayerPath)
 
-				topLayerPath, err := h.CreateSingleFileLayerTar("/top-layer.txt", "top-layer")
+				topLayerPath, err := h.CreateSingleFileLayerTar("/top-layer.txt", "top-layer", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(topLayerPath)
 
@@ -655,11 +602,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			existingImage, err := remote.NewImage(
 				repoName,
 				ggcrauthn.DefaultKeychain,
-				remote.WithDefaultPlatform(ggcrv1.Platform{OS: daemonOS}), //must match for CreateContainer
 			)
 			h.AssertNil(t, err)
 
-			baseLayerPath, err := h.CreateSingleFileLayerTar("/base-layer.txt", "base-layer", h.BaseLayerOption, h.LayerOption(daemonOS))
+			baseLayerPath, err := h.CreateSingleFileBaseLayerTar("/base-layer.txt", "base-layer", daemonOS)
 			h.AssertNil(t, err)
 			defer os.Remove(baseLayerPath)
 
@@ -673,7 +619,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("appends a layer", func() {
-			newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", h.LayerOption(daemonOS))
+			newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", daemonOS)
 			h.AssertNil(t, err)
 			defer os.Remove(newLayerPath)
 
@@ -707,11 +653,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			existingImage, err := remote.NewImage(
 				repoName,
 				ggcrauthn.DefaultKeychain,
-				remote.WithDefaultPlatform(ggcrv1.Platform{OS: daemonOS}), //must match for CreateContainer
 			)
 			h.AssertNil(t, err)
 
-			baseLayerPath, err := h.CreateSingleFileLayerTar("/base-layer.txt", "base-layer", h.BaseLayerOption, h.LayerOption(daemonOS))
+			baseLayerPath, err := h.CreateSingleFileBaseLayerTar("/base-layer.txt", "base-layer", daemonOS)
 			h.AssertNil(t, err)
 			defer os.Remove(baseLayerPath)
 
@@ -732,7 +677,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			)
 			h.AssertNil(t, err)
 
-			newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", h.LayerOption(daemonOS))
+			newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", daemonOS)
 			h.AssertNil(t, err)
 			defer os.Remove(newLayerPath)
 
@@ -772,15 +717,15 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				)
 				h.AssertNil(t, err)
 
-				layer1Path, err := h.CreateSingleFileLayerTar("/layer-1.txt", "old-layer-1", h.BaseLayerOption, h.LayerOption(daemonOS))
+				baseLayerPath, err := h.CreateSingleFileBaseLayerTar("/layer-1.txt", "old-layer-1", daemonOS)
 				h.AssertNil(t, err)
-				defer os.Remove(layer1Path)
+				defer os.Remove(baseLayerPath)
 
-				layer2Path, err := h.CreateSingleFileLayerTar("/layer-2.txt", "old-layer-2", h.LayerOption(daemonOS))
+				layer2Path, err := h.CreateSingleFileLayerTar("/layer-2.txt", "old-layer-2", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(layer2Path)
 
-				h.AssertNil(t, prevImage.AddLayer(layer1Path))
+				h.AssertNil(t, prevImage.AddLayer(baseLayerPath))
 				h.AssertNil(t, prevImage.AddLayer(layer2Path))
 
 				h.AssertNil(t, prevImage.Save())
@@ -794,11 +739,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					repoName,
 					ggcrauthn.DefaultKeychain,
 					remote.WithPreviousImage(prevImageName),
-					remote.WithDefaultPlatform(ggcrv1.Platform{OS: daemonOS}), //must match for CreateContainer
 				)
 				h.AssertNil(t, err)
 
-				newBaseLayerPath, err := h.CreateSingleFileLayerTar("/new-base.txt", "base-content", h.BaseLayerOption, h.LayerOption(daemonOS))
+				newBaseLayerPath, err := h.CreateSingleFileBaseLayerTar("/new-base.txt", "base-content", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayerPath)
 
@@ -839,27 +783,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#Save", func() {
 		when("image exists", func() {
-			var tarPath string
-
-			it.Before(func() {
-				existingImage, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
-				h.AssertNil(t, err)
-
-				h.AssertNil(t, existingImage.SetLabel("mykey", "oldValue"))
-				h.AssertNil(t, existingImage.Save())
-
-				tarFile, err := ioutil.TempFile("", "add-layer-test")
-				h.AssertNil(t, err)
-				defer tarFile.Close()
-
-				tarPath, err = h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer")
-				h.AssertNil(t, err)
-			})
-
-			it.After(func() {
-				h.AssertNil(t, os.Remove(tarPath))
-			})
-
 			it("can be pulled by digest", func() {
 				img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
 				h.AssertNil(t, err)
@@ -888,6 +811,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it("zeroes all times and client specific fields", func() {
 				img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
 				h.AssertNil(t, err)
+
+				tarPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", daemonOS)
+				h.AssertNil(t, err)
+				defer os.Remove(tarPath)
 
 				h.AssertNil(t, img.AddLayer(tarPath))
 

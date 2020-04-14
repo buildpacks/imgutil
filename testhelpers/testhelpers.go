@@ -144,16 +144,11 @@ func Eventually(t *testing.T, test func() bool, every time.Duration, timeout tim
 	}
 }
 
-func PullImage(dockerCli dockercli.CommonAPIClient, ref string, registryAuth ...string) error {
-	pullOptions := dockertypes.ImagePullOptions{}
-	if len(registryAuth) == 1 {
-		pullOptions = dockertypes.ImagePullOptions{RegistryAuth: registryAuth[0]}
-	}
-
-	rc, err := dockerCli.ImagePull(context.Background(), ref, pullOptions)
+func PullImage(dockerCli dockercli.CommonAPIClient, ref string) error {
+	rc, err := dockerCli.ImagePull(context.Background(), ref, dockertypes.ImagePullOptions{})
 	if err != nil {
 		// Retry
-		rc, err = dockerCli.ImagePull(context.Background(), ref, pullOptions)
+		rc, err = dockerCli.ImagePull(context.Background(), ref, dockertypes.ImagePullOptions{})
 		if err != nil {
 			return err
 		}
@@ -235,13 +230,8 @@ func CopySingleFileFromImage(dockerCli dockercli.CommonAPIClient, repoName, path
 	return CopySingleFileFromContainer(dockerCli, ctrID, path)
 }
 
-func PushImage(dockerCli dockercli.CommonAPIClient, ref string, registryAuth ...string) error {
-	pushOptions := dockertypes.ImagePushOptions{RegistryAuth: "{}"}
-	if len(registryAuth) == 1 {
-		pushOptions = dockertypes.ImagePushOptions{RegistryAuth: registryAuth[0]}
-	}
-
-	rc, err := dockerCli.ImagePush(context.Background(), ref, pushOptions)
+func PushImage(dockerCli dockercli.CommonAPIClient, ref string) error {
+	rc, err := dockerCli.ImagePush(context.Background(), ref, dockertypes.ImagePushOptions{RegistryAuth: "{}"})
 	if err != nil {
 		return err
 	}
@@ -274,23 +264,33 @@ func ImageID(t *testing.T, repoName string) string {
 	return inspect.ID
 }
 
-type LayerOption string
 
-const BaseLayerOption LayerOption = "baselayer"
-const WindowsOSOption LayerOption = "windows"
+func CreateSingleFileBaseLayerTar(layerPath, txt, osType string) (string, error) {
+	tarFile, err := ioutil.TempFile("", "create-base-layer-tar-path")
+	if err != nil {
+		return "", err
+	}
+	defer tarFile.Close()
 
-func CreateSingleFileLayerTar(path, txt string, opts ...LayerOption) (string, error) {
-	isWindows := false
-	isBaseLayer := false
-	for _, opt := range opts {
-		switch opt {
-		case WindowsOSOption:
-			isWindows = true
-		case BaseLayerOption:
-			isBaseLayer = true
-		}
+	tw := tar.NewWriter(tarFile)
+	defer tw.Close()
+
+	// regular Linux layer
+	writeFunc := writeTarSingleFileLinux
+	if osType == "windows" {
+		// special Windows base layer
+		writeFunc = writeTarWindowsBaseLayer
 	}
 
+	err = writeFunc(tw, layerPath, txt)
+	if err != nil {
+		return "", err
+	}
+
+	return tarFile.Name(), nil
+}
+
+func CreateSingleFileLayerTar(layerPath, txt, osType string) (string, error) {
 	tarFile, err := ioutil.TempFile("", "create-single-file-layer-tar-path")
 	if err != nil {
 		return "", err
@@ -300,15 +300,14 @@ func CreateSingleFileLayerTar(path, txt string, opts ...LayerOption) (string, er
 	tw := tar.NewWriter(tarFile)
 	defer tw.Close()
 
+	// regular Linux layer
 	writeFunc := writeTarSingleFileLinux
-	if isWindows {
+	if osType == "windows" {
+		// regular Windows layer
 		writeFunc = writeTarSingleFileWindows
-		if isBaseLayer {
-			writeFunc = writeTarSingleFileWindowsBaseLayer
-		}
 	}
 
-	err = writeFunc(tw, path, txt)
+	err = writeFunc(tw, layerPath, txt)
 	if err != nil {
 		return "", err
 	}
@@ -350,7 +349,7 @@ func writeTarSingleFileWindows(tw *tar.Writer, containerPath, txt string) error 
 	return nil
 }
 
-func writeTarSingleFileWindowsBaseLayer(tw *tar.Writer, containerPath, txt string) error {
+func writeTarWindowsBaseLayer(tw *tar.Writer, containerPath, txt string) error {
 	//Valid BCD file required, containing Windows Boot Manager and Windows Boot Loader sections
 	//Note: Gzip/Base64 encoded only to inline the binary BCD file here
 	//CMD: `bcdedit /createstore c:\output-bcd & bcdedit /create {6a6c1f1b-59d4-11ea-9438-9402e6abd998} /d buildpacks.io /application osloader /store c:\output-bcd & bcdedit /create {bootmgr} /store c:\output-bcd & bcdedit /set {bootmgr} default {6a6c1f1b-59d4-11ea-9438-9402e6abd998} /store c:\output-bcd & bcdedit /enum all /store c:\output-bcd`

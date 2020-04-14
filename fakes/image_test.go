@@ -36,7 +36,7 @@ func TestFake(t *testing.T) {
 }
 
 func testFake(t *testing.T, when spec.G, it spec.S) {
-	it("implements imgutil.Image", func(){
+	it("implements imgutil.Image", func() {
 		var _ imgutil.Image = fakes.NewImage("", "", nil)
 	})
 

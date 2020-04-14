@@ -45,6 +45,7 @@ func (registry *DockerRegistry) Start(t *testing.T) {
 		PortBindings: nat.PortMap{
 			"5000/tcp": []nat.PortBinding{{}},
 		},
+		Isolation: fastestIsolation(DockerCli(t)),
 	}, nil, registry.Name)
 	AssertNil(t, err)
 	err = DockerCli(t).ContainerStart(ctx, ctr.ID, types.ContainerStartOptions{})

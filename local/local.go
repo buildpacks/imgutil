@@ -620,7 +620,7 @@ func inspectOptionalImage(docker client.CommonAPIClient, imageName string) (type
 
 	if inspect, _, err = docker.ImageInspectWithRaw(context.Background(), imageName); err != nil {
 		if client.IsErrNotFound(err) {
-			return types.ImageInspect{}, nil
+			return defaultInspect(docker)
 		}
 
 		return types.ImageInspect{}, errors.Wrapf(err, "verifying image '%s'", imageName)

@@ -30,6 +30,8 @@ func NewImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
 		prevLayersMap: map[string]string{},
 		createdAt:     time.Now(),
 		savedNames:    map[string]bool{},
+		os:            "linux",
+		architecture:  "amd64",
 	}
 }
 
@@ -42,6 +44,9 @@ type Image struct {
 	labels        map[string]string
 	env           map[string]string
 	topLayerSha   string
+	os            string
+	osVersion     string
+	architecture  string
 	identifier    imgutil.Identifier
 	name          string
 	entryPoint    []string
@@ -239,6 +244,12 @@ func (i *Image) Found() bool {
 
 func (i *Image) SetIdentifier(identifier imgutil.Identifier) {
 	i.identifier = identifier
+}
+
+func (i *Image) SetPlatform(os, osVersion, architecture string) {
+	i.os = os
+	i.osVersion = osVersion
+	i.architecture = architecture
 }
 
 func (i *Image) Cleanup() error {
