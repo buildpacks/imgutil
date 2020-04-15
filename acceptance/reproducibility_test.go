@@ -68,7 +68,7 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 		envVal := "env-val-" + h.RandString(10)
 		workingDir := "working-dir-" + h.RandString(10)
 
-		layer1, err = h.CreateSingleFileBaseLayerTar(fmt.Sprintf("/new-layer-%s.txt", h.RandString(10)), "new-layer-"+h.RandString(10), daemonOS)
+		layer1, err = h.CreateSingleFileLayerTar(fmt.Sprintf("/new-layer-%s.txt", h.RandString(10)), "new-layer-"+h.RandString(10), daemonOS)
 		h.AssertNil(t, err)
 
 		layer2, err = h.CreateSingleFileLayerTar(fmt.Sprintf("/new-layer-%s.txt", h.RandString(10)), "new-layer-"+h.RandString(10), daemonOS)

@@ -221,13 +221,72 @@ func fastestIsolation(dockerCli dockercli.CommonAPIClient) dockercontainer.Isola
 	return dockercontainer.IsolationDefault
 }
 
-func CopySingleFileFromImage(dockerCli dockercli.CommonAPIClient, repoName, path string) (string, error) {
+func CopySingleFileFromLocalImage(dockerCli dockercli.CommonAPIClient, repoName, path string) (string, error) {
 	ctrID, err := CreateContainer(dockerCli, repoName)
 	if err != nil {
 		return "", err
 	}
 	defer dockerCli.ContainerRemove(context.Background(), ctrID, dockertypes.ContainerRemoveOptions{})
 	return CopySingleFileFromContainer(dockerCli, ctrID, path)
+}
+
+func CopySingleFileFromRemoteImage(repoName, expectedPath string) (string, error) {
+	r, err := name.ParseReference(repoName, name.WeakValidation)
+	if err != nil {
+		return "", err
+	}
+	gImg, err := remote.Image(r, remote.WithTransport(http.DefaultTransport))
+	if err != nil {
+		return "", err
+	}
+
+	gConfigFile, err := gImg.ConfigFile()
+	if err != nil {
+		return "", err
+	}
+
+	if gConfigFile.OS == "windows" {
+		expectedPath = path.Join("Files", expectedPath)
+	}
+
+	gLayers, err := gImg.Layers()
+	if err != nil {
+		return "", err
+	}
+
+	for _, gLayer := range gLayers {
+		layerReader, err := gLayer.Uncompressed()
+		if err != nil {
+			return "", err
+		}
+
+		tarReader := tar.NewReader(layerReader)
+
+		for {
+			tarHeader, err := tarReader.Next()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return "", err
+			}
+
+			if tarHeader.Name == expectedPath {
+				content, err := ioutil.ReadAll(tarReader)
+				if err != nil {
+					return "", err
+				}
+				return string(content), nil
+			}
+		}
+
+		err = layerReader.Close()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return "", nil
 }
 
 func PushImage(dockerCli dockercli.CommonAPIClient, ref string) error {

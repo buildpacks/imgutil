@@ -1,15 +1,12 @@
 package remote_test
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"os"
-	"regexp"
 	"testing"
 	"time"
 
-	"github.com/docker/docker/client"
 	ggcrauthn "github.com/google/go-containerregistry/pkg/authn"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
@@ -38,26 +35,10 @@ func TestRemote(t *testing.T) {
 }
 
 func testImage(t *testing.T, when spec.G, it spec.S) {
-	var (
-		repoName              string
-		dockerClient          client.CommonAPIClient
-		runnableBaseImageName string
-		daemonOS              string
-	)
+	var repoName string
 
 	it.Before(func() {
-		var err error
-		dockerClient = h.DockerCli(t)
 		repoName = newTestImageName()
-
-		daemonInfo, err := dockerClient.Info(context.TODO())
-		h.AssertNil(t, err)
-
-		daemonOS = daemonInfo.OSType
-
-		runnableBaseImageName = h.RunnableBaseImage(daemonOS)
-
-		h.AssertNil(t, h.PullImage(dockerClient, runnableBaseImageName))
 	})
 
 	when("#NewRemote", func() {
@@ -471,11 +452,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it.Before(func() {
 				// new base
 				newBase = "localhost:" + registryPort + "/pack-newbase-test-" + h.RandString(10)
-				newBaseLayer1Path, err := h.CreateSingleFileBaseLayerTar("/base.txt", "new-base", daemonOS)
+				newBaseLayer1Path, err := h.CreateSingleFileBaseLayerTar("/base.txt", "new-base", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayer1Path)
 
-				newBaseLayer2Path, err := h.CreateSingleFileLayerTar("/otherfile.txt", "text-new-base", daemonOS)
+				newBaseLayer2Path, err := h.CreateSingleFileLayerTar("/otherfile.txt", "text-new-base", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayer2Path)
 
@@ -494,11 +475,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				// old base image
 				oldBase = "localhost:" + registryPort + "/pack-oldbase-test-" + h.RandString(10)
-				oldBaseLayer1Path, err := h.CreateSingleFileBaseLayerTar("/base.txt", "old-base", daemonOS)
+				oldBaseLayer1Path, err := h.CreateSingleFileBaseLayerTar("/base.txt", "old-base", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(oldBaseLayer1Path)
 
-				oldBaseLayer2Path, err := h.CreateSingleFileLayerTar("/otherfile.txt", "text-old-base", daemonOS)
+				oldBaseLayer2Path, err := h.CreateSingleFileLayerTar("/otherfile.txt", "text-old-base", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(oldBaseLayer2Path)
 
@@ -519,11 +500,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				oldBaseLayers = h.FetchManifestLayers(t, oldBase)
 
 				// original image
-				origLayer1Path, err := h.CreateSingleFileBaseLayerTar("/bmyimage.txt", "text-from-image-1", daemonOS)
+				origLayer1Path, err := h.CreateSingleFileBaseLayerTar("/bmyimage.txt", "text-from-image-1", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(origLayer1Path)
 
-				origLayer2Path, err := h.CreateSingleFileLayerTar("/myimage2.txt", "text-from-image-2", daemonOS)
+				origLayer2Path, err := h.CreateSingleFileLayerTar("/myimage2.txt", "text-from-image-2", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(origLayer2Path)
 
@@ -570,11 +551,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	when("#TopLayer", func() {
 		when("image exists", func() {
 			it("returns the digest for the top layer (useful for rebasing)", func() {
-				baseLayerPath, err := h.CreateSingleFileBaseLayerTar("/old-base.txt", "old-base", daemonOS)
+				baseLayerPath, err := h.CreateSingleFileBaseLayerTar("/old-base.txt", "old-base", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(baseLayerPath)
 
-				topLayerPath, err := h.CreateSingleFileLayerTar("/top-layer.txt", "top-layer", daemonOS)
+				topLayerPath, err := h.CreateSingleFileLayerTar("/top-layer.txt", "top-layer", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(topLayerPath)
 
@@ -614,27 +595,20 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#AddLayer", func() {
-		it.Before(func() {
+		it("appends a layer", func() {
 			existingImage, err := remote.NewImage(
 				repoName,
 				ggcrauthn.DefaultKeychain,
 			)
 			h.AssertNil(t, err)
 
-			baseLayerPath, err := h.CreateSingleFileBaseLayerTar("/base-layer.txt", "base-layer", daemonOS)
+			baseLayerPath, err := h.CreateSingleFileBaseLayerTar("/base-layer.txt", "base-layer", "linux")
 			h.AssertNil(t, err)
 			defer os.Remove(baseLayerPath)
 
 			h.AssertNil(t, existingImage.AddLayer(baseLayerPath))
 
 			h.AssertNil(t, existingImage.Save())
-		})
-
-		it.After(func() {
-			h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
-		})
-
-		it("appends a layer", func() {
 			img, err := remote.NewImage(
 				repoName,
 				ggcrauthn.DefaultKeychain,
@@ -642,7 +616,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			)
 			h.AssertNil(t, err)
 
-			newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", daemonOS)
+			newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", "linux")
 			h.AssertNil(t, err)
 			defer os.Remove(newLayerPath)
 
@@ -651,41 +625,32 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			h.AssertNil(t, img.Save())
 
-			// After Pull
-			h.AssertNil(t, h.PullImage(dockerClient, repoName))
-
-			output, err := h.CopySingleFileFromImage(dockerClient, repoName, "base-layer.txt")
+			output, err := h.CopySingleFileFromRemoteImage(repoName, "/base-layer.txt")
 			h.AssertNil(t, err)
 			h.AssertEq(t, output, "base-layer")
 
-			output, err = h.CopySingleFileFromImage(dockerClient, repoName, "new-layer.txt")
+			output, err = h.CopySingleFileFromRemoteImage(repoName, "/new-layer.txt")
 			h.AssertNil(t, err)
 			h.AssertEq(t, output, "new-layer")
 		})
 	})
 
 	when("#AddLayerWithDiffID", func() {
-		it.Before(func() {
+		it("appends a layer", func() {
 			existingImage, err := remote.NewImage(
 				repoName,
 				ggcrauthn.DefaultKeychain,
 			)
 			h.AssertNil(t, err)
 
-			baseLayerPath, err := h.CreateSingleFileBaseLayerTar("/base-layer.txt", "base-layer", daemonOS)
+			baseLayerPath, err := h.CreateSingleFileBaseLayerTar("/base-layer.txt", "base-layer", "linux")
 			h.AssertNil(t, err)
 			defer os.Remove(baseLayerPath)
 
 			h.AssertNil(t, existingImage.AddLayer(baseLayerPath))
 
 			h.AssertNil(t, existingImage.Save())
-		})
 
-		it.After(func() {
-			h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
-		})
-
-		it("appends a layer", func() {
 			img, err := remote.NewImage(
 				repoName,
 				ggcrauthn.DefaultKeychain,
@@ -693,7 +658,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			)
 			h.AssertNil(t, err)
 
-			newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", daemonOS)
+			newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", "linux")
 			h.AssertNil(t, err)
 			defer os.Remove(newLayerPath)
 
@@ -705,14 +670,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			h.AssertNil(t, img.Save())
 
-			// After Pull
-			h.AssertNil(t, h.PullImage(dockerClient, repoName))
-
-			output, err := h.CopySingleFileFromImage(dockerClient, repoName, "base-layer.txt")
+			output, err := h.CopySingleFileFromRemoteImage(repoName, "/base-layer.txt")
 			h.AssertNil(t, err)
 			h.AssertEq(t, output, "base-layer")
 
-			output, err = h.CopySingleFileFromImage(dockerClient, repoName, "new-layer.txt")
+			output, err = h.CopySingleFileFromRemoteImage(repoName, "/new-layer.txt")
 			h.AssertNil(t, err)
 			h.AssertEq(t, output, "new-layer")
 		})
@@ -733,11 +695,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				)
 				h.AssertNil(t, err)
 
-				baseLayerPath, err := h.CreateSingleFileBaseLayerTar("/layer-1.txt", "old-layer-1", daemonOS)
+				baseLayerPath, err := h.CreateSingleFileBaseLayerTar("/layer-1.txt", "old-layer-1", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(baseLayerPath)
 
-				layer2Path, err := h.CreateSingleFileLayerTar("/layer-2.txt", "old-layer-2", daemonOS)
+				layer2Path, err := h.CreateSingleFileLayerTar("/layer-2.txt", "old-layer-2", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(layer2Path)
 
@@ -758,7 +720,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				)
 				h.AssertNil(t, err)
 
-				newBaseLayerPath, err := h.CreateSingleFileBaseLayerTar("/new-base.txt", "base-content", daemonOS)
+				newBaseLayerPath, err := h.CreateSingleFileBaseLayerTar("/new-base.txt", "base-content", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayerPath)
 
@@ -769,15 +731,14 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				h.AssertNil(t, img.Save())
 
-				h.AssertNil(t, h.PullImage(dockerClient, repoName))
-				defer h.DockerRmi(dockerClient, repoName)
-				output, err := h.CopySingleFileFromImage(dockerClient, repoName, "layer-2.txt")
+				output, err := h.CopySingleFileFromRemoteImage(repoName, "/layer-2.txt")
 				h.AssertNil(t, err)
 				h.AssertEq(t, output, "old-layer-2")
 
 				// Confirm layer-1.txt does not exist
-				_, err = h.CopySingleFileFromImage(dockerClient, repoName, "layer-1.txt")
-				h.AssertMatch(t, err.Error(), regexp.MustCompile(`Error: No such container:path: .*:layer-1.txt`))
+				missingFileContent, err := h.CopySingleFileFromRemoteImage(repoName, "layer-1.txt")
+				h.AssertNil(t, err)
+				h.AssertEq(t, missingFileContent, "")
 			})
 
 			it("returns error on nonexistent layer", func() {
@@ -828,7 +789,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
 				h.AssertNil(t, err)
 
-				tarPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", daemonOS)
+				tarPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(tarPath)
 

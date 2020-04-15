@@ -607,7 +607,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			it("switches the base", func() {
 				// Before
-				txt, err := h.CopySingleFileFromImage(dockerClient, repoName, "/base.txt")
+				txt, err := h.CopySingleFileFromLocalImage(dockerClient, repoName, "/base.txt")
 				h.AssertNil(t, err)
 				h.AssertEq(t, txt, "old-base")
 
@@ -717,7 +717,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, img.Save())
 				defer h.DockerRmi(dockerClient, repoName)
 
-				output, err := h.CopySingleFileFromImage(dockerClient, repoName, "new-layer.txt")
+				output, err := h.CopySingleFileFromLocalImage(dockerClient, repoName, "new-layer.txt")
 				h.AssertNil(t, err)
 				h.AssertEq(t, output, "new-layer")
 			})
@@ -758,11 +758,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, img.Save())
 				defer h.DockerRmi(dockerClient, repoName)
 
-				output, err := h.CopySingleFileFromImage(dockerClient, repoName, "old-layer.txt")
+				output, err := h.CopySingleFileFromLocalImage(dockerClient, repoName, "old-layer.txt")
 				h.AssertNil(t, err)
 				h.AssertEq(t, output, "old-layer")
 
-				output, err = h.CopySingleFileFromImage(dockerClient, repoName, "new-layer.txt")
+				output, err = h.CopySingleFileFromLocalImage(dockerClient, repoName, "new-layer.txt")
 				h.AssertNil(t, err)
 				h.AssertEq(t, output, "new-layer")
 			})
@@ -817,11 +817,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, img.AddLayerWithDiffID(newLayerPath, diffID))
 			h.AssertNil(t, img.Save())
 
-			output, err := h.CopySingleFileFromImage(dockerClient, repoName, "old-layer.txt")
+			output, err := h.CopySingleFileFromLocalImage(dockerClient, repoName, "old-layer.txt")
 			h.AssertNil(t, err)
 			h.AssertEq(t, output, "old-layer")
 
-			output, err = h.CopySingleFileFromImage(dockerClient, repoName, "new-layer.txt")
+			output, err = h.CopySingleFileFromLocalImage(dockerClient, repoName, "new-layer.txt")
 			h.AssertNil(t, err)
 			h.AssertEq(t, output, "new-layer")
 		})
@@ -965,12 +965,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			h.AssertNil(t, img.Save())
 
-			output, err := h.CopySingleFileFromImage(dockerClient, repoName, "layer-2.txt")
+			output, err := h.CopySingleFileFromLocalImage(dockerClient, repoName, "layer-2.txt")
 			h.AssertNil(t, err)
 			h.AssertEq(t, output, "old-layer-2")
 
 			// Confirm layer-1.txt does not exist
-			_, err = h.CopySingleFileFromImage(dockerClient, repoName, "layer-1.txt")
+			_, err = h.CopySingleFileFromLocalImage(dockerClient, repoName, "layer-1.txt")
 			h.AssertMatch(t, err.Error(), regexp.MustCompile(`Error: No such container:path: .*:layer-1.txt`))
 		})
 
@@ -987,12 +987,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			h.AssertNil(t, img.Save())
 
-			output, err := h.CopySingleFileFromImage(dockerClient, repoName, "layer-1.txt")
+			output, err := h.CopySingleFileFromLocalImage(dockerClient, repoName, "layer-1.txt")
 			h.AssertNil(t, err)
 			h.AssertEq(t, output, "old-layer-1")
 
 			// Confirm layer-2.txt does not exist
-			_, err = h.CopySingleFileFromImage(dockerClient, repoName, "layer-2.txt")
+			_, err = h.CopySingleFileFromLocalImage(dockerClient, repoName, "layer-2.txt")
 			h.AssertMatch(t, err.Error(), regexp.MustCompile(`Error: No such container:path: .*:layer-2.txt`))
 		})
 	})
