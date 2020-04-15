@@ -119,6 +119,10 @@ func (i *Image) OS() (string, error) {
 	return i.inspect.Os, nil
 }
 
+func (i *Image) OSVersion() (string, error) {
+	return i.inspect.OsVersion, nil
+}
+
 func (i *Image) Architecture() (string, error) {
 	return i.inspect.Architecture, nil
 }

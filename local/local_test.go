@@ -149,10 +149,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				it("uses the base image architecture", func() {
 					armBaseImageName := "arm64v8/busybox@sha256:50edf1d080946c6a76989d1c3b0e753b62f7d9b5f5e66e88bef23ebbd1e9709c"
 					expectedArmArch := "arm64"
+					expectedOSVersion := ""
 					if daemonOS == "windows" {
 						// this nanoserver windows/arm image exists and pulls. Not sure whether it works for anything else.
 						armBaseImageName = "mcr.microsoft.com/windows/nanoserver@sha256:29e2270953589a12de7a77a7e77d39e3b3e9cdfd243c922b3b8a63e2d8a71026"
 						expectedArmArch = "arm"
+						expectedOSVersion = "10.0.17763.1040"
 					}
 
 					h.PullImage(dockerClient, armBaseImageName)
@@ -164,8 +166,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 					imgArch, err := img.Architecture()
 					h.AssertNil(t, err)
-
 					h.AssertEq(t, imgArch, expectedArmArch)
+
+					imgOSVersion, err := img.OSVersion()
+					h.AssertNil(t, err)
+					h.AssertEq(t, imgOSVersion, expectedOSVersion)
 				})
 			})
 		})

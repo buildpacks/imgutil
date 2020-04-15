@@ -77,6 +77,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				h.AssertEq(t, os, "linux")
 
+				osVersion, err := img.OSVersion()
+				h.AssertNil(t, err)
+				h.AssertEq(t, osVersion, "")
+
 				arch, err := img.Architecture()
 				h.AssertNil(t, err)
 				h.AssertEq(t, arch, "amd64")
@@ -99,6 +103,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					os, err := img.OS()
 					h.AssertNil(t, err)
 					h.AssertEq(t, os, "linux")
+
+					osVersion, err := img.OSVersion()
+					h.AssertNil(t, err)
+					h.AssertEq(t, osVersion, "")
 
 					arch, err := img.Architecture()
 					h.AssertNil(t, err)
@@ -124,6 +132,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 					h.AssertEq(t, os, "windows")
 
+					osVersion, err := img.OSVersion()
+					h.AssertNil(t, err)
+					h.AssertEq(t, osVersion, "10.0.17763.1040")
+
 					arch, err := img.Architecture()
 					h.AssertNil(t, err)
 					h.AssertEq(t, arch, "amd64")
@@ -148,6 +160,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						os, err := img.OS()
 						h.AssertNil(t, err)
 						h.AssertEq(t, os, "linux")
+
+						osVersion, err := img.OSVersion()
+						h.AssertNil(t, err)
+						h.AssertEq(t, osVersion, "")
 
 						arch, err := img.Architecture()
 						h.AssertNil(t, err)

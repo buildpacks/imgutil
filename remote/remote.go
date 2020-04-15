@@ -168,6 +168,14 @@ func (i *Image) OS() (string, error) {
 	return cfg.OS, nil
 }
 
+func (i *Image) OSVersion() (string, error) {
+	cfg, err := i.image.ConfigFile()
+	if err != nil || cfg == nil {
+		return "", fmt.Errorf("failed to get OSVersion from config file for image '%s'", i.repoName)
+	}
+	return cfg.OSVersion, nil
+}
+
 func (i *Image) Architecture() (string, error) {
 	cfg, err := i.image.ConfigFile()
 	if err != nil || cfg == nil || cfg.Architecture == "" {

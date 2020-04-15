@@ -31,6 +31,7 @@ func NewImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
 		createdAt:     time.Now(),
 		savedNames:    map[string]bool{},
 		os:            "linux",
+		osVersion:     "",
 		architecture:  "amd64",
 	}
 }
@@ -67,11 +68,15 @@ func (i *Image) Label(key string) (string, error) {
 }
 
 func (i *Image) OS() (string, error) {
-	return "linux", nil
+	return i.os, nil
+}
+
+func (i *Image) OSVersion() (string, error) {
+	return i.os, nil
 }
 
 func (i *Image) Architecture() (string, error) {
-	return "amd64", nil
+	return i.architecture, nil
 }
 
 func (i *Image) Rename(name string) {
