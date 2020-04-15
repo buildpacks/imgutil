@@ -619,16 +619,16 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("appends a layer", func() {
-			newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", daemonOS)
-			h.AssertNil(t, err)
-			defer os.Remove(newLayerPath)
-
 			img, err := remote.NewImage(
 				repoName,
 				ggcrauthn.DefaultKeychain,
 				remote.FromBaseImage(repoName),
 			)
 			h.AssertNil(t, err)
+
+			newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", daemonOS)
+			h.AssertNil(t, err)
+			defer os.Remove(newLayerPath)
 
 			err = img.AddLayer(newLayerPath)
 			h.AssertNil(t, err)

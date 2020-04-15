@@ -264,7 +264,6 @@ func ImageID(t *testing.T, repoName string) string {
 	return inspect.ID
 }
 
-
 func CreateSingleFileBaseLayerTar(layerPath, txt, osType string) (string, error) {
 	tarFile, err := ioutil.TempFile("", "create-base-layer-tar-path")
 	if err != nil {
@@ -327,28 +326,25 @@ func writeTarSingleFileLinux(tw *tar.Writer, layerPath, txt string) error {
 	return nil
 }
 
-func writeTarSingleFileWindows(tw *tar.Writer, containerPath, txt string) error {
-	// root Windows layer directories
-	if err := tw.WriteHeader(&tar.Header{Name: "Files", Typeflag: tar.TypeDir}); err != nil {
-		return err
-	}
-	if err := tw.WriteHeader(&tar.Header{Name: "Hives", Typeflag: tar.TypeDir}); err != nil {
-		return err
-	}
-
-	// prepend file entries with "Files"
-	layerPath := path.Join("Files", containerPath)
-	if err := tw.WriteHeader(&tar.Header{Name: layerPath, Size: int64(len(txt)), Mode: 0644}); err != nil {
-		return err
-	}
-
-	if _, err := tw.Write([]byte(txt)); err != nil {
-		return err
-	}
-
-	return nil
-}
-
+// Windows image layers must follow this pattern¹:
+// - base layer² (always required; tar file with relative paths without "/" prefix; all parent directories require own tar entries)
+//   \-> Files/Windows/System32/config/DEFAULT   (file and must exist but can be empty)
+//   \-> Files/Windows/System32/config/SAM       (file must exist but can be empty)
+//   \-> Files/Windows/System32/config/SECURITY  (file must exist but can be empty)
+//   \-> Files/Windows/System32/config/SOFTWARE  (file must exist but can be empty)
+//   \-> Files/Windows/System32/config/SYSTEM    (file must exist but can be empty)
+//   \-> UtilityVM/Files/EFI/Microsoft/Boot/BCD   (file must exist and a valid BCD format - via `bcdedit` tool as below)
+// - normal or top layer (optional; tar file with relative paths without "/" prefix; all parent directories require own tar entries)
+//   \-> Files/                   (required directory entry)
+//   \-> Files/mystuff.exe        (optional container filesystem files - C:\mystuff.exe)
+//   \-> Hives/                   (required directory entry)
+//   \-> Hives/DefaultUser_Delta  (optional Windows reg hive delta; BCD format - HKEY_USERS\.DEFAULT additional content)
+//   \-> Hives/Sam_Delta          (optional Windows reg hive delta; BCD format - HKEY_LOCAL_MACHINE\SAM additional content)
+//   \-> Hives/Security_Delta     (optional Windows reg hive delta; BCD format - HKEY_LOCAL_MACHINE\SECURITY additional content)
+//   \-> Hives/Software_Delta     (optional Windows reg hive delta; BCD format - HKEY_LOCAL_MACHINE\SOFTWARE additional content)
+//   \-> Hives/System_Delta       (optional Windows reg hive delta; BCD format - HKEY_LOCAL_MACHINE\SYSTEM additional content)
+// 1. This was all discovered experimentally and should be considered an undocumented API, subject to change when the Windows Daemon internals change
+// 2. There are many other files in an "real" base layer but this is the minimum set which a Daemon can store and use to create an container
 func writeTarWindowsBaseLayer(tw *tar.Writer, containerPath, txt string) error {
 	//Valid BCD file required, containing Windows Boot Manager and Windows Boot Loader sections
 	//Note: Gzip/Base64 encoded only to inline the binary BCD file here
@@ -378,6 +374,28 @@ func writeTarWindowsBaseLayer(tw *tar.Writer, containerPath, txt string) error {
 
 	tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files/EFI/Microsoft/Boot/BCD", Size: int64(len(bcdBytes)), Mode: 0644})
 	tw.Write(bcdBytes)
+
+	// prepend file entries with "Files"
+	layerPath := path.Join("Files", containerPath)
+	if err := tw.WriteHeader(&tar.Header{Name: layerPath, Size: int64(len(txt)), Mode: 0644}); err != nil {
+		return err
+	}
+
+	if _, err := tw.Write([]byte(txt)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeTarSingleFileWindows(tw *tar.Writer, containerPath, txt string) error {
+	// root Windows layer directories
+	if err := tw.WriteHeader(&tar.Header{Name: "Files", Typeflag: tar.TypeDir}); err != nil {
+		return err
+	}
+	if err := tw.WriteHeader(&tar.Header{Name: "Hives", Typeflag: tar.TypeDir}); err != nil {
+		return err
+	}
 
 	// prepend file entries with "Files"
 	layerPath := path.Join("Files", containerPath)
