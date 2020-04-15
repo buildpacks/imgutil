@@ -90,7 +90,7 @@ func newV1Image(keychain authn.Keychain, repoName string) (v1.Image, error) {
 		return nil, err
 	}
 
-	image, err := remote.Image(ref, remote.WithPlatform(defaultQueryPlatform()), remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport))
+	image, err := remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport))
 	if err != nil {
 		if transportErr, ok := err.(*transport.Error); ok && len(transportErr.Errors) > 0 {
 			switch transportErr.Errors[0].Code {
@@ -102,13 +102,6 @@ func newV1Image(keychain authn.Keychain, repoName string) (v1.Image, error) {
 	}
 
 	return image, nil
-}
-
-func defaultQueryPlatform() v1.Platform {
-	return v1.Platform{
-		OS:           "linux",
-		Architecture: "amd64",
-	}
 }
 
 func emptyImage() (v1.Image, error) {
