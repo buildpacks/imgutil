@@ -209,6 +209,10 @@ func CreateContainer(dockerCli dockercli.CommonAPIClient, repoName string) (stri
 	return ctr.ID, nil
 }
 
+// pick the fastest container isolation possible:
+// Windows 10 defaults to "hyperv", which is very slow for local development
+// Windows Server Core defaults to "process"
+// Linux defaults to "default"
 func fastestIsolation(dockerCli dockercli.CommonAPIClient) dockercontainer.Isolation {
 	daemonInfo, err := dockerCli.Info(context.Background())
 	if err != nil {
@@ -221,6 +225,7 @@ func fastestIsolation(dockerCli dockercli.CommonAPIClient) dockercontainer.Isola
 	return dockercontainer.IsolationDefault
 }
 
+// Copy file from a Docker container based on the image
 func CopySingleFileFromLocalImage(dockerCli dockercli.CommonAPIClient, repoName, path string) (string, error) {
 	ctrID, err := CreateContainer(dockerCli, repoName)
 	if err != nil {
@@ -230,6 +235,7 @@ func CopySingleFileFromLocalImage(dockerCli dockercli.CommonAPIClient, repoName,
 	return CopySingleFileFromContainer(dockerCli, ctrID, path)
 }
 
+// Copy file by using ggcr to fetch the image and search each layer, in order, for the first match
 func CopySingleFileFromRemoteImage(repoName, expectedPath string) (string, error) {
 	r, err := name.ParseReference(repoName, name.WeakValidation)
 	if err != nil {
@@ -528,6 +534,7 @@ func FileDiffID(path string) (string, error) {
 	return diffID, nil
 }
 
+// Return an image that can be used by a daemon of the same OS to create an container or run a command
 func RunnableBaseImage(os string) string {
 	if os == "windows" {
 		// windows/amd64 image from manifest cached on github actions Windows 2019 workers: https://github.com/actions/virtual-environments/blob/master/images/win/Windows2019-Readme.md#docker-images
