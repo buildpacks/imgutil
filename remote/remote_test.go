@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	ggcrauthn "github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 
@@ -44,13 +44,13 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	when("#NewRemote", func() {
 		when("no base image is given", func() {
 			it("returns an empty image", func() {
-				_, err := remote.NewImage(newTestImageName(), ggcrauthn.DefaultKeychain)
+				_, err := remote.NewImage(newTestImageName(), authn.DefaultKeychain)
 				h.AssertNil(t, err)
 			})
 
 			it("sets sensible defaults for all required fields", func() {
 				// os, architecture, and rootfs are required per https://github.com/opencontainers/image-spec/blob/master/config.md
-				img, err := remote.NewImage(newTestImageName(), ggcrauthn.DefaultKeychain)
+				img, err := remote.NewImage(newTestImageName(), authn.DefaultKeychain)
 				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
 
@@ -76,7 +76,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 					img, err := remote.NewImage(
 						repoName,
-						ggcrauthn.DefaultKeychain,
+						authn.DefaultKeychain,
 						remote.FromBaseImage(baseImageName),
 					)
 					h.AssertNil(t, err)
@@ -104,7 +104,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 					img, err := remote.NewImage(
 						repoName,
-						ggcrauthn.DefaultKeychain,
+						authn.DefaultKeychain,
 						remote.FromBaseImage(baseImageName),
 					)
 					h.AssertNil(t, err)
@@ -133,7 +133,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 						img, err := remote.NewImage(
 							repoName,
-							ggcrauthn.DefaultKeychain,
+							authn.DefaultKeychain,
 							remote.FromBaseImage(manifestListName),
 						)
 						h.AssertNil(t, err)
@@ -161,7 +161,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				it("don't error", func() {
 					_, err := remote.NewImage(
 						repoName,
-						ggcrauthn.DefaultKeychain,
+						authn.DefaultKeychain,
 						remote.FromBaseImage("some-bad-repo-name"),
 					)
 
@@ -175,7 +175,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				it("don't error", func() {
 					_, err := remote.NewImage(
 						repoName,
-						ggcrauthn.DefaultKeychain,
+						authn.DefaultKeychain,
 						remote.WithPreviousImage("some-bad-repo-name"),
 					)
 
@@ -188,7 +188,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	when("#Label", func() {
 		when("image exists", func() {
 			it.Before(func() {
-				baseImage, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+				baseImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
 				h.AssertNil(t, baseImage.SetLabel("mykey", "myvalue"))
@@ -197,7 +197,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns the label value", func() {
-				img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain, remote.FromBaseImage(repoName))
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
 				h.AssertNil(t, err)
 
 				label, err := img.Label("mykey")
@@ -206,7 +206,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns an empty string for a missing label", func() {
-				img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain, remote.FromBaseImage(repoName))
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
 				h.AssertNil(t, err)
 
 				label, err := img.Label("missing-label")
@@ -217,7 +217,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 		when("image is empty", func() {
 			it("returns an empty label", func() {
-				img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
 				label, err := img.Label("some-label")
@@ -232,14 +232,14 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			var baseImageName = newTestImageName()
 
 			it.Before(func() {
-				baseImage, err := remote.NewImage(baseImageName, ggcrauthn.DefaultKeychain)
+				baseImage, err := remote.NewImage(baseImageName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 				h.AssertNil(t, baseImage.SetEnv("MY_VAR", "my_val"))
 				h.AssertNil(t, baseImage.Save())
 			})
 
 			it("returns the label value", func() {
-				img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain, remote.FromBaseImage(baseImageName))
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(baseImageName))
 				h.AssertNil(t, err)
 
 				val, err := img.Env("MY_VAR")
@@ -248,7 +248,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("returns an empty string for a missing label", func() {
-				img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain, remote.FromBaseImage(baseImageName))
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(baseImageName))
 				h.AssertNil(t, err)
 
 				val, err := img.Env("MISSING_VAR")
@@ -259,7 +259,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 		when("image is empty", func() {
 			it("returns an empty string", func() {
-				img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
 				val, err := img.Env("SOME_VAR")
@@ -271,7 +271,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#Name", func() {
 		it("always returns the original name", func() {
-			img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+			img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 			h.AssertNil(t, err)
 			h.AssertEq(t, img.Name(), repoName)
 		})
@@ -280,7 +280,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	when("#CreatedAt", func() {
 		const reference = "busybox@sha256:f79f7a10302c402c052973e3fa42be0344ae6453245669783a9e16da3d56d5b4"
 		it("returns the containers created at time", func() {
-			img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain, remote.FromBaseImage(reference))
+			img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(reference))
 			h.AssertNil(t, err)
 
 			expectedTime := time.Date(2019, 4, 2, 23, 32, 10, 727183061, time.UTC)
@@ -296,7 +296,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		it("returns a digest reference", func() {
 			img, err := remote.NewImage(
 				repoName+":some-tag",
-				ggcrauthn.DefaultKeychain,
+				authn.DefaultKeychain,
 				remote.FromBaseImage("busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"),
 			)
 			h.AssertNil(t, err)
@@ -309,7 +309,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		it("accurately parses the reference for an image with a sha", func() {
 			img, err := remote.NewImage(
 				repoName+"@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5",
-				ggcrauthn.DefaultKeychain,
+				authn.DefaultKeychain,
 				remote.FromBaseImage("busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"),
 			)
 			h.AssertNil(t, err)
@@ -323,7 +323,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it("returns the new digest reference", func() {
 				img, err := remote.NewImage(
 					repoName+":some-tag",
-					ggcrauthn.DefaultKeychain,
+					authn.DefaultKeychain,
 					remote.FromBaseImage("busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"),
 				)
 				h.AssertNil(t, err)
@@ -337,7 +337,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				testImg, err := remote.NewImage(
 					"test",
-					ggcrauthn.DefaultKeychain,
+					authn.DefaultKeychain,
 					remote.FromBaseImage(id.String()),
 				)
 				h.AssertNil(t, err)
@@ -353,7 +353,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	when("#SetLabel", func() {
 		when("image exists", func() {
 			it("sets label on img object", func() {
-				img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
 				h.AssertNil(t, img.SetLabel("mykey", "new-val"))
@@ -363,7 +363,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("saves label", func() {
-				img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
 				h.AssertNil(t, img.SetLabel("mykey", "new-val"))
@@ -372,7 +372,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				testImg, err := remote.NewImage(
 					"test",
-					ggcrauthn.DefaultKeychain,
+					authn.DefaultKeychain,
 					remote.FromBaseImage(repoName),
 				)
 				h.AssertNil(t, err)
@@ -387,7 +387,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#SetEnv", func() {
 		it("sets the environment", func() {
-			img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+			img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 			h.AssertNil(t, err)
 
 			err = img.SetEnv("ENV_KEY", "ENV_VAL")
@@ -402,7 +402,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#SetWorkingDir", func() {
 		it("sets the environment", func() {
-			img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+			img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 			h.AssertNil(t, err)
 
 			err = img.SetWorkingDir("/some/work/dir")
@@ -417,7 +417,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#SetEntrypoint", func() {
 		it("sets the entrypoint", func() {
-			img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+			img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 			h.AssertNil(t, err)
 
 			err = img.SetEntrypoint("some", "entrypoint")
@@ -432,7 +432,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#SetCmd", func() {
 		it("sets the cmd", func() {
-			img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+			img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 			h.AssertNil(t, err)
 
 			err = img.SetCmd("some", "cmd")
@@ -460,7 +460,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayer2Path)
 
-				newBaseImage, err := remote.NewImage(newBase, ggcrauthn.DefaultKeychain)
+				newBaseImage, err := remote.NewImage(newBase, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
 				err = newBaseImage.AddLayer(newBaseLayer1Path)
@@ -483,7 +483,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				defer os.Remove(oldBaseLayer2Path)
 
-				oldBaseImage, err := remote.NewImage(oldBase, ggcrauthn.DefaultKeychain)
+				oldBaseImage, err := remote.NewImage(oldBase, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
 				err = oldBaseImage.AddLayer(oldBaseLayer1Path)
@@ -508,7 +508,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				defer os.Remove(origLayer2Path)
 
-				origImage, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain, remote.FromBaseImage(oldBase))
+				origImage, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(oldBase))
 				h.AssertNil(t, err)
 
 				err = origImage.AddLayer(origLayer1Path)
@@ -531,9 +531,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				)
 
 				// Run rebase
-				img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain, remote.FromBaseImage(repoName))
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
 				h.AssertNil(t, err)
-				newBaseImg, err := remote.NewImage(newBase, ggcrauthn.DefaultKeychain, remote.FromBaseImage(newBase))
+				newBaseImg, err := remote.NewImage(newBase, authn.DefaultKeychain, remote.FromBaseImage(newBase))
 				h.AssertNil(t, err)
 				err = img.Rebase(oldTopLayerDiffID, newBaseImg)
 				h.AssertNil(t, err)
@@ -562,7 +562,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				expectedTopLayerDiffID, err := h.FileDiffID(topLayerPath)
 				h.AssertNil(t, err)
 
-				existingImage, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain, remote.FromBaseImage(repoName))
+				existingImage, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
 				h.AssertNil(t, err)
 
 				err = existingImage.AddLayer(baseLayerPath)
@@ -573,7 +573,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				h.AssertNil(t, existingImage.Save())
 
-				img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain, remote.FromBaseImage(repoName))
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
 				h.AssertNil(t, err)
 
 				actualTopLayerDiffID, err := img.TopLayer()
@@ -585,7 +585,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 		when("the image has no layers", func() {
 			it("returns an error", func() {
-				img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
 				_, err = img.TopLayer()
@@ -598,7 +598,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		it("appends a layer", func() {
 			existingImage, err := remote.NewImage(
 				repoName,
-				ggcrauthn.DefaultKeychain,
+				authn.DefaultKeychain,
 			)
 			h.AssertNil(t, err)
 
@@ -611,7 +611,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, existingImage.Save())
 			img, err := remote.NewImage(
 				repoName,
-				ggcrauthn.DefaultKeychain,
+				authn.DefaultKeychain,
 				remote.FromBaseImage(repoName),
 			)
 			h.AssertNil(t, err)
@@ -639,7 +639,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		it("appends a layer", func() {
 			existingImage, err := remote.NewImage(
 				repoName,
-				ggcrauthn.DefaultKeychain,
+				authn.DefaultKeychain,
 			)
 			h.AssertNil(t, err)
 
@@ -653,7 +653,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			img, err := remote.NewImage(
 				repoName,
-				ggcrauthn.DefaultKeychain,
+				authn.DefaultKeychain,
 				remote.FromBaseImage(repoName),
 			)
 			h.AssertNil(t, err)
@@ -691,7 +691,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				prevImageName = "localhost:" + registryPort + "/pack-image-test-" + h.RandString(10)
 				prevImage, err := remote.NewImage(
 					prevImageName,
-					ggcrauthn.DefaultKeychain,
+					authn.DefaultKeychain,
 				)
 				h.AssertNil(t, err)
 
@@ -715,7 +715,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it("reuses a layer", func() {
 				img, err := remote.NewImage(
 					repoName,
-					ggcrauthn.DefaultKeychain,
+					authn.DefaultKeychain,
 					remote.WithPreviousImage(prevImageName),
 				)
 				h.AssertNil(t, err)
@@ -744,7 +744,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it("returns error on nonexistent layer", func() {
 				img, err := remote.NewImage(
 					repoName,
-					ggcrauthn.DefaultKeychain,
+					authn.DefaultKeychain,
 					remote.WithPreviousImage(prevImageName),
 				)
 				h.AssertNil(t, err)
@@ -761,7 +761,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	when("#Save", func() {
 		when("image exists", func() {
 			it("can be pulled by digest", func() {
-				img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
 				err = img.SetLabel("mykey", "newValue")
@@ -774,7 +774,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				testImg, err := remote.NewImage(
 					"test",
-					ggcrauthn.DefaultKeychain,
+					authn.DefaultKeychain,
 					remote.FromBaseImage(identifier.String()),
 				)
 				h.AssertNil(t, err)
@@ -786,7 +786,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("zeroes all times and client specific fields", func() {
-				img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
 				tarPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", "linux")
@@ -822,12 +822,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			)
 
 			it("saves to multiple names", func() {
-				image, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+				image, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
 				h.AssertNil(t, image.Save(additionalRepoNames...))
 				for _, n := range successfulRepoNames {
-					testImg, err := remote.NewImage(n, ggcrauthn.DefaultKeychain)
+					testImg, err := remote.NewImage(n, authn.DefaultKeychain)
 					h.AssertNil(t, err)
 					h.AssertEq(t, testImg.Found(), true)
 				}
@@ -837,7 +837,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				it("returns results with errors for those that failed", func() {
 					failingName := newTestImageName() + ":🧨"
 
-					image, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+					image, err := remote.NewImage(repoName, authn.DefaultKeychain)
 					h.AssertNil(t, err)
 
 					err = image.Save(append([]string{failingName}, additionalRepoNames...)...)
@@ -851,7 +851,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					h.AssertError(t, saveErr.Errors[0].Cause, "could not parse reference")
 
 					for _, n := range successfulRepoNames {
-						testImg, err := remote.NewImage(n, ggcrauthn.DefaultKeychain)
+						testImg, err := remote.NewImage(n, authn.DefaultKeychain)
 						h.AssertNil(t, err)
 						h.AssertEq(t, testImg.Found(), true)
 					}
@@ -863,11 +863,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	when("#Found", func() {
 		when("it exists", func() {
 			it("returns true, nil", func() {
-				origImage, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+				origImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 				h.AssertNil(t, origImage.Save())
 
-				image, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+				image, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
 				h.AssertEq(t, image.Found(), true)
@@ -876,7 +876,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 		when("it does not exist", func() {
 			it("returns false, nil", func() {
-				image, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+				image, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
 				h.AssertEq(t, image.Found(), false)
@@ -888,14 +888,14 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		when("it exists", func() {
 			var img imgutil.Image
 			it("returns nil and is deleted", func() {
-				origImage, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+				origImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 				h.AssertNil(t, origImage.SetLabel("some-label", "some-val"))
 				h.AssertNil(t, origImage.Save())
 
 				img, err = remote.NewImage(
 					repoName,
-					ggcrauthn.DefaultKeychain,
+					authn.DefaultKeychain,
 					remote.FromBaseImage(repoName),
 				)
 
@@ -910,7 +910,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 		when("it does not exists", func() {
 			it("returns an error", func() {
-				img, err := remote.NewImage(repoName, ggcrauthn.DefaultKeychain)
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
 				h.AssertEq(t, img.Found(), false)
