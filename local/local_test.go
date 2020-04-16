@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -157,7 +156,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						expectedOSVersion = "10.0.17763.1040"
 					}
 
-					h.PullImage(dockerClient, armBaseImageName)
+					h.AssertNil(t, h.PullImage(dockerClient, armBaseImageName))
 
 					img, err := local.NewImage(newTestImageName(), dockerClient, local.FromBaseImage(armBaseImageName))
 					h.AssertNil(t, err)
@@ -532,24 +531,34 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	when("#Rebase", func() {
 		when("image exists", func() {
 			var (
-				oldBase, oldTopLayer, newBase, origID string
-				origNumLayers                         int
 				repoName                              = newTestImageName()
+				oldBase, oldTopLayer, newBase, origID string
+				oldBaseLayer1DiffID                   string
+				oldBaseLayer2DiffID                   string
+				newBaseLayer1DiffID                   string
+				newBaseLayer2DiffID                   string
+				imgLayer1DiffID                       string
+				imgLayer2DiffID                       string
+				origNumLayers                         int
 			)
 
 			it.Before(func() {
 				// new base image
 				newBase = "pack-newbase-test-" + h.RandString(10)
-				newBaseImage, err := local.NewImage(newBase, dockerClient)
+				newBaseImage, err := local.NewImage(newBase, dockerClient, local.FromBaseImage(runnableBaseImageName))
 				h.AssertNil(t, err)
 
-				newBaseLayer1Path, err := h.CreateSingleFileBaseLayerTar("/base.txt", "new-base", daemonOS)
+				newBaseLayer1Path, err := h.CreateSingleFileLayerTar("/new-base.txt", "new-base", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayer1Path)
+
+				newBaseLayer1DiffID = h.FileDiffID(t, newBaseLayer1Path)
 
 				newBaseLayer2Path, err := h.CreateSingleFileLayerTar("/otherfile.txt", "text-new-base", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayer2Path)
+
+				newBaseLayer2DiffID = h.FileDiffID(t, newBaseLayer2Path)
 
 				h.AssertNil(t, newBaseImage.AddLayer(newBaseLayer1Path))
 				h.AssertNil(t, newBaseImage.AddLayer(newBaseLayer2Path))
@@ -558,16 +567,20 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				// old base image
 				oldBase = "pack-oldbase-test-" + h.RandString(10)
-				oldBaseImage, err := local.NewImage(oldBase, dockerClient)
+				oldBaseImage, err := local.NewImage(oldBase, dockerClient, local.FromBaseImage(runnableBaseImageName))
 				h.AssertNil(t, err)
 
-				oldBaseLayer1Path, err := h.CreateSingleFileBaseLayerTar("/base.txt", "old-base", daemonOS)
+				oldBaseLayer1Path, err := h.CreateSingleFileLayerTar("/old-base.txt", "old-base", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(oldBaseLayer1Path)
+
+				oldBaseLayer1DiffID = h.FileDiffID(t, oldBaseLayer1Path)
 
 				oldBaseLayer2Path, err := h.CreateSingleFileLayerTar("/otherfile.txt", "text-old-base", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(oldBaseLayer2Path)
+
+				oldBaseLayer2DiffID = h.FileDiffID(t, oldBaseLayer2Path)
 
 				h.AssertNil(t, oldBaseImage.AddLayer(oldBaseLayer1Path))
 				h.AssertNil(t, oldBaseImage.AddLayer(oldBaseLayer2Path))
@@ -586,9 +599,13 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				defer os.Remove(imgLayer1Path)
 
+				imgLayer1DiffID = h.FileDiffID(t, imgLayer1Path)
+
 				imgLayer2Path, err := h.CreateSingleFileLayerTar("/myimage2.txt", "text-from-image", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(imgLayer2Path)
+
+				imgLayer2DiffID = h.FileDiffID(t, imgLayer2Path)
 
 				h.AssertNil(t, origImage.AddLayer(imgLayer1Path))
 				h.AssertNil(t, origImage.AddLayer(imgLayer2Path))
@@ -607,9 +624,20 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			it("switches the base", func() {
 				// Before
-				txt, err := h.CopySingleFileFromLocalImage(dockerClient, repoName, "/base.txt")
+				beforeInspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 				h.AssertNil(t, err)
-				h.AssertEq(t, txt, "old-base")
+
+				beforeOldBaseLayer1DiffID := beforeInspect.RootFS.Layers[len(beforeInspect.RootFS.Layers)-4]
+				h.AssertEq(t, oldBaseLayer1DiffID, beforeOldBaseLayer1DiffID)
+
+				beforeOldBaseLayer2DiffID := beforeInspect.RootFS.Layers[len(beforeInspect.RootFS.Layers)-3]
+				h.AssertEq(t, oldBaseLayer2DiffID, beforeOldBaseLayer2DiffID)
+
+				beforeLayer3DiffID := beforeInspect.RootFS.Layers[len(beforeInspect.RootFS.Layers)-2]
+				h.AssertEq(t, imgLayer1DiffID, beforeLayer3DiffID)
+
+				beforeLayer4DiffID := beforeInspect.RootFS.Layers[len(beforeInspect.RootFS.Layers)-1]
+				h.AssertEq(t, imgLayer2DiffID, beforeLayer4DiffID)
 
 				// Run rebase
 				img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
@@ -622,26 +650,23 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, img.Save())
 
 				// After
-				expected := map[string]string{
-					"/base.txt":      "new-base",
-					"/otherfile.txt": "text-new-base",
-					"/myimage.txt":   "text-from-image",
-					"/myimage2.txt":  "text-from-image",
-				}
-				ctrID, err := h.CreateContainer(dockerClient, repoName)
+				afterInspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 				h.AssertNil(t, err)
-				defer dockerClient.ContainerRemove(context.Background(), ctrID, types.ContainerRemoveOptions{})
-				for filename, expectedText := range expected {
-					actualText, err := h.CopySingleFileFromContainer(dockerClient, ctrID, filename)
-					h.AssertNil(t, err)
-					h.AssertEq(t, actualText, expectedText)
-				}
 
-				// Final Image should have same number of layers as initial image
-				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
-				h.AssertNil(t, err)
-				numLayers := len(inspect.RootFS.Layers)
+				numLayers := len(afterInspect.RootFS.Layers)
 				h.AssertEq(t, numLayers, origNumLayers)
+
+				afterLayer1DiffID := afterInspect.RootFS.Layers[len(afterInspect.RootFS.Layers)-4]
+				h.AssertEq(t, newBaseLayer1DiffID, afterLayer1DiffID)
+
+				afterLayer2DiffID := afterInspect.RootFS.Layers[len(afterInspect.RootFS.Layers)-3]
+				h.AssertEq(t, newBaseLayer2DiffID, afterLayer2DiffID)
+
+				afterLayer3DiffID := afterInspect.RootFS.Layers[len(afterInspect.RootFS.Layers)-2]
+				h.AssertEq(t, imgLayer1DiffID, afterLayer3DiffID)
+
+				afterLayer4DiffID := afterInspect.RootFS.Layers[len(afterInspect.RootFS.Layers)-1]
+				h.AssertEq(t, imgLayer2DiffID, afterLayer4DiffID)
 			})
 		})
 	})
@@ -656,10 +681,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				existingImage, err := local.NewImage(
 					repoName,
 					dockerClient,
+					local.FromBaseImage(runnableBaseImageName),
 				)
 				h.AssertNil(t, err)
 
-				layer1Path, err := h.CreateSingleFileBaseLayerTar("/base.txt", "old-base", daemonOS)
+				layer1Path, err := h.CreateSingleFileLayerTar("/newfile.txt", "old-base", daemonOS)
 				h.AssertNil(t, err)
 				layer2Path, err := h.CreateSingleFileLayerTar("/otherfile.txt", "text-old-base", daemonOS)
 				h.AssertNil(t, err)
@@ -708,18 +734,28 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				img, err := local.NewImage(repoName, dockerClient)
 				h.AssertNil(t, err)
 
-				newLayerPath, err := h.CreateSingleFileBaseLayerTar("/new-layer.txt", "new-layer", daemonOS)
+				// windows daemons *always* require a valid windows base layer
+				if daemonOS == "windows" {
+					windowsBaseLayer := h.WindowsBaseLayer(t)
+					h.AssertNil(t, img.AddLayer(windowsBaseLayer))
+					defer os.Remove(windowsBaseLayer)
+				}
+
+				newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(newLayerPath)
+
+				newLayerDiffID := h.FileDiffID(t, newLayerPath)
 
 				h.AssertNil(t, img.AddLayer(newLayerPath))
 
 				h.AssertNil(t, img.Save())
 				defer h.DockerRmi(dockerClient, repoName)
 
-				output, err := h.CopySingleFileFromLocalImage(dockerClient, repoName, "new-layer.txt")
+				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 				h.AssertNil(t, err)
-				h.AssertEq(t, output, "new-layer")
+
+				h.AssertEq(t, newLayerDiffID, inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1])
 			})
 		})
 
@@ -730,12 +766,18 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			)
 
 			it("appends a layer", func() {
-				baseImage, err := local.NewImage(baseImageName, dockerClient)
+				baseImage, err := local.NewImage(
+					baseImageName,
+					dockerClient,
+					local.FromBaseImage(runnableBaseImageName),
+				)
 				h.AssertNil(t, err)
 
-				oldLayerPath, err := h.CreateSingleFileBaseLayerTar("/old-layer.txt", "old-layer", daemonOS)
+				oldLayerPath, err := h.CreateSingleFileLayerTar("/old-layer.txt", "old-layer", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(oldLayerPath)
+
+				oldLayerDiffID := h.FileDiffID(t, oldLayerPath)
 
 				h.AssertNil(t, baseImage.AddLayer(oldLayerPath))
 
@@ -753,35 +795,41 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				defer os.Remove(newLayerPath)
 
+				newLayerDiffID := h.FileDiffID(t, newLayerPath)
+
 				h.AssertNil(t, img.AddLayer(newLayerPath))
 
 				h.AssertNil(t, img.Save())
 				defer h.DockerRmi(dockerClient, repoName)
 
-				output, err := h.CopySingleFileFromLocalImage(dockerClient, repoName, "old-layer.txt")
+				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 				h.AssertNil(t, err)
-				h.AssertEq(t, output, "old-layer")
 
-				output, err = h.CopySingleFileFromLocalImage(dockerClient, repoName, "new-layer.txt")
-				h.AssertNil(t, err)
-				h.AssertEq(t, output, "new-layer")
+				h.AssertEq(t, oldLayerDiffID, inspect.RootFS.Layers[len(inspect.RootFS.Layers)-2])
+				h.AssertEq(t, newLayerDiffID, inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1])
 			})
 		})
 	})
 
 	when("#AddLayerWithDiffID", func() {
-		var (
-			repoName        = newTestImageName()
-			existingImageID string
-		)
+		it("appends a layer", func() {
+			repoName := newTestImageName()
 
-		it.Before(func() {
 			existingImage, err := local.NewImage(repoName, dockerClient)
 			h.AssertNil(t, err)
 
-			oldLayerPath, err := h.CreateSingleFileBaseLayerTar("/old-layer.txt", "old-layer", daemonOS)
+			// windows daemons *always* require a valid windows base layer
+			if daemonOS == "windows" {
+				windowsBaseLayer := h.WindowsBaseLayer(t)
+				h.AssertNil(t, existingImage.AddLayer(windowsBaseLayer))
+				defer os.Remove(windowsBaseLayer)
+			}
+
+			oldLayerPath, err := h.CreateSingleFileLayerTar("/old-layer.txt", "old-layer", daemonOS)
 			h.AssertNil(t, err)
 			defer os.Remove(oldLayerPath)
+
+			oldLayerDiffID := h.FileDiffID(t, oldLayerPath)
 
 			h.AssertNil(t, existingImage.AddLayer(oldLayerPath))
 
@@ -790,18 +838,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			id, err := existingImage.Identifier()
 			h.AssertNil(t, err)
 
-			existingImageID = id.String()
-		})
-
-		it.After(func() {
-			h.AssertNil(t, h.DockerRmi(dockerClient, repoName, existingImageID))
-		})
-
-		it("appends a layer", func() {
-			var err error
+			existingImageID := id.String()
+			defer h.DockerRmi(dockerClient, existingImageID)
 
 			img, err := local.NewImage(
-				repoName, dockerClient,
+				repoName,
+				dockerClient,
 				local.FromBaseImage(repoName),
 				local.WithPreviousImage(repoName),
 			)
@@ -811,19 +853,17 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, err)
 			defer os.Remove(newLayerPath)
 
-			diffID, err := h.FileDiffID(newLayerPath)
-			h.AssertNil(t, err)
+			newLayerDiffID := h.FileDiffID(t, newLayerPath)
 
-			h.AssertNil(t, img.AddLayerWithDiffID(newLayerPath, diffID))
+			h.AssertNil(t, img.AddLayerWithDiffID(newLayerPath, newLayerDiffID))
 			h.AssertNil(t, img.Save())
+			defer h.DockerRmi(dockerClient, repoName)
 
-			output, err := h.CopySingleFileFromLocalImage(dockerClient, repoName, "old-layer.txt")
+			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 			h.AssertNil(t, err)
-			h.AssertEq(t, output, "old-layer")
 
-			output, err = h.CopySingleFileFromLocalImage(dockerClient, repoName, "new-layer.txt")
-			h.AssertNil(t, err)
-			h.AssertEq(t, output, "new-layer")
+			h.AssertEq(t, oldLayerDiffID, inspect.RootFS.Layers[len(inspect.RootFS.Layers)-2])
+			h.AssertEq(t, newLayerDiffID, inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1])
 		})
 	})
 
@@ -834,10 +874,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it.Before(func() {
 				var err error
 
-				existingImage, err := local.NewImage(repoName, dockerClient)
+				existingImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(runnableBaseImageName))
 				h.AssertNil(t, err)
 
-				layerPath, err := h.CreateSingleFileBaseLayerTar("/file.txt", "file-contents", daemonOS)
+				layerPath, err := h.CreateSingleFileLayerTar("/file.txt", "file-contents", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(layerPath)
 
@@ -910,19 +950,20 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#ReuseLayer", func() {
 		var (
-			layer1SHA string
-			layer2SHA string
-			prevName  = newTestImageName()
-			repoName  = newTestImageName()
+			prevName      = newTestImageName()
+			repoName      = newTestImageName()
+			prevLayer1SHA string
+			prevLayer2SHA string
 		)
 		it.Before(func() {
 			prevImage, err := local.NewImage(
 				prevName,
 				dockerClient,
+				local.FromBaseImage(runnableBaseImageName),
 			)
 			h.AssertNil(t, err)
 
-			layer1Path, err := h.CreateSingleFileBaseLayerTar("/layer-1.txt", "old-layer-1", daemonOS)
+			layer1Path, err := h.CreateSingleFileLayerTar("/layer-1.txt", "old-layer-1", daemonOS)
 			h.AssertNil(t, err)
 			defer os.Remove(layer1Path)
 
@@ -938,8 +979,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), prevName)
 			h.AssertNil(t, err)
 
-			layer1SHA = inspect.RootFS.Layers[0]
-			layer2SHA = inspect.RootFS.Layers[1]
+			prevLayer1SHA = inspect.RootFS.Layers[0]
+			prevLayer2SHA = inspect.RootFS.Layers[1]
 		})
 
 		it.After(func() {
@@ -951,27 +992,29 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				repoName,
 				dockerClient,
 				local.WithPreviousImage(prevName),
+				local.FromBaseImage(runnableBaseImageName),
 			)
 			h.AssertNil(t, err)
 
-			newBaseLayerPath, err := h.CreateSingleFileBaseLayerTar("/new-base.txt", "base-content", daemonOS)
+			newLayer1Path, err := h.CreateSingleFileLayerTar("/new-base.txt", "base-content", daemonOS)
 			h.AssertNil(t, err)
-			defer os.Remove(newBaseLayerPath)
+			defer os.Remove(newLayer1Path)
 
-			h.AssertNil(t, img.AddLayer(newBaseLayerPath))
+			h.AssertNil(t, img.AddLayer(newLayer1Path))
 
-			err = img.ReuseLayer(layer2SHA)
+			err = img.ReuseLayer(prevLayer2SHA)
 			h.AssertNil(t, err)
 
 			h.AssertNil(t, img.Save())
 
-			output, err := h.CopySingleFileFromLocalImage(dockerClient, repoName, "layer-2.txt")
+			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 			h.AssertNil(t, err)
-			h.AssertEq(t, output, "old-layer-2")
 
-			// Confirm layer-1.txt does not exist
-			_, err = h.CopySingleFileFromLocalImage(dockerClient, repoName, "layer-1.txt")
-			h.AssertMatch(t, err.Error(), regexp.MustCompile(`Error: No such container:path: .*:layer-1.txt`))
+			newLayer1SHA := inspect.RootFS.Layers[len(inspect.RootFS.Layers)-2]
+			reusedLayer2SHA := inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
+
+			h.AssertNotEq(t, prevLayer1SHA, newLayer1SHA)
+			h.AssertEq(t, prevLayer2SHA, reusedLayer2SHA)
 		})
 
 		it("does not download the old image if layers are directly above (performance)", func() {
@@ -982,18 +1025,19 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			)
 			h.AssertNil(t, err)
 
-			err = img.ReuseLayer(layer1SHA)
+			err = img.ReuseLayer(prevLayer1SHA)
 			h.AssertNil(t, err)
 
 			h.AssertNil(t, img.Save())
 
-			output, err := h.CopySingleFileFromLocalImage(dockerClient, repoName, "layer-1.txt")
+			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 			h.AssertNil(t, err)
-			h.AssertEq(t, output, "old-layer-1")
 
-			// Confirm layer-2.txt does not exist
-			_, err = h.CopySingleFileFromLocalImage(dockerClient, repoName, "layer-2.txt")
-			h.AssertMatch(t, err.Error(), regexp.MustCompile(`Error: No such container:path: .*:layer-2.txt`))
+			h.AssertEq(t, len(inspect.RootFS.Layers), 1)
+
+			newLayer1SHA := inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
+
+			h.AssertEq(t, prevLayer1SHA, newLayer1SHA)
 		})
 	})
 

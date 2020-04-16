@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -27,7 +26,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 
 	dockertypes "github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
 	dockercli "github.com/docker/docker/client"
 	"github.com/google/go-cmp/cmp"
 )
@@ -175,126 +173,6 @@ func DockerRmi(dockerCli dockercli.CommonAPIClient, repoNames ...string) error {
 	return err
 }
 
-func CopySingleFileFromContainer(dockerCli dockercli.CommonAPIClient, ctrID, path string) (string, error) {
-	r, _, err := dockerCli.CopyFromContainer(context.Background(), ctrID, path)
-	if err != nil {
-		return "", err
-	}
-	defer r.Close()
-	tr := tar.NewReader(r)
-	hdr, err := tr.Next()
-	if err != nil {
-		return "", err
-	}
-	if hdr.Name != path && hdr.Name != filepath.Base(path) {
-		return "", fmt.Errorf("filenames did not match: %s and %s (%s)", hdr.Name, path, filepath.Base(path))
-	}
-	b, err := ioutil.ReadAll(tr)
-	return string(b), err
-}
-
-func CreateContainer(dockerCli dockercli.CommonAPIClient, repoName string) (string, error) {
-	ctr, err := dockerCli.ContainerCreate(context.Background(),
-		&dockercontainer.Config{
-			Image: repoName,
-			Cmd:   []string{"noop"},
-		}, &dockercontainer.HostConfig{
-			AutoRemove: true,
-			Isolation:  fastestIsolation(dockerCli),
-		}, nil, "",
-	)
-	if err != nil {
-		return "", err
-	}
-	return ctr.ID, nil
-}
-
-// pick the fastest container isolation possible:
-// Windows 10 defaults to "hyperv", which is very slow for local development
-// Windows Server Core defaults to "process"
-// Linux defaults to "default"
-func fastestIsolation(dockerCli dockercli.CommonAPIClient) dockercontainer.Isolation {
-	daemonInfo, err := dockerCli.Info(context.Background())
-	if err != nil {
-		panic(err)
-	}
-
-	if daemonInfo.OSType == "windows" {
-		return dockercontainer.IsolationProcess
-	}
-	return dockercontainer.IsolationDefault
-}
-
-// Copy file from a Docker container based on the image
-func CopySingleFileFromLocalImage(dockerCli dockercli.CommonAPIClient, repoName, path string) (string, error) {
-	ctrID, err := CreateContainer(dockerCli, repoName)
-	if err != nil {
-		return "", err
-	}
-	defer dockerCli.ContainerRemove(context.Background(), ctrID, dockertypes.ContainerRemoveOptions{})
-	return CopySingleFileFromContainer(dockerCli, ctrID, path)
-}
-
-// Copy file by using ggcr to fetch the image and search each layer, in order, for the first match
-func CopySingleFileFromRemoteImage(repoName, expectedPath string) (string, error) {
-	r, err := name.ParseReference(repoName, name.WeakValidation)
-	if err != nil {
-		return "", err
-	}
-	gImg, err := remote.Image(r, remote.WithTransport(http.DefaultTransport))
-	if err != nil {
-		return "", err
-	}
-
-	gConfigFile, err := gImg.ConfigFile()
-	if err != nil {
-		return "", err
-	}
-
-	if gConfigFile.OS == "windows" {
-		expectedPath = path.Join("Files", expectedPath)
-	}
-
-	gLayers, err := gImg.Layers()
-	if err != nil {
-		return "", err
-	}
-
-	for _, gLayer := range gLayers {
-		layerReader, err := gLayer.Uncompressed()
-		if err != nil {
-			return "", err
-		}
-
-		tarReader := tar.NewReader(layerReader)
-
-		for {
-			tarHeader, err := tarReader.Next()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return "", err
-			}
-
-			if tarHeader.Name == expectedPath {
-				content, err := ioutil.ReadAll(tarReader)
-				if err != nil {
-					return "", err
-				}
-				return string(content), nil
-			}
-		}
-
-		err = layerReader.Close()
-		if err != nil {
-			return "", err
-		}
-	}
-
-	return "", nil
-}
-
 func PushImage(dockerCli dockercli.CommonAPIClient, ref string) error {
 	rc, err := dockerCli.ImagePush(context.Background(), ref, dockertypes.ImagePushOptions{RegistryAuth: "{}"})
 	if err != nil {
@@ -327,31 +205,6 @@ func ImageID(t *testing.T, repoName string) string {
 	inspect, _, err := DockerCli(t).ImageInspectWithRaw(context.Background(), repoName)
 	AssertNil(t, err)
 	return inspect.ID
-}
-
-func CreateSingleFileBaseLayerTar(layerPath, txt, osType string) (string, error) {
-	tarFile, err := ioutil.TempFile("", "create-base-layer-tar-path")
-	if err != nil {
-		return "", err
-	}
-	defer tarFile.Close()
-
-	tw := tar.NewWriter(tarFile)
-	defer tw.Close()
-
-	// regular Linux layer
-	writeFunc := writeTarSingleFileLinux
-	if osType == "windows" {
-		// special Windows base layer
-		writeFunc = writeTarWindowsBaseLayer
-	}
-
-	err = writeFunc(tw, layerPath, txt)
-	if err != nil {
-		return "", err
-	}
-
-	return tarFile.Name(), nil
 }
 
 func CreateSingleFileLayerTar(layerPath, txt, osType string) (string, error) {
@@ -391,9 +244,11 @@ func writeTarSingleFileLinux(tw *tar.Writer, layerPath, txt string) error {
 	return nil
 }
 
+// WindowsBaseLayer returns a minimal windows base layer.
+// This base layer cannot use for running but can be used for saving to a Windows daemon and container creation.
 // Windows image layers must follow this pattern¹:
 // - base layer² (always required; tar file with relative paths without "/" prefix; all parent directories require own tar entries)
-//   \-> Files/Windows/System32/config/DEFAULT   (file and must exist but can be empty)
+//   \-> Files/Windows/System32/config/DEFAULT   (file must exist but can be empty)
 //   \-> Files/Windows/System32/config/SAM       (file must exist but can be empty)
 //   \-> Files/Windows/System32/config/SECURITY  (file must exist but can be empty)
 //   \-> Files/Windows/System32/config/SOFTWARE  (file must exist but can be empty)
@@ -410,7 +265,12 @@ func writeTarSingleFileLinux(tw *tar.Writer, layerPath, txt string) error {
 //   \-> Hives/System_Delta       (optional Windows reg hive delta; BCD format - HKEY_LOCAL_MACHINE\SYSTEM additional content)
 // 1. This was all discovered experimentally and should be considered an undocumented API, subject to change when the Windows Daemon internals change
 // 2. There are many other files in an "real" base layer but this is the minimum set which a Daemon can store and use to create an container
-func writeTarWindowsBaseLayer(tw *tar.Writer, containerPath, txt string) error {
+func WindowsBaseLayer(t *testing.T) string {
+	tarFile, err := ioutil.TempFile("", "windows-base-layer.tar")
+	AssertNil(t, err)
+
+	tw := tar.NewWriter(tarFile)
+
 	//Valid BCD file required, containing Windows Boot Manager and Windows Boot Loader sections
 	//Note: Gzip/Base64 encoded only to inline the binary BCD file here
 	//CMD: `bcdedit /createstore c:\output-bcd & bcdedit /create {6a6c1f1b-59d4-11ea-9438-9402e6abd998} /d buildpacks.io /application osloader /store c:\output-bcd & bcdedit /create {bootmgr} /store c:\output-bcd & bcdedit /set {bootmgr} default {6a6c1f1b-59d4-11ea-9438-9402e6abd998} /store c:\output-bcd & bcdedit /enum all /store c:\output-bcd`
@@ -420,37 +280,28 @@ func writeTarWindowsBaseLayer(tw *tar.Writer, containerPath, txt string) error {
 	bcdReader, _ := gzip.NewReader(bytes.NewBuffer(bcdGzip))
 	bcdBytes, _ := ioutil.ReadAll(bcdReader)
 
-	tw.WriteHeader(&tar.Header{Name: "Files", Typeflag: tar.TypeDir})
-	tw.WriteHeader(&tar.Header{Name: "Files/Windows", Typeflag: tar.TypeDir})
-	tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32", Typeflag: tar.TypeDir})
-	tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config", Typeflag: tar.TypeDir})
+	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "Files", Typeflag: tar.TypeDir}))
+	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "Files/Windows", Typeflag: tar.TypeDir}))
+	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32", Typeflag: tar.TypeDir}))
+	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config", Typeflag: tar.TypeDir}))
 
-	tw.WriteHeader(&tar.Header{Name: "UtilityVM", Typeflag: tar.TypeDir})
-	tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files", Typeflag: tar.TypeDir})
-	tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files/EFI", Typeflag: tar.TypeDir})
-	tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files/EFI/Microsoft", Typeflag: tar.TypeDir})
-	tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files/EFI/Microsoft/Boot", Typeflag: tar.TypeDir})
+	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "UtilityVM", Typeflag: tar.TypeDir}))
+	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files", Typeflag: tar.TypeDir}))
+	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files/EFI", Typeflag: tar.TypeDir}))
+	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files/EFI/Microsoft", Typeflag: tar.TypeDir}))
+	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files/EFI/Microsoft/Boot", Typeflag: tar.TypeDir}))
 
-	tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/DEFAULT", Size: 0, Mode: 0644})
-	tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/SAM", Size: 0, Mode: 0644})
-	tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/SECURITY", Size: 0, Mode: 0644})
-	tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/SOFTWARE", Size: 0, Mode: 0644})
-	tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/SYSTEM", Size: 0, Mode: 0644})
+	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/DEFAULT", Size: 0, Mode: 0644}))
+	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/SAM", Size: 0, Mode: 0644}))
+	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/SECURITY", Size: 0, Mode: 0644}))
+	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/SOFTWARE", Size: 0, Mode: 0644}))
+	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/SYSTEM", Size: 0, Mode: 0644}))
 
-	tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files/EFI/Microsoft/Boot/BCD", Size: int64(len(bcdBytes)), Mode: 0644})
-	tw.Write(bcdBytes)
+	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files/EFI/Microsoft/Boot/BCD", Size: int64(len(bcdBytes)), Mode: 0644}))
+	_, err = tw.Write(bcdBytes)
+	AssertNil(t, err)
 
-	// prepend file entries with "Files"
-	layerPath := path.Join("Files", containerPath)
-	if err := tw.WriteHeader(&tar.Header{Name: layerPath, Size: int64(len(txt)), Mode: 0644}); err != nil {
-		return err
-	}
-
-	if _, err := tw.Write([]byte(txt)); err != nil {
-		return err
-	}
-
-	return nil
+	return tarFile.Name()
 }
 
 func writeTarSingleFileWindows(tw *tar.Writer, containerPath, txt string) error {
@@ -516,25 +367,21 @@ func FetchManifestImageConfigFile(t *testing.T, repoName string) *v1.ConfigFile 
 	return configFile
 }
 
-func FileDiffID(path string) (string, error) {
+func FileDiffID(t *testing.T, path string) string {
 	tarFile, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
+	AssertNil(t, err)
 	defer tarFile.Close()
 
 	hasher := sha256.New()
 	_, err = io.Copy(hasher, tarFile)
-	if err != nil {
-		return "", err
-	}
+	AssertNil(t, err)
 
 	diffID := "sha256:" + hex.EncodeToString(hasher.Sum(make([]byte, 0, hasher.Size())))
 
-	return diffID, nil
+	return diffID
 }
 
-// Return an image that can be used by a daemon of the same OS to create an container or run a command
+// RunnableBaseImage returns an image that can be used by a daemon of the same OS to create an container or run a command
 func RunnableBaseImage(os string) string {
 	if os == "windows" {
 		// windows/amd64 image from manifest cached on github actions Windows 2019 workers: https://github.com/actions/virtual-environments/blob/master/images/win/Windows2019-Readme.md#docker-images

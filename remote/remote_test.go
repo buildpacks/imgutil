@@ -452,7 +452,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it.Before(func() {
 				// new base
 				newBase = "localhost:" + registryPort + "/pack-newbase-test-" + h.RandString(10)
-				newBaseLayer1Path, err := h.CreateSingleFileBaseLayerTar("/base.txt", "new-base", "linux")
+				newBaseLayer1Path, err := h.CreateSingleFileLayerTar("/new-base.txt", "new-base", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayer1Path)
 
@@ -475,7 +475,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				// old base image
 				oldBase = "localhost:" + registryPort + "/pack-oldbase-test-" + h.RandString(10)
-				oldBaseLayer1Path, err := h.CreateSingleFileBaseLayerTar("/base.txt", "old-base", "linux")
+				oldBaseLayer1Path, err := h.CreateSingleFileLayerTar("/old-base.txt", "old-base", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(oldBaseLayer1Path)
 
@@ -492,15 +492,14 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				err = oldBaseImage.AddLayer(oldBaseLayer2Path)
 				h.AssertNil(t, err)
 
-				oldTopLayerDiffID, err = h.FileDiffID(oldBaseLayer2Path)
-				h.AssertNil(t, err)
+				oldTopLayerDiffID = h.FileDiffID(t, oldBaseLayer2Path)
 
 				h.AssertNil(t, oldBaseImage.Save())
 
 				oldBaseLayers = h.FetchManifestLayers(t, oldBase)
 
 				// original image
-				origLayer1Path, err := h.CreateSingleFileBaseLayerTar("/bmyimage.txt", "text-from-image-1", "linux")
+				origLayer1Path, err := h.CreateSingleFileLayerTar("/bmyimage.txt", "text-from-image-1", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(origLayer1Path)
 
@@ -551,7 +550,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	when("#TopLayer", func() {
 		when("image exists", func() {
 			it("returns the digest for the top layer (useful for rebasing)", func() {
-				baseLayerPath, err := h.CreateSingleFileBaseLayerTar("/old-base.txt", "old-base", "linux")
+				baseLayerPath, err := h.CreateSingleFileLayerTar("/old-base.txt", "old-base", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(baseLayerPath)
 
@@ -559,8 +558,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				defer os.Remove(topLayerPath)
 
-				expectedTopLayerDiffID, err := h.FileDiffID(topLayerPath)
-				h.AssertNil(t, err)
+				expectedTopLayerDiffID := h.FileDiffID(t, topLayerPath)
 
 				existingImage, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
 				h.AssertNil(t, err)
@@ -602,11 +600,13 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			)
 			h.AssertNil(t, err)
 
-			baseLayerPath, err := h.CreateSingleFileBaseLayerTar("/base-layer.txt", "base-layer", "linux")
+			oldLayerPath, err := h.CreateSingleFileLayerTar("/old-layer.txt", "old-layer", "linux")
 			h.AssertNil(t, err)
-			defer os.Remove(baseLayerPath)
+			defer os.Remove(oldLayerPath)
 
-			h.AssertNil(t, existingImage.AddLayer(baseLayerPath))
+			oldLayerDiffID := h.FileDiffID(t, oldLayerPath)
+
+			h.AssertNil(t, existingImage.AddLayer(oldLayerPath))
 
 			h.AssertNil(t, existingImage.Save())
 			img, err := remote.NewImage(
@@ -620,18 +620,17 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, err)
 			defer os.Remove(newLayerPath)
 
+			newLayerDiffID := h.FileDiffID(t, newLayerPath)
+
 			err = img.AddLayer(newLayerPath)
 			h.AssertNil(t, err)
 
 			h.AssertNil(t, img.Save())
 
-			output, err := h.CopySingleFileFromRemoteImage(repoName, "/base-layer.txt")
-			h.AssertNil(t, err)
-			h.AssertEq(t, output, "base-layer")
+			manifestLayerDiffIDs := h.FetchManifestLayers(t, repoName)
 
-			output, err = h.CopySingleFileFromRemoteImage(repoName, "/new-layer.txt")
-			h.AssertNil(t, err)
-			h.AssertEq(t, output, "new-layer")
+			h.AssertEq(t, oldLayerDiffID, manifestLayerDiffIDs[len(manifestLayerDiffIDs)-2])
+			h.AssertEq(t, newLayerDiffID, manifestLayerDiffIDs[len(manifestLayerDiffIDs)-1])
 		})
 	})
 
@@ -643,11 +642,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			)
 			h.AssertNil(t, err)
 
-			baseLayerPath, err := h.CreateSingleFileBaseLayerTar("/base-layer.txt", "base-layer", "linux")
+			oldLayerPath, err := h.CreateSingleFileLayerTar("/old-layer.txt", "old-layer", "linux")
 			h.AssertNil(t, err)
-			defer os.Remove(baseLayerPath)
+			defer os.Remove(oldLayerPath)
+			oldLayerDiffID := h.FileDiffID(t, oldLayerPath)
 
-			h.AssertNil(t, existingImage.AddLayer(baseLayerPath))
+			h.AssertNil(t, existingImage.AddLayer(oldLayerPath))
 
 			h.AssertNil(t, existingImage.Save())
 
@@ -662,29 +662,26 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, err)
 			defer os.Remove(newLayerPath)
 
-			diffID, err := h.FileDiffID(newLayerPath)
-			h.AssertNil(t, err)
+			newLayerDiffID := h.FileDiffID(t, newLayerPath)
 
-			err = img.AddLayerWithDiffID(newLayerPath, diffID)
+			err = img.AddLayerWithDiffID(newLayerPath, newLayerDiffID)
 			h.AssertNil(t, err)
 
 			h.AssertNil(t, img.Save())
 
-			output, err := h.CopySingleFileFromRemoteImage(repoName, "/base-layer.txt")
-			h.AssertNil(t, err)
-			h.AssertEq(t, output, "base-layer")
+			manifestLayerDiffIDs := h.FetchManifestLayers(t, repoName)
 
-			output, err = h.CopySingleFileFromRemoteImage(repoName, "/new-layer.txt")
-			h.AssertNil(t, err)
-			h.AssertEq(t, output, "new-layer")
+			h.AssertEq(t, oldLayerDiffID, manifestLayerDiffIDs[len(manifestLayerDiffIDs)-2])
+			h.AssertEq(t, newLayerDiffID, manifestLayerDiffIDs[len(manifestLayerDiffIDs)-1])
 		})
 	})
 
 	when("#ReuseLayer", func() {
 		when("previous image", func() {
 			var (
-				layer2SHA     string
 				prevImageName string
+				prevLayer1SHA string
+				prevLayer2SHA string
 			)
 
 			it.Before(func() {
@@ -695,21 +692,22 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				)
 				h.AssertNil(t, err)
 
-				baseLayerPath, err := h.CreateSingleFileBaseLayerTar("/layer-1.txt", "old-layer-1", "linux")
+				layer1Path, err := h.CreateSingleFileLayerTar("/layer-1.txt", "old-layer-1", "linux")
 				h.AssertNil(t, err)
-				defer os.Remove(baseLayerPath)
+				defer os.Remove(layer1Path)
+
+				prevLayer1SHA = h.FileDiffID(t, layer1Path)
 
 				layer2Path, err := h.CreateSingleFileLayerTar("/layer-2.txt", "old-layer-2", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(layer2Path)
 
-				h.AssertNil(t, prevImage.AddLayer(baseLayerPath))
+				prevLayer2SHA = h.FileDiffID(t, layer2Path)
+
+				h.AssertNil(t, prevImage.AddLayer(layer1Path))
 				h.AssertNil(t, prevImage.AddLayer(layer2Path))
 
 				h.AssertNil(t, prevImage.Save())
-
-				layer2SHA, err = h.FileDiffID(layer2Path)
-				h.AssertNil(t, err)
 			})
 
 			it("reuses a layer", func() {
@@ -720,25 +718,24 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				)
 				h.AssertNil(t, err)
 
-				newBaseLayerPath, err := h.CreateSingleFileBaseLayerTar("/new-base.txt", "base-content", "linux")
+				newBaseLayerPath, err := h.CreateSingleFileLayerTar("/new-base.txt", "base-content", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayerPath)
 
 				h.AssertNil(t, img.AddLayer(newBaseLayerPath))
 
-				err = img.ReuseLayer(layer2SHA)
+				err = img.ReuseLayer(prevLayer2SHA)
 				h.AssertNil(t, err)
 
 				h.AssertNil(t, img.Save())
 
-				output, err := h.CopySingleFileFromRemoteImage(repoName, "/layer-2.txt")
-				h.AssertNil(t, err)
-				h.AssertEq(t, output, "old-layer-2")
+				manifestLayers := h.FetchManifestLayers(t, repoName)
 
-				// Confirm layer-1.txt does not exist
-				missingFileContent, err := h.CopySingleFileFromRemoteImage(repoName, "layer-1.txt")
-				h.AssertNil(t, err)
-				h.AssertEq(t, missingFileContent, "")
+				newLayer1SHA := manifestLayers[len(manifestLayers)-2]
+				reusedLayer2SHA := manifestLayers[len(manifestLayers)-1]
+
+				h.AssertNotEq(t, prevLayer1SHA, newLayer1SHA)
+				h.AssertEq(t, prevLayer2SHA, reusedLayer2SHA)
 			})
 
 			it("returns error on nonexistent layer", func() {
