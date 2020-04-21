@@ -6,7 +6,7 @@ all: test
 
 install-goimports:
 	@echo "> Installing goimports..."
-	cd tools; $(GOCMD) install golang.org/x/tools/cmd/goimports
+	cd tools && $(GOCMD) install golang.org/x/tools/cmd/goimports
 
 format: install-goimports
 	@echo "> Formating code..."
@@ -14,7 +14,7 @@ format: install-goimports
 
 install-golangci-lint:
 	@echo "> Installing golangci-lint..."
-	cd tools; $(GOCMD) install github.com/golangci/golangci-lint/cmd/golangci-lint
+	cd tools && $(GOCMD) install github.com/golangci/golangci-lint/cmd/golangci-lint
 
 lint: install-golangci-lint
 	@echo "> Linting code..."

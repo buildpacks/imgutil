@@ -36,6 +36,10 @@ func TestFake(t *testing.T) {
 }
 
 func testFake(t *testing.T, when spec.G, it spec.S) {
+	it("implements imgutil.Image", func() {
+		var _ imgutil.Image = fakes.NewImage("", "", nil)
+	})
+
 	when("#SavedNames", func() {
 		when("additional names are provided during save", func() {
 			var (

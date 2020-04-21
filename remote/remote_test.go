@@ -1,19 +1,12 @@
 package remote_test
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
-	"net/http"
 	"os"
-	"regexp"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
@@ -43,12 +36,8 @@ func TestRemote(t *testing.T) {
 
 func testImage(t *testing.T, when spec.G, it spec.S) {
 	var repoName string
-	var dockerClient client.CommonAPIClient
 
 	it.Before(func() {
-		var err error
-		dockerClient = h.DockerCli(t)
-		h.AssertNil(t, err)
 		repoName = newTestImageName()
 	})
 
@@ -64,45 +53,107 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				img, err := remote.NewImage(newTestImageName(), authn.DefaultKeychain)
 				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
-				h.AssertNil(t, h.PullImage(dockerClient, img.Name()))
-				defer h.DockerRmi(dockerClient, img.Name())
-				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
+
+				os, err := img.OS()
 				h.AssertNil(t, err)
-				h.AssertEq(t, inspect.Os, "linux")
-				h.AssertEq(t, inspect.Architecture, "amd64")
-				h.AssertEq(t, inspect.RootFS.Type, "layers")
+				h.AssertEq(t, os, "linux")
+
+				osVersion, err := img.OSVersion()
+				h.AssertNil(t, err)
+				h.AssertEq(t, osVersion, "")
+
+				arch, err := img.Architecture()
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "amd64")
 			})
 		})
 
 		when("#FromRemoteBaseImage", func() {
 			when("base image exists", func() {
-				var (
-					baseName         = "busybox"
-					err              error
-					existingLayerSha string
-				)
+				it("sets the initial state from a linux/arm base image", func() {
+					baseImageName := "arm64v8/busybox@sha256:50edf1d080946c6a76989d1c3b0e753b62f7d9b5f5e66e88bef23ebbd1e9709c"
+					existingLayerSha := "sha256:5a0b973aa300cd2650869fd76d8546b361fcd6dfc77bd37b9d4f082cca9874e4"
 
-				it.Before(func() {
-					err = h.PullImage(dockerClient, baseName)
-					h.AssertNil(t, err)
-
-					inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), baseName)
-					h.AssertNil(t, err)
-
-					existingLayerSha = inspect.RootFS.Layers[0]
-				})
-
-				it("sets the initial state to match the base image", func() {
 					img, err := remote.NewImage(
 						repoName,
 						authn.DefaultKeychain,
-						remote.FromBaseImage(baseName),
+						remote.FromBaseImage(baseImageName),
 					)
 					h.AssertNil(t, err)
+
+					os, err := img.OS()
+					h.AssertNil(t, err)
+					h.AssertEq(t, os, "linux")
+
+					osVersion, err := img.OSVersion()
+					h.AssertNil(t, err)
+					h.AssertEq(t, osVersion, "")
+
+					arch, err := img.Architecture()
+					h.AssertNil(t, err)
+					h.AssertEq(t, arch, "arm64")
 
 					readCloser, err := img.GetLayer(existingLayerSha)
 					h.AssertNil(t, err)
 					defer readCloser.Close()
+				})
+
+				it("sets the initial state from a windows/amd64 base image", func() {
+					baseImageName := "mcr.microsoft.com/windows/nanoserver@sha256:06281772b6a561411d4b338820d94ab1028fdeb076c85350bbc01e80c4bfa2b4"
+					existingLayerSha := "sha256:26fd2d9d4c64a4f965bbc77939a454a31b607470f430b5d69fc21ded301fa55e"
+
+					img, err := remote.NewImage(
+						repoName,
+						authn.DefaultKeychain,
+						remote.FromBaseImage(baseImageName),
+					)
+					h.AssertNil(t, err)
+
+					os, err := img.OS()
+					h.AssertNil(t, err)
+					h.AssertEq(t, os, "windows")
+
+					osVersion, err := img.OSVersion()
+					h.AssertNil(t, err)
+					h.AssertEq(t, osVersion, "10.0.17763.1040")
+
+					arch, err := img.Architecture()
+					h.AssertNil(t, err)
+					h.AssertEq(t, arch, "amd64")
+
+					readCloser, err := img.GetLayer(existingLayerSha)
+					h.AssertNil(t, err)
+					defer readCloser.Close()
+				})
+
+				when("base image is a multi-OS/Arch manifest list", func() {
+					it("returns a base image matching the runtime GOOS/GOARCH", func() {
+						manifestListName := "golang:1.13.8"
+						existingLayerSha := "sha256:427da4a135b0869c1a274ba38e23d45bdbda93134c4ad99c8900cb0cfe9f0c9e"
+
+						img, err := remote.NewImage(
+							repoName,
+							authn.DefaultKeychain,
+							remote.FromBaseImage(manifestListName),
+						)
+						h.AssertNil(t, err)
+
+						os, err := img.OS()
+						h.AssertNil(t, err)
+						h.AssertEq(t, os, "linux")
+
+						osVersion, err := img.OSVersion()
+						h.AssertNil(t, err)
+						h.AssertEq(t, osVersion, "")
+
+						arch, err := img.Architecture()
+						h.AssertNil(t, err)
+						h.AssertEq(t, arch, "amd64")
+
+						readCloser, err := img.GetLayer(existingLayerSha)
+						h.AssertNil(t, err)
+						defer readCloser.Close()
+					})
 				})
 			})
 
@@ -284,8 +335,17 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				id, err := img.Identifier()
 				h.AssertNil(t, err)
 
-				label := remoteLabel(t, dockerClient, id.String(), "new")
-				h.AssertEq(t, "label", label)
+				testImg, err := remote.NewImage(
+					"test",
+					authn.DefaultKeychain,
+					remote.FromBaseImage(id.String()),
+				)
+				h.AssertNil(t, err)
+
+				remoteLabel, err := testImg.Label("new")
+				h.AssertNil(t, err)
+
+				h.AssertEq(t, remoteLabel, "label")
 			})
 		})
 	})
@@ -310,9 +370,17 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				h.AssertNil(t, img.Save())
 
-				// After Pull
-				label := remoteLabel(t, dockerClient, repoName, "mykey")
-				h.AssertEq(t, "new-val", label)
+				testImg, err := remote.NewImage(
+					"test",
+					authn.DefaultKeychain,
+					remote.FromBaseImage(repoName),
+				)
+				h.AssertNil(t, err)
+
+				remoteLabel, err := testImg.Label("mykey")
+				h.AssertNil(t, err)
+
+				h.AssertEq(t, remoteLabel, "new-val")
 			})
 		})
 	})
@@ -327,13 +395,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			h.AssertNil(t, img.Save())
 
-			h.AssertNil(t, h.PullImage(dockerClient, repoName))
-			defer h.DockerRmi(dockerClient, repoName)
-
-			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
-			h.AssertNil(t, err)
-
-			h.AssertContains(t, inspect.Config.Env, "ENV_KEY=ENV_VAL")
+			configFile := h.FetchManifestImageConfigFile(t, repoName)
+			h.AssertContains(t, configFile.Config.Env, "ENV_KEY=ENV_VAL")
 		})
 	})
 
@@ -347,13 +410,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			h.AssertNil(t, img.Save())
 
-			h.AssertNil(t, h.PullImage(dockerClient, repoName))
-			defer h.DockerRmi(dockerClient, repoName)
-
-			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
-			h.AssertNil(t, err)
-
-			h.AssertEq(t, inspect.Config.WorkingDir, "/some/work/dir")
+			configFile := h.FetchManifestImageConfigFile(t, repoName)
+			h.AssertEq(t, configFile.Config.WorkingDir, "/some/work/dir")
 		})
 	})
 
@@ -367,13 +425,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			h.AssertNil(t, img.Save())
 
-			h.AssertNil(t, h.PullImage(dockerClient, repoName))
-			defer h.DockerRmi(dockerClient, repoName)
-
-			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
-			h.AssertNil(t, err)
-
-			h.AssertEq(t, []string(inspect.Config.Entrypoint), []string{"some", "entrypoint"})
+			configFile := h.FetchManifestImageConfigFile(t, repoName)
+			h.AssertEq(t, configFile.Config.Entrypoint, []string{"some", "entrypoint"})
 		})
 	})
 
@@ -387,13 +440,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			h.AssertNil(t, img.Save())
 
-			h.AssertNil(t, h.PullImage(dockerClient, repoName))
-			defer h.DockerRmi(dockerClient, repoName)
-
-			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
-			h.AssertNil(t, err)
-
-			h.AssertEq(t, []string(inspect.Config.Cmd), []string{"some", "cmd"})
+			configFile := h.FetchManifestImageConfigFile(t, repoName)
+			h.AssertEq(t, configFile.Config.Cmd, []string{"some", "cmd"})
 		})
 	})
 
@@ -404,11 +452,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it.Before(func() {
 				// new base
 				newBase = "localhost:" + registryPort + "/pack-newbase-test-" + h.RandString(10)
-				newBaseLayer1Path, err := h.CreateSingleFileTar("/base.txt", "new-base")
+				newBaseLayer1Path, err := h.CreateSingleFileLayerTar("/new-base.txt", "new-base", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayer1Path)
 
-				newBaseLayer2Path, err := h.CreateSingleFileTar("/otherfile.txt", "text-new-base")
+				newBaseLayer2Path, err := h.CreateSingleFileLayerTar("/otherfile.txt", "text-new-base", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayer2Path)
 
@@ -423,15 +471,15 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				h.AssertNil(t, newBaseImage.Save())
 
-				newBaseLayers = manifestLayers(t, newBase)
+				newBaseLayers = h.FetchManifestLayers(t, newBase)
 
 				// old base image
 				oldBase = "localhost:" + registryPort + "/pack-oldbase-test-" + h.RandString(10)
-				oldBaseLayer1Path, err := h.CreateSingleFileTar("/base.txt", "old-base")
+				oldBaseLayer1Path, err := h.CreateSingleFileLayerTar("/old-base.txt", "old-base", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(oldBaseLayer1Path)
 
-				oldBaseLayer2Path, err := h.CreateSingleFileTar("/otherfile.txt", "text-old-base")
+				oldBaseLayer2Path, err := h.CreateSingleFileLayerTar("/otherfile.txt", "text-old-base", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(oldBaseLayer2Path)
 
@@ -444,19 +492,18 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				err = oldBaseImage.AddLayer(oldBaseLayer2Path)
 				h.AssertNil(t, err)
 
-				oldTopLayerDiffID, err = h.FileDiffID(oldBaseLayer2Path)
-				h.AssertNil(t, err)
+				oldTopLayerDiffID = h.FileDiffID(t, oldBaseLayer2Path)
 
 				h.AssertNil(t, oldBaseImage.Save())
 
-				oldBaseLayers = manifestLayers(t, oldBase)
+				oldBaseLayers = h.FetchManifestLayers(t, oldBase)
 
 				// original image
-				origLayer1Path, err := h.CreateSingleFileTar("/bmyimage.txt", "text-from-image-1")
+				origLayer1Path, err := h.CreateSingleFileLayerTar("/bmyimage.txt", "text-from-image-1", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(origLayer1Path)
 
-				origLayer2Path, err := h.CreateSingleFileTar("/myimage2.txt", "text-from-image-2")
+				origLayer2Path, err := h.CreateSingleFileLayerTar("/myimage2.txt", "text-from-image-2", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(origLayer2Path)
 
@@ -471,13 +518,14 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				h.AssertNil(t, origImage.Save())
 
-				repoTopLayers = manifestLayers(t, repoName)[len(oldBaseLayers):]
+				repoLayers := h.FetchManifestLayers(t, repoName)
+				repoTopLayers = repoLayers[len(oldBaseLayers):]
 			})
 
 			it("switches the base", func() {
 				// Before
 				h.AssertEq(t,
-					manifestLayers(t, repoName),
+					h.FetchManifestLayers(t, repoName),
 					append(oldBaseLayers, repoTopLayers...),
 				)
 
@@ -492,7 +540,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				// After
 				h.AssertEq(t,
-					manifestLayers(t, repoName),
+					h.FetchManifestLayers(t, repoName),
 					append(newBaseLayers, repoTopLayers...),
 				)
 			})
@@ -502,16 +550,15 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	when("#TopLayer", func() {
 		when("image exists", func() {
 			it("returns the digest for the top layer (useful for rebasing)", func() {
-				baseLayerPath, err := h.CreateSingleFileTar("/old-base.txt", "old-base")
+				baseLayerPath, err := h.CreateSingleFileLayerTar("/old-base.txt", "old-base", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(baseLayerPath)
 
-				topLayerPath, err := h.CreateSingleFileTar("/top-layer.txt", "top-layer")
+				topLayerPath, err := h.CreateSingleFileLayerTar("/top-layer.txt", "top-layer", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(topLayerPath)
 
-				expectedTopLayerDiffID, err := h.FileDiffID(topLayerPath)
-				h.AssertNil(t, err)
+				expectedTopLayerDiffID := h.FileDiffID(t, topLayerPath)
 
 				existingImage, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
 				h.AssertNil(t, err)
@@ -546,107 +593,95 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#AddLayer", func() {
-		it.Before(func() {
+		it("appends a layer", func() {
 			existingImage, err := remote.NewImage(
 				repoName,
 				authn.DefaultKeychain,
 			)
 			h.AssertNil(t, err)
 
-			oldLayerPath, err := h.CreateSingleFileTar("/old-layer.txt", "old-layer")
+			oldLayerPath, err := h.CreateSingleFileLayerTar("/old-layer.txt", "old-layer", "linux")
 			h.AssertNil(t, err)
 			defer os.Remove(oldLayerPath)
+
+			oldLayerDiffID := h.FileDiffID(t, oldLayerPath)
 
 			h.AssertNil(t, existingImage.AddLayer(oldLayerPath))
 
 			h.AssertNil(t, existingImage.Save())
-		})
+			img, err := remote.NewImage(
+				repoName,
+				authn.DefaultKeychain,
+				remote.FromBaseImage(repoName),
+			)
+			h.AssertNil(t, err)
 
-		it.After(func() {
-			h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
-		})
-
-		it("appends a layer", func() {
-			newLayerPath, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+			newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", "linux")
 			h.AssertNil(t, err)
 			defer os.Remove(newLayerPath)
 
-			img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
-			h.AssertNil(t, err)
+			newLayerDiffID := h.FileDiffID(t, newLayerPath)
 
 			err = img.AddLayer(newLayerPath)
 			h.AssertNil(t, err)
 
 			h.AssertNil(t, img.Save())
 
-			// After Pull
-			h.AssertNil(t, h.PullImage(dockerClient, repoName))
+			manifestLayerDiffIDs := h.FetchManifestLayers(t, repoName)
 
-			output, err := h.CopySingleFileFromImage(dockerClient, repoName, "old-layer.txt")
-			h.AssertNil(t, err)
-			h.AssertEq(t, output, "old-layer")
-
-			output, err = h.CopySingleFileFromImage(dockerClient, repoName, "new-layer.txt")
-			h.AssertNil(t, err)
-			h.AssertEq(t, output, "new-layer")
+			h.AssertEq(t, oldLayerDiffID, manifestLayerDiffIDs[len(manifestLayerDiffIDs)-2])
+			h.AssertEq(t, newLayerDiffID, manifestLayerDiffIDs[len(manifestLayerDiffIDs)-1])
 		})
 	})
 
 	when("#AddLayerWithDiffID", func() {
-		it.Before(func() {
+		it("appends a layer", func() {
 			existingImage, err := remote.NewImage(
 				repoName,
 				authn.DefaultKeychain,
 			)
 			h.AssertNil(t, err)
 
-			oldLayerPath, err := h.CreateSingleFileTar("/old-layer.txt", "old-layer")
+			oldLayerPath, err := h.CreateSingleFileLayerTar("/old-layer.txt", "old-layer", "linux")
 			h.AssertNil(t, err)
 			defer os.Remove(oldLayerPath)
+			oldLayerDiffID := h.FileDiffID(t, oldLayerPath)
 
 			h.AssertNil(t, existingImage.AddLayer(oldLayerPath))
 
 			h.AssertNil(t, existingImage.Save())
-		})
 
-		it.After(func() {
-			h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
-		})
-
-		it("appends a layer", func() {
-			img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
+			img, err := remote.NewImage(
+				repoName,
+				authn.DefaultKeychain,
+				remote.FromBaseImage(repoName),
+			)
 			h.AssertNil(t, err)
 
-			newLayerPath, err := h.CreateSingleFileTar("/new-layer.txt", "new-layer")
+			newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", "linux")
 			h.AssertNil(t, err)
 			defer os.Remove(newLayerPath)
 
-			diffID, err := h.FileDiffID(newLayerPath)
-			h.AssertNil(t, err)
+			newLayerDiffID := h.FileDiffID(t, newLayerPath)
 
-			err = img.AddLayerWithDiffID(newLayerPath, diffID)
+			err = img.AddLayerWithDiffID(newLayerPath, newLayerDiffID)
 			h.AssertNil(t, err)
 
 			h.AssertNil(t, img.Save())
 
-			// After Pull
-			h.AssertNil(t, h.PullImage(dockerClient, repoName))
+			manifestLayerDiffIDs := h.FetchManifestLayers(t, repoName)
 
-			output, err := h.CopySingleFileFromImage(dockerClient, repoName, "old-layer.txt")
-			h.AssertNil(t, err)
-			h.AssertEq(t, output, "old-layer")
-
-			output, err = h.CopySingleFileFromImage(dockerClient, repoName, "new-layer.txt")
-			h.AssertNil(t, err)
-			h.AssertEq(t, output, "new-layer")
+			h.AssertEq(t, oldLayerDiffID, manifestLayerDiffIDs[len(manifestLayerDiffIDs)-2])
+			h.AssertEq(t, newLayerDiffID, manifestLayerDiffIDs[len(manifestLayerDiffIDs)-1])
 		})
 	})
 
 	when("#ReuseLayer", func() {
 		when("previous image", func() {
 			var (
-				layer2SHA     string
 				prevImageName string
+				prevLayer1SHA string
+				prevLayer2SHA string
 			)
 
 			it.Before(func() {
@@ -657,21 +692,22 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				)
 				h.AssertNil(t, err)
 
-				layer1Path, err := h.CreateSingleFileTar("/layer-1.txt", "old-layer-1")
+				layer1Path, err := h.CreateSingleFileLayerTar("/layer-1.txt", "old-layer-1", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(layer1Path)
 
-				layer2Path, err := h.CreateSingleFileTar("/layer-2.txt", "old-layer-2")
+				prevLayer1SHA = h.FileDiffID(t, layer1Path)
+
+				layer2Path, err := h.CreateSingleFileLayerTar("/layer-2.txt", "old-layer-2", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(layer2Path)
+
+				prevLayer2SHA = h.FileDiffID(t, layer2Path)
 
 				h.AssertNil(t, prevImage.AddLayer(layer1Path))
 				h.AssertNil(t, prevImage.AddLayer(layer2Path))
 
 				h.AssertNil(t, prevImage.Save())
-
-				layer2SHA, err = h.FileDiffID(layer2Path)
-				h.AssertNil(t, err)
 			})
 
 			it("reuses a layer", func() {
@@ -682,20 +718,24 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				)
 				h.AssertNil(t, err)
 
-				err = img.ReuseLayer(layer2SHA)
+				newBaseLayerPath, err := h.CreateSingleFileLayerTar("/new-base.txt", "base-content", "linux")
+				h.AssertNil(t, err)
+				defer os.Remove(newBaseLayerPath)
+
+				h.AssertNil(t, img.AddLayer(newBaseLayerPath))
+
+				err = img.ReuseLayer(prevLayer2SHA)
 				h.AssertNil(t, err)
 
 				h.AssertNil(t, img.Save())
 
-				h.AssertNil(t, h.PullImage(dockerClient, repoName))
-				defer h.DockerRmi(dockerClient, repoName)
-				output, err := h.CopySingleFileFromImage(dockerClient, repoName, "layer-2.txt")
-				h.AssertNil(t, err)
-				h.AssertEq(t, output, "old-layer-2")
+				manifestLayers := h.FetchManifestLayers(t, repoName)
 
-				// Confirm layer-1.txt does not exist
-				_, err = h.CopySingleFileFromImage(dockerClient, repoName, "layer-1.txt")
-				h.AssertMatch(t, err.Error(), regexp.MustCompile(`Error: No such container:path: .*:layer-1.txt`))
+				newLayer1SHA := manifestLayers[len(manifestLayers)-2]
+				reusedLayer2SHA := manifestLayers[len(manifestLayers)-1]
+
+				h.AssertNotEq(t, prevLayer1SHA, newLayer1SHA)
+				h.AssertEq(t, prevLayer2SHA, reusedLayer2SHA)
 			})
 
 			it("returns error on nonexistent layer", func() {
@@ -717,27 +757,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#Save", func() {
 		when("image exists", func() {
-			var tarPath string
-
-			it.Before(func() {
-				baseImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
-				h.AssertNil(t, err)
-
-				h.AssertNil(t, baseImage.SetLabel("mykey", "oldValue"))
-				h.AssertNil(t, baseImage.Save())
-
-				tarFile, err := ioutil.TempFile("", "add-layer-test")
-				h.AssertNil(t, err)
-				defer tarFile.Close()
-
-				tarPath, err = h.CreateSingleFileTar("/new-layer.txt", "new-layer")
-				h.AssertNil(t, err)
-			})
-
-			it.After(func() {
-				h.AssertNil(t, os.Remove(tarPath))
-			})
-
 			it("can be pulled by digest", func() {
 				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
@@ -750,33 +769,40 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				identifier, err := img.Identifier()
 				h.AssertNil(t, err)
 
-				// After Pull
-				label := remoteLabel(t, dockerClient, identifier.String(), "mykey")
-				h.AssertEq(t, "newValue", label)
+				testImg, err := remote.NewImage(
+					"test",
+					authn.DefaultKeychain,
+					remote.FromBaseImage(identifier.String()),
+				)
+				h.AssertNil(t, err)
+
+				remoteLabel, err := testImg.Label("mykey")
+				h.AssertNil(t, err)
+
+				h.AssertEq(t, remoteLabel, "newValue")
 			})
 
 			it("zeroes all times and client specific fields", func() {
 				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
+				tarPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", "linux")
+				h.AssertNil(t, err)
+				defer os.Remove(tarPath)
+
 				h.AssertNil(t, img.AddLayer(tarPath))
 
 				h.AssertNil(t, img.Save())
 
-				h.AssertNil(t, h.PullImage(dockerClient, repoName))
-				defer h.DockerRmi(dockerClient, repoName)
-				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
-				h.AssertNil(t, err)
+				configFile := h.FetchManifestImageConfigFile(t, repoName)
 
-				h.AssertEq(t, inspect.Created, imgutil.NormalizedDateTime.Format(time.RFC3339))
-				h.AssertEq(t, inspect.Container, "")
-				h.AssertEq(t, inspect.DockerVersion, "")
+				h.AssertEq(t, configFile.Created.Time, imgutil.NormalizedDateTime)
+				h.AssertEq(t, configFile.Container, "")
+				h.AssertEq(t, configFile.DockerVersion, "")
 
-				history, err := dockerClient.ImageHistory(context.TODO(), repoName)
-				h.AssertNil(t, err)
-				h.AssertEq(t, len(history), len(inspect.RootFS.Layers))
-				for _, item := range history {
-					h.AssertEq(t, item.Created, imgutil.NormalizedDateTime.Unix())
+				h.AssertEq(t, len(configFile.History), len(configFile.RootFS.DiffIDs))
+				for _, item := range configFile.History {
+					h.AssertEq(t, item.Created.Unix(), imgutil.NormalizedDateTime.Unix())
 				}
 			})
 		})
@@ -792,17 +818,15 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				successfulRepoNames = append([]string{repoName}, additionalRepoNames...)
 			)
 
-			it.After(func() {
-				h.AssertNil(t, h.DockerRmi(dockerClient, successfulRepoNames...))
-			})
-
 			it("saves to multiple names", func() {
 				image, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
 				h.AssertNil(t, image.Save(additionalRepoNames...))
 				for _, n := range successfulRepoNames {
-					h.AssertNil(t, h.PullImage(dockerClient, n))
+					testImg, err := remote.NewImage(n, authn.DefaultKeychain)
+					h.AssertNil(t, err)
+					h.AssertEq(t, testImg.Found(), true)
 				}
 			})
 
@@ -824,7 +848,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					h.AssertError(t, saveErr.Errors[0].Cause, "could not parse reference")
 
 					for _, n := range successfulRepoNames {
-						h.AssertNil(t, h.PullImage(dockerClient, n))
+						testImg, err := remote.NewImage(n, authn.DefaultKeychain)
+						h.AssertNil(t, err)
+						h.AssertEq(t, testImg.Found(), true)
 					}
 				})
 			})
@@ -889,49 +915,4 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 	})
-}
-
-func manifestLayers(t *testing.T, repoName string) []string {
-	t.Helper()
-
-	arr := strings.SplitN(repoName, "/", 2)
-	if len(arr) != 2 {
-		t.Fatalf("expected repoName to have 1 slash (remote test registry): '%s'", repoName)
-	}
-
-	url := "http://" + arr[0] + "/v2/" + arr[1] + "/manifests/latest"
-	req, err := http.NewRequest("GET", url, nil)
-	h.AssertNil(t, err)
-	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
-	resp, err := http.DefaultClient.Do(req)
-	h.AssertNil(t, err)
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		t.Fatalf("HTTP Status was bad: %s => %d", url, resp.StatusCode)
-	}
-
-	var manifest struct {
-		Layers []struct {
-			Digest string `json:"digest"`
-		} `json:"layers"`
-	}
-	json.NewDecoder(resp.Body).Decode(&manifest)
-	h.AssertNil(t, err)
-
-	outSlice := make([]string, 0, len(manifest.Layers))
-	for _, layer := range manifest.Layers {
-		outSlice = append(outSlice, layer.Digest)
-	}
-
-	return outSlice
-}
-
-func remoteLabel(t *testing.T, dockerCli client.CommonAPIClient, repoName, label string) string {
-	t.Helper()
-
-	h.AssertNil(t, h.PullImage(dockerCli, repoName))
-	defer func() { h.AssertNil(t, h.DockerRmi(dockerCli, repoName)) }()
-	inspect, _, err := dockerCli.ImageInspectWithRaw(context.TODO(), repoName)
-	h.AssertNil(t, err)
-	return inspect.Config.Labels[label]
 }

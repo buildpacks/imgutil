@@ -16,6 +16,11 @@ type DockerRegistry struct {
 	Name string
 }
 
+var registryImageNames = map[string]string{
+	"linux":   "registry:2",
+	"windows": "stefanscherer/registry-windows:2.6.2",
+}
+
 func NewDockerRegistry() *DockerRegistry {
 	return &DockerRegistry{}
 }
@@ -25,10 +30,15 @@ func (registry *DockerRegistry) Start(t *testing.T) {
 	t.Helper()
 	registry.Name = "test-registry-" + RandString(10)
 
-	AssertNil(t, PullImage(DockerCli(t), "registry:2"))
 	ctx := context.Background()
+	daemonInfo, err := DockerCli(t).Info(ctx)
+	AssertNil(t, err)
+
+	registryImageName := registryImageNames[daemonInfo.OSType]
+	AssertNil(t, PullImage(DockerCli(t), registryImageName))
+
 	ctr, err := DockerCli(t).ContainerCreate(ctx, &container.Config{
-		Image: "registry:2",
+		Image: registryImageName,
 		Env:   []string{"REGISTRY_STORAGE_DELETE_ENABLED=true"},
 	}, &container.HostConfig{
 		AutoRemove: true,

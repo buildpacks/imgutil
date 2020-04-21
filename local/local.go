@@ -75,7 +75,12 @@ func FromBaseImage(imageName string) ImageOption {
 }
 
 func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...ImageOption) (imgutil.Image, error) {
-	inspect := defaultInspect()
+	var err error
+
+	inspect, err := defaultInspect(dockerClient)
+	if err != nil {
+		return nil, err
+	}
 
 	image := &Image{
 		docker:       dockerClient,
@@ -85,7 +90,6 @@ func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...Image
 		downloadOnce: &sync.Once{},
 	}
 
-	var err error
 	for _, v := range ops {
 		image, err = v(image)
 		if err != nil {
@@ -109,6 +113,18 @@ func (i *Image) Env(key string) (string, error) {
 		}
 	}
 	return "", nil
+}
+
+func (i *Image) OS() (string, error) {
+	return i.inspect.Os, nil
+}
+
+func (i *Image) OSVersion() (string, error) {
+	return i.inspect.OsVersion, nil
+}
+
+func (i *Image) Architecture() (string, error) {
+	return i.inspect.Architecture, nil
 }
 
 func (i *Image) Rename(name string) {
@@ -608,7 +624,7 @@ func inspectOptionalImage(docker client.CommonAPIClient, imageName string) (type
 
 	if inspect, _, err = docker.ImageInspectWithRaw(context.Background(), imageName); err != nil {
 		if client.IsErrNotFound(err) {
-			return defaultInspect(), nil
+			return defaultInspect(docker)
 		}
 
 		return types.ImageInspect{}, errors.Wrapf(err, "verifying image '%s'", imageName)
@@ -617,12 +633,18 @@ func inspectOptionalImage(docker client.CommonAPIClient, imageName string) (type
 	return inspect, nil
 }
 
-func defaultInspect() types.ImageInspect {
+func defaultInspect(docker client.CommonAPIClient) (types.ImageInspect, error) {
+	daemonInfo, err := docker.Info(context.Background())
+	if err != nil {
+		return types.ImageInspect{}, err
+	}
+
 	return types.ImageInspect{
-		Os:           "linux",
+		Os:           daemonInfo.OSType,
+		OsVersion:    daemonInfo.OSVersion,
 		Architecture: "amd64",
 		Config:       &container.Config{},
-	}
+	}, nil
 }
 
 func v1Config(inspect types.ImageInspect) (v1.ConfigFile, error) {
@@ -689,6 +711,7 @@ func v1Config(inspect types.ImageInspect) (v1.ConfigFile, error) {
 		Created:      v1.Time{Time: imgutil.NormalizedDateTime},
 		History:      history,
 		OS:           inspect.Os,
+		OSVersion:    inspect.OsVersion,
 		RootFS: v1.RootFS{
 			Type:    "layers",
 			DiffIDs: diffIDs,
