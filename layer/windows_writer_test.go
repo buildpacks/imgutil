@@ -73,128 +73,44 @@ func testWindowsWriter(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 
-		when("header path begins without slash or dot", func() {
-			it("writes entries", func() {
-				var err error
+		it("writes required entries", func() {
+			var err error
 
-				f, err := ioutil.TempFile("", "windows-writer.tar")
-				h.AssertNil(t, err)
-				defer func() { f.Close(); os.Remove(f.Name()) }()
+			f, err := ioutil.TempFile("", "windows-writer.tar")
+			h.AssertNil(t, err)
+			defer func() { f.Close(); os.Remove(f.Name()) }()
 
-				lw := layer.NewWindowsWriter(f)
+			lw := layer.NewWindowsWriter(f)
 
-				h.AssertNil(t, lw.WriteHeader(&tar.Header{
-					Name:     "cnb/my-file",
-					Typeflag: tar.TypeReg,
-				}))
+			h.AssertNil(t, lw.WriteHeader(&tar.Header{
+				Name:     "/cnb/my-file",
+				Typeflag: tar.TypeReg,
+			}))
 
-				h.AssertNil(t, lw.Close())
+			h.AssertNil(t, lw.Close())
 
-				f.Seek(0, 0)
-				tr := tar.NewReader(f)
+			f.Seek(0, 0)
 
-				th, _ := tr.Next()
-				h.AssertEq(t, th.Name, "Files")
-				h.AssertEq(t, th.Typeflag, byte(tar.TypeDir))
+			tr := tar.NewReader(f)
 
-				th, _ = tr.Next()
-				h.AssertEq(t, th.Name, "Hives")
-				h.AssertEq(t, th.Typeflag, byte(tar.TypeDir))
+			th, _ := tr.Next()
+			h.AssertEq(t, th.Name, "Files")
+			h.AssertEq(t, th.Typeflag, byte(tar.TypeDir))
 
-				th, _ = tr.Next()
-				h.AssertEq(t, th.Name, "Files/cnb")
-				h.AssertEq(t, th.Typeflag, byte(tar.TypeDir))
+			th, _ = tr.Next()
+			h.AssertEq(t, th.Name, "Hives")
+			h.AssertEq(t, th.Typeflag, byte(tar.TypeDir))
 
-				th, _ = tr.Next()
-				h.AssertEq(t, th.Name, "Files/cnb/my-file")
-				h.AssertEq(t, th.Typeflag, byte(tar.TypeReg))
+			th, _ = tr.Next()
+			h.AssertEq(t, th.Name, "Files/cnb")
+			h.AssertEq(t, th.Typeflag, byte(tar.TypeDir))
 
-				_, err = tr.Next()
-				h.AssertError(t, err, "EOF")
-			})
-		})
+			th, _ = tr.Next()
+			h.AssertEq(t, th.Name, "Files/cnb/my-file")
+			h.AssertEq(t, th.Typeflag, byte(tar.TypeReg))
 
-		when("header path begins with slash", func() {
-			it("writes entries", func() {
-				var err error
-
-				f, err := ioutil.TempFile("", "windows-writer.tar")
-				h.AssertNil(t, err)
-				defer func() { f.Close(); os.Remove(f.Name()) }()
-
-				lw := layer.NewWindowsWriter(f)
-
-				h.AssertNil(t, lw.WriteHeader(&tar.Header{
-					Name:     "/cnb/my-file",
-					Typeflag: tar.TypeReg,
-				}))
-
-				h.AssertNil(t, lw.Close())
-
-				f.Seek(0, 0)
-
-				tr := tar.NewReader(f)
-
-				th, _ := tr.Next()
-				h.AssertEq(t, th.Name, "Files")
-				h.AssertEq(t, th.Typeflag, byte(tar.TypeDir))
-
-				th, _ = tr.Next()
-				h.AssertEq(t, th.Name, "Hives")
-				h.AssertEq(t, th.Typeflag, byte(tar.TypeDir))
-
-				th, _ = tr.Next()
-				h.AssertEq(t, th.Name, "Files/cnb")
-				h.AssertEq(t, th.Typeflag, byte(tar.TypeDir))
-
-				th, _ = tr.Next()
-				h.AssertEq(t, th.Name, "Files/cnb/my-file")
-				h.AssertEq(t, th.Typeflag, byte(tar.TypeReg))
-
-				_, err = tr.Next()
-				h.AssertError(t, err, "EOF")
-			})
-		})
-
-		when("header path begins with dot", func() {
-			it("writes entries", func() {
-				var err error
-
-				f, err := ioutil.TempFile("", "windows-writer.tar")
-				h.AssertNil(t, err)
-				defer func() { f.Close(); os.Remove(f.Name()) }()
-
-				lw := layer.NewWindowsWriter(f)
-
-				h.AssertNil(t, lw.WriteHeader(&tar.Header{
-					Name:     "./cnb/my-file",
-					Typeflag: tar.TypeReg,
-				}))
-
-				h.AssertNil(t, lw.Close())
-
-				f.Seek(0, 0)
-				tr := tar.NewReader(f)
-
-				th, _ := tr.Next()
-				h.AssertEq(t, th.Name, "Files")
-				h.AssertEq(t, th.Typeflag, byte(tar.TypeDir))
-
-				th, _ = tr.Next()
-				h.AssertEq(t, th.Name, "Hives")
-				h.AssertEq(t, th.Typeflag, byte(tar.TypeDir))
-
-				th, _ = tr.Next()
-				h.AssertEq(t, th.Name, "Files/cnb")
-				h.AssertEq(t, th.Typeflag, byte(tar.TypeDir))
-
-				th, _ = tr.Next()
-				h.AssertEq(t, th.Name, "Files/cnb/my-file")
-				h.AssertEq(t, th.Typeflag, byte(tar.TypeReg))
-
-				_, err = tr.Next()
-				h.AssertError(t, err, "EOF")
-			})
+			_, err = tr.Next()
+			h.AssertError(t, err, "EOF")
 		})
 	})
 
