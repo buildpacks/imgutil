@@ -2,6 +2,7 @@ package layer
 
 import (
 	"archive/tar"
+	"fmt"
 	"io"
 	"path"
 	"strings"
@@ -28,6 +29,9 @@ func (w *WindowsWriter) WriteHeader(header *tar.Header) error {
 		return err
 	}
 
+	if err := w.validateHeader(header); err != nil {
+		return err
+	}
 	header.Name = layerFilesPath(header.Name)
 
 	err := w.writeParentPaths(header.Name)
@@ -98,5 +102,12 @@ func (w *WindowsWriter) writeDirHeader(header *tar.Header) error {
 		return err
 	}
 	w.writtenParentPaths[header.Name] = true
+	return nil
+}
+
+func (w *WindowsWriter) validateHeader(header *tar.Header) error {
+	if !path.IsAbs(header.Name) {
+		return fmt.Errorf("invalid header came: must be absolute, posix path: %s", header.Name)
+	}
 	return nil
 }
