@@ -1,7 +1,6 @@
 package remote
 
 import (
-	"compress/gzip"
 	"fmt"
 	"io"
 	"net/http"
@@ -337,7 +336,7 @@ func (i *Image) GetLayer(sha string) (io.ReadCloser, error) {
 }
 
 func (i *Image) AddLayer(path string) error {
-	layer, err := tarball.LayerFromFile(path, tarball.WithCompressionLevel(gzip.DefaultCompression))
+	layer, err := tarball.LayerFromFile(path)
 	if err != nil {
 		return err
 	}
