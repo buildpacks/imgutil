@@ -92,8 +92,8 @@ func newV1Image(keychain authn.Keychain, repoName string) (v1.Image, error) {
 	image, err := remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport))
 	if err != nil {
 		if transportErr, ok := err.(*transport.Error); ok && len(transportErr.Errors) > 0 {
-			switch transportErr.Errors[0].Code {
-			case transport.UnauthorizedErrorCode, transport.ManifestUnknownErrorCode:
+			switch transportErr.StatusCode {
+			case http.StatusNotFound, http.StatusUnauthorized:
 				return emptyImage()
 			}
 		}
