@@ -2,6 +2,7 @@ package remote_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"testing"
@@ -16,20 +17,30 @@ import (
 	h "github.com/buildpacks/imgutil/testhelpers"
 )
 
-var registryPort string
+var dockerRegistry *h.DockerRegistry
 
-func newTestImageName() string {
-	return "localhost:" + registryPort + "/pack-image-test-" + h.RandString(10)
+func newTestImageName(providedPrefix ...string) string {
+	prefix := "pack-image-test"
+	if len(providedPrefix) > 0 {
+		prefix = providedPrefix[0]
+	}
+
+	return dockerRegistry.RepoName(prefix + "-" + h.RandString(10))
 }
 
 func TestRemote(t *testing.T) {
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	dockerRegistry := h.NewDockerRegistry()
+	dockerConfigDir, err := ioutil.TempDir("", "test.docker.config.dir")
+	h.AssertNil(t, err)
+	defer os.RemoveAll(dockerConfigDir)
+
+	dockerRegistry = h.NewDockerRegistryWithAuth(dockerConfigDir)
 	dockerRegistry.Start(t)
 	defer dockerRegistry.Stop(t)
 
-	registryPort = dockerRegistry.Port
+	os.Setenv("DOCKER_CONFIG", dockerRegistry.DockerDirectory)
+	defer os.Unsetenv("DOCKER_CONFIG")
 
 	spec.Run(t, "Image", testImage, spec.Sequential(), spec.Report(report.Terminal{}))
 }
@@ -451,7 +462,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			var oldBaseLayers, newBaseLayers, repoTopLayers []string
 			it.Before(func() {
 				// new base
-				newBase = "localhost:" + registryPort + "/pack-newbase-test-" + h.RandString(10)
+				newBase = newTestImageName("pack-newbase-test")
 				newBaseLayer1Path, err := h.CreateSingleFileLayerTar("/new-base.txt", "new-base", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayer1Path)
@@ -474,7 +485,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				newBaseLayers = h.FetchManifestLayers(t, newBase)
 
 				// old base image
-				oldBase = "localhost:" + registryPort + "/pack-oldbase-test-" + h.RandString(10)
+				oldBase = newTestImageName("pack-oldbase-test")
 				oldBaseLayer1Path, err := h.CreateSingleFileLayerTar("/old-base.txt", "old-base", "linux")
 				h.AssertNil(t, err)
 				defer os.Remove(oldBaseLayer1Path)
@@ -685,7 +696,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			)
 
 			it.Before(func() {
-				prevImageName = "localhost:" + registryPort + "/pack-image-test-" + h.RandString(10)
+				prevImageName = newTestImageName()
 				prevImage, err := remote.NewImage(
 					prevImageName,
 					authn.DefaultKeychain,

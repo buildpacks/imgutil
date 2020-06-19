@@ -21,13 +21,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
-
 	dockertypes "github.com/docker/docker/api/types"
 	dockercli "github.com/docker/docker/client"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/pkg/errors"
 )
 
 func RandString(n int) string {
@@ -184,12 +185,22 @@ func PushImage(dockerCli dockercli.CommonAPIClient, ref string) error {
 	return rc.Close()
 }
 
-func HTTPGetE(url string) (string, error) {
-	resp, err := http.DefaultClient.Get(url)
+func HTTPGetE(url string, headers map[string]string) (string, error) {
+	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "making new request")
+	}
+
+	for key, val := range headers {
+		request.Header.Set(key, val)
+	}
+
+	resp, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return "", errors.Wrap(err, "doing request")
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode >= 300 {
 		return "", fmt.Errorf("HTTP Status was bad: %s => %d", url, resp.StatusCode)
 	}
@@ -205,6 +216,24 @@ func ImageID(t *testing.T, repoName string) string {
 	inspect, _, err := DockerCli(t).ImageInspectWithRaw(context.Background(), repoName)
 	AssertNil(t, err)
 	return inspect.ID
+}
+
+func CreateSingleFileTarReader(path, txt string) io.ReadCloser {
+	pr, pw := io.Pipe()
+
+	go func() {
+		var err error
+		defer func() {
+			pw.CloseWithError(err)
+		}()
+
+		tw := tar.NewWriter(pw)
+		defer tw.Close()
+
+		err = writeTarSingleFileLinux(tw, path, txt) // Use the Linux writer, as this isn't a layer tar.
+	}()
+
+	return pr
 }
 
 func CreateSingleFileLayerTar(layerPath, txt, osType string) (string, error) {
@@ -332,9 +361,13 @@ func FetchManifestLayers(t *testing.T, repoName string) []string {
 	r, err := name.ParseReference(repoName, name.WeakValidation)
 	AssertNil(t, err)
 
+	auth, err := authn.DefaultKeychain.Resolve(r.Context().Registry)
+	AssertNil(t, err)
+
 	gImg, err := remote.Image(
 		r,
 		remote.WithTransport(http.DefaultTransport),
+		remote.WithAuth(auth),
 	)
 	AssertNil(t, err)
 
@@ -358,7 +391,10 @@ func FetchManifestImageConfigFile(t *testing.T, repoName string) *v1.ConfigFile 
 	r, err := name.ParseReference(repoName, name.WeakValidation)
 	AssertNil(t, err)
 
-	gImg, err := remote.Image(r, remote.WithTransport(http.DefaultTransport))
+	auth, err := authn.DefaultKeychain.Resolve(r.Context().Registry)
+	AssertNil(t, err)
+
+	gImg, err := remote.Image(r, remote.WithTransport(http.DefaultTransport), remote.WithAuth(auth))
 	AssertNil(t, err)
 
 	configFile, err := gImg.ConfigFile()
