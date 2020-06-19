@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -47,7 +46,7 @@ func NewDockerRegistryWithAuth(dockerConfigDir string) *DockerRegistry {
 }
 
 func (r *DockerRegistry) Start(t *testing.T) {
-	t.Log("run r")
+	t.Log("run registry")
 	t.Helper()
 
 	ctx := context.Background()
@@ -141,21 +140,7 @@ func generateHtpasswd(t *testing.T, tempDir string, username string, password st
 	// HTPASSWD format: https://github.com/foomo/htpasswd/blob/e3a90e78da9cff06a83a78861847aa9092cbebdd/hashing.go#L23
 	passwordBytes, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
-	// Write data to file
-	htpasswdFile, err := os.Create(filepath.Join(tempDir, "registry_test_htpasswd"))
-	AssertNil(t, err)
-	htpasswdFile.Write([]byte(username + ":" + string(passwordBytes)))
-
-	// Write tar file
-	cmd := exec.Command("tar", "cf", "htpasswdTar", "registry_test_htpasswd")
-	cmd.Dir = tempDir
-	AssertNil(t, cmd.Run())
-
-	// Return a reader to tar file
-	reader, err := os.Open(filepath.Join(tempDir, "htpasswdTar"))
-	AssertNil(t, err)
-
-	return reader
+	return CreateSingleFileTarReader("/registry_test_htpasswd", username+":"+string(passwordBytes))
 }
 
 func writeDockerConfig(t *testing.T, configDir, port, auth string) {

@@ -218,6 +218,24 @@ func ImageID(t *testing.T, repoName string) string {
 	return inspect.ID
 }
 
+func CreateSingleFileTarReader(path, txt string) io.ReadCloser {
+	pr, pw := io.Pipe()
+
+	go func() {
+		var err error
+		defer func() {
+			pw.CloseWithError(err)
+		}()
+
+		tw := tar.NewWriter(pw)
+		defer tw.Close()
+
+		err = writeTarSingleFileLinux(tw, path, txt) // Use the Linux writer, as this isn't a layer tar.
+	}()
+
+	return pr
+}
+
 func CreateSingleFileLayerTar(layerPath, txt, osType string) (string, error) {
 	tarFile, err := ioutil.TempFile("", "create-single-file-layer-tar-path")
 	if err != nil {
