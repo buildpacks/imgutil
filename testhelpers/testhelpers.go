@@ -24,6 +24,7 @@ import (
 	dockertypes "github.com/docker/docker/api/types"
 	dockercli "github.com/docker/docker/client"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -184,21 +185,17 @@ func PushImage(dockerCli dockercli.CommonAPIClient, ref string) error {
 	return rc.Close()
 }
 
-func HTTPGetE(url string, headers ...map[string]string) (string, error) {
-	client := http.DefaultClient
-
+func HTTPGetE(url string, headers map[string]string) (string, error) {
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "making new request")
 	}
 
-	if len(headers) > 0 {
-		for key, val := range headers[0] {
-			request.Header.Set(key, val)
-		}
+	for key, val := range headers {
+		request.Header.Set(key, val)
 	}
 
-	resp, err := client.Do(request)
+	resp, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return "", errors.Wrap(err, "doing request")
 	}
@@ -346,9 +343,13 @@ func FetchManifestLayers(t *testing.T, repoName string) []string {
 	r, err := name.ParseReference(repoName, name.WeakValidation)
 	AssertNil(t, err)
 
+	auth, err := authn.DefaultKeychain.Resolve(r.Context().Registry)
+	AssertNil(t, err)
+
 	gImg, err := remote.Image(
 		r,
 		remote.WithTransport(http.DefaultTransport),
+		remote.WithAuth(auth),
 	)
 	AssertNil(t, err)
 
@@ -372,7 +373,10 @@ func FetchManifestImageConfigFile(t *testing.T, repoName string) *v1.ConfigFile 
 	r, err := name.ParseReference(repoName, name.WeakValidation)
 	AssertNil(t, err)
 
-	gImg, err := remote.Image(r, remote.WithTransport(http.DefaultTransport))
+	auth, err := authn.DefaultKeychain.Resolve(r.Context().Registry)
+	AssertNil(t, err)
+
+	gImg, err := remote.Image(r, remote.WithTransport(http.DefaultTransport), remote.WithAuth(auth))
 	AssertNil(t, err)
 
 	configFile, err := gImg.ConfigFile()

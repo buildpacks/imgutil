@@ -2,6 +2,7 @@ package remote_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"testing"
@@ -25,9 +26,16 @@ func newTestImageName() string {
 func TestRemote(t *testing.T) {
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	dockerRegistry := h.NewDockerRegistry()
+	dockerConfigDir, err := ioutil.TempDir("", "test.docker.config.dir")
+	h.AssertNil(t, err)
+	defer os.RemoveAll(dockerConfigDir)
+
+	dockerRegistry := h.NewDockerRegistryWithAuth(dockerConfigDir)
 	dockerRegistry.Start(t)
 	defer dockerRegistry.Stop(t)
+
+	os.Setenv("DOCKER_CONFIG", dockerRegistry.DockerDirectory)
+	defer os.Unsetenv("DOCKER_CONFIG")
 
 	registryPort = dockerRegistry.Port
 

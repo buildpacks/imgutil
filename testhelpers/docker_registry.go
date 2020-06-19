@@ -46,8 +46,8 @@ func NewDockerRegistryWithAuth(dockerConfigDir string) *DockerRegistry {
 	}
 }
 
-func (registry *DockerRegistry) Start(t *testing.T) {
-	t.Log("run registry")
+func (r *DockerRegistry) Start(t *testing.T) {
+	t.Log("run r")
 	t.Helper()
 
 	ctx := context.Background()
@@ -59,13 +59,13 @@ func (registry *DockerRegistry) Start(t *testing.T) {
 
 	var htpasswdTar io.ReadCloser
 	registryEnv := []string{"REGISTRY_STORAGE_DELETE_ENABLED=true"}
-	if registry.username != "" {
+	if r.username != "" {
 		// Create htpasswdTar and configure registry env
 		tempDir, err := ioutil.TempDir("", "test.registry")
 		AssertNil(t, err)
 		defer os.RemoveAll(tempDir)
 
-		htpasswdTar = generateHtpasswd(t, tempDir, registry.username, registry.password)
+		htpasswdTar = generateHtpasswd(t, tempDir, r.username, r.password)
 		defer htpasswdTar.Close()
 
 		otherEnvs := []string{
@@ -85,10 +85,10 @@ func (registry *DockerRegistry) Start(t *testing.T) {
 		PortBindings: nat.PortMap{
 			"5000/tcp": []nat.PortBinding{{}},
 		},
-	}, nil, registry.Name)
+	}, nil, r.Name)
 	AssertNil(t, err)
 
-	if registry.username != "" {
+	if r.username != "" {
 		// Copy htpasswdTar to container
 		AssertNil(t, DockerCli(t).CopyToContainer(ctx, ctr.ID, "/", htpasswdTar, types.CopyToContainerOptions{}))
 	}
@@ -99,41 +99,41 @@ func (registry *DockerRegistry) Start(t *testing.T) {
 	// Get port
 	inspect, err := DockerCli(t).ContainerInspect(ctx, ctr.ID)
 	AssertNil(t, err)
-	registry.Port = inspect.NetworkSettings.Ports["5000/tcp"][0].HostPort
+	r.Port = inspect.NetworkSettings.Ports["5000/tcp"][0].HostPort
 
 	var authHeaders map[string]string
-	if registry.username != "" {
+	if r.username != "" {
 		// Write Docker config and configure auth headers
-		writeDockerConfig(t, registry.DockerDirectory, registry.Port, registry.encodedAuth())
-		authHeaders = map[string]string{"Authorization": "Basic " + registry.encodedAuth()}
+		writeDockerConfig(t, r.DockerDirectory, r.Port, r.encodedAuth())
+		authHeaders = map[string]string{"Authorization": "Basic " + r.encodedAuth()}
 	}
 
 	// Wait for registry to be ready
 	Eventually(t, func() bool {
-		txt, err := HTTPGetE(fmt.Sprintf("http://localhost:%s/v2/_catalog", registry.Port), authHeaders)
+		txt, err := HTTPGetE(fmt.Sprintf("http://localhost:%s/v2/_catalog", r.Port), authHeaders)
 		return err == nil && txt != ""
 	}, 100*time.Millisecond, 10*time.Second)
 }
 
-func (registry *DockerRegistry) Stop(t *testing.T) {
+func (r *DockerRegistry) Stop(t *testing.T) {
 	t.Log("stop registry")
 	t.Helper()
-	if registry.Name != "" {
-		DockerCli(t).ContainerKill(context.Background(), registry.Name, "SIGKILL")
-		DockerCli(t).ContainerRemove(context.TODO(), registry.Name, types.ContainerRemoveOptions{Force: true})
+	if r.Name != "" {
+		DockerCli(t).ContainerKill(context.Background(), r.Name, "SIGKILL")
+		DockerCli(t).ContainerRemove(context.TODO(), r.Name, types.ContainerRemoveOptions{Force: true})
 	}
 }
 
-func (registry *DockerRegistry) RepoName(name string) string {
-	return "localhost:" + registry.Port + "/" + name
+func (r *DockerRegistry) RepoName(name string) string {
+	return "localhost:" + r.Port + "/" + name
 }
 
-func (registry *DockerRegistry) EncodedLabeledAuth() string {
-	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(`{"username":"%s","password":"%s"}`, registry.username, registry.password)))
+func (r *DockerRegistry) EncodedLabeledAuth() string {
+	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(`{"username":"%s","password":"%s"}`, r.username, r.password)))
 }
 
-func (registry *DockerRegistry) encodedAuth() string {
-	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", registry.username, registry.password)))
+func (r *DockerRegistry) encodedAuth() string {
+	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", r.username, r.password)))
 }
 
 func generateHtpasswd(t *testing.T, tempDir string, username string, password string) io.ReadCloser {
