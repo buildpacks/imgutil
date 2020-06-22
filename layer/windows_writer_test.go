@@ -124,17 +124,17 @@ func testWindowsWriter(t *testing.T, when spec.G, it spec.S) {
 				h.AssertError(t, lw.WriteHeader(&tar.Header{
 					Name:     `c:\windows-path.txt`,
 					Typeflag: tar.TypeReg,
-				}), `invalid header came: must be absolute, posix path: c:\windows-path.txt`)
+				}), `invalid header name: must be absolute, posix path: c:\windows-path.txt`)
 
 				h.AssertError(t, lw.WriteHeader(&tar.Header{
 					Name:     `\lonelyfile`,
 					Typeflag: tar.TypeDir,
-				}), `invalid header came: must be absolute, posix path: \lonelyfile`)
+				}), `invalid header name: must be absolute, posix path: \lonelyfile`)
 
 				h.AssertError(t, lw.WriteHeader(&tar.Header{
 					Name:     "Files/cnb/lifecycle/first-file",
 					Typeflag: tar.TypeDir,
-				}), `invalid header came: must be absolute, posix path: Files/cnb/lifecycle/first-file`)
+				}), `invalid header name: must be absolute, posix path: Files/cnb/lifecycle/first-file`)
 			})
 		})
 

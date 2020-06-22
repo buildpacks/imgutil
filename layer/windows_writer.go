@@ -121,7 +121,7 @@ func (w *WindowsWriter) writeDirHeader(header *tar.Header) error {
 
 func (w *WindowsWriter) validateHeader(header *tar.Header) error {
 	if !path.IsAbs(header.Name) {
-		return fmt.Errorf("invalid header came: must be absolute, posix path: %s", header.Name)
+		return fmt.Errorf("invalid header name: must be absolute, posix path: %s", header.Name)
 	}
 	return nil
 }
