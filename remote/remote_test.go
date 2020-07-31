@@ -533,7 +533,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				repoTopLayers = repoLayers[len(oldBaseLayers):]
 			})
 
-			it.Focus("switches the base", func() {
+			it("switches the base", func() {
 				// Before
 				h.AssertEq(t,
 					h.FetchManifestLayers(t, repoName),
@@ -543,8 +543,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				// Run rebase
 				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
 				h.AssertNil(t, err)
+
 				newBaseImg, err := remote.NewImage(newBase, authn.DefaultKeychain, remote.FromBaseImage(newBase))
 				h.AssertNil(t, err)
+
 				err = img.Rebase(oldTopLayerDiffID, newBaseImg)
 				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
@@ -555,37 +557,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					append(newBaseLayers, repoTopLayers...),
 				)
 
-
-				expectedOS, err := newBaseImg.OS()
-				h.AssertNil(t, err)
-
-				expectedArchitecture, err := newBaseImg.Architecture()
-				h.AssertNil(t, err)
-
-				expectedOSVersion, err := newBaseImg.OSVersion()
-				h.AssertNil(t, err)
-
-				actualOS, err := img.OS()
-				h.AssertNil(t, err)
-
-				actualArchitecture, err := newBaseImg.Architecture()
-				h.AssertNil(t, err)
-
-				actualOSVersion, err := newBaseImg.OSVersion()
-				h.AssertNil(t, err)
-
-				h.AssertEq(t,
-					actualOS,
-					expectedOS,
-				)
-				h.AssertEq(t,
-					actualArchitecture,
-					expectedArchitecture,
-				)
-				h.AssertEq(t,
-					actualOSVersion,
-					expectedOSVersion,
-				)
+				newBaseConfig := h.FetchManifestImageConfigFile(t, newBase)
+				rebasedImgConfig := h.FetchManifestImageConfigFile(t, repoName)
+				h.AssertEq(t, rebasedImgConfig.OS, newBaseConfig.OS)
+				h.AssertEq(t, rebasedImgConfig.OSVersion, newBaseConfig.OSVersion)
+				h.AssertEq(t, rebasedImgConfig.Architecture, newBaseConfig.Architecture)
 			})
 		})
 	})

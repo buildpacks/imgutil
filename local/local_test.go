@@ -667,6 +667,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				afterLayer4DiffID := afterInspect.RootFS.Layers[len(afterInspect.RootFS.Layers)-1]
 				h.AssertEq(t, imgLayer2DiffID, afterLayer4DiffID)
+
+				h.AssertEq(t, afterInspect.Os, beforeInspect.Os)
+				h.AssertEq(t, afterInspect.OsVersion, beforeInspect.OsVersion)
+				h.AssertEq(t, afterInspect.Architecture, beforeInspect.Architecture)
 			})
 		})
 	})
