@@ -232,6 +232,26 @@ func (i *Image) Rebase(baseTopLayer string, newBase imgutil.Image) error {
 	if err != nil {
 		return errors.Wrap(err, "rebase")
 	}
+
+	newImageConfig, err := newImage.ConfigFile()
+	if err != nil {
+		return err
+	}
+
+	newBaseRemoteConfig, err := newBaseRemote.image.ConfigFile()
+	if err != nil {
+		return err
+	}
+
+	newImageConfig.Architecture = newBaseRemoteConfig.Architecture
+	newImageConfig.OS = newBaseRemoteConfig.OS
+	newImageConfig.OSVersion = newBaseRemoteConfig.OSVersion
+
+	newImage, err = mutate.ConfigFile(newImage, newImageConfig)
+	if err != nil {
+		return err
+	}
+
 	i.image = newImage
 	return nil
 }

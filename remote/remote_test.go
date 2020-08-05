@@ -543,8 +543,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				// Run rebase
 				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
 				h.AssertNil(t, err)
+
 				newBaseImg, err := remote.NewImage(newBase, authn.DefaultKeychain, remote.FromBaseImage(newBase))
 				h.AssertNil(t, err)
+
 				err = img.Rebase(oldTopLayerDiffID, newBaseImg)
 				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
@@ -554,6 +556,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					h.FetchManifestLayers(t, repoName),
 					append(newBaseLayers, repoTopLayers...),
 				)
+
+				newBaseConfig := h.FetchManifestImageConfigFile(t, newBase)
+				rebasedImgConfig := h.FetchManifestImageConfigFile(t, repoName)
+				h.AssertEq(t, rebasedImgConfig.OS, newBaseConfig.OS)
+				h.AssertEq(t, rebasedImgConfig.OSVersion, newBaseConfig.OSVersion)
+				h.AssertEq(t, rebasedImgConfig.Architecture, newBaseConfig.Architecture)
 			})
 		})
 	})
