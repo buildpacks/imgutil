@@ -206,7 +206,7 @@ func testWindowsWriter(t *testing.T, when spec.G, it spec.S) {
 				})
 			})
 
-			when("any existing PAX records", func() {
+			when("existing security descriptor PAX record", func() {
 				it("writes no new records", func() {
 					var err error
 
@@ -219,7 +219,7 @@ func testWindowsWriter(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, lw.WriteHeader(&tar.Header{
 						Name:       "/my-file",
 						Typeflag:   tar.TypeReg,
-						PAXRecords: map[string]string{"foo": "bar"},
+						PAXRecords: map[string]string{"MSWINDOWS.rawsd": "bar"},
 					}))
 
 					h.AssertNil(t, lw.Close())
@@ -233,7 +233,7 @@ func testWindowsWriter(t *testing.T, when spec.G, it spec.S) {
 					th, err := tr.Next()
 					h.AssertNil(t, err)
 					h.AssertEq(t, th.Name, "Files/my-file")
-					h.AssertEq(t, th.PAXRecords, map[string]string{"foo": "bar"})
+					h.AssertEq(t, th.PAXRecords, map[string]string{"MSWINDOWS.rawsd": "bar"})
 				})
 			})
 		})
