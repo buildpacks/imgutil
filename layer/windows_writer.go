@@ -39,11 +39,11 @@ func (w *WindowsWriter) WriteHeader(header *tar.Header) error {
 		return err
 	}
 
+	header.Format = tar.FormatPAX
 	if header.PAXRecords == nil {
-		header.Format = tar.FormatPAX
-
-		header.PAXRecords = initializePaxPermissions(header)
+		header.PAXRecords = map[string]string{}
 	}
+	ensureSecurityDescriptor(header)
 
 	if header.Typeflag == tar.TypeDir {
 		return w.writeDirHeader(header)
@@ -51,11 +51,14 @@ func (w *WindowsWriter) WriteHeader(header *tar.Header) error {
 	return w.tarWriter.WriteHeader(header)
 }
 
-func initializePaxPermissions(header *tar.Header) map[string]string {
-	if header.Uid == 0 && header.Gid == 0 {
-		return map[string]string{"MSWINDOWS.rawsd": AdministratratorOwnerAndGroupSID}
+func ensureSecurityDescriptor(header *tar.Header) {
+	if _, ok := header.PAXRecords["MSWINDOWS.rawsd"]; !ok {
+		if header.Uid == 0 && header.Gid == 0 {
+			header.PAXRecords["MSWINDOWS.rawsd"] = AdministratratorOwnerAndGroupSID
+		} else {
+			header.PAXRecords["MSWINDOWS.rawsd"] = UserOwnerAndGroupSID
+		}
 	}
-	return map[string]string{"MSWINDOWS.rawsd": UserOwnerAndGroupSID}
 }
 
 func (w *WindowsWriter) Close() (err error) {
