@@ -438,9 +438,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#SetEnv", func() {
 		var repoName = newTestImageName()
+		var skipCleanup bool
 
 		it.After(func() {
-			h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
+			if !skipCleanup {
+				h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
+			}
 		})
 
 		it("sets the environment", func() {
@@ -456,6 +459,64 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, err)
 
 			h.AssertContains(t, inspect.Config.Env, "ENV_KEY=ENV_VAL")
+		})
+
+		when("the key already exists", func() {
+			it("overrides the existing key", func() {
+				img, err := local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
+
+				err = img.SetEnv("ENV_KEY", "SOME_VAL")
+				h.AssertNil(t, err)
+
+				err = img.SetEnv("ENV_KEY", "SOME_OTHER_VAL")
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, img.Save())
+
+				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
+				h.AssertNil(t, err)
+
+				h.AssertContains(t, inspect.Config.Env, "ENV_KEY=SOME_OTHER_VAL")
+				h.AssertDoesNotContain(t, inspect.Config.Env, "ENV_KEY=SOME_VAL")
+			})
+
+			when("windows", func() {
+				it("ignores case", func() {
+					if daemonOS != "windows" {
+						skipCleanup = true
+						t.Skip("windows test")
+					}
+
+					img, err := local.NewImage(repoName, dockerClient)
+					h.AssertNil(t, err)
+
+					err = img.SetEnv("ENV_KEY", "SOME_VAL")
+					h.AssertNil(t, err)
+
+					err = img.SetEnv("env_key", "SOME_OTHER_VAL")
+					h.AssertNil(t, err)
+
+					err = img.SetEnv("env_key2", "SOME_VAL")
+					h.AssertNil(t, err)
+
+					err = img.SetEnv("ENV_KEY2", "SOME_OTHER_VAL")
+					h.AssertNil(t, err)
+
+					h.AssertNil(t, img.Save())
+
+					inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
+					h.AssertNil(t, err)
+
+					h.AssertContains(t, inspect.Config.Env, "env_key=SOME_OTHER_VAL")
+					h.AssertDoesNotContain(t, inspect.Config.Env, "ENV_KEY=SOME_VAL")
+					h.AssertDoesNotContain(t, inspect.Config.Env, "ENV_KEY=SOME_OTHER_VAL")
+
+					h.AssertContains(t, inspect.Config.Env, "ENV_KEY2=SOME_OTHER_VAL")
+					h.AssertDoesNotContain(t, inspect.Config.Env, "env_key2=SOME_OTHER_VAL")
+					h.AssertDoesNotContain(t, inspect.Config.Env, "env_key2=SOME_VAL")
+				})
+			})
 		})
 	})
 
