@@ -152,6 +152,14 @@ func (i *Image) Env(key string) (string, error) {
 	return "", nil
 }
 
+func (i *Image) ListEnv() ([]string, error) {
+	cfg, err := i.image.ConfigFile()
+	if err != nil || cfg == nil {
+		return []string(nil), fmt.Errorf("failed to get config file for image '%s'", i.repoName)
+	}
+	return cfg.Config.Env, nil
+}
+
 func (i *Image) OS() (string, error) {
 	cfg, err := i.image.ConfigFile()
 	if err != nil || cfg == nil || cfg.OS == "" {

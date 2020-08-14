@@ -280,6 +280,39 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#ListEnv", func() {
+		when("image exists", func() {
+			var baseImageName = newTestImageName()
+
+			it.Before(func() {
+				baseImage, err := remote.NewImage(baseImageName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertNil(t, baseImage.SetEnv("MY_VAR", "my_val"))
+				h.AssertNil(t, baseImage.Save())
+			})
+
+			it("returns the environment", func() {
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(baseImageName))
+				h.AssertNil(t, err)
+
+				env, err := img.ListEnv()
+				h.AssertNil(t, err)
+				h.AssertEq(t, env, []string{"MY_VAR=my_val"})
+			})
+		})
+
+		when("image is empty", func() {
+			it("returns nil", func() {
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				env, err := img.ListEnv()
+				h.AssertNil(t, err)
+				h.AssertEq(t, env, []string(nil))
+			})
+		})
+	})
+
 	when("#Name", func() {
 		it("always returns the original name", func() {
 			img, err := remote.NewImage(repoName, authn.DefaultKeychain)

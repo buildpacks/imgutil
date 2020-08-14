@@ -115,6 +115,10 @@ func (i *Image) Env(key string) (string, error) {
 	return "", nil
 }
 
+func (i *Image) ListEnv() ([]string, error) {
+	return i.inspect.Config.Env, nil
+}
+
 func (i *Image) OS() (string, error) {
 	return i.inspect.Os, nil
 }

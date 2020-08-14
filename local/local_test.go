@@ -284,6 +284,44 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#ListEnv", func() {
+		when("image exists", func() {
+			var repoName = newTestImageName()
+
+			it.Before(func() {
+				existingImage, err := local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, existingImage.SetEnv("MY_VAR", "my_val"))
+				h.AssertNil(t, existingImage.Save())
+			})
+
+			it.After(func() {
+				h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
+			})
+
+			it("returns the environment", func() {
+				img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
+				h.AssertNil(t, err)
+
+				env, err := img.ListEnv()
+				h.AssertNil(t, err)
+				h.AssertEq(t, env, []string{"MY_VAR=my_val"})
+			})
+		})
+
+		when("image NOT exists", func() {
+			it("returns nil", func() {
+				img, err := local.NewImage(newTestImageName(), dockerClient)
+				h.AssertNil(t, err)
+
+				env, err := img.ListEnv()
+				h.AssertNil(t, err)
+				h.AssertEq(t, env, []string(nil))
+			})
+		})
+	})
+
 	when("#Name", func() {
 		it("always returns the original name", func() {
 			var repoName = newTestImageName()

@@ -54,6 +54,7 @@ type Image interface {
 	OS() (string, error)
 	OSVersion() (string, error)
 	Architecture() (string, error)
+	ListEnv() ([]string, error)
 }
 
 type Identifier fmt.Stringer
