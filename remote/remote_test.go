@@ -409,6 +409,63 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			configFile := h.FetchManifestImageConfigFile(t, repoName)
 			h.AssertContains(t, configFile.Config.Env, "ENV_KEY=ENV_VAL")
 		})
+
+		when("the key already exists", func() {
+			it("overrides the existing key", func() {
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				err = img.SetEnv("ENV_KEY", "SOME_VAL")
+				h.AssertNil(t, err)
+
+				err = img.SetEnv("ENV_KEY", "SOME_OTHER_VAL")
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, img.Save())
+
+				configFile := h.FetchManifestImageConfigFile(t, repoName)
+				h.AssertContains(t, configFile.Config.Env, "ENV_KEY=SOME_OTHER_VAL")
+				h.AssertDoesNotContain(t, configFile.Config.Env, "ENV_KEY=SOME_VAL")
+			})
+		})
+
+		when("windows", func() {
+			it("ignores case", func() {
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				imgOS, err := img.OS()
+				h.AssertNil(t, err)
+
+				if imgOS != "windows" {
+					t.Skip("windows test")
+				}
+
+				err = img.SetEnv("ENV_KEY", "SOME_VAL")
+				h.AssertNil(t, err)
+
+				err = img.SetEnv("env_key", "SOME_OTHER_VAL")
+				h.AssertNil(t, err)
+
+				err = img.SetEnv("env_key2", "SOME_VAL")
+				h.AssertNil(t, err)
+
+				err = img.SetEnv("ENV_KEY2", "SOME_OTHER_VAL")
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, img.Save())
+
+				configFile := h.FetchManifestImageConfigFile(t, repoName)
+
+				h.AssertContains(t, configFile.Config.Env, "env_key=SOME_OTHER_VAL")
+				h.AssertDoesNotContain(t, configFile.Config.Env, "ENV_KEY=SOME_VAL")
+				h.AssertDoesNotContain(t, configFile.Config.Env, "ENV_KEY=SOME_OTHER_VAL")
+
+				h.AssertContains(t, configFile.Config.Env, "ENV_KEY2=SOME_OTHER_VAL")
+				h.AssertDoesNotContain(t, configFile.Config.Env, "env_key2=SOME_OTHER_VAL")
+				h.AssertDoesNotContain(t, configFile.Config.Env, "env_key2=SOME_VAL")
+			})
+		})
 	})
 
 	when("#SetWorkingDir", func() {

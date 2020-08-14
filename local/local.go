@@ -235,6 +235,20 @@ func (i *Image) SetLabel(key, val string) error {
 }
 
 func (i *Image) SetEnv(key, val string) error {
+	ignoreCase := i.inspect.Os == "windows"
+	for idx, kv := range i.inspect.Config.Env {
+		parts := strings.SplitN(kv, "=", 2)
+		foundKey := parts[0]
+		searchKey := key
+		if ignoreCase {
+			foundKey = strings.ToUpper(foundKey)
+			searchKey = strings.ToUpper(searchKey)
+		}
+		if foundKey == searchKey {
+			i.inspect.Config.Env[idx] = fmt.Sprintf("%s=%s", key, val)
+			return nil
+		}
+	}
 	i.inspect.Config.Env = append(i.inspect.Config.Env, fmt.Sprintf("%s=%s", key, val))
 	return nil
 }

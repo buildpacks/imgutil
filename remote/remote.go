@@ -276,9 +276,16 @@ func (i *Image) SetEnv(key, val string) error {
 		return err
 	}
 	config := *configFile.Config.DeepCopy()
+	ignoreCase := configFile.OS == "windows"
 	for idx, e := range config.Env {
 		parts := strings.Split(e, "=")
-		if parts[0] == key {
+		foundKey := parts[0]
+		searchKey := key
+		if ignoreCase {
+			foundKey = strings.ToUpper(foundKey)
+			searchKey = strings.ToUpper(searchKey)
+		}
+		if foundKey == searchKey {
 			config.Env[idx] = fmt.Sprintf("%s=%s", key, val)
 			i.image, err = mutate.Config(i.image, config)
 			if err != nil {
