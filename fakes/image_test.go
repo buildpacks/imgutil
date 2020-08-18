@@ -36,8 +36,21 @@ func TestFake(t *testing.T) {
 }
 
 func testFake(t *testing.T, when spec.G, it spec.S) {
-	it("implements imgutil.Image", func() {
-		var _ imgutil.Image = fakes.NewImage("", "", nil)
+	when("windows image", func() {
+		it("implements imgutil.Image", func() {
+			var _ imgutil.Image = fakes.NewLinuxImage("", "", nil)
+		})
+	})
+
+	when("linux image", func() {
+		it("implements imgutil.Image", func() {
+			var _ imgutil.Image = fakes.NewWindowsImage("", "", nil)
+		})
+	})
+	when("old interface", func() {
+		it("implements imgutil.Image", func() {
+			var _ imgutil.Image = fakes.NewImage("", "", nil)
+		})
 	})
 
 	when("#SavedNames", func() {

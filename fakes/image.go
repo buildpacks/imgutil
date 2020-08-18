@@ -35,6 +35,27 @@ func NewImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
 		architecture:  "amd64",
 	}
 }
+func NewWindowsImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
+	return &Image{
+		labels:        map[string]string{},
+		env:           map[string]string{},
+		topLayerSha:   topLayerSha,
+		identifier:    identifier,
+		name:          name,
+		cmd:           []string{"initialCMD"},
+		layersMap:     map[string]string{},
+		prevLayersMap: map[string]string{},
+		createdAt:     time.Now(),
+		savedNames:    map[string]bool{},
+		os:            "windows",
+		osVersion:     "",
+		architecture:  "amd64",
+	}
+}
+
+func NewLinuxImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
+	return NewImage(name, topLayerSha, identifier)
+}
 
 type Image struct {
 	deleted       bool
