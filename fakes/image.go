@@ -101,6 +101,9 @@ func (i *Image) Rebase(baseTopLayer string, newBase imgutil.Image) error {
 }
 
 func (i *Image) SetLabel(k string, v string) error {
+	if i.labels == nil {
+		i.labels = map[string]string{}
+	}
 	i.labels[k] = v
 	return nil
 }
