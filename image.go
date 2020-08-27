@@ -30,6 +30,7 @@ type Image interface {
 	Name() string
 	Rename(name string)
 	Label(string) (string, error)
+	Labels() (map[string]string, error)
 	SetLabel(string, string) error
 	Env(key string) (string, error)
 	SetEnv(string, string) error

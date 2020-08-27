@@ -189,6 +189,35 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#Labels", func() {
+		when("image exists", func() {
+			var repoName = newTestImageName()
+
+			it.Before(func() {
+				existingImage, err := local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, existingImage.SetLabel("mykey", "myvalue"))
+				h.AssertNil(t, existingImage.SetLabel("other", "data"))
+				h.AssertNil(t, existingImage.Save())
+			})
+
+			it.After(func() {
+				h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
+			})
+
+			it("returns the labels", func() {
+				img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
+				h.AssertNil(t, err)
+
+				labels, err := img.Labels()
+				h.AssertNil(t, err)
+				h.AssertEq(t, labels["mykey"], "myvalue")
+				h.AssertEq(t, labels["other"], "data")
+			})
+		})
+	})
+
 	when("#Label", func() {
 		when("image exists", func() {
 			var repoName = newTestImageName()

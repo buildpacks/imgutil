@@ -196,6 +196,31 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#Labels", func() {
+		when("image exists", func() {
+			var repoName = newTestImageName()
+
+			it.Before(func() {
+				baseImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, baseImage.SetLabel("mykey", "myvalue"))
+				h.AssertNil(t, baseImage.SetLabel("other", "data"))
+				h.AssertNil(t, baseImage.Save())
+			})
+
+			it("returns the labels", func() {
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
+				h.AssertNil(t, err)
+
+				labels, err := img.Labels()
+				h.AssertNil(t, err)
+				h.AssertEq(t, labels["mykey"], "myvalue")
+				h.AssertEq(t, labels["other"], "data")
+			})
+		})
+	})
+
 	when("#Label", func() {
 		when("image exists", func() {
 			it.Before(func() {

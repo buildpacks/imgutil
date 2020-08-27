@@ -67,6 +67,10 @@ func (i *Image) Label(key string) (string, error) {
 	return i.labels[key], nil
 }
 
+func (i *Image) Labels() (map[string]string, error) {
+	return i.labels, nil
+}
+
 func (i *Image) OS() (string, error) {
 	return i.os, nil
 }
