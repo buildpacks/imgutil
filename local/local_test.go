@@ -230,7 +230,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
 			})
 
-			it("returns an empty map", func() {
+			it("returns nil", func() {
 				img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
 				h.AssertNil(t, err)
 

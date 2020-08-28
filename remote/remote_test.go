@@ -229,7 +229,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, baseImage.Save())
 			})
 
-			it("returns an empty map", func() {
+			it("returns nil", func() {
 				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
 				h.AssertNil(t, err)
 
@@ -240,7 +240,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("image NOT exists", func() {
-			it("returns an empty map", func() {
+			it("returns nil", func() {
 				img, err := remote.NewImage(newTestImageName(), authn.DefaultKeychain)
 				h.AssertNil(t, err)
 
