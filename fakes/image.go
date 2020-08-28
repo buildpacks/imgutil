@@ -20,7 +20,7 @@ import (
 
 func NewImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
 	return &Image{
-		labels:        map[string]string{},
+		labels:        nil,
 		env:           map[string]string{},
 		topLayerSha:   topLayerSha,
 		identifier:    identifier,
