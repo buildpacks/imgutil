@@ -105,6 +105,10 @@ func (i *Image) Label(key string) (string, error) {
 	return labels[key], nil
 }
 
+func (i *Image) Labels() (map[string]string, error) {
+	return i.inspect.Config.Labels, nil
+}
+
 func (i *Image) Env(key string) (string, error) {
 	for _, envVar := range i.inspect.Config.Env {
 		parts := strings.Split(envVar, "=")

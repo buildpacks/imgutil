@@ -138,6 +138,14 @@ func (i *Image) Label(key string) (string, error) {
 	return labels[key], nil
 }
 
+func (i *Image) Labels() (map[string]string, error) {
+	cfg, err := i.image.ConfigFile()
+	if err != nil || cfg == nil {
+		return nil, fmt.Errorf("failed to get config file for image '%s'", i.repoName)
+	}
+	return cfg.Config.Labels, nil
+}
+
 func (i *Image) Env(key string) (string, error) {
 	cfg, err := i.image.ConfigFile()
 	if err != nil || cfg == nil {

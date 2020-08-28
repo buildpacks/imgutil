@@ -189,6 +189,69 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#Labels", func() {
+		when("image exists with labels", func() {
+			var repoName = newTestImageName()
+
+			it.Before(func() {
+				existingImage, err := local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, existingImage.SetLabel("mykey", "myvalue"))
+				h.AssertNil(t, existingImage.SetLabel("other", "data"))
+				h.AssertNil(t, existingImage.Save())
+			})
+
+			it.After(func() {
+				h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
+			})
+
+			it("returns all the labels", func() {
+				img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
+				h.AssertNil(t, err)
+
+				labels, err := img.Labels()
+				h.AssertNil(t, err)
+				h.AssertEq(t, labels["mykey"], "myvalue")
+				h.AssertEq(t, labels["other"], "data")
+			})
+		})
+
+		when("image exists with no labels", func() {
+			var repoName = newTestImageName()
+
+			it.Before(func() {
+				existingImage, err := local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
+				h.AssertNil(t, existingImage.Save())
+			})
+
+			it.After(func() {
+				h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
+			})
+
+			it("returns nil", func() {
+				img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
+				h.AssertNil(t, err)
+
+				labels, err := img.Labels()
+				h.AssertNil(t, err)
+				h.AssertEq(t, 0, len(labels))
+			})
+		})
+
+		when("image NOT exists", func() {
+			it("returns an empty map", func() {
+				img, err := local.NewImage(newTestImageName(), dockerClient)
+				h.AssertNil(t, err)
+
+				labels, err := img.Labels()
+				h.AssertNil(t, err)
+				h.AssertEq(t, 0, len(labels))
+			})
+		})
+	})
+
 	when("#Label", func() {
 		when("image exists", func() {
 			var repoName = newTestImageName()

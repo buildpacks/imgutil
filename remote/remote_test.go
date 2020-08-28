@@ -196,6 +196,61 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#Labels", func() {
+		when("image exists with labels", func() {
+			var repoName = newTestImageName()
+
+			it.Before(func() {
+				baseImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, baseImage.SetLabel("mykey", "myvalue"))
+				h.AssertNil(t, baseImage.SetLabel("other", "data"))
+				h.AssertNil(t, baseImage.Save())
+			})
+
+			it("returns all the labels", func() {
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
+				h.AssertNil(t, err)
+
+				labels, err := img.Labels()
+				h.AssertNil(t, err)
+				h.AssertEq(t, labels["mykey"], "myvalue")
+				h.AssertEq(t, labels["other"], "data")
+			})
+		})
+
+		when("image exists with no labels", func() {
+			var repoName = newTestImageName()
+
+			it.Before(func() {
+				baseImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertNil(t, baseImage.Save())
+			})
+
+			it("returns nil", func() {
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
+				h.AssertNil(t, err)
+
+				labels, err := img.Labels()
+				h.AssertNil(t, err)
+				h.AssertEq(t, 0, len(labels))
+			})
+		})
+
+		when("image NOT exists", func() {
+			it("returns nil", func() {
+				img, err := remote.NewImage(newTestImageName(), authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				labels, err := img.Labels()
+				h.AssertNil(t, err)
+				h.AssertEq(t, 0, len(labels))
+			})
+		})
+	})
+
 	when("#Label", func() {
 		when("image exists", func() {
 			it.Before(func() {
