@@ -451,6 +451,50 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#RemoveLabel", func() {
+		when("image exists", func() {
+			var baseImageName = newTestImageName()
+
+			it.Before(func() {
+				baseImage, err := remote.NewImage(baseImageName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertNil(t, baseImage.SetLabel("custom.label", "new-val"))
+				h.AssertNil(t, baseImage.Save())
+			})
+
+			it("removes label on img object", func() {
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(baseImageName))
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, img.RemoveLabel("custom.label"))
+
+				labels, err := img.Labels()
+				h.AssertNil(t, err)
+				_, exists := labels["my.custom.label"]
+				h.AssertEq(t, exists, false)
+			})
+
+			it("saves removal of label", func() {
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(baseImageName))
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, img.RemoveLabel("custom.label"))
+				h.AssertNil(t, img.Save())
+
+				testImg, err := remote.NewImage(
+					"test",
+					authn.DefaultKeychain,
+					remote.FromBaseImage(repoName),
+				)
+				h.AssertNil(t, err)
+
+				remoteLabel, err := testImg.Label("custom.label")
+				h.AssertNil(t, err)
+				h.AssertEq(t, remoteLabel, "")
+			})
+		})
+	})
+
 	when("#SetEnv", func() {
 		it("sets the environment", func() {
 			img, err := remote.NewImage(repoName, authn.DefaultKeychain)

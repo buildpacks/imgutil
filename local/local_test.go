@@ -499,6 +499,60 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#RemoveLabel", func() {
+		var (
+			img           imgutil.Image
+			repoName      = newTestImageName()
+			baseImageName = newTestImageName()
+		)
+
+		it.After(func() {
+			h.AssertNil(t, h.DockerRmi(dockerClient, repoName, baseImageName))
+		})
+
+		when("image exists", func() {
+			it("removes matching label on img object", func() {
+				var err error
+
+				baseImage, err := local.NewImage(baseImageName, dockerClient)
+				h.AssertNil(t, err)
+				h.AssertNil(t, baseImage.SetLabel("my.custom.label", "old-value"))
+				h.AssertNil(t, baseImage.Save())
+
+				img, err = local.NewImage(repoName, dockerClient, local.FromBaseImage(baseImageName))
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, img.RemoveLabel("my.custom.label"))
+				h.AssertNil(t, img.Save())
+
+				labels, err := img.Labels()
+				h.AssertNil(t, err)
+				_, exists := labels["my.custom.label"]
+				h.AssertEq(t, exists, false)
+			})
+
+			it("saves removal of the label", func() {
+				var err error
+
+				baseImage, err := local.NewImage(baseImageName, dockerClient)
+				h.AssertNil(t, err)
+				h.AssertNil(t, baseImage.SetLabel("my.custom.label", "old-value"))
+				h.AssertNil(t, baseImage.Save())
+
+				img, err = local.NewImage(repoName, dockerClient, local.FromBaseImage(baseImageName))
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, img.RemoveLabel("my.custom.label"))
+				h.AssertNil(t, img.Save())
+
+				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
+				h.AssertNil(t, err)
+				_, exists := inspect.Config.Labels["my.custom.label"]
+				h.AssertEq(t, exists, false)
+			})
+		})
+	})
+
 	when("#SetEnv", func() {
 		var repoName = newTestImageName()
 		var skipCleanup bool
