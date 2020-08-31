@@ -68,7 +68,11 @@ func (i *Image) Label(key string) (string, error) {
 }
 
 func (i *Image) Labels() (map[string]string, error) {
-	return i.labels, nil
+	copiedLabels := make(map[string]string)
+	for i, l := range i.labels {
+		copiedLabels[i] = l
+	}
+	return copiedLabels, nil
 }
 
 func (i *Image) OS() (string, error) {
@@ -105,6 +109,11 @@ func (i *Image) SetLabel(k string, v string) error {
 		i.labels = map[string]string{}
 	}
 	i.labels[k] = v
+	return nil
+}
+
+func (i *Image) RemoveLabel(key string) error {
+	delete(i.labels, key)
 	return nil
 }
 

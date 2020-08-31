@@ -106,7 +106,11 @@ func (i *Image) Label(key string) (string, error) {
 }
 
 func (i *Image) Labels() (map[string]string, error) {
-	return i.inspect.Config.Labels, nil
+	copiedLabels := make(map[string]string)
+	for i, l := range i.inspect.Config.Labels {
+		copiedLabels[i] = l
+	}
+	return copiedLabels, nil
 }
 
 func (i *Image) Env(key string) (string, error) {
@@ -235,6 +239,11 @@ func (i *Image) SetLabel(key, val string) error {
 	}
 
 	i.inspect.Config.Labels[key] = val
+	return nil
+}
+
+func (i *Image) RemoveLabel(key string) error {
+	delete(i.inspect.Config.Labels, key)
 	return nil
 }
 

@@ -278,6 +278,17 @@ func (i *Image) SetLabel(key, val string) error {
 	return err
 }
 
+func (i *Image) RemoveLabel(key string) error {
+	cfg, err := i.image.ConfigFile()
+	if err != nil || cfg == nil {
+		return fmt.Errorf("failed to get config file for image '%s'", i.repoName)
+	}
+	config := *cfg.Config.DeepCopy()
+	delete(config.Labels, key)
+	i.image, err = mutate.Config(i.image, config)
+	return err
+}
+
 func (i *Image) SetEnv(key, val string) error {
 	configFile, err := i.image.ConfigFile()
 	if err != nil {
