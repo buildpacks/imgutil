@@ -163,14 +163,15 @@ func (i *Image) AddLayerWithDiffID(path string, diffID string) error {
 }
 
 func shaForFile(path string) (string, error) {
-	file, err := os.Open(path)
+	rc, err := os.Open(path)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to open file")
 	}
+	defer rc.Close()
 
 	hasher := sha256.New()
-	if _, err := io.Copy(hasher, file); err != nil {
-		return "", errors.Wrapf(err, "failed to copy file to hasher")
+	if _, err := io.Copy(hasher, rc); err != nil {
+		return "", errors.Wrapf(err, "failed to copy rc to hasher")
 	}
 
 	return hex.EncodeToString(hasher.Sum(make([]byte, 0, hasher.Size()))), nil
@@ -309,10 +310,13 @@ func (i *Image) FindLayerWithPath(path string) (string, error) {
 	// we iterate backwards over the layer array b/c later layers could replace a file with a given path
 	for idx := len(i.layers) - 1; idx >= 0; idx-- {
 		tarPath := i.layers[idx]
-		r, _ := os.Open(tarPath)
-		defer r.Close()
+		rc, err := os.Open(tarPath)
+		if err != nil {
+			return "", errors.Wrapf(err, "opening layer file '%s'", tarPath)
+		}
+		defer rc.Close()
 
-		tr := tar.NewReader(r)
+		tr := tar.NewReader(rc)
 		for {
 			header, err := tr.Next()
 			if err == io.EOF {
@@ -330,45 +334,52 @@ func (i *Image) FindLayerWithPath(path string) (string, error) {
 }
 
 func (i *Image) tarContents() string {
-	var strBuilder = strings.Builder{}
+	var strBuilder = &strings.Builder{}
 	strBuilder.WriteString("Layers\n-------\n")
 	for idx, tarPath := range i.layers {
-		strBuilder.WriteString(fmt.Sprintf("%s\n", filepath.Base(tarPath)))
-
-		r, _ := os.Open(tarPath)
-		defer r.Close()
-
-		tr := tar.NewReader(r)
-
-		hasFiles := false
-		for {
-			header, err := tr.Next()
-			if err == io.EOF {
-				if !hasFiles {
-					strBuilder.WriteString("  (empty)\n")
-				}
-				break
-			}
-
-			var typ = "F"
-			var extra = ""
-			switch header.Typeflag {
-			case tar.TypeDir:
-				typ = "D"
-			case tar.TypeSymlink:
-				typ = "S"
-				extra = fmt.Sprintf(" -> %s", header.Linkname)
-			}
-
-			strBuilder.WriteString(fmt.Sprintf("  - [%s] %s%s\n", typ, header.Name, extra))
-			hasFiles = true
-		}
-
+		i.writeLayerContents(strBuilder, tarPath)
 		if idx < len(i.layers)-1 {
 			strBuilder.WriteString("\n")
 		}
 	}
 	return strBuilder.String()
+}
+
+func (i *Image) writeLayerContents(strBuilder *strings.Builder, tarPath string) {
+	strBuilder.WriteString(fmt.Sprintf("%s\n", filepath.Base(tarPath)))
+
+	rc, err := os.Open(tarPath)
+	if err != nil {
+		strBuilder.WriteString(fmt.Sprintf("Error reading layer files: %s\n", err))
+		return
+	}
+	defer rc.Close()
+
+	tr := tar.NewReader(rc)
+
+	hasFiles := false
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			if !hasFiles {
+				strBuilder.WriteString("  (empty)\n")
+			}
+			break
+		}
+
+		var typ = "F"
+		var extra = ""
+		switch header.Typeflag {
+		case tar.TypeDir:
+			typ = "D"
+		case tar.TypeSymlink:
+			typ = "S"
+			extra = fmt.Sprintf(" -> %s", header.Linkname)
+		}
+
+		strBuilder.WriteString(fmt.Sprintf("  - [%s] %s%s\n", typ, header.Name, extra))
+		hasFiles = true
+	}
 }
 
 func (i *Image) NumberOfAddedLayers() int {
