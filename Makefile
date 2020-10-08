@@ -20,5 +20,20 @@ lint: install-golangci-lint
 	@echo "> Linting code..."
 	@golangci-lint run -c golangci.yaml
 
-test: format lint
+generate: build-bcdhive-generator
+ifneq ($(OS),Windows_NT)
+	$(GOCMD) generate ./...
+else
+	@echo "> Cannot generate on Windows"
+endif
+
+build-bcdhive-generator:
+ifneq ($(OS),Windows_NT)
+	@echo "> Building bcdhive-generator in Docker"
+	docker build tools/bcdhive_generator --tag bcdhive-generator
+else
+	@echo "> Cannot generate on Windows"
+endif
+
+test: generate format lint
 	$(GOCMD) test -parallel=1 -count=1 -v ./...

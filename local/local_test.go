@@ -1080,7 +1080,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				repoName,
 				dockerClient,
 				local.FromBaseImage(repoName),
-				local.WithPreviousImage(repoName),
 			)
 			h.AssertNil(t, err)
 
