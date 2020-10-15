@@ -243,7 +243,9 @@ func (i *Image) SetLabel(key, val string) error {
 }
 
 func (i *Image) SetOS(osVal string) error {
-	i.inspect.Os = osVal
+	if osVal != i.inspect.Os {
+		return fmt.Errorf(`invalid os: must match the daemon: "%s"`, i.inspect.Os)
+	}
 	return nil
 }
 
