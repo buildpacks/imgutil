@@ -1,6 +1,6 @@
 # Go parameters
 GOCMD?=go
-GO_VERSION=$(subst go,,$(word 3, $(shell go version)))  # parses "go version go1.15 darwin/amd64"
+GO_VERSION=$(shell go list -m -f "{{.GoVersion}}")
 PACKAGE_BASE=github.com/buildpacks/imgutil
 
 all: test
