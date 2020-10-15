@@ -242,6 +242,23 @@ func (i *Image) SetLabel(key, val string) error {
 	return nil
 }
 
+func (i *Image) SetOS(osVal string) error {
+	if osVal != i.inspect.Os {
+		return fmt.Errorf(`invalid os: must match the daemon: "%s"`, i.inspect.Os)
+	}
+	return nil
+}
+
+func (i *Image) SetOSVersion(osVersion string) error {
+	i.inspect.OsVersion = osVersion
+	return nil
+}
+
+func (i *Image) SetArchitecture(architecture string) error {
+	i.inspect.Architecture = architecture
+	return nil
+}
+
 func (i *Image) RemoveLabel(key string) error {
 	delete(i.inspect.Config.Labels, key)
 	return nil

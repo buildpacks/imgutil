@@ -706,6 +706,59 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#SetOS", func() {
+		var repoName = newTestImageName()
+
+		it.After(func() {
+			h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
+		})
+
+		it("allows noop sets for values that match the daemon", func() {
+			img, err := local.NewImage(repoName, dockerClient)
+			h.AssertNil(t, err)
+
+			err = img.SetOS("fakeos")
+			h.AssertError(t, err, "invalid os: must match the daemon")
+
+			err = img.SetOS(daemonOS)
+			h.AssertNil(t, err)
+
+			h.AssertNil(t, img.Save())
+
+			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
+			h.AssertNil(t, err)
+
+			h.AssertEq(t, inspect.Os, daemonOS)
+		})
+	})
+
+	when("#SetOSVersion #SetArchitecture", func() {
+		var repoName = newTestImageName()
+
+		it.After(func() {
+			h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
+		})
+
+		it("sets the os.version/arch", func() {
+			img, err := local.NewImage(repoName, dockerClient)
+			h.AssertNil(t, err)
+
+			err = img.SetOSVersion("1.2.3.4")
+			h.AssertNil(t, err)
+
+			err = img.SetArchitecture("arm64")
+			h.AssertNil(t, err)
+
+			h.AssertNil(t, img.Save())
+
+			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
+			h.AssertNil(t, err)
+
+			h.AssertEq(t, inspect.OsVersion, "1.2.3.4")
+			h.AssertEq(t, inspect.Architecture, "arm64")
+		})
+	})
+
 	when("#Rebase", func() {
 		when("image exists", func() {
 			var (

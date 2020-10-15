@@ -612,6 +612,27 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#SetOS #SetOSVersion #SetArchitecture", func() {
+		it("sets the os/arch", func() {
+			img, err := remote.NewImage(repoName, authn.DefaultKeychain)
+			h.AssertNil(t, err)
+
+			err = img.SetOS("foobaros")
+			h.AssertNil(t, err)
+			err = img.SetOSVersion("1.2.3.4")
+			h.AssertNil(t, err)
+			err = img.SetArchitecture("arm64")
+			h.AssertNil(t, err)
+
+			h.AssertNil(t, img.Save())
+
+			configFile := h.FetchManifestImageConfigFile(t, repoName)
+			h.AssertEq(t, configFile.OS, "foobaros")
+			h.AssertEq(t, configFile.OSVersion, "1.2.3.4")
+			h.AssertEq(t, configFile.Architecture, "arm64")
+		})
+	})
+
 	when("#Rebase", func() {
 		when("image exists", func() {
 			var oldBase, newBase, oldTopLayerDiffID string

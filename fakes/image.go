@@ -80,7 +80,7 @@ func (i *Image) OS() (string, error) {
 }
 
 func (i *Image) OSVersion() (string, error) {
-	return i.os, nil
+	return i.osVersion, nil
 }
 
 func (i *Image) Architecture() (string, error) {
@@ -119,6 +119,21 @@ func (i *Image) RemoveLabel(key string) error {
 
 func (i *Image) SetEnv(k string, v string) error {
 	i.env[k] = v
+	return nil
+}
+
+func (i *Image) SetOS(o string) error {
+	i.os = o
+	return nil
+}
+
+func (i *Image) SetOSVersion(v string) error {
+	i.osVersion = v
+	return nil
+}
+
+func (i *Image) SetArchitecture(a string) error {
+	i.architecture = a
 	return nil
 }
 
@@ -266,12 +281,6 @@ func (i *Image) Found() bool {
 
 func (i *Image) SetIdentifier(identifier imgutil.Identifier) {
 	i.identifier = identifier
-}
-
-func (i *Image) SetPlatform(os, osVersion, architecture string) {
-	i.os = os
-	i.osVersion = osVersion
-	i.architecture = architecture
 }
 
 func (i *Image) Cleanup() error {
