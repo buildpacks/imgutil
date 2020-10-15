@@ -2,11 +2,8 @@ package testhelpers
 
 import (
 	"archive/tar"
-	"bytes"
-	"compress/gzip"
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -14,12 +11,13 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"path"
 	"regexp"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/buildpacks/imgutil/layer"
 
 	dockertypes "github.com/docker/docker/api/types"
 	dockercli "github.com/docker/docker/client"
@@ -222,18 +220,40 @@ func CreateSingleFileTarReader(path, txt string) io.ReadCloser {
 	pr, pw := io.Pipe()
 
 	go func() {
-		var err error
-		defer func() {
-			pw.CloseWithError(err)
-		}()
-
+		// Use the regular tar.Writer, as this isn't a layer tar.
 		tw := tar.NewWriter(pw)
-		defer tw.Close()
 
-		err = writeTarSingleFileLinux(tw, path, txt) // Use the Linux writer, as this isn't a layer tar.
+		if err := tw.WriteHeader(&tar.Header{Name: path, Size: int64(len(txt)), Mode: 0644}); err != nil {
+			pw.CloseWithError(err)
+		}
+
+		if _, err := tw.Write([]byte(txt)); err != nil {
+			pw.CloseWithError(err)
+		}
+
+		if err := tw.Close(); err != nil {
+			pw.CloseWithError(err)
+		}
+
+		if err := pw.Close(); err != nil {
+			pw.CloseWithError(err)
+		}
 	}()
 
 	return pr
+}
+
+type layerWriter interface {
+	WriteHeader(*tar.Header) error
+	Write([]byte) (int, error)
+	Close() error
+}
+
+func getLayerWriter(osType string, file *os.File) layerWriter {
+	if osType == "windows" {
+		return layer.NewWindowsWriter(file)
+	}
+	return tar.NewWriter(file)
 }
 
 func CreateSingleFileLayerTar(layerPath, txt, osType string) (string, error) {
@@ -243,116 +263,35 @@ func CreateSingleFileLayerTar(layerPath, txt, osType string) (string, error) {
 	}
 	defer tarFile.Close()
 
-	tw := tar.NewWriter(tarFile)
-	defer tw.Close()
+	tw := getLayerWriter(osType, tarFile)
 
-	// regular Linux layer
-	writeFunc := writeTarSingleFileLinux
-	if osType == "windows" {
-		// regular Windows layer
-		writeFunc = writeTarSingleFileWindows
+	if err := tw.WriteHeader(&tar.Header{Name: layerPath, Size: int64(len(txt)), Mode: 0644}); err != nil {
+		return "", err
 	}
 
-	err = writeFunc(tw, layerPath, txt)
-	if err != nil {
+	if _, err := tw.Write([]byte(txt)); err != nil {
+		return "", err
+	}
+
+	if err := tw.Close(); err != nil {
 		return "", err
 	}
 
 	return tarFile.Name(), nil
 }
 
-func writeTarSingleFileLinux(tw *tar.Writer, layerPath, txt string) error {
-	if err := tw.WriteHeader(&tar.Header{Name: layerPath, Size: int64(len(txt)), Mode: 0644}); err != nil {
-		return err
-	}
-
-	if _, err := tw.Write([]byte(txt)); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// WindowsBaseLayer returns a minimal windows base layer.
-// This base layer cannot use for running but can be used for saving to a Windows daemon and container creation.
-// Windows image layers must follow this pattern¹:
-// - base layer² (always required; tar file with relative paths without "/" prefix; all parent directories require own tar entries)
-//   \-> Files/Windows/System32/config/DEFAULT   (file must exist but can be empty)
-//   \-> Files/Windows/System32/config/SAM       (file must exist but can be empty)
-//   \-> Files/Windows/System32/config/SECURITY  (file must exist but can be empty)
-//   \-> Files/Windows/System32/config/SOFTWARE  (file must exist but can be empty)
-//   \-> Files/Windows/System32/config/SYSTEM    (file must exist but can be empty)
-//   \-> UtilityVM/Files/EFI/Microsoft/Boot/BCD   (file must exist and a valid BCD format - via `bcdedit` tool as below)
-// - normal or top layer (optional; tar file with relative paths without "/" prefix; all parent directories require own tar entries)
-//   \-> Files/                   (required directory entry)
-//   \-> Files/mystuff.exe        (optional container filesystem files - C:\mystuff.exe)
-//   \-> Hives/                   (required directory entry)
-//   \-> Hives/DefaultUser_Delta  (optional Windows reg hive delta; BCD format - HKEY_USERS\.DEFAULT additional content)
-//   \-> Hives/Sam_Delta          (optional Windows reg hive delta; BCD format - HKEY_LOCAL_MACHINE\SAM additional content)
-//   \-> Hives/Security_Delta     (optional Windows reg hive delta; BCD format - HKEY_LOCAL_MACHINE\SECURITY additional content)
-//   \-> Hives/Software_Delta     (optional Windows reg hive delta; BCD format - HKEY_LOCAL_MACHINE\SOFTWARE additional content)
-//   \-> Hives/System_Delta       (optional Windows reg hive delta; BCD format - HKEY_LOCAL_MACHINE\SYSTEM additional content)
-// 1. This was all discovered experimentally and should be considered an undocumented API, subject to change when the Windows Daemon internals change
-// 2. There are many other files in an "real" base layer but this is the minimum set which a Daemon can store and use to create an container
 func WindowsBaseLayer(t *testing.T) string {
 	tarFile, err := ioutil.TempFile("", "windows-base-layer.tar")
 	AssertNil(t, err)
+	defer tarFile.Close()
 
-	tw := tar.NewWriter(tarFile)
+	baseLayer, err := layer.WindowsBaseLayer()
+	AssertNil(t, err)
 
-	//Valid BCD file required, containing Windows Boot Manager and Windows Boot Loader sections
-	//Note: Gzip/Base64 encoded only to inline the binary BCD file here
-	//CMD: `bcdedit /createstore c:\output-bcd & bcdedit /create {6a6c1f1b-59d4-11ea-9438-9402e6abd998} /d buildpacks.io /application osloader /store c:\output-bcd & bcdedit /create {bootmgr} /store c:\output-bcd & bcdedit /set {bootmgr} default {6a6c1f1b-59d4-11ea-9438-9402e6abd998} /store c:\output-bcd & bcdedit /enum all /store c:\output-bcd`
-	//BASH: `gzip --stdout --best output-bcd | base64`
-	bcdGzipBase64 := "H4sIABeDWF4CA+1YTWgTQRR+m2zSFItGkaJQcKXgyZX8bNKklxatUvyJoh4qKjS7O7GxzQ9Jai210JtFQXrUW4/e2ostCF4EoSCCF6HHQi9FWsxJepH43s5us02XYlFBcL7l7U7evHnzzZtvoJ0Ke5A7BABkoU/f3qxvfZEkbPuBg9oKNcK8fQ/68LkHBvTiuwTjUIOy9VZBR68J++NZ/sXU/J2vR99d/thxdzOz0PqbYp63+CqFWuH7wg+LGwj8MfRuvnovqiAgICAgICAgICAgIPB/YETPF8H+/96Bcw9A7flGo1EcPQvrRVginw99Q6cAfHbsEDYwpEFt+s7Y306PuTrQMmziVq1UYTdLpRr5HmNsdRSg38+N8o5Z9w7yzCDlt8ceB+rT7HlPQB8cAYn/CND9hOLjUZaf3xIEjlGelhiJX2wE7gOfy7lQeG2tU4Gt7vZlZ50KNNd5I7B7ncSVvlc91tmGdl1/yIxaFbYxph4EmLXzq/2nd/KHpGZ+RfbO71XHM2hTyWzSiOaiuppIm5oajbKsmtbiKXxFYiyZ1c10OjUNUMccZZxkGDkMsKpBfBS/s68KPHlbX3Kv10HDBvnXkKezr06/Yu0CB90dUe5KvlzLl7icNjB2LOeDbYn30VqpJmvofzTaZo2d8/H6k11hk5lsgQH1n4cLMACRlofDi/eItJc3ueoS15SbdwhN3od33eItQQqDorFIhPOVacyMH5SwbPO9PVlmgy79Un3I2n9Rvych+Ff0+6Grc9ldF6c/7PfWV9hDX1Sji2OswIq1qrOPiz5eqxU/7/Oab8XvvQ+f5b37cBityzUf1RqhOfqgvkW5qQ+bj6UPHcYhj1U2oQxZMGAUqnAOPSWMI33Pyc3z5j7P7vM2GDzgeUubLJtKxgw1YZimqrGeiJo1jKiai8f0uKaZWk86Md3UPdWezuiqzMd66XZV9q7XRuDgunXr1AfhXToFuy4rgaZOup82dvFwdLIW/D2djAQ4t3qA961avMIWL8leA30v5SuFiWyFXSuZ+VyemV68KIdXfYYlbz1lXLxicUtPcec8zwa5z9EXxYbb9uqLeExBEnWVRGVFIYemgwoJSKPeNGxF8WHYr6JHgzik7FYEYuinkTpGpvFJwfQO/5ch8beGgICAgICAwL+BnwAgqcMAIAAA"
-	bcdGzip, _ := base64.StdEncoding.DecodeString(bcdGzipBase64)
-	bcdReader, _ := gzip.NewReader(bytes.NewBuffer(bcdGzip))
-	bcdBytes, _ := ioutil.ReadAll(bcdReader)
-
-	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "Files", Typeflag: tar.TypeDir}))
-	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "Files/Windows", Typeflag: tar.TypeDir}))
-	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32", Typeflag: tar.TypeDir}))
-	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config", Typeflag: tar.TypeDir}))
-
-	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "UtilityVM", Typeflag: tar.TypeDir}))
-	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files", Typeflag: tar.TypeDir}))
-	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files/EFI", Typeflag: tar.TypeDir}))
-	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files/EFI/Microsoft", Typeflag: tar.TypeDir}))
-	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files/EFI/Microsoft/Boot", Typeflag: tar.TypeDir}))
-
-	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/DEFAULT", Size: 0, Mode: 0644}))
-	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/SAM", Size: 0, Mode: 0644}))
-	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/SECURITY", Size: 0, Mode: 0644}))
-	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/SOFTWARE", Size: 0, Mode: 0644}))
-	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "Files/Windows/System32/config/SYSTEM", Size: 0, Mode: 0644}))
-
-	AssertNil(t, tw.WriteHeader(&tar.Header{Name: "UtilityVM/Files/EFI/Microsoft/Boot/BCD", Size: int64(len(bcdBytes)), Mode: 0644}))
-	_, err = tw.Write(bcdBytes)
+	_, err = io.Copy(tarFile, baseLayer)
 	AssertNil(t, err)
 
 	return tarFile.Name()
-}
-
-func writeTarSingleFileWindows(tw *tar.Writer, containerPath, txt string) error {
-	// root Windows layer directories
-	if err := tw.WriteHeader(&tar.Header{Name: "Files", Typeflag: tar.TypeDir}); err != nil {
-		return err
-	}
-	if err := tw.WriteHeader(&tar.Header{Name: "Hives", Typeflag: tar.TypeDir}); err != nil {
-		return err
-	}
-
-	// prepend file entries with "Files"
-	layerPath := path.Join("Files", containerPath)
-	if err := tw.WriteHeader(&tar.Header{Name: layerPath, Size: int64(len(txt)), Mode: 0644}); err != nil {
-		return err
-	}
-
-	if _, err := tw.Write([]byte(txt)); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func FetchManifestLayers(t *testing.T, repoName string) []string {
