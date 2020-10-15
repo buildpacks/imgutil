@@ -274,7 +274,7 @@ func CreateSingleFileLayerTar(layerPath, txt, osType string) (string, error) {
 	}
 
 	if err := tw.Close(); err != nil {
-		return "", nil
+		return "", err
 	}
 
 	return tarFile.Name(), nil
@@ -283,14 +283,13 @@ func CreateSingleFileLayerTar(layerPath, txt, osType string) (string, error) {
 func WindowsBaseLayer(t *testing.T) string {
 	tarFile, err := ioutil.TempFile("", "windows-base-layer.tar")
 	AssertNil(t, err)
+	defer tarFile.Close()
 
 	baseLayer, err := layer.WindowsBaseLayer()
 	AssertNil(t, err)
 
 	_, err = io.Copy(tarFile, baseLayer)
 	AssertNil(t, err)
-
-	AssertNil(t, tarFile.Close())
 
 	return tarFile.Name()
 }
