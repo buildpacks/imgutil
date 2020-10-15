@@ -220,20 +220,22 @@ func CreateSingleFileTarReader(path, txt string) io.ReadCloser {
 	pr, pw := io.Pipe()
 
 	go func() {
-		var err error
-		defer func() {
-			pw.CloseWithError(err)
-		}()
-
-		// Use the Linux writer, as this isn't a layer tar.
+		// Use the regular tar.Writer, as this isn't a layer tar.
 		tw := tar.NewWriter(pw)
-		defer tw.Close()
 
 		if err := tw.WriteHeader(&tar.Header{Name: path, Size: int64(len(txt)), Mode: 0644}); err != nil {
 			pw.CloseWithError(err)
 		}
 
 		if _, err := tw.Write([]byte(txt)); err != nil {
+			pw.CloseWithError(err)
+		}
+
+		if err := tw.Close(); err != nil {
+			pw.CloseWithError(err)
+		}
+
+		if err := pw.Close(); err != nil {
 			pw.CloseWithError(err)
 		}
 	}()
@@ -262,7 +264,6 @@ func CreateSingleFileLayerTar(layerPath, txt, osType string) (string, error) {
 	defer tarFile.Close()
 
 	tw := getLayerWriter(osType, tarFile)
-	defer tw.Close()
 
 	if err := tw.WriteHeader(&tar.Header{Name: layerPath, Size: int64(len(txt)), Mode: 0644}); err != nil {
 		return "", err
@@ -272,21 +273,24 @@ func CreateSingleFileLayerTar(layerPath, txt, osType string) (string, error) {
 		return "", err
 	}
 
+	if err := tw.Close(); err != nil {
+		return "", nil
+	}
+
 	return tarFile.Name(), nil
 }
 
 func WindowsBaseLayer(t *testing.T) string {
 	tarFile, err := ioutil.TempFile("", "windows-base-layer.tar")
 	AssertNil(t, err)
-	AssertNil(t, tarFile.Close())
 
 	baseLayer, err := layer.WindowsBaseLayer()
 	AssertNil(t, err)
 
-	baseLayerBytes, err := ioutil.ReadAll(baseLayer)
+	_, err = io.Copy(tarFile, baseLayer)
 	AssertNil(t, err)
 
-	AssertNil(t, ioutil.WriteFile(tarFile.Name(), baseLayerBytes, 0666))
+	AssertNil(t, tarFile.Close())
 
 	return tarFile.Name()
 }

@@ -28,7 +28,6 @@ func WindowsBaseLayer() (io.Reader, error) {
 	layerBuffer := &bytes.Buffer{}
 	tw := tar.NewWriter(layerBuffer)
 
-	_ = bcdBytes
 	if err := tw.WriteHeader(&tar.Header{Name: "UtilityVM", Typeflag: tar.TypeDir}); err != nil {
 		return nil, err
 	}
