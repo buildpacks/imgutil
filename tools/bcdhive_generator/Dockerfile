@@ -1,4 +1,5 @@
-FROM golang:1.15-buster
+ARG go_version
+FROM golang:${go_version}-buster
 
 RUN apt update \
     && apt install -y libhivex-dev libhivex-bin libwin-hivex-perl
