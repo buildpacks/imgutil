@@ -402,7 +402,7 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 		return types.ImageInspect{}, err
 	}
 
-	//returns valid 'name:tag' appending 'latest', if missing tag
+	// returns valid 'name:tag' appending 'latest', if missing tag
 	repoName := t.Name()
 
 	pr, pw := io.Pipe()
@@ -414,7 +414,7 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 			return
 		}
 
-		//only return response error after response is drained and closed
+		// only return response error after response is drained and closed
 		responseErr := checkResponseError(res.Body)
 		drainCloseErr := ensureReaderClosed(res.Body)
 		if responseErr != nil {
