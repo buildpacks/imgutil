@@ -79,7 +79,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 
 				h.AssertEq(t, inspect.Os, daemonInfo.OSType)
-				h.AssertEq(t, inspect.OsVersion, daemonInfo.OSVersion)
 				h.AssertEq(t, inspect.Architecture, "amd64")
 				h.AssertEq(t, inspect.RootFS.Type, "layers")
 			})

@@ -685,7 +685,6 @@ func defaultInspect(docker client.CommonAPIClient) (types.ImageInspect, error) {
 
 	return types.ImageInspect{
 		Os:           daemonInfo.OSType,
-		OsVersion:    daemonInfo.OSVersion,
 		Architecture: "amd64",
 		Config:       &container.Config{},
 	}, nil
