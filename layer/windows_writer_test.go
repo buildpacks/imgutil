@@ -162,9 +162,9 @@ func testWindowsWriter(t *testing.T, when spec.G, it spec.S) {
 
 					tr := tar.NewReader(f)
 
-					tr.Next() //Files
-					tr.Next() //Hives
-					tr.Next() //Files/cnb
+					tr.Next() // Files
+					tr.Next() // Hives
+					tr.Next() // Files/cnb
 					th, err := tr.Next()
 					h.AssertNil(t, err)
 					h.AssertEq(t, th.Name, "Files/cnb/my-file")
@@ -196,9 +196,9 @@ func testWindowsWriter(t *testing.T, when spec.G, it spec.S) {
 
 					tr := tar.NewReader(f)
 
-					tr.Next() //Files
-					tr.Next() //Hives
-					tr.Next() //Files/cnb
+					tr.Next() // Files
+					tr.Next() // Hives
+					tr.Next() // Files/cnb
 					th, err := tr.Next()
 					h.AssertNil(t, err)
 					h.AssertEq(t, th.Name, "Files/cnb/my-file")
@@ -228,8 +228,8 @@ func testWindowsWriter(t *testing.T, when spec.G, it spec.S) {
 
 					tr := tar.NewReader(f)
 
-					tr.Next() //Files
-					tr.Next() //Hives
+					tr.Next() // Files
+					tr.Next() // Hives
 					th, err := tr.Next()
 					h.AssertNil(t, err)
 					h.AssertEq(t, th.Name, "Files/my-file")
