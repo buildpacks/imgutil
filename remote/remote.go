@@ -15,7 +15,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
-	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
@@ -236,7 +235,11 @@ func (i *Image) Rebase(baseTopLayer string, newBase imgutil.Image) error {
 		return errors.New("expected new base to be a remote image")
 	}
 
-	newImage, err := mutate.Rebase(i.image, &subImage{img: i.image, topDiffID: baseTopLayer}, newBaseRemote.image)
+	oldBase, err := subImage(i.image, baseTopLayer)
+	if err != nil {
+		return errors.Wrap(err, "failed to determine old base history and layers")
+	}
+	newImage, err := mutate.Rebase(i.image, oldBase, newBaseRemote.image)
 	if err != nil {
 		return errors.Wrap(err, "rebase")
 	}
@@ -518,35 +521,48 @@ func (i *Image) Delete() error {
 	return remote.Delete(ref, remote.WithAuth(auth))
 }
 
-type subImage struct {
-	img       v1.Image
-	topDiffID string
-}
-
-func (si *subImage) Layers() ([]v1.Layer, error) {
-	all, err := si.img.Layers()
+func subImage(img v1.Image, topDiffID string) (v1.Image, error) {
+	layers, err := img.Layers()
 	if err != nil {
 		return nil, err
 	}
-	for i, l := range all {
+	cf, err := img.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+	adds, err := oldBaseLayers(cf.History, layers, topDiffID)
+	if err != nil {
+		return nil, err
+	}
+
+	return mutate.Append(empty.Image, adds...)
+}
+
+func oldBaseLayers(history []v1.History, layers []v1.Layer, topLayerDiffID string) ([]mutate.Addendum, error) {
+	var adds []mutate.Addendum
+	var historyIdx int
+	for i, l := range layers {
 		d, err := l.DiffID()
 		if err != nil {
 			return nil, err
 		}
-		if d.String() == si.topDiffID {
-			return all[0 : i+1], nil
+		add := mutate.Addendum{Layer: layers[i]}
+		if len(history) > historyIdx {
+			for _, h := range history[historyIdx:] {
+				historyIdx++
+				if !h.EmptyLayer {
+					// adds layer associated history
+					add.History = h
+					break
+				}
+				// add history that is not explicitly associated with a layer
+				adds = append(adds, mutate.Addendum{History: h})
+			}
+		}
+		adds = append(adds, add)
+		if d.String() == topLayerDiffID {
+			break
 		}
 	}
-	return nil, errors.New("could not find base layer in image")
+	return adds, nil
 }
-func (si *subImage) ConfigFile() (*v1.ConfigFile, error)     { return si.img.ConfigFile() }
-func (si *subImage) BlobSet() (map[v1.Hash]struct{}, error)  { panic("Not Implemented") }
-func (si *subImage) MediaType() (types.MediaType, error)     { panic("Not Implemented") }
-func (si *subImage) ConfigName() (v1.Hash, error)            { panic("Not Implemented") }
-func (si *subImage) RawConfigFile() ([]byte, error)          { panic("Not Implemented") }
-func (si *subImage) Digest() (v1.Hash, error)                { panic("Not Implemented") }
-func (si *subImage) Manifest() (*v1.Manifest, error)         { panic("Not Implemented") }
-func (si *subImage) RawManifest() ([]byte, error)            { panic("Not Implemented") }
-func (si *subImage) LayerByDigest(v1.Hash) (v1.Layer, error) { panic("Not Implemented") }
-func (si *subImage) LayerByDiffID(v1.Hash) (v1.Layer, error) { panic("Not Implemented") }
-func (si *subImage) Size() (int64, error)                    { panic("Not Implemented") }
