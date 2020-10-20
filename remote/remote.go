@@ -197,7 +197,7 @@ func (i *Image) Found() bool {
 	if err != nil {
 		return false
 	}
-	_, err = remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport))
+	_, err = remote.Head(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport))
 	return err == nil
 }
 
@@ -539,10 +539,10 @@ func (si *subImage) Layers() ([]v1.Layer, error) {
 	}
 	return nil, errors.New("could not find base layer in image")
 }
+func (si *subImage) ConfigFile() (*v1.ConfigFile, error)     { return si.img.ConfigFile() }
 func (si *subImage) BlobSet() (map[v1.Hash]struct{}, error)  { panic("Not Implemented") }
 func (si *subImage) MediaType() (types.MediaType, error)     { panic("Not Implemented") }
 func (si *subImage) ConfigName() (v1.Hash, error)            { panic("Not Implemented") }
-func (si *subImage) ConfigFile() (*v1.ConfigFile, error)     { panic("Not Implemented") }
 func (si *subImage) RawConfigFile() ([]byte, error)          { panic("Not Implemented") }
 func (si *subImage) Digest() (v1.Hash, error)                { panic("Not Implemented") }
 func (si *subImage) Manifest() (*v1.Manifest, error)         { panic("Not Implemented") }
