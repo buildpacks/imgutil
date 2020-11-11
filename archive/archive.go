@@ -184,7 +184,7 @@ func WriteDirToTar(tw TarWriter, srcDir, basePath string, uid, gid int, mode int
 				return err
 			}
 
-			// Ensure that symlinks have Linux link names, independent of source OS
+			// Ensure that symlinks have Linux link names (only required by Symlinks), independent of source OS
 			header, err = tar.FileInfoHeader(fi, filepath.ToSlash(target))
 			if err != nil {
 				return err
