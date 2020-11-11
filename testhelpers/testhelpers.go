@@ -53,6 +53,35 @@ func AssertNotEq(t *testing.T, v1, v2 interface{}) {
 	}
 }
 
+func SkipIf(t *testing.T, expression bool, reason string) {
+	t.Helper()
+	if expression {
+		t.Skip(reason)
+	}
+}
+
+func AssertTrue(t *testing.T, actual interface{}) {
+	t.Helper()
+	AssertEq(t, actual, true)
+}
+
+func AssertFalse(t *testing.T, actual interface{}) {
+	t.Helper()
+	AssertEq(t, actual, false)
+}
+
+func AssertStringContains(t *testing.T, actual, expected string) {
+	t.Helper()
+	if !strings.Contains(actual, expected) {
+		t.Fatalf(
+			"Expected '%s' to contain '%s'\n\nDiff:%s",
+			actual,
+			expected,
+			cmp.Diff(expected, actual),
+		)
+	}
+}
+
 func AssertContains(t *testing.T, slice []string, elements ...string) {
 	t.Helper()
 
