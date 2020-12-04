@@ -143,10 +143,12 @@ func Eventually(t *testing.T, test func() bool, every time.Duration, timeout tim
 
 func PullIfMissing(t *testing.T, docker dockercli.CommonAPIClient, ref string) {
 	t.Helper()
-	inspect, _, err := docker.ImageInspectWithRaw(context.TODO(), ref)
-	AssertNil(t, err)
-	if inspect.ID != "" {
+	_, _, err := docker.ImageInspectWithRaw(context.TODO(), ref)
+	if err == nil {
 		return
+	}
+	if !dockercli.IsErrNotFound(err) {
+		t.Fatalf("failed inspecting image '%s': %s", ref, err)
 	}
 
 	rc, err := docker.ImagePull(context.Background(), ref, dockertypes.ImagePullOptions{})
