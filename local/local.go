@@ -27,19 +27,12 @@ import (
 )
 
 type Image struct {
-	repoName      string
-	docker        client.CommonAPIClient
-	inspect       types.ImageInspect
-	layerPaths    []string
-	downloadOnce  *sync.Once
-	prevName      string
-	prevImage     *FileSystemLocalImage
-	easyAddLayers []string
-}
-
-type FileSystemLocalImage struct {
-	dir       string
-	layersMap map[string]string
+	repoName         string
+	docker           client.CommonAPIClient
+	inspect          types.ImageInspect
+	layerPaths       []string
+	prevImage        *Image // reused layers will be fetched from prevImage
+	downloadBaseOnce *sync.Once
 }
 
 type ImageOption func(image *Image) (*Image, error)
@@ -50,7 +43,11 @@ func WithPreviousImage(imageName string) ImageOption {
 			return i, err
 		}
 
-		i.prevName = imageName
+		prevImage, err := NewImage(imageName, i.docker, FromBaseImage(imageName))
+		if err != nil {
+			return nil, err
+		}
+		i.prevImage = prevImage
 
 		return i, nil
 	}
@@ -74,7 +71,7 @@ func FromBaseImage(imageName string) ImageOption {
 	}
 }
 
-func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...ImageOption) (imgutil.Image, error) {
+func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...ImageOption) (*Image, error) {
 	var err error
 
 	inspect, err := defaultInspect(dockerClient)
@@ -83,11 +80,11 @@ func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...Image
 	}
 
 	image := &Image{
-		docker:       dockerClient,
-		repoName:     repoName,
-		inspect:      inspect,
-		layerPaths:   make([]string, len(inspect.RootFS.Layers)),
-		downloadOnce: &sync.Once{},
+		docker:           dockerClient,
+		repoName:         repoName,
+		inspect:          inspect,
+		layerPaths:       make([]string, len(inspect.RootFS.Layers)),
+		downloadBaseOnce: &sync.Once{},
 	}
 
 	for _, v := range ops {
@@ -136,26 +133,7 @@ func (i *Image) Architecture() (string, error) {
 }
 
 func (i *Image) Rename(name string) {
-	i.easyAddLayers = nil
-	if prevInspect, _, err := i.docker.ImageInspectWithRaw(context.TODO(), name); err == nil {
-		if i.sameBase(prevInspect) {
-			i.easyAddLayers = prevInspect.RootFS.Layers[len(i.inspect.RootFS.Layers):]
-		}
-	}
-
 	i.repoName = name
-}
-
-func (i *Image) sameBase(prevInspect types.ImageInspect) bool {
-	if len(prevInspect.RootFS.Layers) < len(i.inspect.RootFS.Layers) {
-		return false
-	}
-	for i, baseLayer := range i.inspect.RootFS.Layers {
-		if baseLayer != prevInspect.RootFS.Layers[i] {
-			return false
-		}
-	}
-	return true
 }
 
 func (i *Image) Name() string {
@@ -186,15 +164,20 @@ func (i *Image) Rebase(baseTopLayer string, newBase imgutil.Image) error {
 	ctx := context.Background()
 
 	// FIND TOP LAYER
-	keepLayers := -1
+	var keepLayersIdx int
 	for idx, diffID := range i.inspect.RootFS.Layers {
 		if diffID == baseTopLayer {
-			keepLayers = len(i.inspect.RootFS.Layers) - idx - 1
+			keepLayersIdx = idx + 1
 			break
 		}
 	}
-	if keepLayers == -1 {
+	if keepLayersIdx == 0 {
 		return fmt.Errorf("'%s' not found in '%s' during rebase", baseTopLayer, i.repoName)
+	}
+
+	// DOWNLOAD IMAGE
+	if err := i.downloadImageOnce(); err != nil {
+		return err
 	}
 
 	// SWITCH BASE LAYERS
@@ -202,34 +185,8 @@ func (i *Image) Rebase(baseTopLayer string, newBase imgutil.Image) error {
 	if err != nil {
 		return errors.Wrap(err, "analyze read previous image config")
 	}
-	i.inspect.RootFS.Layers = newBaseInspect.RootFS.Layers
-	i.layerPaths = make([]string, len(i.inspect.RootFS.Layers))
-
-	// DOWNLOAD IMAGE
-	if err := i.downloadImageOnce(i.repoName); err != nil {
-		return err
-	}
-
-	// READ MANIFEST.JSON
-	b, err := ioutil.ReadFile(filepath.Join(i.prevImage.dir, "manifest.json"))
-	if err != nil {
-		return err
-	}
-	var manifest []struct{ Layers []string }
-	if err := json.Unmarshal(b, &manifest); err != nil {
-		return err
-	}
-	if len(manifest) != 1 {
-		return fmt.Errorf("expected 1 image received %d", len(manifest))
-	}
-
-	// ADD EXISTING LAYERS
-	for _, filename := range manifest[0].Layers[(len(manifest[0].Layers) - keepLayers):] {
-		if err := i.AddLayer(filepath.Join(i.prevImage.dir, filename)); err != nil {
-			return err
-		}
-	}
-
+	i.inspect.RootFS.Layers = append(newBaseInspect.RootFS.Layers, i.inspect.RootFS.Layers[keepLayersIdx:]...)
+	i.layerPaths = append(make([]string, len(newBaseInspect.RootFS.Layers)), i.layerPaths[keepLayersIdx:]...)
 	return nil
 }
 
@@ -310,16 +267,20 @@ func (i *Image) TopLayer() (string, error) {
 }
 
 func (i *Image) GetLayer(diffID string) (io.ReadCloser, error) {
-	err := i.downloadImageOnce(i.repoName)
-	if err != nil {
-		return nil, err
+	for l := range i.inspect.RootFS.Layers {
+		if i.inspect.RootFS.Layers[l] != diffID {
+			continue
+		}
+		if i.layerPaths[l] == "" {
+			err := i.downloadImageOnce()
+			if err != nil {
+				return nil, err
+			}
+		}
+		return os.Open(i.layerPaths[l])
 	}
 
-	layerID, ok := i.prevImage.layersMap[diffID]
-	if !ok {
-		return nil, fmt.Errorf("image '%s' does not contain layer with diff ID '%s'", i.repoName, diffID)
-	}
-	return os.Open(filepath.Join(i.prevImage.dir, layerID))
+	return nil, fmt.Errorf("image '%s' does not contain layer with diff ID '%s'", i.repoName, diffID)
 }
 
 func (i *Image) AddLayer(path string) error {
@@ -339,44 +300,47 @@ func (i *Image) AddLayer(path string) error {
 func (i *Image) AddLayerWithDiffID(path, diffID string) error {
 	i.inspect.RootFS.Layers = append(i.inspect.RootFS.Layers, diffID)
 	i.layerPaths = append(i.layerPaths, path)
-	i.easyAddLayers = nil
 	return nil
 }
 
 func (i *Image) ReuseLayer(diffID string) error {
-	if len(i.easyAddLayers) > 0 && i.easyAddLayers[0] == diffID {
-		i.inspect.RootFS.Layers = append(i.inspect.RootFS.Layers, diffID)
-		i.layerPaths = append(i.layerPaths, "")
-		i.easyAddLayers = i.easyAddLayers[1:]
-		return nil
-	}
-
-	if i.prevName == "" {
+	if i.prevImage == nil || !i.prevImage.Found() {
 		return errors.New("no previous image provided to reuse layers from")
 	}
 
-	err := i.downloadImageOnce(i.prevName)
+	err := i.prevImage.downloadImageOnce()
 	if err != nil {
 		return err
 	}
 
-	reuseLayer, ok := i.prevImage.layersMap[diffID]
-	if !ok {
-		return fmt.Errorf("SHA %s was not found in %s", diffID, i.repoName)
+	for l := range i.prevImage.inspect.RootFS.Layers {
+		if i.prevImage.inspect.RootFS.Layers[l] == diffID {
+			return i.AddLayerWithDiffID(i.prevImage.layerPaths[l], diffID)
+		}
 	}
-
-	return i.AddLayer(filepath.Join(i.prevImage.dir, reuseLayer))
+	return fmt.Errorf("SHA %s was not found in %s", diffID, i.prevImage.Name())
 }
 
 func (i *Image) Save(additionalNames ...string) error {
+	// during the first save attempt some layers may be excluded. The docker daemon allows this if the given set
+	// of layers already exists in the daemon in the given order
 	inspect, err := i.doSave()
 	if err != nil {
-		saveErr := imgutil.SaveError{}
-		for _, n := range append([]string{i.Name()}, additionalNames...) {
-			saveErr.Errors = append(saveErr.Errors, imgutil.SaveDiagnostic{ImageName: n, Cause: err})
+		// populate all layer paths and try again without the above performance optimization.
+		if err := i.downloadImageOnce(); err != nil {
+			return err
 		}
-		return saveErr
+
+		inspect, err = i.doSave()
+		if err != nil {
+			saveErr := imgutil.SaveError{}
+			for _, n := range append([]string{i.Name()}, additionalNames...) {
+				saveErr.Errors = append(saveErr.Errors, imgutil.SaveDiagnostic{ImageName: n, Cause: err})
+			}
+			return saveErr
+		}
 	}
+
 	i.inspect = inspect
 
 	var errs []imgutil.SaveDiagnostic
@@ -513,38 +477,41 @@ func (i *Image) Delete() error {
 	return err
 }
 
-func (i *Image) downloadImageOnce(imageName string) error {
+// downloadImageOnce exports the base image from the daemon and populates layerPaths the first time it is called.
+// subsequent calls do nothing.
+func (i *Image) downloadImageOnce() error {
 	var err error
-	i.downloadOnce.Do(func() {
-		var fsimg *FileSystemLocalImage
-		fsimg, err = downloadImage(i.docker, imageName)
-		i.prevImage = fsimg
+	if !i.Found() {
+		return nil
+	}
+	i.downloadBaseOnce.Do(func() {
+		err = i.downloadImage()
 	})
 	return err
 }
 
-func downloadImage(docker client.CommonAPIClient, imageName string) (*FileSystemLocalImage, error) {
+func (i *Image) downloadImage() error {
 	ctx := context.Background()
 
-	imageReader, err := docker.ImageSave(ctx, []string{imageName})
+	imageReader, err := i.docker.ImageSave(ctx, []string{i.inspect.ID})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer ensureReaderClosed(imageReader)
 
 	tmpDir, err := ioutil.TempDir("", "imgutil.local.image.")
 	if err != nil {
-		return nil, errors.Wrap(err, "local reuse-layer create temp dir")
+		return errors.Wrap(err, "local reuse-layer create temp dir")
 	}
 
 	err = untar(imageReader, tmpDir)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	mf, err := os.Open(filepath.Join(tmpDir, "manifest.json"))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer mf.Close()
 
@@ -553,16 +520,16 @@ func downloadImage(docker client.CommonAPIClient, imageName string) (*FileSystem
 		Layers []string
 	}
 	if err := json.NewDecoder(mf).Decode(&manifest); err != nil {
-		return nil, err
+		return err
 	}
 
 	if len(manifest) != 1 {
-		return nil, fmt.Errorf("manifest.json had unexpected number of entries: %d", len(manifest))
+		return fmt.Errorf("manifest.json had unexpected number of entries: %d", len(manifest))
 	}
 
 	df, err := os.Open(filepath.Join(tmpDir, manifest[0].Config))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer df.Close()
 
@@ -573,23 +540,14 @@ func downloadImage(docker client.CommonAPIClient, imageName string) (*FileSystem
 	}
 
 	if err = json.NewDecoder(df).Decode(&details); err != nil {
-		return nil, err
+		return err
 	}
 
-	if len(manifest[0].Layers) != len(details.RootFS.DiffIDs) {
-		return nil, fmt.Errorf("layers and diff IDs do not match, there are %d layers and %d diffIDs", len(manifest[0].Layers), len(details.RootFS.DiffIDs))
+	for l := range details.RootFS.DiffIDs {
+		i.layerPaths[l] = filepath.Join(tmpDir, manifest[0].Layers[l])
 	}
 
-	layersMap := make(map[string]string, len(manifest[0].Layers))
-	for i, diffID := range details.RootFS.DiffIDs {
-		layerID := manifest[0].Layers[i]
-		layersMap[diffID] = layerID
-	}
-
-	return &FileSystemLocalImage{
-		dir:       tmpDir,
-		layersMap: layersMap,
-	}, nil
+	return nil
 }
 
 func addTextToTar(tw *tar.Writer, name string, contents []byte) error {

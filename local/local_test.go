@@ -1171,12 +1171,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 		when("image does NOT exist", func() {
 			it("returns error", func() {
-				image, err := local.NewImage(newTestImageName(), dockerClient)
+				image, err := local.NewImage("not-exist", dockerClient)
 				h.AssertNil(t, err)
 
-				readCloser, err := image.GetLayer(h.RandString(10))
+				readCloser, err := image.GetLayer("some-layer")
 				h.AssertNil(t, readCloser)
-				h.AssertError(t, err, "No such image")
+				h.AssertError(t, err, "image 'not-exist' does not contain layer with diff ID 'some-layer'")
 			})
 		})
 	})
