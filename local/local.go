@@ -45,7 +45,7 @@ func WithPreviousImage(imageName string) ImageOption {
 
 		prevImage, err := NewImage(imageName, i.docker, FromBaseImage(imageName))
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to get previous image '%s'", imageName)
 		}
 		i.prevImage = prevImage
 
@@ -176,7 +176,7 @@ func (i *Image) Rebase(baseTopLayer string, newBase imgutil.Image) error {
 	}
 
 	// DOWNLOAD IMAGE
-	if err := i.downloadImageOnce(); err != nil {
+	if err := i.downloadBaseLayersOnce(); err != nil {
 		return err
 	}
 
@@ -274,8 +274,7 @@ func (i *Image) GetLayer(diffID string) (io.ReadCloser, error) {
 			continue
 		}
 		if i.layerPaths[l] == "" {
-			err := i.downloadImageOnce()
-			if err != nil {
+			if err := i.downloadBaseLayersOnce(); err != nil {
 				return nil, err
 			}
 		}
@@ -306,12 +305,14 @@ func (i *Image) AddLayerWithDiffID(path, diffID string) error {
 }
 
 func (i *Image) ReuseLayer(diffID string) error {
-	if i.prevImage == nil || !i.prevImage.Found() {
-		return errors.New("no previous image provided to reuse layers from")
+	if i.prevImage == nil {
+		return errors.New("failed to reuse layer because no previous image was provided")
+	}
+	if !i.prevImage.Found() {
+		return fmt.Errorf("failed to reuse layer because previous image '%s' was not found in daemon", i.prevImage.repoName)
 	}
 
-	err := i.prevImage.downloadImageOnce()
-	if err != nil {
+	if err := i.prevImage.downloadBaseLayersOnce(); err != nil {
 		return err
 	}
 
@@ -329,7 +330,7 @@ func (i *Image) Save(additionalNames ...string) error {
 	inspect, err := i.doSave()
 	if err != nil {
 		// populate all layer paths and try again without the above performance optimization.
-		if err := i.downloadImageOnce(); err != nil {
+		if err := i.downloadBaseLayersOnce(); err != nil {
 			return err
 		}
 
@@ -342,7 +343,6 @@ func (i *Image) Save(additionalNames ...string) error {
 			return saveErr
 		}
 	}
-
 	i.inspect = inspect
 
 	var errs []imgutil.SaveDiagnostic
@@ -479,31 +479,34 @@ func (i *Image) Delete() error {
 	return err
 }
 
-// downloadImageOnce exports the base image from the daemon and populates layerPaths the first time it is called.
+// downloadBaseLayersOnce exports the base image from the daemon and populates layerPaths the first time it is called.
 // subsequent calls do nothing.
-func (i *Image) downloadImageOnce() error {
+func (i *Image) downloadBaseLayersOnce() error {
 	var err error
 	if !i.Found() {
 		return nil
 	}
 	i.downloadBaseOnce.Do(func() {
-		err = i.downloadImage()
+		err = i.downloadBaseLayers()
 	})
+	if err != nil {
+		return errors.Wrap(err, "failed to fetch base layers")
+	}
 	return err
 }
 
-func (i *Image) downloadImage() error {
+func (i *Image) downloadBaseLayers() error {
 	ctx := context.Background()
 
 	imageReader, err := i.docker.ImageSave(ctx, []string{i.inspect.ID})
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to save base image with ID '%s' from the docker daemon", i.inspect.ID)
 	}
 	defer ensureReaderClosed(imageReader)
 
 	tmpDir, err := ioutil.TempDir("", "imgutil.local.image.")
 	if err != nil {
-		return errors.Wrap(err, "local reuse-layer create temp dir")
+		return errors.Wrap(err, "failed to create temp dir")
 	}
 
 	err = untar(imageReader, tmpDir)
