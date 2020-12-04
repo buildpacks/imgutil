@@ -183,8 +183,10 @@ func (i *Image) Rebase(baseTopLayer string, newBase imgutil.Image) error {
 	// SWITCH BASE LAYERS
 	newBaseInspect, _, err := i.docker.ImageInspectWithRaw(ctx, newBase.Name())
 	if err != nil {
-		return errors.Wrap(err, "analyze read previous image config")
+		return errors.Wrapf(err, "read config for new base image '%s'", newBase)
 	}
+	i.inspect.ID = newBaseInspect.ID
+	i.downloadBaseOnce = &sync.Once{}
 	i.inspect.RootFS.Layers = append(newBaseInspect.RootFS.Layers, i.inspect.RootFS.Layers[keepLayersIdx:]...)
 	i.layerPaths = append(make([]string, len(newBaseInspect.RootFS.Layers)), i.layerPaths[keepLayersIdx:]...)
 	return nil
