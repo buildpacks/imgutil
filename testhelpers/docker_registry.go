@@ -54,7 +54,7 @@ func (r *DockerRegistry) Start(t *testing.T) {
 	AssertNil(t, err)
 
 	registryImageName := registryImageNames[daemonInfo.OSType]
-	AssertNil(t, PullImage(DockerCli(t), registryImageName))
+	PullIfMissing(t, DockerCli(t), registryImageName)
 
 	var htpasswdTar io.ReadCloser
 	registryEnv := []string{"REGISTRY_STORAGE_DELETE_ENABLED=true"}
