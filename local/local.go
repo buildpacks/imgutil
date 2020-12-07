@@ -277,6 +277,9 @@ func (i *Image) GetLayer(diffID string) (io.ReadCloser, error) {
 			if err := i.downloadBaseLayersOnce(); err != nil {
 				return nil, err
 			}
+			if i.layerPaths[l] == "" {
+				return nil, fmt.Errorf("failed to fetch layer '%s' from daemon", diffID)
+			}
 		}
 		return os.Open(i.layerPaths[l])
 	}
@@ -550,6 +553,12 @@ func (i *Image) downloadBaseLayers() error {
 
 	for l := range details.RootFS.DiffIDs {
 		i.layerPaths[l] = filepath.Join(tmpDir, manifest[0].Layers[l])
+	}
+
+	for l := range i.layerPaths {
+		if i.layerPaths[l] == "" {
+			return errors.New("failed to download all base layers from daemon")
+		}
 	}
 
 	return nil
