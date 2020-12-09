@@ -61,7 +61,7 @@ func FromBaseImage(imageName string) ImageOption {
 	}
 }
 
-func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (imgutil.Image, error) {
+func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Image, error) {
 	image, err := emptyImage()
 	if err != nil {
 		return nil, err

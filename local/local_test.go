@@ -55,7 +55,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		daemonOS = daemonInfo.OSType
 		runnableBaseImageName = h.RunnableBaseImage(daemonOS)
 
-		h.AssertNil(t, h.PullImage(dockerClient, runnableBaseImageName))
+		h.PullIfMissing(t, dockerClient, runnableBaseImageName)
 	})
 
 	when("#NewImage", func() {
@@ -155,7 +155,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						expectedOSVersion = "10.0.17763.1040"
 					}
 
-					h.AssertNil(t, h.PullImage(dockerClient, armBaseImageName))
+					h.PullIfMissing(t, dockerClient, armBaseImageName)
 
 					img, err := local.NewImage(newTestImageName(), dockerClient, local.FromBaseImage(armBaseImageName))
 					h.AssertNil(t, err)
@@ -1171,12 +1171,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 		when("image does NOT exist", func() {
 			it("returns error", func() {
-				image, err := local.NewImage(newTestImageName(), dockerClient)
+				image, err := local.NewImage("not-exist", dockerClient)
 				h.AssertNil(t, err)
 
-				readCloser, err := image.GetLayer(h.RandString(10))
+				readCloser, err := image.GetLayer("some-layer")
 				h.AssertNil(t, readCloser)
-				h.AssertError(t, err, "No such image")
+				h.AssertError(t, err, "image 'not-exist' does not contain layer with diff ID 'some-layer'")
 			})
 		})
 	})

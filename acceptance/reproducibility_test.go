@@ -57,8 +57,7 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 		daemonOS := daemonInfo.OSType
 
 		runnableBaseImageName = h.RunnableBaseImage(daemonOS)
-
-		h.AssertNil(t, h.PullImage(dockerClient, runnableBaseImageName))
+		h.PullIfMissing(t, dockerClient, runnableBaseImageName)
 
 		imageName1 = newTestImageName()
 		imageName2 = newTestImageName()
@@ -107,7 +106,6 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	it("local/local", func() {
-		h.AssertNil(t, h.PullImage(dockerClient, runnableBaseImageName))
 		img1, err := local.NewImage(imageName1, dockerClient, local.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img1)
@@ -126,7 +124,6 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 		h.AssertNil(t, err)
 		mutateAndSave(t, img1)
 
-		h.AssertNil(t, h.PullImage(dockerClient, runnableBaseImageName))
 		img2, err := local.NewImage(imageName2, dockerClient, local.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img2)

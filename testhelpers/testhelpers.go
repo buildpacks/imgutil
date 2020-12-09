@@ -141,19 +141,24 @@ func Eventually(t *testing.T, test func() bool, every time.Duration, timeout tim
 	}
 }
 
-func PullImage(dockerCli dockercli.CommonAPIClient, ref string) error {
-	rc, err := dockerCli.ImagePull(context.Background(), ref, dockertypes.ImagePullOptions{})
+func PullIfMissing(t *testing.T, docker dockercli.CommonAPIClient, ref string) {
+	t.Helper()
+	_, _, err := docker.ImageInspectWithRaw(context.TODO(), ref)
+	if err == nil {
+		return
+	}
+	if !dockercli.IsErrNotFound(err) {
+		t.Fatalf("failed inspecting image '%s': %s", ref, err)
+	}
+
+	rc, err := docker.ImagePull(context.Background(), ref, dockertypes.ImagePullOptions{})
 	if err != nil {
 		// Retry
-		rc, err = dockerCli.ImagePull(context.Background(), ref, dockertypes.ImagePullOptions{})
-		if err != nil {
-			return err
-		}
+		rc, err = docker.ImagePull(context.Background(), ref, dockertypes.ImagePullOptions{})
+		AssertNil(t, err)
 	}
-	if _, err := io.Copy(ioutil.Discard, rc); err != nil {
-		return err
-	}
-	return rc.Close()
+	_, err = io.Copy(ioutil.Discard, rc)
+	AssertNil(t, err)
 }
 
 func DockerRmi(dockerCli dockercli.CommonAPIClient, repoNames ...string) error {
