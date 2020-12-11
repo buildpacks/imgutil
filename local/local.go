@@ -623,6 +623,13 @@ func untar(r io.Reader, dest string) error {
 			}
 			fh.Close()
 		case tar.TypeSymlink:
+			_, err := os.Stat(filepath.Dir(path))
+			if os.IsNotExist(err) {
+				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+					return err
+				}
+			}
+
 			if err := os.Symlink(hdr.Linkname, path); err != nil {
 				return err
 			}
