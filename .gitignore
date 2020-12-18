@@ -16,3 +16,5 @@
 
 # Build timestamp
 tools/bcdhive_generator/.build
+
+vendor/
