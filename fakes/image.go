@@ -57,6 +57,7 @@ type Image struct {
 	layerDir      string
 	workingDir    string
 	savedNames    map[string]bool
+	manifestSize  int64
 }
 
 func (i *Image) CreatedAt() (time.Time, error) {
@@ -410,4 +411,12 @@ func (i *Image) SavedNames() []string {
 	}
 
 	return names
+}
+
+func (i *Image) SetManifestSize(size int64) {
+	i.manifestSize = size
+}
+
+func (i *Image) ManifestSize() (int64, error) {
+	return i.manifestSize, nil
 }
