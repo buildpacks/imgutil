@@ -518,6 +518,10 @@ func (i *Image) Delete() error {
 	return remote.Delete(ref, remote.WithAuth(auth))
 }
 
+func (i *Image) ManifestSize() (int64, error) {
+	return i.image.Size()
+}
+
 type subImage struct {
 	img       v1.Image
 	topDiffID string

@@ -59,6 +59,8 @@ type Image interface {
 	OS() (string, error)
 	OSVersion() (string, error)
 	Architecture() (string, error)
+	// ManifestSize returns the size of the manifest. If a manifest doesn't exist, it returns 0.
+	ManifestSize() (int64, error)
 }
 
 type Identifier fmt.Stringer
