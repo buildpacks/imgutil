@@ -10,4 +10,8 @@ require (
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
 )
 
+replace (
+    golang.org/x/sys => golang.org/x/sys v0.0.0-20200523222454-059865788121
+)
+
 go 1.14
