@@ -346,6 +346,60 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#Entrypoint", func() {
+		when("image exists", func() {
+			var repoName = newTestImageName()
+
+			it.Before(func() {
+				existingImage, err := local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, existingImage.SetEntrypoint("entrypoint1", "entrypoint2"))
+				h.AssertNil(t, existingImage.Save())
+			})
+
+			it.After(func() {
+				h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
+			})
+
+			it("returns the entrypoint value", func() {
+				img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
+				h.AssertNil(t, err)
+
+				val, err := img.Entrypoint()
+				h.AssertNil(t, err)
+
+				h.AssertEq(t, val, []string{"entrypoint1", "entrypoint2"})
+			})
+
+			it("returns nil slice for a missing entrypoint", func() {
+				existingImage, err := local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
+				h.AssertNil(t, existingImage.Save())
+
+				img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
+				h.AssertNil(t, err)
+
+				val, err := img.Entrypoint()
+				h.AssertNil(t, err)
+				var expected []string
+				h.AssertEq(t, val, expected)
+			})
+		})
+
+		when("image NOT exists", func() {
+			it("returns nil slice", func() {
+				img, err := local.NewImage(newTestImageName(), dockerClient)
+				h.AssertNil(t, err)
+
+				val, err := img.Entrypoint()
+				h.AssertNil(t, err)
+				var expected []string
+				h.AssertEq(t, val, expected)
+			})
+		})
+	})
+
 	when("#Name", func() {
 		it("always returns the original name", func() {
 			var repoName = newTestImageName()

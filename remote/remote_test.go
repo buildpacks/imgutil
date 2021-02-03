@@ -196,6 +196,55 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#Entrypoint", func() {
+		when("image exists with entrypoint", func() {
+			var repoName = newTestImageName()
+
+			it.Before(func() {
+				baseImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, baseImage.SetEntrypoint("entrypoint1", "entrypoint2"))
+				h.AssertNil(t, baseImage.Save())
+			})
+
+			it("returns the entrypoint value", func() {
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
+				h.AssertNil(t, err)
+
+				val, err := img.Entrypoint()
+				h.AssertNil(t, err)
+				h.AssertEq(t, val, []string{"entrypoint1", "entrypoint2"})
+			})
+
+			it("returns nil slice for a missing entrypoint", func() {
+				baseImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertNil(t, baseImage.Save())
+
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
+				h.AssertNil(t, err)
+
+				val, err := img.Entrypoint()
+				h.AssertNil(t, err)
+				var expected []string
+				h.AssertEq(t, val, expected)
+			})
+		})
+
+		when("image NOT exists", func() {
+			it("returns nil slice", func() {
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				val, err := img.Entrypoint()
+				h.AssertNil(t, err)
+				var expected []string
+				h.AssertEq(t, val, expected)
+			})
+		})
+	})
+
 	when("#Labels", func() {
 		when("image exists with labels", func() {
 			var repoName = newTestImageName()

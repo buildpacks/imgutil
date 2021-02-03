@@ -120,6 +120,10 @@ func (i *Image) Env(key string) (string, error) {
 	return "", nil
 }
 
+func (i *Image) Entrypoint() ([]string, error) {
+	return i.inspect.Config.Entrypoint, nil
+}
+
 func (i *Image) OS() (string, error) {
 	return i.inspect.Os, nil
 }
