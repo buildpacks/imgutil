@@ -34,6 +34,7 @@ type Image interface {
 	SetLabel(string, string) error
 	RemoveLabel(string) error
 	Env(key string) (string, error)
+	Entrypoint() ([]string, error)
 	SetEnv(string, string) error
 	SetEntrypoint(...string) error
 	SetWorkingDir(string) error
