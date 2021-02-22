@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
+
+	"github.com/buildpacks/imgutil/layer"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -24,45 +27,78 @@ import (
 type Image struct {
 	keychain   authn.Keychain
 	repoName   string
+	platform   imgutil.Platform
 	image      v1.Image
 	prevLayers []v1.Layer
 }
 
-type ImageOption func(*Image) (*Image, error)
+type ImageOption struct {
+	fn       func(*Image) (*Image, error)
+	runFirst bool
+}
 
 func WithPreviousImage(imageName string) ImageOption {
-	return func(r *Image) (*Image, error) {
-		var err error
+	return ImageOption{
+		fn: func(r *Image) (*Image, error) {
+			var err error
 
-		prevImage, err := newV1Image(r.keychain, imageName)
-		if err != nil {
-			return nil, err
-		}
+			prevImage, err := newV1Image(r.keychain, imageName, r.platform)
+			if err != nil {
+				return nil, err
+			}
 
-		prevLayers, err := prevImage.Layers()
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get layers for previous image with repo name '%s'", imageName)
-		}
+			prevLayers, err := prevImage.Layers()
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to get layers for previous image with repo name '%s'", imageName)
+			}
 
-		r.prevLayers = prevLayers
-		return r, nil
+			r.prevLayers = prevLayers
+			return r, nil
+		},
 	}
 }
 
 func FromBaseImage(imageName string) ImageOption {
-	return func(r *Image) (*Image, error) {
-		var err error
+	return ImageOption{
+		fn: func(r *Image) (*Image, error) {
+			var err error
 
-		r.image, err = newV1Image(r.keychain, imageName)
-		if err != nil {
-			return nil, err
-		}
-		return r, nil
+			r.image, err = newV1Image(r.keychain, imageName, r.platform)
+			if err != nil {
+				return nil, err
+			}
+			return r, nil
+		},
+	}
+}
+
+func WithPlatform(platform imgutil.Platform) ImageOption {
+	return ImageOption{
+		fn: func(r *Image) (*Image, error) {
+			configFile, err := r.image.ConfigFile()
+			if err != nil {
+				return nil, err
+			}
+
+			configFile.Architecture = platform.Architecture
+			configFile.OS = platform.OS
+			configFile.OSVersion = platform.OSVersion
+
+			r.image, err = mutate.ConfigFile(r.image, configFile)
+			if err != nil {
+				return nil, err
+			}
+
+			r.platform = platform
+
+			return r, nil
+		},
+		runFirst: true,
 	}
 }
 
 func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Image, error) {
-	image, err := emptyImage()
+	image, err := emptyImage(defaultPlatform())
 	if err != nil {
 		return nil, err
 	}
@@ -71,10 +107,37 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 		keychain: keychain,
 		repoName: repoName,
 		image:    image,
+		platform: defaultPlatform(),
 	}
 
+	sort.Slice(ops, func(i, _ int) bool {
+		return ops[i].runFirst
+	})
+
 	for _, op := range ops {
-		ri, err = op(ri)
+		var err error
+
+		ri, err = op.fn(ri)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	imageConfigFile, err := ri.image.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+
+	if imageConfigFile.OS == "windows" && len(imageConfigFile.RootFS.DiffIDs) == 0 {
+		layerBytes, err := layer.WindowsBaseLayer()
+		if err != nil {
+			return nil, err
+		}
+		windowsBaseLayer, err := tarball.LayerFromReader(layerBytes)
+		if err != nil {
+			return nil, err
+		}
+		ri.image, err = mutate.AppendLayers(ri.image, windowsBaseLayer)
 		if err != nil {
 			return nil, err
 		}
@@ -83,19 +146,22 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 	return ri, nil
 }
 
-func newV1Image(keychain authn.Keychain, repoName string) (v1.Image, error) {
+func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platform) (v1.Image, error) {
 	ref, auth, err := referenceForRepoName(keychain, repoName)
 	if err != nil {
 		return nil, err
 	}
 
-	image, err := remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport))
+	image, err := remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport), remote.WithPlatform(v1.Platform(platform)))
 	if err != nil {
 		if transportErr, ok := err.(*transport.Error); ok && len(transportErr.Errors) > 0 {
 			switch transportErr.StatusCode {
 			case http.StatusNotFound, http.StatusUnauthorized:
-				return emptyImage()
+				return emptyImage(platform)
 			}
+		}
+		if strings.Contains(err.Error(), "no child with platform") {
+			return emptyImage(platform)
 		}
 		return nil, fmt.Errorf("connect to repo store '%s': %s", repoName, err.Error())
 	}
@@ -103,16 +169,25 @@ func newV1Image(keychain authn.Keychain, repoName string) (v1.Image, error) {
 	return image, nil
 }
 
-func emptyImage() (v1.Image, error) {
+func emptyImage(platform imgutil.Platform) (v1.Image, error) {
 	cfg := &v1.ConfigFile{
-		OS:           "linux",
-		Architecture: "amd64",
+		Architecture: platform.Architecture,
+		OS:           platform.OS,
+		OSVersion:    platform.OSVersion,
 		RootFS: v1.RootFS{
 			Type:    "layers",
 			DiffIDs: []v1.Hash{},
 		},
 	}
+
 	return mutate.ConfigFile(empty.Image, cfg)
+}
+
+func defaultPlatform() imgutil.Platform {
+	return imgutil.Platform{
+		OS:           "linux",
+		Architecture: "amd64",
+	}
 }
 
 func referenceForRepoName(keychain authn.Keychain, ref string) (name.Reference, authn.Authenticator, error) {

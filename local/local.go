@@ -11,9 +11,12 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/buildpacks/imgutil/layer"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -27,71 +30,130 @@ import (
 )
 
 type Image struct {
-	repoName         string
 	docker           client.CommonAPIClient
+	repoName         string
+	platform         imgutil.Platform
 	inspect          types.ImageInspect
 	layerPaths       []string
 	prevImage        *Image // reused layers will be fetched from prevImage
 	downloadBaseOnce *sync.Once
 }
 
-type ImageOption func(image *Image) (*Image, error)
+type ImageOption struct {
+	fn       func(*Image) (*Image, error)
+	runFirst bool
+}
 
 func WithPreviousImage(imageName string) ImageOption {
-	return func(i *Image) (*Image, error) {
-		if _, err := inspectOptionalImage(i.docker, imageName); err != nil {
-			return i, err
-		}
+	return ImageOption{
+		fn: func(i *Image) (*Image, error) {
+			if _, err := inspectOptionalImage(i.docker, imageName, i.platform); err != nil {
+				return i, err
+			}
 
-		prevImage, err := NewImage(imageName, i.docker, FromBaseImage(imageName))
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get previous image '%s'", imageName)
-		}
-		i.prevImage = prevImage
+			prevImage, err := NewImage(imageName, i.docker, FromBaseImage(imageName))
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to get previous image '%s'", imageName)
+			}
+			i.prevImage = prevImage
 
-		return i, nil
+			return i, nil
+		},
 	}
 }
 
 func FromBaseImage(imageName string) ImageOption {
-	return func(i *Image) (*Image, error) {
-		var (
-			err     error
-			inspect types.ImageInspect
-		)
+	return ImageOption{
+		fn: func(i *Image) (*Image, error) {
+			var (
+				err     error
+				inspect types.ImageInspect
+			)
 
-		if inspect, err = inspectOptionalImage(i.docker, imageName); err != nil {
-			return i, err
-		}
+			if inspect, err = inspectOptionalImage(i.docker, imageName, i.platform); err != nil {
+				return i, err
+			}
 
-		i.inspect = inspect
-		i.layerPaths = make([]string, len(i.inspect.RootFS.Layers))
+			i.inspect = inspect
+			i.layerPaths = make([]string, len(i.inspect.RootFS.Layers))
 
-		return i, nil
+			return i, nil
+		},
+	}
+}
+
+func WithPlatform(platform imgutil.Platform) ImageOption {
+	return ImageOption{
+		fn: func(i *Image) (*Image, error) {
+			if platform.OS != "" && platform.OS != i.inspect.Os {
+				return nil, fmt.Errorf(`invalid os: platform os "%s" must match the daemon os "%s"`, platform.OS, i.inspect.Os)
+			}
+
+			i.inspect.Architecture = platform.Architecture
+			i.inspect.OsVersion = platform.OSVersion
+
+			i.platform = platform
+
+			return i, nil
+		},
+		runFirst: true,
 	}
 }
 
 func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...ImageOption) (*Image, error) {
 	var err error
 
-	inspect, err := defaultInspect(dockerClient)
+	defaultPlatform, err := defaultPlatform(dockerClient)
 	if err != nil {
 		return nil, err
 	}
+
+	inspect := defaultInspect(defaultPlatform)
 
 	image := &Image{
 		docker:           dockerClient,
 		repoName:         repoName,
 		inspect:          inspect,
+		platform:         defaultPlatform,
 		layerPaths:       make([]string, len(inspect.RootFS.Layers)),
 		downloadBaseOnce: &sync.Once{},
 	}
 
-	for _, v := range ops {
-		image, err = v(image)
+	sort.Slice(ops, func(i, _ int) bool {
+		return ops[i].runFirst
+	})
+
+	for _, op := range ops {
+		image, err = op.fn(image)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if image.inspect.Os == "windows" && len(image.inspect.RootFS.Layers) == 0 {
+		layerReader, err := layer.WindowsBaseLayer()
+		if err != nil {
+			return nil, err
+		}
+
+		layerFile, err := ioutil.TempFile("", "imgutil.local.image.windowsbaselayer")
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create temp file")
+		}
+		defer layerFile.Close()
+
+		hasher := sha256.New()
+
+		multiWriter := io.MultiWriter(layerFile, hasher)
+
+		if _, err := io.Copy(multiWriter, layerReader); err != nil {
+			return nil, errors.Wrap(err, "failed to copy base layer")
+		}
+
+		diffID := "sha256:" + hex.EncodeToString(hasher.Sum(nil))
+
+		image.inspect.RootFS.Layers = append(image.inspect.RootFS.Layers, diffID)
+		image.layerPaths = append(image.layerPaths, layerFile.Name())
 	}
 
 	return image, nil
@@ -647,7 +709,7 @@ func untar(r io.Reader, dest string) error {
 	}
 }
 
-func inspectOptionalImage(docker client.CommonAPIClient, imageName string) (types.ImageInspect, error) {
+func inspectOptionalImage(docker client.CommonAPIClient, imageName string, platform imgutil.Platform) (types.ImageInspect, error) {
 	var (
 		err     error
 		inspect types.ImageInspect
@@ -655,7 +717,7 @@ func inspectOptionalImage(docker client.CommonAPIClient, imageName string) (type
 
 	if inspect, _, err = docker.ImageInspectWithRaw(context.Background(), imageName); err != nil {
 		if client.IsErrNotFound(err) {
-			return defaultInspect(docker)
+			return defaultInspect(platform), nil
 		}
 
 		return types.ImageInspect{}, errors.Wrapf(err, "verifying image '%s'", imageName)
@@ -664,16 +726,24 @@ func inspectOptionalImage(docker client.CommonAPIClient, imageName string) (type
 	return inspect, nil
 }
 
-func defaultInspect(docker client.CommonAPIClient) (types.ImageInspect, error) {
-	daemonInfo, err := docker.Info(context.Background())
+func defaultInspect(platform imgutil.Platform) types.ImageInspect {
+	return types.ImageInspect{
+		Os:           platform.OS,
+		Architecture: platform.Architecture,
+		OsVersion:    platform.OSVersion,
+		Config:       &container.Config{},
+	}
+}
+
+func defaultPlatform(dockerClient client.CommonAPIClient) (imgutil.Platform, error) {
+	daemonInfo, err := dockerClient.Info(context.Background())
 	if err != nil {
-		return types.ImageInspect{}, err
+		return imgutil.Platform{}, err
 	}
 
-	return types.ImageInspect{
-		Os:           daemonInfo.OSType,
+	return imgutil.Platform{
+		OS:           daemonInfo.OSType,
 		Architecture: "amd64",
-		Config:       &container.Config{},
 	}, nil
 }
 

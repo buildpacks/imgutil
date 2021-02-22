@@ -26,6 +26,16 @@ func (e SaveError) Error() string {
 	return fmt.Sprintf("failed to write image to the following tags: %s", strings.Join(errors, ","))
 }
 
+// Platform represents the target os/arch for an image. Type-castible to ggcr v1.Platform
+type Platform struct {
+	Architecture string
+	OS           string
+	OSVersion    string
+	OSFeatures   []string
+	Variant      string
+	Features     []string
+}
+
 type Image interface {
 	Name() string
 	Rename(name string)
