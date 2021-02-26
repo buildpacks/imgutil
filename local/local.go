@@ -39,68 +39,59 @@ type Image struct {
 	downloadBaseOnce *sync.Once
 }
 
-type ImageOption struct {
-	fn       func(*Image) (*Image, error)
-	runFirst bool
-}
+type ImageOption func(*Image) (*Image, error)
+type InitialImageOption ImageOption
 
 func WithPreviousImage(imageName string) ImageOption {
-	return ImageOption{
-		fn: func(i *Image) (*Image, error) {
-			if _, err := inspectOptionalImage(i.docker, imageName, i.platform); err != nil {
-				return i, err
-			}
+	return func(i *Image) (*Image, error) {
+		if _, err := inspectOptionalImage(i.docker, imageName, i.platform); err != nil {
+			return i, err
+		}
 
-			prevImage, err := NewImage(imageName, i.docker, FromBaseImage(imageName))
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get previous image '%s'", imageName)
-			}
-			i.prevImage = prevImage
+		prevImage, err := NewImage(imageName, i.docker, FromBaseImage(imageName))
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get previous image '%s'", imageName)
+		}
+		i.prevImage = prevImage
 
-			return i, nil
-		},
+		return i, nil
 	}
 }
 
 func FromBaseImage(imageName string) ImageOption {
-	return ImageOption{
-		fn: func(i *Image) (*Image, error) {
-			var (
-				err     error
-				inspect types.ImageInspect
-			)
+	return func(i *Image) (*Image, error) {
+		var (
+			err     error
+			inspect types.ImageInspect
+		)
 
-			if inspect, err = inspectOptionalImage(i.docker, imageName, i.platform); err != nil {
-				return i, err
-			}
+		if inspect, err = inspectOptionalImage(i.docker, imageName, i.platform); err != nil {
+			return i, err
+		}
 
-			i.inspect = inspect
-			i.layerPaths = make([]string, len(i.inspect.RootFS.Layers))
+		i.inspect = inspect
+		i.layerPaths = make([]string, len(i.inspect.RootFS.Layers))
 
-			return i, nil
-		},
+		return i, nil
 	}
 }
 
-func WithPlatform(platform imgutil.Platform) ImageOption {
-	return ImageOption{
-		fn: func(i *Image) (*Image, error) {
-			if platform.OS != "" && platform.OS != i.inspect.Os {
-				return nil, fmt.Errorf(`invalid os: platform os "%s" must match the daemon os "%s"`, platform.OS, i.inspect.Os)
-			}
+func WithPlatform(platform imgutil.Platform) InitialImageOption {
+	return func(i *Image) (*Image, error) {
+		if platform.OS != "" && platform.OS != i.inspect.Os {
+			return nil, fmt.Errorf(`invalid os: platform os "%s" must match the daemon os "%s"`, platform.OS, i.inspect.Os)
+		}
 
-			i.inspect.Architecture = platform.Architecture
-			i.inspect.OsVersion = platform.OSVersion
+		i.inspect.Architecture = platform.Architecture
+		i.inspect.OsVersion = platform.OSVersion
 
-			i.platform = platform
+		i.platform = platform
 
-			return i, nil
-		},
-		runFirst: true,
+		return i, nil
 	}
 }
 
-func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...ImageOption) (*Image, error) {
+func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...interface{}) (*Image, error) {
 	var err error
 
 	defaultPlatform, err := defaultPlatform(dockerClient)
@@ -119,42 +110,73 @@ func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...Image
 		downloadBaseOnce: &sync.Once{},
 	}
 
+	image, err = processImageOptions(image, ops)
+	if err != nil {
+		return nil, err
+	}
+
+	image, err = prepareImage(image)
+	if err != nil {
+		return nil, err
+	}
+
+	return image, nil
+}
+
+func processImageOptions(image *Image, ops []interface{}) (*Image, error) {
 	sort.Slice(ops, func(i, _ int) bool {
-		return ops[i].runFirst
+		switch ops[i].(type) {
+		case InitialImageOption:
+			return true
+		default:
+			return false
+		}
 	})
 
 	for _, op := range ops {
-		image, err = op.fn(image)
+		var err error
+
+		switch opFn := op.(type) {
+		case InitialImageOption:
+			image, err = opFn(image)
+		case ImageOption:
+			image, err = opFn(image)
+		}
 		if err != nil {
 			return nil, err
 		}
 	}
+	return image, nil
+}
 
-	if image.inspect.Os == "windows" && len(image.inspect.RootFS.Layers) == 0 {
-		layerReader, err := layer.WindowsBaseLayer()
-		if err != nil {
-			return nil, err
-		}
-
-		layerFile, err := ioutil.TempFile("", "imgutil.local.image.windowsbaselayer")
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create temp file")
-		}
-		defer layerFile.Close()
-
-		hasher := sha256.New()
-
-		multiWriter := io.MultiWriter(layerFile, hasher)
-
-		if _, err := io.Copy(multiWriter, layerReader); err != nil {
-			return nil, errors.Wrap(err, "failed to copy base layer")
-		}
-
-		diffID := "sha256:" + hex.EncodeToString(hasher.Sum(nil))
-
-		image.inspect.RootFS.Layers = append(image.inspect.RootFS.Layers, diffID)
-		image.layerPaths = append(image.layerPaths, layerFile.Name())
+func prepareImage(image *Image) (*Image, error) {
+	if image.inspect.Os != "windows" || len(image.inspect.RootFS.Layers) != 0 {
+		return image, nil
 	}
+
+	layerReader, err := layer.WindowsBaseLayer()
+	if err != nil {
+		return nil, err
+	}
+
+	layerFile, err := ioutil.TempFile("", "imgutil.local.image.windowsbaselayer")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create temp file")
+	}
+	defer layerFile.Close()
+
+	hasher := sha256.New()
+
+	multiWriter := io.MultiWriter(layerFile, hasher)
+
+	if _, err := io.Copy(multiWriter, layerReader); err != nil {
+		return nil, errors.Wrap(err, "failed to copy base layer")
+	}
+
+	diffID := "sha256:" + hex.EncodeToString(hasher.Sum(nil))
+
+	image.inspect.RootFS.Layers = append(image.inspect.RootFS.Layers, diffID)
+	image.layerPaths = append(image.layerPaths, layerFile.Name())
 
 	return image, nil
 }

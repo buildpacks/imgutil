@@ -32,72 +32,63 @@ type Image struct {
 	prevLayers []v1.Layer
 }
 
-type ImageOption struct {
-	fn       func(*Image) (*Image, error)
-	runFirst bool
-}
+type ImageOption func(*Image) (*Image, error)
+type InitialImageOption ImageOption
 
 func WithPreviousImage(imageName string) ImageOption {
-	return ImageOption{
-		fn: func(r *Image) (*Image, error) {
-			var err error
+	return func(r *Image) (*Image, error) {
+		var err error
 
-			prevImage, err := newV1Image(r.keychain, imageName, r.platform)
-			if err != nil {
-				return nil, err
-			}
+		prevImage, err := newV1Image(r.keychain, imageName, r.platform)
+		if err != nil {
+			return nil, err
+		}
 
-			prevLayers, err := prevImage.Layers()
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get layers for previous image with repo name '%s'", imageName)
-			}
+		prevLayers, err := prevImage.Layers()
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get layers for previous image with repo name '%s'", imageName)
+		}
 
-			r.prevLayers = prevLayers
-			return r, nil
-		},
+		r.prevLayers = prevLayers
+		return r, nil
 	}
 }
 
 func FromBaseImage(imageName string) ImageOption {
-	return ImageOption{
-		fn: func(r *Image) (*Image, error) {
-			var err error
+	return func(r *Image) (*Image, error) {
+		var err error
 
-			r.image, err = newV1Image(r.keychain, imageName, r.platform)
-			if err != nil {
-				return nil, err
-			}
-			return r, nil
-		},
+		r.image, err = newV1Image(r.keychain, imageName, r.platform)
+		if err != nil {
+			return nil, err
+		}
+		return r, nil
 	}
 }
 
-func WithPlatform(platform imgutil.Platform) ImageOption {
-	return ImageOption{
-		fn: func(r *Image) (*Image, error) {
-			configFile, err := r.image.ConfigFile()
-			if err != nil {
-				return nil, err
-			}
+func WithPlatform(platform imgutil.Platform) InitialImageOption {
+	return func(r *Image) (*Image, error) {
+		configFile, err := r.image.ConfigFile()
+		if err != nil {
+			return nil, err
+		}
 
-			configFile.Architecture = platform.Architecture
-			configFile.OS = platform.OS
-			configFile.OSVersion = platform.OSVersion
+		configFile.Architecture = platform.Architecture
+		configFile.OS = platform.OS
+		configFile.OSVersion = platform.OSVersion
 
-			r.image, err = mutate.ConfigFile(r.image, configFile)
-			if err != nil {
-				return nil, err
-			}
+		r.image, err = mutate.ConfigFile(r.image, configFile)
+		if err != nil {
+			return nil, err
+		}
 
-			r.platform = platform
+		r.platform = platform
 
-			return r, nil
-		},
-		runFirst: true,
+		return r, nil
 	}
 }
 
-func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Image, error) {
+func NewImage(repoName string, keychain authn.Keychain, ops ...interface{}) (*Image, error) {
 	image, err := emptyImage(defaultPlatform())
 	if err != nil {
 		return nil, err
@@ -110,37 +101,67 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 		platform: defaultPlatform(),
 	}
 
+	ri, err = processImageOptions(ri, ops)
+	if err != nil {
+		return nil, err
+	}
+
+	ri, err = prepareImage(ri)
+	if err != nil {
+		return nil, err
+	}
+
+	return ri, nil
+}
+
+func processImageOptions(image *Image, ops []interface{}) (*Image, error) {
 	sort.Slice(ops, func(i, _ int) bool {
-		return ops[i].runFirst
+		switch ops[i].(type) {
+		case InitialImageOption:
+			return true
+		default:
+			return false
+		}
 	})
 
 	for _, op := range ops {
 		var err error
 
-		ri, err = op.fn(ri)
+		switch o := op.(type) {
+		case InitialImageOption:
+			image, err = o(image)
+		case ImageOption:
+			image, err = o(image)
+		}
 		if err != nil {
 			return nil, err
 		}
 	}
 
+	return image, nil
+}
+
+func prepareImage(ri *Image) (*Image, error) {
 	imageConfigFile, err := ri.image.ConfigFile()
 	if err != nil {
 		return nil, err
 	}
 
-	if imageConfigFile.OS == "windows" && len(imageConfigFile.RootFS.DiffIDs) == 0 {
-		layerBytes, err := layer.WindowsBaseLayer()
-		if err != nil {
-			return nil, err
-		}
-		windowsBaseLayer, err := tarball.LayerFromReader(layerBytes)
-		if err != nil {
-			return nil, err
-		}
-		ri.image, err = mutate.AppendLayers(ri.image, windowsBaseLayer)
-		if err != nil {
-			return nil, err
-		}
+	if imageConfigFile.OS != "windows" || len(imageConfigFile.RootFS.DiffIDs) != 0 {
+		return ri, nil
+	}
+
+	layerBytes, err := layer.WindowsBaseLayer()
+	if err != nil {
+		return nil, err
+	}
+	windowsBaseLayer, err := tarball.LayerFromReader(layerBytes)
+	if err != nil {
+		return nil, err
+	}
+	ri.image, err = mutate.AppendLayers(ri.image, windowsBaseLayer)
+	if err != nil {
+		return nil, err
 	}
 
 	return ri, nil
