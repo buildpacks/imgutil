@@ -436,8 +436,45 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("#WithPreviousImage", func() {
+			when("previous image is exists", func() {
+				it("provides reusable layers", func() {
+					baseImageName := "arm64v8/busybox@sha256:50edf1d080946c6a76989d1c3b0e753b62f7d9b5f5e66e88bef23ebbd1e9709c"
+					existingLayerSha := "sha256:5a0b973aa300cd2650869fd76d8546b361fcd6dfc77bd37b9d4f082cca9874e4"
+
+					img, err := remote.NewImage(
+						repoName,
+						authn.DefaultKeychain,
+						remote.WithPreviousImage(baseImageName),
+					)
+
+					h.AssertNil(t, err)
+
+					h.AssertNil(t, img.ReuseLayer(existingLayerSha))
+				})
+
+				when("#WithPlatform", func() {
+					it("provides reusable layers from image in a manifest list with specific platform", func() {
+						manifestListName := "golang:1.13.8"
+						existingLayerSha := "sha256:cba908afa240240fceb312eb682bd7660fd5a404ddfd22843852dfdef141314b"
+
+						img, err := remote.NewImage(
+							repoName,
+							authn.DefaultKeychain,
+							remote.WithPreviousImage(manifestListName),
+							remote.WithPlatform(imgutil.Platform{
+								OS:           "windows",
+								Architecture: "amd64",
+							}),
+						)
+						h.AssertNil(t, err)
+
+						h.AssertNil(t, img.ReuseLayer(existingLayerSha))
+					})
+				})
+			})
+
 			when("previous image does not exist", func() {
-				it("don't error", func() {
+				it("does not error", func() {
 					_, err := remote.NewImage(
 						repoName,
 						authn.DefaultKeychain,

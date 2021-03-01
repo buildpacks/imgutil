@@ -319,8 +319,58 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("#WithPreviousImage", func() {
+			when("previous image is exists", func() {
+				var armBaseImageName string
+				var existingLayerSHA string
+
+				it.Before(func() {
+					// linux/arm64 busybox image
+					armBaseImageName = "busybox@sha256:50edf1d080946c6a76989d1c3b0e753b62f7d9b5f5e66e88bef23ebbd1e9709c"
+					if daemonOS == "windows" {
+						// windows/arm nanoserver image
+						armBaseImageName = "mcr.microsoft.com/windows/nanoserver@sha256:29e2270953589a12de7a77a7e77d39e3b3e9cdfd243c922b3b8a63e2d8a71026"
+					}
+					h.PullIfMissing(t, dockerClient, armBaseImageName)
+
+					refImage, err := local.NewImage(
+						newTestImageName(),
+						dockerClient,
+						local.FromBaseImage(armBaseImageName),
+					)
+					h.AssertNil(t, err)
+
+					existingLayerSHA, err = refImage.TopLayer()
+					h.AssertNil(t, err)
+				})
+
+				it("provides reusable layers", func() {
+					img, err := local.NewImage(
+						newTestImageName(),
+						dockerClient,
+						local.WithPreviousImage(armBaseImageName),
+					)
+					h.AssertNil(t, err)
+
+					h.AssertNil(t, img.ReuseLayer(existingLayerSHA))
+				})
+
+				it("provides reusable layers, ignoring WithPlatform", func() {
+					img, err := local.NewImage(
+						newTestImageName(),
+						dockerClient,
+						local.WithPreviousImage(armBaseImageName),
+						local.WithPlatform(imgutil.Platform{
+							Architecture: "some-fake-os",
+						}),
+					)
+					h.AssertNil(t, err)
+
+					h.AssertNil(t, img.ReuseLayer(existingLayerSHA))
+				})
+			})
+
 			when("previous image does not exist", func() {
-				it("doesn't error", func() {
+				it("does not error", func() {
 					_, err := local.NewImage(
 						newTestImageName(),
 						dockerClient,
