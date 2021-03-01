@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 
@@ -27,69 +26,53 @@ import (
 type Image struct {
 	keychain   authn.Keychain
 	repoName   string
-	platform   imgutil.Platform
 	image      v1.Image
 	prevLayers []v1.Layer
 }
 
-type ImageOption func(*Image) (*Image, error)
-type InitialImageOption ImageOption
+type options struct {
+	platform          imgutil.Platform
+	baseImageRepoName string
+	prevImageRepoName string
+}
+
+type ImageOption func(*options) error
 
 func WithPreviousImage(imageName string) ImageOption {
-	return func(r *Image) (*Image, error) {
-		var err error
-
-		prevImage, err := newV1Image(r.keychain, imageName, r.platform)
-		if err != nil {
-			return nil, err
-		}
-
-		prevLayers, err := prevImage.Layers()
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get layers for previous image with repo name '%s'", imageName)
-		}
-
-		r.prevLayers = prevLayers
-		return r, nil
+	return func(opts *options) error {
+		opts.prevImageRepoName = imageName
+		return nil
 	}
 }
 
 func FromBaseImage(imageName string) ImageOption {
-	return func(r *Image) (*Image, error) {
-		var err error
-
-		r.image, err = newV1Image(r.keychain, imageName, r.platform)
-		if err != nil {
-			return nil, err
-		}
-		return r, nil
+	return func(opts *options) error {
+		opts.baseImageRepoName = imageName
+		return nil
 	}
 }
 
-func WithPlatform(platform imgutil.Platform) InitialImageOption {
-	return func(r *Image) (*Image, error) {
-		configFile, err := r.image.ConfigFile()
-		if err != nil {
-			return nil, err
-		}
-
-		configFile.Architecture = platform.Architecture
-		configFile.OS = platform.OS
-		configFile.OSVersion = platform.OSVersion
-
-		r.image, err = mutate.ConfigFile(r.image, configFile)
-		if err != nil {
-			return nil, err
-		}
-
-		r.platform = platform
-
-		return r, nil
+func WithPlatform(platform imgutil.Platform) ImageOption {
+	return func(opts *options) error {
+		opts.platform = platform
+		return nil
 	}
 }
 
-func NewImage(repoName string, keychain authn.Keychain, ops ...interface{}) (*Image, error) {
-	image, err := emptyImage(defaultPlatform())
+func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Image, error) {
+	imageOpts := &options{}
+	for _, op := range ops {
+		if err := op(imageOpts); err != nil {
+			return nil, err
+		}
+	}
+
+	platform := defaultPlatform()
+	if (imageOpts.platform != imgutil.Platform{}) {
+		platform = imageOpts.platform
+	}
+
+	image, err := emptyImage(platform)
 	if err != nil {
 		return nil, err
 	}
@@ -98,70 +81,55 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...interface{}) (*Im
 		keychain: keychain,
 		repoName: repoName,
 		image:    image,
-		platform: defaultPlatform(),
 	}
 
-	ri, err = processImageOptions(ri, ops)
-	if err != nil {
-		return nil, err
-	}
-
-	ri, err = prepareImage(ri)
-	if err != nil {
-		return nil, err
-	}
-
-	return ri, nil
-}
-
-func processImageOptions(image *Image, ops []interface{}) (*Image, error) {
-	sort.Slice(ops, func(i, _ int) bool {
-		switch ops[i].(type) {
-		case InitialImageOption:
-			return true
-		default:
-			return false
-		}
-	})
-
-	for _, op := range ops {
-		var err error
-
-		switch o := op.(type) {
-		case InitialImageOption:
-			image, err = o(image)
-		case ImageOption:
-			image, err = o(image)
-		}
+	// clobber empty image with base image
+	if imageOpts.baseImageRepoName != "" {
+		baseImage, err := newV1Image(ri.keychain, imageOpts.baseImageRepoName, platform)
 		if err != nil {
 			return nil, err
 		}
+
+		ri.image = baseImage
 	}
 
-	return image, nil
-}
+	// add previous image layers
+	if imageOpts.prevImageRepoName != "" {
+		prevImage, err := newV1Image(ri.keychain, imageOpts.prevImageRepoName, platform)
+		if err != nil {
+			return nil, err
+		}
 
-func prepareImage(ri *Image) (*Image, error) {
-	imageConfigFile, err := ri.image.ConfigFile()
+		prevLayers, err := prevImage.Layers()
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get layers for previous image with repo name '%s'", imageOpts.prevImageRepoName)
+		}
+
+		ri.prevLayers = prevLayers
+	}
+
+	cfgFile, err := image.ConfigFile()
 	if err != nil {
 		return nil, err
 	}
 
-	if imageConfigFile.OS != "windows" || len(imageConfigFile.RootFS.DiffIDs) != 0 {
-		return ri, nil
-	}
+	if cfgFile.OS == "windows" && len(cfgFile.RootFS.DiffIDs) == 0 {
+		layerBytes, err := layer.WindowsBaseLayer()
+		if err != nil {
+			return nil, err
+		}
 
-	layerBytes, err := layer.WindowsBaseLayer()
-	if err != nil {
-		return nil, err
-	}
-	windowsBaseLayer, err := tarball.LayerFromReader(layerBytes)
-	if err != nil {
-		return nil, err
-	}
-	ri.image, err = mutate.AppendLayers(ri.image, windowsBaseLayer)
-	if err != nil {
-		return nil, err
+		windowsBaseLayer, err := tarball.LayerFromReader(layerBytes)
+		if err != nil {
+			return nil, err
+		}
+
+		image, err := mutate.AppendLayers(image, windowsBaseLayer)
+		if err != nil {
+			return nil, err
+		}
+
+		ri.image = image
 	}
 
 	return ri, nil

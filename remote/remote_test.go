@@ -255,8 +255,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 								authn.DefaultKeychain,
 								remote.FromBaseImage(windowsImageManifestName),
 								remote.WithPlatform(imgutil.Platform{
-									OS:           "windows",
 									Architecture: "amd64",
+									OS:           "windows",
+									OSVersion:    "10.0.17763.1397",
 								}),
 							)
 							h.AssertNil(t, err)
