@@ -173,7 +173,13 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 		return nil, err
 	}
 
-	image, err := remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport), remote.WithPlatform(v1.Platform(platform)))
+	v1Platform := v1.Platform{
+		Architecture: platform.Architecture,
+		OS:           platform.OS,
+		OSVersion:    platform.OSVersion,
+	}
+
+	image, err := remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport), remote.WithPlatform(v1Platform))
 	if err != nil {
 		if transportErr, ok := err.(*transport.Error); ok && len(transportErr.Errors) > 0 {
 			switch transportErr.StatusCode {
