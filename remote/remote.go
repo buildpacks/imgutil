@@ -38,6 +38,9 @@ type options struct {
 
 type ImageOption func(*options) error
 
+//WithPreviousImage loads an existing image as a source for reusable layers.
+//Use with ReuseLayer().
+//Ignored if image is not found.
 func WithPreviousImage(imageName string) ImageOption {
 	return func(opts *options) error {
 		opts.prevImageRepoName = imageName
@@ -45,6 +48,8 @@ func WithPreviousImage(imageName string) ImageOption {
 	}
 }
 
+//FromBaseImage loads an existing image as the config and layers for the new image.
+//Ignored if image is not found.
 func FromBaseImage(imageName string) ImageOption {
 	return func(opts *options) error {
 		opts.baseImageRepoName = imageName
@@ -52,6 +57,9 @@ func FromBaseImage(imageName string) ImageOption {
 	}
 }
 
+//WithDefaultPlatform provides Architecture/OS/OSVersion defaults for the new image.
+//Defaults for a new image are ignored when FromBaseImage returns an image.
+//FromBaseImage and WithPreviousImage will use the platform to choose an image from a manifest list.
 func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	return func(opts *options) error {
 		opts.platform = platform
@@ -59,6 +67,7 @@ func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	}
 }
 
+//NewImage returns a new Image that can be modified and saved to a Docker daemon.
 func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Image, error) {
 	imageOpts := &options{}
 	for _, op := range ops {

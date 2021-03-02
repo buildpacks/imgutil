@@ -45,6 +45,9 @@ type options struct {
 	prevImageRepoName string
 }
 
+//WithPreviousImage loads an existing image as a source for reusable layers.
+//Use with ReuseLayer().
+//Ignored if image is not found.
 func WithPreviousImage(imageName string) ImageOption {
 	return func(i *options) error {
 		i.prevImageRepoName = imageName
@@ -52,6 +55,8 @@ func WithPreviousImage(imageName string) ImageOption {
 	}
 }
 
+//FromBaseImage loads an existing image as the config and layers for the new image.
+//Ignored if image is not found.
 func FromBaseImage(imageName string) ImageOption {
 	return func(i *options) error {
 		i.baseImageRepoName = imageName
@@ -59,6 +64,8 @@ func FromBaseImage(imageName string) ImageOption {
 	}
 }
 
+//WithDefaultPlatform provides Architecture/OS/OSVersion defaults for the new image.
+//Defaults for a new image are ignored when FromBaseImage returns an image.
 func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	return func(i *options) error {
 		i.platform = platform
@@ -66,6 +73,7 @@ func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	}
 }
 
+//NewImage returns a new Image that can be modified and saved to a registry.
 func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...ImageOption) (*Image, error) {
 	imageOpts := &options{}
 	for _, op := range ops {
