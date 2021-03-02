@@ -1166,8 +1166,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			manifestLayerDiffIDs := h.FetchManifestLayers(t, repoName)
 
-			h.AssertEq(t, oldLayerDiffID, manifestLayerDiffIDs[len(manifestLayerDiffIDs)-2])
-			h.AssertEq(t, newLayerDiffID, manifestLayerDiffIDs[len(manifestLayerDiffIDs)-1])
+			h.AssertEq(t, oldLayerDiffID, h.StringElementAt(manifestLayerDiffIDs, -2))
+			h.AssertEq(t, newLayerDiffID, h.StringElementAt(manifestLayerDiffIDs, -1))
 		})
 	})
 
@@ -1208,8 +1208,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			manifestLayerDiffIDs := h.FetchManifestLayers(t, repoName)
 
-			h.AssertEq(t, oldLayerDiffID, manifestLayerDiffIDs[len(manifestLayerDiffIDs)-2])
-			h.AssertEq(t, newLayerDiffID, manifestLayerDiffIDs[len(manifestLayerDiffIDs)-1])
+			h.AssertEq(t, oldLayerDiffID, h.StringElementAt(manifestLayerDiffIDs, -2))
+			h.AssertEq(t, newLayerDiffID, h.StringElementAt(manifestLayerDiffIDs, -1))
 		})
 	})
 
@@ -1268,8 +1268,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				manifestLayers := h.FetchManifestLayers(t, repoName)
 
-				newLayer1SHA := manifestLayers[len(manifestLayers)-2]
-				reusedLayer2SHA := manifestLayers[len(manifestLayers)-1]
+				newLayer1SHA := h.StringElementAt(manifestLayers, -2)
+				reusedLayer2SHA := h.StringElementAt(manifestLayers, -1)
 
 				h.AssertNotEq(t, prevLayer1SHA, newLayer1SHA)
 				h.AssertEq(t, prevLayer2SHA, reusedLayer2SHA)

@@ -285,20 +285,6 @@ func CreateSingleFileLayerTar(layerPath, txt, osType string) (string, error) {
 	return tarFile.Name(), nil
 }
 
-func WindowsBaseLayer(t *testing.T) string {
-	tarFile, err := ioutil.TempFile("", "windows-base-layer.tar")
-	AssertNil(t, err)
-	defer tarFile.Close()
-
-	baseLayer, err := layer.WindowsBaseLayer()
-	AssertNil(t, err)
-
-	_, err = io.Copy(tarFile, baseLayer)
-	AssertNil(t, err)
-
-	return tarFile.Name()
-}
-
 func FetchManifestLayers(t *testing.T, repoName string) []string {
 	t.Helper()
 
@@ -368,4 +354,11 @@ func RunnableBaseImage(os string) string {
 		return "mcr.microsoft.com/windows/nanoserver@sha256:08c883692e527b2bb4d7f6579e7707a30a2aaa66556b265b917177565fd76117"
 	}
 	return "busybox@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5"
+}
+
+func StringElementAt(elements []string, offset int) string {
+	if offset < 0 {
+		return elements[len(elements)+offset]
+	}
+	return elements[offset]
 }

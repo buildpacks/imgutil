@@ -1069,7 +1069,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), oldBase)
 				h.AssertNil(t, err)
-				oldTopLayer = inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
+				oldTopLayer = h.StringElementAt(inspect.RootFS.Layers, -1)
 
 				// original image
 				origImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(oldBase))
@@ -1107,16 +1107,16 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				beforeInspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 				h.AssertNil(t, err)
 
-				beforeOldBaseLayer1DiffID := beforeInspect.RootFS.Layers[len(beforeInspect.RootFS.Layers)-4]
+				beforeOldBaseLayer1DiffID := h.StringElementAt(beforeInspect.RootFS.Layers, -4)
 				h.AssertEq(t, oldBaseLayer1DiffID, beforeOldBaseLayer1DiffID)
 
-				beforeOldBaseLayer2DiffID := beforeInspect.RootFS.Layers[len(beforeInspect.RootFS.Layers)-3]
+				beforeOldBaseLayer2DiffID := h.StringElementAt(beforeInspect.RootFS.Layers, -3)
 				h.AssertEq(t, oldBaseLayer2DiffID, beforeOldBaseLayer2DiffID)
 
-				beforeLayer3DiffID := beforeInspect.RootFS.Layers[len(beforeInspect.RootFS.Layers)-2]
+				beforeLayer3DiffID := h.StringElementAt(beforeInspect.RootFS.Layers, -2)
 				h.AssertEq(t, imgLayer1DiffID, beforeLayer3DiffID)
 
-				beforeLayer4DiffID := beforeInspect.RootFS.Layers[len(beforeInspect.RootFS.Layers)-1]
+				beforeLayer4DiffID := h.StringElementAt(beforeInspect.RootFS.Layers, -1)
 				h.AssertEq(t, imgLayer2DiffID, beforeLayer4DiffID)
 
 				// Run rebase
@@ -1136,16 +1136,16 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				numLayers := len(afterInspect.RootFS.Layers)
 				h.AssertEq(t, numLayers, origNumLayers)
 
-				afterLayer1DiffID := afterInspect.RootFS.Layers[len(afterInspect.RootFS.Layers)-4]
+				afterLayer1DiffID := h.StringElementAt(afterInspect.RootFS.Layers, -4)
 				h.AssertEq(t, newBaseLayer1DiffID, afterLayer1DiffID)
 
-				afterLayer2DiffID := afterInspect.RootFS.Layers[len(afterInspect.RootFS.Layers)-3]
+				afterLayer2DiffID := h.StringElementAt(afterInspect.RootFS.Layers, -3)
 				h.AssertEq(t, newBaseLayer2DiffID, afterLayer2DiffID)
 
-				afterLayer3DiffID := afterInspect.RootFS.Layers[len(afterInspect.RootFS.Layers)-2]
+				afterLayer3DiffID := h.StringElementAt(afterInspect.RootFS.Layers, -2)
 				h.AssertEq(t, imgLayer1DiffID, afterLayer3DiffID)
 
-				afterLayer4DiffID := afterInspect.RootFS.Layers[len(afterInspect.RootFS.Layers)-1]
+				afterLayer4DiffID := h.StringElementAt(afterInspect.RootFS.Layers, -1)
 				h.AssertEq(t, imgLayer2DiffID, afterLayer4DiffID)
 
 				h.AssertEq(t, afterInspect.Os, beforeInspect.Os)
@@ -1181,7 +1181,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 				h.AssertNil(t, err)
-				expectedTopLayer = inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
+				expectedTopLayer = h.StringElementAt(inspect.RootFS.Layers, -1)
 			})
 
 			it.After(func() {
@@ -1238,7 +1238,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 				h.AssertNil(t, err)
 
-				h.AssertEq(t, newLayerDiffID, inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1])
+				h.AssertEq(t, newLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -1))
 			})
 		})
 
@@ -1288,8 +1288,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 				h.AssertNil(t, err)
 
-				h.AssertEq(t, oldLayerDiffID, inspect.RootFS.Layers[len(inspect.RootFS.Layers)-2])
-				h.AssertEq(t, newLayerDiffID, inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1])
+				h.AssertEq(t, oldLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -2))
+				h.AssertEq(t, newLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -1))
 			})
 		})
 	})
@@ -1337,8 +1337,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 			h.AssertNil(t, err)
 
-			h.AssertEq(t, oldLayerDiffID, inspect.RootFS.Layers[len(inspect.RootFS.Layers)-2])
-			h.AssertEq(t, newLayerDiffID, inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1])
+			h.AssertEq(t, oldLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -2))
+			h.AssertEq(t, newLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -1))
 		})
 	})
 
@@ -1454,8 +1454,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), prevName)
 			h.AssertNil(t, err)
 
-			prevLayer1SHA = inspect.RootFS.Layers[len(inspect.RootFS.Layers)-2]
-			prevLayer2SHA = inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
+			prevLayer1SHA = h.StringElementAt(inspect.RootFS.Layers, -2)
+			prevLayer2SHA = h.StringElementAt(inspect.RootFS.Layers, -1)
 		})
 
 		it.After(func() {
@@ -1485,8 +1485,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 			h.AssertNil(t, err)
 
-			newLayer1SHA := inspect.RootFS.Layers[len(inspect.RootFS.Layers)-2]
-			reusedLayer2SHA := inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
+			newLayer1SHA := h.StringElementAt(inspect.RootFS.Layers, -2)
+			reusedLayer2SHA := h.StringElementAt(inspect.RootFS.Layers, -1)
 
 			h.AssertNotEq(t, prevLayer1SHA, newLayer1SHA)
 			h.AssertEq(t, prevLayer2SHA, reusedLayer2SHA)
@@ -1514,7 +1514,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertEq(t, len(inspect.RootFS.Layers), 1)
 			}
 
-			newLayer1SHA := inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
+			newLayer1SHA := h.StringElementAt(inspect.RootFS.Layers, -1)
 
 			h.AssertEq(t, prevLayer1SHA, newLayer1SHA)
 		})
