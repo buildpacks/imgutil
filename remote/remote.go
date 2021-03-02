@@ -76,10 +76,7 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 		}
 	}
 
-	platform := defaultPlatform()
-	if (imageOpts.platform != imgutil.Platform{}) {
-		platform = imageOpts.platform
-	}
+	platform := processPlatformOption(defaultPlatform(), imageOpts.platform)
 
 	image, err := emptyImage(platform)
 	if err != nil {
@@ -92,54 +89,93 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 		image:    image,
 	}
 
-	// clobber empty image with base image
-	if imageOpts.baseImageRepoName != "" {
-		baseImage, err := newV1Image(ri.keychain, imageOpts.baseImageRepoName, platform)
-		if err != nil {
-			return nil, err
-		}
-
-		ri.image = baseImage
-	}
-
-	// add previous image layers
-	if imageOpts.prevImageRepoName != "" {
-		prevImage, err := newV1Image(ri.keychain, imageOpts.prevImageRepoName, platform)
-		if err != nil {
-			return nil, err
-		}
-
-		prevLayers, err := prevImage.Layers()
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get layers for previous image with repo name '%s'", imageOpts.prevImageRepoName)
-		}
-
-		ri.prevLayers = prevLayers
-	}
-
-	cfgFile, err := image.ConfigFile()
+	ri, err = processPreviousImageOption(ri, imageOpts.prevImageRepoName, platform)
 	if err != nil {
-		return nil, err
+		return ri, err
 	}
 
-	if cfgFile.OS == "windows" && len(cfgFile.RootFS.DiffIDs) == 0 {
-		layerBytes, err := layer.WindowsBaseLayer()
-		if err != nil {
-			return nil, err
-		}
-
-		windowsBaseLayer, err := tarball.LayerFromReader(layerBytes)
-		if err != nil {
-			return nil, err
-		}
-
-		image, err := mutate.AppendLayers(image, windowsBaseLayer)
-		if err != nil {
-			return nil, err
-		}
-
-		ri.image = image
+	ri, err = processBaseImageOption(ri, imageOpts.baseImageRepoName, platform)
+	if err != nil {
+		return ri, err
 	}
+
+	ri, err = prepareNewWindowsImage(ri)
+	if err != nil {
+		return ri, err
+	}
+
+	return ri, nil
+}
+
+func processPlatformOption(defaultPlatform imgutil.Platform, optionPlatform imgutil.Platform) imgutil.Platform {
+	if (optionPlatform != imgutil.Platform{}) {
+		return optionPlatform
+	}
+
+	return defaultPlatform
+}
+
+func processPreviousImageOption(ri *Image, prevImageRepoName string, platform imgutil.Platform) (*Image, error) {
+	if prevImageRepoName == "" {
+		return ri, nil
+	}
+
+	prevImage, err := newV1Image(ri.keychain, prevImageRepoName, platform)
+	if err != nil {
+		return ri, err
+	}
+
+	prevLayers, err := prevImage.Layers()
+	if err != nil {
+		return ri, errors.Wrapf(err, "failed to get layers for previous image with repo name '%s'", prevImageRepoName)
+	}
+
+	ri.prevLayers = prevLayers
+
+	return ri, nil
+}
+
+func processBaseImageOption(ri *Image, baseImageRepoName string, platform imgutil.Platform) (*Image, error) {
+	if baseImageRepoName == "" {
+		return ri, nil
+	}
+
+	baseImage, err := newV1Image(ri.keychain, baseImageRepoName, platform)
+	if err != nil {
+		return ri, err
+	}
+
+	ri.image = baseImage
+
+	return ri, nil
+}
+
+func prepareNewWindowsImage(ri *Image) (*Image, error) {
+	cfgFile, err := ri.image.ConfigFile()
+	if err != nil {
+		return ri, err
+	}
+
+	if cfgFile.OS != "windows" || len(cfgFile.RootFS.DiffIDs) > 0 {
+		return ri, nil
+	}
+
+	layerBytes, err := layer.WindowsBaseLayer()
+	if err != nil {
+		return ri, err
+	}
+
+	windowsBaseLayer, err := tarball.LayerFromReader(layerBytes)
+	if err != nil {
+		return ri, err
+	}
+
+	image, err := mutate.AppendLayers(ri.image, windowsBaseLayer)
+	if err != nil {
+		return ri, err
+	}
+
+	ri.image = image
 
 	return ri, nil
 }

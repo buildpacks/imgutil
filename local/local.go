@@ -86,14 +86,10 @@ func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...Image
 	if err != nil {
 		return nil, err
 	}
-	daemonOS := platform.OS
 
-	if (imageOpts.platform != imgutil.Platform{}) {
-		platform = imageOpts.platform
-	}
-
-	if imageOpts.platform.OS != "" && imageOpts.platform.OS != daemonOS {
-		return nil, fmt.Errorf(`invalid os: platform os "%s" must match the daemon os "%s"`, imageOpts.platform.OS, platform.OS)
+	platform, err = processPlatformOption(platform, imageOpts.platform)
+	if err != nil {
+		return nil, err
 	}
 
 	inspect := defaultInspect(platform)
@@ -106,54 +102,98 @@ func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...Image
 		downloadBaseOnce: &sync.Once{},
 	}
 
-	if imageOpts.prevImageRepoName != "" {
-		// with previous image
-		if _, err := inspectOptionalImage(dockerClient, imageOpts.prevImageRepoName, platform); err != nil {
-			return nil, err
-		}
-
-		prevImage, err := NewImage(imageOpts.prevImageRepoName, dockerClient, FromBaseImage(imageOpts.prevImageRepoName))
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get previous image '%s'", repoName)
-		}
-		image.prevImage = prevImage
+	image, err = processPreviousImageOption(image, imageOpts.prevImageRepoName, platform, dockerClient)
+	if err != nil {
+		return image, err
 	}
 
-	if imageOpts.baseImageRepoName != "" {
-		if inspect, err = inspectOptionalImage(dockerClient, imageOpts.baseImageRepoName, platform); err != nil {
-			return nil, err
-		}
-
-		image.inspect = inspect
-		image.layerPaths = make([]string, len(image.inspect.RootFS.Layers))
+	image, err = processBaseImageOption(image, imageOpts.baseImageRepoName, platform, dockerClient)
+	if err != nil {
+		return image, err
 	}
 
-	if image.inspect.Os == "windows" && len(image.inspect.RootFS.Layers) == 0 {
-		layerReader, err := layer.WindowsBaseLayer()
-		if err != nil {
-			return nil, err
-		}
-
-		layerFile, err := ioutil.TempFile("", "imgutil.local.image.windowsbaselayer")
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create temp file")
-		}
-		defer layerFile.Close()
-
-		hasher := sha256.New()
-
-		multiWriter := io.MultiWriter(layerFile, hasher)
-
-		if _, err := io.Copy(multiWriter, layerReader); err != nil {
-			return nil, errors.Wrap(err, "failed to copy base layer")
-		}
-
-		diffID := "sha256:" + hex.EncodeToString(hasher.Sum(nil))
-
-		image.inspect.RootFS.Layers = append(image.inspect.RootFS.Layers, diffID)
-		image.layerPaths = append(image.layerPaths, layerFile.Name())
+	image, err = prepareNewWindowsImage(image)
+	if err != nil {
+		return image, err
 	}
 
+	return image, nil
+}
+
+func processPlatformOption(defaultPlatform imgutil.Platform, optionPlatform imgutil.Platform) (imgutil.Platform, error) {
+	if optionPlatform.OS != "" && optionPlatform.OS != defaultPlatform.OS {
+		return imgutil.Platform{}, fmt.Errorf(`invalid os: platform os "%s" must match the daemon os "%s"`, optionPlatform.OS, defaultPlatform.OS)
+	}
+
+	if (optionPlatform != imgutil.Platform{}) {
+		return optionPlatform, nil
+	}
+
+	return defaultPlatform, nil
+}
+
+func processPreviousImageOption(image *Image, prevImageRepoName string, platform imgutil.Platform, dockerClient client.CommonAPIClient) (*Image, error) {
+	if prevImageRepoName == "" {
+		return image, nil
+	}
+
+	if _, err := inspectOptionalImage(dockerClient, prevImageRepoName, platform); err != nil {
+		return image, err
+	}
+
+	prevImage, err := NewImage(prevImageRepoName, dockerClient, FromBaseImage(prevImageRepoName))
+	if err != nil {
+		return image, errors.Wrapf(err, "failed to get previous image '%s'", prevImageRepoName)
+	}
+
+	image.prevImage = prevImage
+
+	return image, nil
+}
+
+func processBaseImageOption(image *Image, baseImageRepoName string, platform imgutil.Platform, dockerClient client.CommonAPIClient) (*Image, error) {
+	if baseImageRepoName == "" {
+		return image, nil
+	}
+	inspect, err := inspectOptionalImage(dockerClient, baseImageRepoName, platform)
+	if err != nil {
+		return image, err
+	}
+
+	image.inspect = inspect
+	image.layerPaths = make([]string, len(image.inspect.RootFS.Layers))
+
+	return image, nil
+}
+
+func prepareNewWindowsImage(image *Image) (*Image, error) {
+	if image.inspect.Os != "windows" || len(image.inspect.RootFS.Layers) > 0 {
+		return image, nil
+	}
+
+	layerReader, err := layer.WindowsBaseLayer()
+	if err != nil {
+		return image, err
+	}
+
+	layerFile, err := ioutil.TempFile("", "imgutil.local.image.windowsbaselayer")
+	if err != nil {
+		return image, errors.Wrap(err, "failed to create temp file")
+	}
+	defer layerFile.Close()
+
+	hasher := sha256.New()
+
+	multiWriter := io.MultiWriter(layerFile, hasher)
+
+	if _, err := io.Copy(multiWriter, layerReader); err != nil {
+		return image, errors.Wrap(err, "failed to copy base layer")
+	}
+
+	diffID := "sha256:" + hex.EncodeToString(hasher.Sum(nil))
+
+	image.inspect.RootFS.Layers = append(image.inspect.RootFS.Layers, diffID)
+	image.layerPaths = append(image.layerPaths, layerFile.Name())
 	return image, nil
 }
 
