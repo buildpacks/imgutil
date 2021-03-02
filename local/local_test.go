@@ -99,6 +99,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					dockerClient,
 					local.WithPlatform(imgutil.Platform{
 						Architecture: expectedArmArch,
+						OS:           daemonOS,
 						OSVersion:    expectedOSVersion,
 					}),
 				)
