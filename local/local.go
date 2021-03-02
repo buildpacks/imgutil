@@ -59,7 +59,7 @@ func FromBaseImage(imageName string) ImageOption {
 	}
 }
 
-func WithPlatform(platform imgutil.Platform) ImageOption {
+func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	return func(i *options) error {
 		i.platform = platform
 		return nil

@@ -84,7 +84,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 
-		when("#WithPlatform", func() {
+		when("#WithDefaultPlatform", func() {
 			it("sets all available platform fields", func() {
 				expectedArmArch := "arm64"
 				expectedOSVersion := ""
@@ -97,7 +97,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				img, err := local.NewImage(
 					newTestImageName(),
 					dockerClient,
-					local.WithPlatform(imgutil.Platform{
+					local.WithDefaultPlatform(imgutil.Platform{
 						Architecture: expectedArmArch,
 						OS:           daemonOS,
 						OSVersion:    expectedOSVersion,
@@ -241,7 +241,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				})
 			})
 
-			when("#WithPlatform", func() {
+			when("#WithDefaultPlatform", func() {
 				when("base image and platform architecture/OS do not match", func() {
 					it("uses the base image architecture/OS, ignoring platform", func() {
 						// linux/arm64 busybox image
@@ -261,7 +261,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							newTestImageName(),
 							dockerClient,
 							local.FromBaseImage(armBaseImageName),
-							local.WithPlatform(imgutil.Platform{
+							local.WithDefaultPlatform(imgutil.Platform{
 								Architecture: "not-an-arch",
 								OSVersion:    "10.0.99999.9999",
 							}),
@@ -286,7 +286,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							newTestImageName(),
 							dockerClient,
 							local.FromBaseImage("some-bad-repo-name"),
-							local.WithPlatform(imgutil.Platform{
+							local.WithDefaultPlatform(imgutil.Platform{
 								Architecture: "arm64",
 								OS:           daemonOS,
 								OSVersion:    "10.0.99999.9999",
@@ -355,12 +355,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, img.ReuseLayer(existingLayerSHA))
 				})
 
-				it("provides reusable layers, ignoring WithPlatform", func() {
+				it("provides reusable layers, ignoring WithDefaultPlatform", func() {
 					img, err := local.NewImage(
 						newTestImageName(),
 						dockerClient,
 						local.WithPreviousImage(armBaseImageName),
-						local.WithPlatform(imgutil.Platform{
+						local.WithDefaultPlatform(imgutil.Platform{
 							Architecture: "some-fake-os",
 						}),
 					)

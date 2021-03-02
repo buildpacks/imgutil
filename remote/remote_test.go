@@ -79,12 +79,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 
-		when("#WithPlatform", func() {
+		when("#WithDefaultPlatform", func() {
 			it("sets all platform required fields for windows", func() {
 				img, err := remote.NewImage(
 					newTestImageName(),
 					authn.DefaultKeychain,
-					remote.WithPlatform(imgutil.Platform{
+					remote.WithDefaultPlatform(imgutil.Platform{
 						Architecture: "arm",
 						OS:           "windows",
 						OSVersion:    "10.0.17763.316",
@@ -116,7 +116,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				img, err := remote.NewImage(
 					newTestImageName(),
 					authn.DefaultKeychain,
-					remote.WithPlatform(imgutil.Platform{
+					remote.WithDefaultPlatform(imgutil.Platform{
 						Architecture: "arm",
 						OS:           "linux",
 					}),
@@ -243,7 +243,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				})
 			})
 
-			when("#WithPlatform", func() {
+			when("#WithDefaultPlatform", func() {
 				when("base image is an individual image manifest", func() {
 					when("platform matches image values", func() {
 						it("returns the base image", func() {
@@ -254,7 +254,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 								repoName,
 								authn.DefaultKeychain,
 								remote.FromBaseImage(windowsImageManifestName),
-								remote.WithPlatform(imgutil.Platform{
+								remote.WithDefaultPlatform(imgutil.Platform{
 									Architecture: "amd64",
 									OS:           "windows",
 									OSVersion:    "10.0.17763.1397",
@@ -285,7 +285,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 								repoName,
 								authn.DefaultKeychain,
 								remote.FromBaseImage(windowsImageManifestName),
-								remote.WithPlatform(imgutil.Platform{
+								remote.WithDefaultPlatform(imgutil.Platform{
 									OS:           "linux",
 									Architecture: "arm",
 								}),
@@ -316,7 +316,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 								repoName,
 								authn.DefaultKeychain,
 								remote.FromBaseImage(manifestListName),
-								remote.WithPlatform(imgutil.Platform{
+								remote.WithDefaultPlatform(imgutil.Platform{
 									OS:           "linux",
 									Architecture: "amd64",
 								}),
@@ -341,7 +341,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 								repoName,
 								authn.DefaultKeychain,
 								remote.FromBaseImage(manifestListName),
-								remote.WithPlatform(imgutil.Platform{
+								remote.WithDefaultPlatform(imgutil.Platform{
 									OS:           "windows",
 									Architecture: "arm",
 								}),
@@ -376,7 +376,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							repoName,
 							authn.DefaultKeychain,
 							remote.FromBaseImage("some-bad-repo-name"),
-							remote.WithPlatform(imgutil.Platform{
+							remote.WithDefaultPlatform(imgutil.Platform{
 								Architecture: "arm",
 								OS:           "linux",
 							}),
@@ -405,7 +405,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							repoName,
 							authn.DefaultKeychain,
 							remote.FromBaseImage("some-bad-repo-name"),
-							remote.WithPlatform(imgutil.Platform{
+							remote.WithDefaultPlatform(imgutil.Platform{
 								Architecture: "arm",
 								OS:           "windows",
 								OSVersion:    "10.0.99999.9999",
@@ -453,7 +453,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, img.ReuseLayer(existingLayerSha))
 				})
 
-				when("#WithPlatform", func() {
+				when("#WithDefaultPlatform", func() {
 					it("provides reusable layers from image in a manifest list with specific platform", func() {
 						manifestListName := "golang:1.13.8"
 						existingLayerSha := "sha256:cba908afa240240fceb312eb682bd7660fd5a404ddfd22843852dfdef141314b"
@@ -462,7 +462,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							repoName,
 							authn.DefaultKeychain,
 							remote.WithPreviousImage(manifestListName),
-							remote.WithPlatform(imgutil.Platform{
+							remote.WithDefaultPlatform(imgutil.Platform{
 								OS:           "windows",
 								Architecture: "amd64",
 							}),
