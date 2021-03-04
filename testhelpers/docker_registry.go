@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,6 +20,7 @@ import (
 )
 
 type DockerRegistry struct {
+	Host            string
 	Port            string
 	Name            string
 	DockerDirectory string
@@ -25,10 +28,7 @@ type DockerRegistry struct {
 	password        string
 }
 
-var registryImageNames = map[string]string{
-	"linux":   "registry:2",
-	"windows": "stefanscherer/registry-windows:2.6.2",
-}
+var registryImageName = "micahyoung/registry:latest"
 
 func NewDockerRegistry() *DockerRegistry {
 	return &DockerRegistry{
@@ -46,14 +46,11 @@ func NewDockerRegistryWithAuth(dockerConfigDir string) *DockerRegistry {
 }
 
 func (r *DockerRegistry) Start(t *testing.T) {
-	t.Log("run registry")
+	r.Host = DockerHostname(t)
+
+	t.Logf("run registry on %s", r.Host)
 	t.Helper()
 
-	ctx := context.Background()
-	daemonInfo, err := DockerCli(t).Info(ctx)
-	AssertNil(t, err)
-
-	registryImageName := registryImageNames[daemonInfo.OSType]
 	PullIfMissing(t, DockerCli(t), registryImageName)
 
 	var htpasswdTar io.ReadCloser
@@ -76,6 +73,7 @@ func (r *DockerRegistry) Start(t *testing.T) {
 	}
 
 	// Create container
+	ctx := context.Background()
 	ctr, err := DockerCli(t).ContainerCreate(ctx, &container.Config{
 		Image: registryImageName,
 		Env:   registryEnv,
@@ -103,13 +101,13 @@ func (r *DockerRegistry) Start(t *testing.T) {
 	var authHeaders map[string]string
 	if r.username != "" {
 		// Write Docker config and configure auth headers
-		writeDockerConfig(t, r.DockerDirectory, r.Port, r.encodedAuth())
+		writeDockerConfig(t, r.DockerDirectory, r.Host, r.Port, r.encodedAuth())
 		authHeaders = map[string]string{"Authorization": "Basic " + r.encodedAuth()}
 	}
 
 	// Wait for registry to be ready
 	Eventually(t, func() bool {
-		txt, err := HTTPGetE(fmt.Sprintf("http://localhost:%s/v2/_catalog", r.Port), authHeaders)
+		txt, err := HTTPGetE(fmt.Sprintf("http://%s:%s/v2/_catalog", r.Host, r.Port), authHeaders)
 		return err == nil && txt != ""
 	}, 100*time.Millisecond, 10*time.Second)
 }
@@ -124,11 +122,50 @@ func (r *DockerRegistry) Stop(t *testing.T) {
 }
 
 func (r *DockerRegistry) RepoName(name string) string {
-	return "localhost:" + r.Port + "/" + name
+	return r.Host + ":" + r.Port + "/" + name
 }
 
 func (r *DockerRegistry) EncodedLabeledAuth() string {
 	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(`{"username":"%s","password":"%s"}`, r.username, r.password)))
+}
+
+func DockerHostname(t *testing.T) string {
+	dockerCli := DockerCli(t)
+
+	daemonHost := dockerCli.DaemonHost()
+	u, err := url.Parse(daemonHost)
+	if err != nil {
+		t.Fatalf("unable to parse URI client.DaemonHost: %s", err)
+	}
+
+	// if DOCKER_HOST is set to tcp, assume it is the host
+	// Note: requires "insecure-registries" CIDR entry on Daemon config
+	if u.Scheme == "tcp" {
+		return u.Hostname()
+	}
+
+	// if host.docker.internal resolves, assume it's the host (https://docs.docker.com/docker-for-windows/networking/#use-cases-and-workarounds)
+	// Note: requires "insecure-registries" CIDR entry on Daemon config
+	addrs, err := net.LookupHost("host.docker.internal")
+	if err == nil && len(addrs) == 1 {
+		return addrs[0]
+	}
+
+	// if daemon has insecure registry entry with /32, assume it's the host
+	daemonInfo, err := dockerCli.Info(context.TODO())
+	if err != nil {
+		t.Fatalf("unable to fetch client.DockerInfo: %s", err)
+	}
+	for _, ipnet := range daemonInfo.RegistryConfig.InsecureRegistryCIDRs {
+		ones, _ := ipnet.Mask.Size()
+		if ones == 32 {
+			fmt.Printf("")
+			return ipnet.IP.String()
+		}
+	}
+
+	// Fallback to localhost, only works for Linux using --network=host
+	return "localhost"
 }
 
 func (r *DockerRegistry) encodedAuth() string {
@@ -143,17 +180,17 @@ func generateHtpasswd(t *testing.T, tempDir string, username string, password st
 	return CreateSingleFileTarReader("/registry_test_htpasswd", username+":"+string(passwordBytes))
 }
 
-func writeDockerConfig(t *testing.T, configDir, port, auth string) {
+func writeDockerConfig(t *testing.T, configDir, host, port, auth string) {
 	AssertNil(t, ioutil.WriteFile(
 		filepath.Join(configDir, "config.json"),
 		[]byte(fmt.Sprintf(`{
 			  "auths": {
-			    "localhost:%s": {
+			    "%s:%s": {
 			      "auth": "%s"
 			    }
 			  }
 			}
-			`, port, auth)),
+			`, host, port, auth)),
 		0666,
 	))
 }

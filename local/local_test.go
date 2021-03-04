@@ -35,7 +35,7 @@ func TestLocal(t *testing.T) {
 }
 
 func newTestImageName() string {
-	return "localhost:" + localTestRegistry.Port + "/pack-image-test-" + h.RandString(10)
+	return localTestRegistry.Host + ":" + localTestRegistry.Port + "/pack-image-test-" + h.RandString(10)
 }
 
 func testImage(t *testing.T, when spec.G, it spec.S) {
