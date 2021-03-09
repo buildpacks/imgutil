@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/name"
+
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
@@ -17,7 +19,7 @@ import (
 	h "github.com/buildpacks/imgutil/testhelpers"
 )
 
-var dockerRegistry *h.DockerRegistry
+var dockerRegistry, readonlyDockerRegistry *h.DockerRegistry
 
 func newTestImageName(providedPrefix ...string) string {
 	prefix := "pack-image-test"
@@ -35,9 +37,15 @@ func TestRemote(t *testing.T) {
 	h.AssertNil(t, err)
 	defer os.RemoveAll(dockerConfigDir)
 
-	dockerRegistry = h.NewDockerRegistryWithAuth(dockerConfigDir)
+	sharedStorageOpt := h.WithSharedStorageVolume("test-registry-volume" + h.RandString(10))
+
+	dockerRegistry = h.NewDockerRegistry(h.WithAuth(dockerConfigDir), sharedStorageOpt)
 	dockerRegistry.Start(t)
 	defer dockerRegistry.Stop(t)
+
+	readonlyDockerRegistry = h.NewDockerRegistry(sharedStorageOpt)
+	readonlyDockerRegistry.Start(t)
+	defer readonlyDockerRegistry.Stop(t)
 
 	os.Setenv("DOCKER_CONFIG", dockerRegistry.DockerDirectory)
 	defer os.Unsetenv("DOCKER_CONFIG")
@@ -76,6 +84,13 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				arch, err := img.Architecture()
 				h.AssertNil(t, err)
 				h.AssertEq(t, arch, "amd64")
+			})
+
+			it("fails to save to read-only registry", func() {
+				readOnlyRepoName := readonlyDockerRegistry.RepoName("pack-image-test" + h.RandString(10))
+				img, err := remote.NewImage(readOnlyRepoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertError(t, img.Save(), "Method Not Allowed")
 			})
 		})
 
@@ -1310,6 +1325,33 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					"test",
 					authn.DefaultKeychain,
 					remote.FromBaseImage(identifier.String()),
+				)
+				h.AssertNil(t, err)
+
+				remoteLabel, err := testImg.Label("mykey")
+				h.AssertNil(t, err)
+
+				h.AssertEq(t, remoteLabel, "newValue")
+			})
+
+			it("can be pulled from unauthenticated registry", func() {
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				err = img.SetLabel("mykey", "newValue")
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, img.Save())
+
+				name, err := name.ParseReference(repoName, name.WeakValidation)
+				h.AssertNil(t, err)
+				imageName := name.Context().RepositoryStr()
+				readonlyRepoName := readonlyDockerRegistry.RepoName(imageName)
+
+				testImg, err := remote.NewImage(
+					"test",
+					authn.DefaultKeychain,
+					remote.FromBaseImage(readonlyRepoName),
 				)
 				h.AssertNil(t, err)
 

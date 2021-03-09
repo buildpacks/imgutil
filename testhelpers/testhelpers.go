@@ -4,7 +4,9 @@ import (
 	"archive/tar"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -177,8 +179,25 @@ func DockerRmi(dockerCli dockercli.CommonAPIClient, repoNames ...string) error {
 	return err
 }
 
-func PushImage(dockerCli dockercli.CommonAPIClient, ref string) error {
-	rc, err := dockerCli.ImagePush(context.Background(), ref, dockertypes.ImagePushOptions{RegistryAuth: "{}"})
+func PushImage(dockerCli dockercli.CommonAPIClient, refStr string) error {
+	ref, err := name.ParseReference(refStr, name.WeakValidation)
+	if err != nil {
+		return err
+	}
+	auth, err := authn.DefaultKeychain.Resolve(ref.Context().Registry)
+	if err != nil {
+		return err
+	}
+	authConfig, err := auth.Authorization()
+	if err != nil {
+		return err
+	}
+	encodedJSON, err := json.Marshal(authConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	rc, err := dockerCli.ImagePush(context.Background(), refStr, dockertypes.ImagePushOptions{RegistryAuth: base64.URLEncoding.EncodeToString(encodedJSON)})
 	if err != nil {
 		return err
 	}

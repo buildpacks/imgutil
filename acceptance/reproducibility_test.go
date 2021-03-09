@@ -3,6 +3,7 @@ package acceptance
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"testing"
@@ -30,12 +31,19 @@ func newTestImageName() string {
 func TestAcceptance(t *testing.T) {
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	dockerRegistry := h.NewDockerRegistry()
+	dockerConfigDir, err := ioutil.TempDir("", "test.docker.config.dir")
+	h.AssertNil(t, err)
+	defer os.RemoveAll(dockerConfigDir)
+
+	dockerRegistry := h.NewDockerRegistry(h.WithAuth(dockerConfigDir))
 	dockerRegistry.Start(t)
 	defer dockerRegistry.Stop(t)
 
 	registryHost = dockerRegistry.Host
 	registryPort = dockerRegistry.Port
+
+	os.Setenv("DOCKER_CONFIG", dockerRegistry.DockerDirectory)
+	defer os.Unsetenv("DOCKER_CONFIG")
 
 	spec.Run(t, "Reproducibility", testReproducibility, spec.Sequential(), spec.Report(report.Terminal{}))
 }
@@ -110,12 +118,12 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 		img1, err := local.NewImage(imageName1, dockerClient, local.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img1)
-		h.PushImage(dockerClient, imageName1)
+		h.AssertNil(t, h.PushImage(dockerClient, imageName1))
 
 		img2, err := local.NewImage(imageName2, dockerClient, local.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img2)
-		h.PushImage(dockerClient, imageName2)
+		h.AssertNil(t, h.PushImage(dockerClient, imageName2))
 
 		compare(t, imageName1, imageName2)
 	})
@@ -128,23 +136,31 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 		img2, err := local.NewImage(imageName2, dockerClient, local.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img2)
-		h.PushImage(dockerClient, imageName2)
+		h.AssertNil(t, h.PushImage(dockerClient, imageName2))
 
 		compare(t, imageName1, imageName2)
 	})
 }
 
 func compare(t *testing.T, img1, img2 string) {
+	t.Helper()
+
 	ref1, err := name.ParseReference(img1, name.WeakValidation)
 	h.AssertNil(t, err)
 
 	ref2, err := name.ParseReference(img2, name.WeakValidation)
 	h.AssertNil(t, err)
 
-	v1img1, err := ggcrremote.Image(ref1)
+	auth1, err := authn.DefaultKeychain.Resolve(ref1.Context().Registry)
 	h.AssertNil(t, err)
 
-	v1img2, err := ggcrremote.Image(ref2)
+	auth2, err := authn.DefaultKeychain.Resolve(ref2.Context().Registry)
+	h.AssertNil(t, err)
+
+	v1img1, err := ggcrremote.Image(ref1, ggcrremote.WithAuth(auth1))
+	h.AssertNil(t, err)
+
+	v1img2, err := ggcrremote.Image(ref2, ggcrremote.WithAuth(auth2))
 	h.AssertNil(t, err)
 
 	cfg1, err := v1img1.ConfigFile()
