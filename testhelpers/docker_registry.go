@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
-	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -157,7 +155,7 @@ func (r *DockerRegistry) Start(t *testing.T) {
 		AssertNil(t, err)
 
 		hostPortMap := inspect.NetworkSettings.Ports["5000/tcp"]
-		if hostPortMap != nil && len(hostPortMap) == 1 {
+		if len(hostPortMap) == 1 {
 			r.Port = hostPortMap[0].HostPort
 			break
 		}
@@ -208,34 +206,15 @@ func (r *DockerRegistry) EncodedLabeledAuth() string {
 	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(`{"username":"%s","password":"%s"}`, r.username, r.password)))
 }
 
-//DockerHostname discovers the appropriate registry hostname based on:
-// * Any DOCKER_HOST=tcp://<host>, read host from the value
-// * Any host.docker.internal that resolves, use the IP
-// * Any exact IPs (<host IP>/32) in insecure-registry entries, assume that's the host's IP
-// * ... or, fallback to "localhost"
+//DockerHostname discovers the appropriate registry hostname.
+//For test to run where "localhost" is not the daemon host, a `insecure-registries` entry of `<host IP>/32` is required to allow test images to be written.
+//For Docker Desktop, this can be set here: https://docs.docker.com/docker-for-mac/#docker-engine
+//Otherwise, its set in the daemon.json: https://docs.docker.com/engine/reference/commandline/dockerd/#daemon-configuration-file
+//If the entry is not found, the fallback is "localhost"
 func DockerHostname(t *testing.T) string {
 	dockerCli := DockerCli(t)
 
-	daemonHost := dockerCli.DaemonHost()
-	u, err := url.Parse(daemonHost)
-	if err != nil {
-		t.Fatalf("unable to parse URI client.DaemonHost: %s", err)
-	}
-
-	// if DOCKER_HOST is set to tcp, assume it is the host
-	// Note: requires "insecure-registries" CIDR entry on Daemon config
-	if u.Scheme == "tcp" {
-		return u.Hostname()
-	}
-
-	// if host.docker.internal resolves, assume it's the host (https://docs.docker.com/docker-for-windows/networking/#use-cases-and-workarounds)
-	// Note: requires "insecure-registries" CIDR entry on Daemon config
-	addrs, err := net.LookupHost("host.docker.internal")
-	if err == nil && len(addrs) == 1 {
-		return addrs[0]
-	}
-
-	// if daemon has insecure registry entry with /32, assume it's the host
+	// if daemon has insecure registry entry with /32, assume it is the host
 	daemonInfo, err := dockerCli.Info(context.TODO())
 	if err != nil {
 		t.Fatalf("unable to fetch client.DockerInfo: %s", err)
