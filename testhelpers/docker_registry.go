@@ -104,7 +104,7 @@ func (r *DockerRegistry) Start(t *testing.T) {
 	var volumeBinds []string
 	var containerUser string
 	if r.volumeName != "" {
-		// try to create volumes that do not exist
+		// try to create volumes that may exist
 		_, err := DockerCli(t).VolumeCreate(context.Background(), volumetypes.VolumeCreateBody{Name: r.volumeName})
 		if err != nil {
 			// fail if err is not from existing volume
@@ -208,6 +208,11 @@ func (r *DockerRegistry) EncodedLabeledAuth() string {
 	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(`{"username":"%s","password":"%s"}`, r.username, r.password)))
 }
 
+//DockerHostname discovers the appropriate registry hostname based on:
+// * Any DOCKER_HOST=tcp://<host>, read host from the value
+// * Any host.docker.internal that resolves, use the IP
+// * Any exact IPs (<host IP>/32) in insecure-registry entries, assume that's the host's IP
+// * ... or, fallback to "localhost"
 func DockerHostname(t *testing.T) string {
 	dockerCli := DockerCli(t)
 

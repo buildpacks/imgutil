@@ -179,6 +179,7 @@ func DockerRmi(dockerCli dockercli.CommonAPIClient, repoNames ...string) error {
 	return err
 }
 
+//PushImage pushes an image to a registry, optionally using credentials from any set DOCKER_CONFIG
 func PushImage(dockerCli dockercli.CommonAPIClient, refStr string) error {
 	ref, err := name.ParseReference(refStr, name.WeakValidation)
 	if err != nil {

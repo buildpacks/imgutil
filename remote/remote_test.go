@@ -1343,10 +1343,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				h.AssertNil(t, img.Save())
 
-				name, err := name.ParseReference(repoName, name.WeakValidation)
+				//convert authenticated repo name to unauthenticated repo name
+				authRepoRef, err := name.ParseReference(repoName, name.WeakValidation)
 				h.AssertNil(t, err)
-				imageName := name.Context().RepositoryStr()
-				readonlyRepoName := readonlyDockerRegistry.RepoName(imageName)
+				sharedImageName := authRepoRef.Context().RepositoryStr()
+				readonlyRepoName := readonlyDockerRegistry.RepoName(sharedImageName)
 
 				testImg, err := remote.NewImage(
 					"test",
