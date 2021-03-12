@@ -186,18 +186,24 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 		OSVersion:    platform.OSVersion,
 	}
 
-	image, err := remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport), remote.WithPlatform(v1Platform))
-	if err != nil {
-		if transportErr, ok := err.(*transport.Error); ok && len(transportErr.Errors) > 0 {
-			switch transportErr.StatusCode {
-			case http.StatusNotFound, http.StatusUnauthorized:
+	var image v1.Image
+	for i := 0; i < 3; i++ {
+		image, err = remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport), remote.WithPlatform(v1Platform))
+		if err != nil {
+			if err == io.EOF {
+				continue // retry if EOF
+			}
+			if transportErr, ok := err.(*transport.Error); ok && len(transportErr.Errors) > 0 {
+				switch transportErr.StatusCode {
+				case http.StatusNotFound, http.StatusUnauthorized:
+					return emptyImage(platform)
+				}
+			}
+			if strings.Contains(err.Error(), "no child with platform") {
 				return emptyImage(platform)
 			}
+			return nil, fmt.Errorf("connect to repo store '%s': %s", repoName, err.Error())
 		}
-		if strings.Contains(err.Error(), "no child with platform") {
-			return emptyImage(platform)
-		}
-		return nil, fmt.Errorf("connect to repo store '%s': %s", repoName, err.Error())
 	}
 
 	return image, nil
