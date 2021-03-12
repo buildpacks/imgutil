@@ -59,7 +59,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#NewImage", func() {
-		when("no base image is given", func() {
+		when("no base image or platform is given", func() {
 			it("returns an empty image", func() {
 				_, err := local.NewImage(newTestImageName(), dockerClient)
 				h.AssertNil(t, err)
@@ -84,98 +84,294 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 
+		when("#WithDefaultPlatform", func() {
+			it("sets all available platform fields", func() {
+				expectedArmArch := "arm64"
+				expectedOSVersion := ""
+				if daemonOS == "windows" {
+					// windows/arm nanoserver image
+					expectedArmArch = "arm"
+					expectedOSVersion = "10.0.17763.1040"
+				}
+
+				img, err := local.NewImage(
+					newTestImageName(),
+					dockerClient,
+					local.WithDefaultPlatform(imgutil.Platform{
+						Architecture: expectedArmArch,
+						OS:           daemonOS,
+						OSVersion:    expectedOSVersion,
+					}),
+				)
+				h.AssertNil(t, err)
+				h.AssertNil(t, img.Save())
+
+				defer h.DockerRmi(dockerClient, img.Name())
+				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
+				h.AssertNil(t, err)
+
+				daemonInfo, err := dockerClient.Info(context.TODO())
+				h.AssertNil(t, err)
+
+				//image os must match daemon
+				h.AssertEq(t, inspect.Os, daemonInfo.OSType)
+				h.AssertEq(t, inspect.Architecture, expectedArmArch)
+				h.AssertEq(t, inspect.OsVersion, expectedOSVersion)
+				h.AssertEq(t, inspect.RootFS.Type, "layers")
+
+				//base layer is added for windows
+				if daemonOS == "windows" {
+					h.AssertEq(t, len(inspect.RootFS.Layers), 1)
+				} else {
+					h.AssertEq(t, len(inspect.RootFS.Layers), 0)
+				}
+			})
+		})
+
 		when("#FromBaseImage", func() {
-			when("base image exists", func() {
-				var baseImageName = newTestImageName()
-				var repoName = newTestImageName()
+			when("no platform is specified", func() {
+				when("base image exists", func() {
+					var baseImageName = newTestImageName()
+					var repoName = newTestImageName()
 
-				it.After(func() {
-					h.AssertNil(t, h.DockerRmi(dockerClient, baseImageName))
+					it.After(func() {
+						h.AssertNil(t, h.DockerRmi(dockerClient, baseImageName))
+					})
+
+					it("returns the local image", func() {
+						baseImage, err := local.NewImage(baseImageName, dockerClient)
+						h.AssertNil(t, err)
+
+						h.AssertNil(t, baseImage.SetEnv("MY_VAR", "my_val"))
+						h.AssertNil(t, baseImage.SetLabel("some.label", "some.value"))
+						h.AssertNil(t, baseImage.Save())
+
+						localImage, err := local.NewImage(
+							repoName,
+							dockerClient,
+							local.FromBaseImage(baseImageName),
+						)
+						h.AssertNil(t, err)
+
+						labelValue, err := localImage.Label("some.label")
+						h.AssertNil(t, err)
+						h.AssertEq(t, labelValue, "some.value")
+					})
 				})
 
-				it("returns the local image", func() {
-					baseImage, err := local.NewImage(baseImageName, dockerClient)
-					h.AssertNil(t, err)
+				when("base image does not exist", func() {
+					it("returns an empty image", func() {
+						img, err := local.NewImage(
+							newTestImageName(),
+							dockerClient,
+							local.FromBaseImage("some-bad-repo-name"),
+						)
 
-					h.AssertNil(t, baseImage.SetEnv("MY_VAR", "my_val"))
-					h.AssertNil(t, baseImage.SetLabel("some.label", "some.value"))
-					h.AssertNil(t, baseImage.Save())
+						h.AssertNil(t, err)
 
-					localImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(baseImageName))
-					h.AssertNil(t, err)
+						//base layer is added for windows
+						if daemonOS == "windows" {
+							topLayerDiffID, err := img.TopLayer()
+							h.AssertNil(t, err)
 
-					labelValue, err := localImage.Label("some.label")
-					h.AssertNil(t, err)
-					h.AssertEq(t, labelValue, "some.value")
+							h.AssertNotEq(t, topLayerDiffID, "")
+						} else {
+							_, err = img.TopLayer()
+							h.AssertError(t, err, "has no layers")
+						}
+					})
+				})
+
+				when("base image and daemon os/architecture match", func() {
+					it("uses the base image architecture/OS", func() {
+						img, err := local.NewImage(
+							newTestImageName(),
+							dockerClient,
+							local.FromBaseImage(runnableBaseImageName),
+						)
+						h.AssertNil(t, err)
+						h.AssertNil(t, img.Save())
+						defer h.DockerRmi(dockerClient, img.Name())
+
+						imgOS, err := img.OS()
+						h.AssertNil(t, err)
+						h.AssertEq(t, imgOS, daemonOS)
+
+						inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
+						h.AssertNil(t, err)
+						h.AssertEq(t, inspect.Os, daemonOS)
+						h.AssertEq(t, inspect.Architecture, "amd64")
+						h.AssertEq(t, inspect.RootFS.Type, "layers")
+
+						h.AssertEq(t, img.Found(), true)
+					})
+				})
+
+				when("base image and daemon architecture do not match", func() {
+					it("uses the base image architecture/OS", func() {
+						armBaseImageName := "busybox@sha256:50edf1d080946c6a76989d1c3b0e753b62f7d9b5f5e66e88bef23ebbd1e9709c"
+						expectedArmArch := "arm64"
+						expectedOSVersion := ""
+						if daemonOS == "windows" {
+							// windows/arm nanoserver image
+							armBaseImageName = "mcr.microsoft.com/windows/nanoserver@sha256:29e2270953589a12de7a77a7e77d39e3b3e9cdfd243c922b3b8a63e2d8a71026"
+							expectedArmArch = "arm"
+							expectedOSVersion = "10.0.17763.1040"
+						}
+
+						h.PullIfMissing(t, dockerClient, armBaseImageName)
+
+						img, err := local.NewImage(
+							newTestImageName(),
+							dockerClient,
+							local.FromBaseImage(armBaseImageName),
+						)
+						h.AssertNil(t, err)
+						h.AssertNil(t, img.Save())
+						defer h.DockerRmi(dockerClient, img.Name())
+
+						imgArch, err := img.Architecture()
+						h.AssertNil(t, err)
+						h.AssertEq(t, imgArch, expectedArmArch)
+
+						imgOSVersion, err := img.OSVersion()
+						h.AssertNil(t, err)
+						h.AssertEq(t, imgOSVersion, expectedOSVersion)
+					})
 				})
 			})
 
-			when("base image does not exist", func() {
-				it("doesn't error", func() {
-					_, err := local.NewImage(
-						newTestImageName(),
-						dockerClient,
-						local.FromBaseImage("some-bad-repo-name"),
-					)
+			when("#WithDefaultPlatform", func() {
+				when("base image and platform architecture/OS do not match", func() {
+					it("uses the base image architecture/OS, ignoring platform", func() {
+						// linux/arm64 busybox image
+						armBaseImageName := "busybox@sha256:50edf1d080946c6a76989d1c3b0e753b62f7d9b5f5e66e88bef23ebbd1e9709c"
+						expectedArchitecture := "arm64"
+						expectedOSVersion := ""
+						if daemonOS == "windows" {
+							// windows/arm nanoserver image
+							armBaseImageName = "mcr.microsoft.com/windows/nanoserver@sha256:29e2270953589a12de7a77a7e77d39e3b3e9cdfd243c922b3b8a63e2d8a71026"
+							expectedArchitecture = "arm"
+							expectedOSVersion = "10.0.17763.1040"
+						}
 
-					h.AssertNil(t, err)
+						h.PullIfMissing(t, dockerClient, armBaseImageName)
+
+						img, err := local.NewImage(
+							newTestImageName(),
+							dockerClient,
+							local.FromBaseImage(armBaseImageName),
+							local.WithDefaultPlatform(imgutil.Platform{
+								Architecture: "not-an-arch",
+								OSVersion:    "10.0.99999.9999",
+							}),
+						)
+						h.AssertNil(t, err)
+						h.AssertNil(t, img.Save())
+						defer h.DockerRmi(dockerClient, img.Name())
+
+						imgArch, err := img.Architecture()
+						h.AssertNil(t, err)
+						h.AssertEq(t, imgArch, expectedArchitecture)
+
+						imgOSVersion, err := img.OSVersion()
+						h.AssertNil(t, err)
+						h.AssertEq(t, imgOSVersion, expectedOSVersion)
+					})
 				})
-			})
 
-			when("base image and daemon os/architecture match", func() {
-				it("uses the base image architecture/OS", func() {
-					img, err := local.NewImage(newTestImageName(), dockerClient, local.FromBaseImage(runnableBaseImageName))
-					h.AssertNil(t, err)
-					h.AssertNil(t, img.Save())
-					defer h.DockerRmi(dockerClient, img.Name())
+				when("base image does not exist", func() {
+					it("returns an empty image based on platform fields", func() {
+						img, err := local.NewImage(
+							newTestImageName(),
+							dockerClient,
+							local.FromBaseImage("some-bad-repo-name"),
+							local.WithDefaultPlatform(imgutil.Platform{
+								Architecture: "arm64",
+								OS:           daemonOS,
+								OSVersion:    "10.0.99999.9999",
+							}),
+						)
 
-					imgOS, err := img.OS()
-					h.AssertNil(t, err)
-					h.AssertEq(t, imgOS, daemonOS)
+						h.AssertNil(t, err)
+						h.AssertNil(t, img.Save())
+						defer h.DockerRmi(dockerClient, img.Name())
 
-					inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
-					h.AssertNil(t, err)
-					h.AssertEq(t, inspect.Os, daemonOS)
-					h.AssertEq(t, inspect.Architecture, "amd64")
-					h.AssertEq(t, inspect.RootFS.Type, "layers")
+						inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
+						h.AssertNil(t, err)
 
-					h.AssertEq(t, img.Found(), true)
-				})
-			})
+						daemonInfo, err := dockerClient.Info(context.TODO())
+						h.AssertNil(t, err)
 
-			when("base image and daemon architecture do not match", func() {
-				it("uses the base image architecture", func() {
-					armBaseImageName := "arm64v8/busybox@sha256:50edf1d080946c6a76989d1c3b0e753b62f7d9b5f5e66e88bef23ebbd1e9709c"
-					expectedArmArch := "arm64"
-					expectedOSVersion := ""
-					if daemonOS == "windows" {
-						// this nanoserver windows/arm image exists and pulls. Not sure whether it works for anything else.
-						armBaseImageName = "mcr.microsoft.com/windows/nanoserver@sha256:29e2270953589a12de7a77a7e77d39e3b3e9cdfd243c922b3b8a63e2d8a71026"
-						expectedArmArch = "arm"
-						expectedOSVersion = "10.0.17763.1040"
-					}
+						//image os must match daemon
+						h.AssertEq(t, inspect.Os, daemonInfo.OSType)
+						h.AssertEq(t, inspect.Architecture, "arm64")
+						h.AssertEq(t, inspect.OsVersion, "10.0.99999.9999")
 
-					h.PullIfMissing(t, dockerClient, armBaseImageName)
-
-					img, err := local.NewImage(newTestImageName(), dockerClient, local.FromBaseImage(armBaseImageName))
-					h.AssertNil(t, err)
-					h.AssertNil(t, img.Save())
-					defer h.DockerRmi(dockerClient, img.Name())
-
-					imgArch, err := img.Architecture()
-					h.AssertNil(t, err)
-					h.AssertEq(t, imgArch, expectedArmArch)
-
-					imgOSVersion, err := img.OSVersion()
-					h.AssertNil(t, err)
-					h.AssertEq(t, imgOSVersion, expectedOSVersion)
+						//base layer is added for windows
+						if daemonOS == "windows" {
+							h.AssertEq(t, len(inspect.RootFS.Layers), 1)
+						} else {
+							h.AssertEq(t, len(inspect.RootFS.Layers), 0)
+						}
+					})
 				})
 			})
 		})
 
 		when("#WithPreviousImage", func() {
+			when("previous image is exists", func() {
+				var armBaseImageName string
+				var existingLayerSHA string
+
+				it.Before(func() {
+					// linux/arm64 busybox image
+					armBaseImageName = "busybox@sha256:50edf1d080946c6a76989d1c3b0e753b62f7d9b5f5e66e88bef23ebbd1e9709c"
+					if daemonOS == "windows" {
+						// windows/arm nanoserver image
+						armBaseImageName = "mcr.microsoft.com/windows/nanoserver@sha256:29e2270953589a12de7a77a7e77d39e3b3e9cdfd243c922b3b8a63e2d8a71026"
+					}
+					h.PullIfMissing(t, dockerClient, armBaseImageName)
+
+					refImage, err := local.NewImage(
+						newTestImageName(),
+						dockerClient,
+						local.FromBaseImage(armBaseImageName),
+					)
+					h.AssertNil(t, err)
+
+					existingLayerSHA, err = refImage.TopLayer()
+					h.AssertNil(t, err)
+				})
+
+				it("provides reusable layers", func() {
+					img, err := local.NewImage(
+						newTestImageName(),
+						dockerClient,
+						local.WithPreviousImage(armBaseImageName),
+					)
+					h.AssertNil(t, err)
+
+					h.AssertNil(t, img.ReuseLayer(existingLayerSHA))
+				})
+
+				it("provides reusable layers, ignoring WithDefaultPlatform", func() {
+					img, err := local.NewImage(
+						newTestImageName(),
+						dockerClient,
+						local.WithPreviousImage(armBaseImageName),
+						local.WithDefaultPlatform(imgutil.Platform{
+							Architecture: "some-fake-os",
+						}),
+					)
+					h.AssertNil(t, err)
+
+					h.AssertNil(t, img.ReuseLayer(existingLayerSHA))
+				})
+			})
+
 			when("previous image does not exist", func() {
-				it("doesn't error", func() {
+				it("does not error", func() {
 					_, err := local.NewImage(
 						newTestImageName(),
 						dockerClient,
@@ -873,7 +1069,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), oldBase)
 				h.AssertNil(t, err)
-				oldTopLayer = inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
+				oldTopLayer = h.StringElementAt(inspect.RootFS.Layers, -1)
 
 				// original image
 				origImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(oldBase))
@@ -911,16 +1107,16 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				beforeInspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 				h.AssertNil(t, err)
 
-				beforeOldBaseLayer1DiffID := beforeInspect.RootFS.Layers[len(beforeInspect.RootFS.Layers)-4]
+				beforeOldBaseLayer1DiffID := h.StringElementAt(beforeInspect.RootFS.Layers, -4)
 				h.AssertEq(t, oldBaseLayer1DiffID, beforeOldBaseLayer1DiffID)
 
-				beforeOldBaseLayer2DiffID := beforeInspect.RootFS.Layers[len(beforeInspect.RootFS.Layers)-3]
+				beforeOldBaseLayer2DiffID := h.StringElementAt(beforeInspect.RootFS.Layers, -3)
 				h.AssertEq(t, oldBaseLayer2DiffID, beforeOldBaseLayer2DiffID)
 
-				beforeLayer3DiffID := beforeInspect.RootFS.Layers[len(beforeInspect.RootFS.Layers)-2]
+				beforeLayer3DiffID := h.StringElementAt(beforeInspect.RootFS.Layers, -2)
 				h.AssertEq(t, imgLayer1DiffID, beforeLayer3DiffID)
 
-				beforeLayer4DiffID := beforeInspect.RootFS.Layers[len(beforeInspect.RootFS.Layers)-1]
+				beforeLayer4DiffID := h.StringElementAt(beforeInspect.RootFS.Layers, -1)
 				h.AssertEq(t, imgLayer2DiffID, beforeLayer4DiffID)
 
 				// Run rebase
@@ -940,16 +1136,16 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				numLayers := len(afterInspect.RootFS.Layers)
 				h.AssertEq(t, numLayers, origNumLayers)
 
-				afterLayer1DiffID := afterInspect.RootFS.Layers[len(afterInspect.RootFS.Layers)-4]
+				afterLayer1DiffID := h.StringElementAt(afterInspect.RootFS.Layers, -4)
 				h.AssertEq(t, newBaseLayer1DiffID, afterLayer1DiffID)
 
-				afterLayer2DiffID := afterInspect.RootFS.Layers[len(afterInspect.RootFS.Layers)-3]
+				afterLayer2DiffID := h.StringElementAt(afterInspect.RootFS.Layers, -3)
 				h.AssertEq(t, newBaseLayer2DiffID, afterLayer2DiffID)
 
-				afterLayer3DiffID := afterInspect.RootFS.Layers[len(afterInspect.RootFS.Layers)-2]
+				afterLayer3DiffID := h.StringElementAt(afterInspect.RootFS.Layers, -2)
 				h.AssertEq(t, imgLayer1DiffID, afterLayer3DiffID)
 
-				afterLayer4DiffID := afterInspect.RootFS.Layers[len(afterInspect.RootFS.Layers)-1]
+				afterLayer4DiffID := h.StringElementAt(afterInspect.RootFS.Layers, -1)
 				h.AssertEq(t, imgLayer2DiffID, afterLayer4DiffID)
 
 				h.AssertEq(t, afterInspect.Os, beforeInspect.Os)
@@ -985,7 +1181,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 				h.AssertNil(t, err)
-				expectedTopLayer = inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
+				expectedTopLayer = h.StringElementAt(inspect.RootFS.Layers, -1)
 			})
 
 			it.After(func() {
@@ -1008,8 +1204,14 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				img, err := local.NewImage(newTestImageName(), dockerClient)
 				h.AssertNil(t, err)
 
-				_, err = img.TopLayer()
-				h.AssertError(t, err, "has no layers")
+				if daemonOS == "windows" {
+					layer, err := img.TopLayer()
+					h.AssertNil(t, err)
+					h.AssertNotEq(t, layer, "")
+				} else {
+					_, err = img.TopLayer()
+					h.AssertError(t, err, "has no layers")
+				}
 			})
 		})
 	})
@@ -1021,13 +1223,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it("appends a layer", func() {
 				img, err := local.NewImage(repoName, dockerClient)
 				h.AssertNil(t, err)
-
-				// windows daemons *always* require a valid windows base layer
-				if daemonOS == "windows" {
-					windowsBaseLayer := h.WindowsBaseLayer(t)
-					h.AssertNil(t, img.AddLayer(windowsBaseLayer))
-					defer os.Remove(windowsBaseLayer)
-				}
 
 				newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", daemonOS)
 				h.AssertNil(t, err)
@@ -1043,7 +1238,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 				h.AssertNil(t, err)
 
-				h.AssertEq(t, newLayerDiffID, inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1])
+				h.AssertEq(t, newLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -1))
 			})
 		})
 
@@ -1093,8 +1288,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 				h.AssertNil(t, err)
 
-				h.AssertEq(t, oldLayerDiffID, inspect.RootFS.Layers[len(inspect.RootFS.Layers)-2])
-				h.AssertEq(t, newLayerDiffID, inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1])
+				h.AssertEq(t, oldLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -2))
+				h.AssertEq(t, newLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -1))
 			})
 		})
 	})
@@ -1105,13 +1300,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			existingImage, err := local.NewImage(repoName, dockerClient)
 			h.AssertNil(t, err)
-
-			// windows daemons *always* require a valid windows base layer
-			if daemonOS == "windows" {
-				windowsBaseLayer := h.WindowsBaseLayer(t)
-				h.AssertNil(t, existingImage.AddLayer(windowsBaseLayer))
-				defer os.Remove(windowsBaseLayer)
-			}
 
 			oldLayerPath, err := h.CreateSingleFileLayerTar("/old-layer.txt", "old-layer", daemonOS)
 			h.AssertNil(t, err)
@@ -1149,8 +1337,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 			h.AssertNil(t, err)
 
-			h.AssertEq(t, oldLayerDiffID, inspect.RootFS.Layers[len(inspect.RootFS.Layers)-2])
-			h.AssertEq(t, newLayerDiffID, inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1])
+			h.AssertEq(t, oldLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -2))
+			h.AssertEq(t, newLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -1))
 		})
 	})
 
@@ -1266,8 +1454,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), prevName)
 			h.AssertNil(t, err)
 
-			prevLayer1SHA = inspect.RootFS.Layers[0]
-			prevLayer2SHA = inspect.RootFS.Layers[1]
+			prevLayer1SHA = h.StringElementAt(inspect.RootFS.Layers, -2)
+			prevLayer2SHA = h.StringElementAt(inspect.RootFS.Layers, -1)
 		})
 
 		it.After(func() {
@@ -1297,8 +1485,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 			h.AssertNil(t, err)
 
-			newLayer1SHA := inspect.RootFS.Layers[len(inspect.RootFS.Layers)-2]
-			reusedLayer2SHA := inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
+			newLayer1SHA := h.StringElementAt(inspect.RootFS.Layers, -2)
+			reusedLayer2SHA := h.StringElementAt(inspect.RootFS.Layers, -1)
 
 			h.AssertNotEq(t, prevLayer1SHA, newLayer1SHA)
 			h.AssertEq(t, prevLayer2SHA, reusedLayer2SHA)
@@ -1320,9 +1508,13 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 			h.AssertNil(t, err)
 
-			h.AssertEq(t, len(inspect.RootFS.Layers), 1)
+			if daemonOS == "windows" {
+				h.AssertEq(t, len(inspect.RootFS.Layers), 2)
+			} else {
+				h.AssertEq(t, len(inspect.RootFS.Layers), 1)
+			}
 
-			newLayer1SHA := inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
+			newLayer1SHA := h.StringElementAt(inspect.RootFS.Layers, -1)
 
 			h.AssertEq(t, prevLayer1SHA, newLayer1SHA)
 		})

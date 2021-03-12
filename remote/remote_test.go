@@ -52,8 +52,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		repoName = newTestImageName()
 	})
 
-	when("#NewRemote", func() {
-		when("no base image is given", func() {
+	when("#NewImage", func() {
+		when("no base image or platform is given", func() {
 			it("returns an empty image", func() {
 				_, err := remote.NewImage(newTestImageName(), authn.DefaultKeychain)
 				h.AssertNil(t, err)
@@ -79,66 +79,126 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 
-		when("#FromRemoteBaseImage", func() {
-			when("base image exists", func() {
-				it("sets the initial state from a linux/arm base image", func() {
-					baseImageName := "arm64v8/busybox@sha256:50edf1d080946c6a76989d1c3b0e753b62f7d9b5f5e66e88bef23ebbd1e9709c"
-					existingLayerSha := "sha256:5a0b973aa300cd2650869fd76d8546b361fcd6dfc77bd37b9d4f082cca9874e4"
+		when("#WithDefaultPlatform", func() {
+			it("sets all platform required fields for windows", func() {
+				img, err := remote.NewImage(
+					newTestImageName(),
+					authn.DefaultKeychain,
+					remote.WithDefaultPlatform(imgutil.Platform{
+						Architecture: "arm",
+						OS:           "windows",
+						OSVersion:    "10.0.17763.316",
+					}),
+				)
+				h.AssertNil(t, err)
+				h.AssertNil(t, img.Save())
 
-					img, err := remote.NewImage(
-						repoName,
-						authn.DefaultKeychain,
-						remote.FromBaseImage(baseImageName),
-					)
-					h.AssertNil(t, err)
+				arch, err := img.Architecture()
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "arm")
 
-					os, err := img.OS()
-					h.AssertNil(t, err)
-					h.AssertEq(t, os, "linux")
+				os, err := img.OS()
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "windows")
 
-					osVersion, err := img.OSVersion()
-					h.AssertNil(t, err)
-					h.AssertEq(t, osVersion, "")
+				osVersion, err := img.OSVersion()
+				h.AssertNil(t, err)
+				h.AssertEq(t, osVersion, "10.0.17763.316")
 
-					arch, err := img.Architecture()
-					h.AssertNil(t, err)
-					h.AssertEq(t, arch, "arm64")
+				//base layer is added for windows
+				topLayerDiffID, err := img.TopLayer()
+				h.AssertNil(t, err)
 
-					readCloser, err := img.GetLayer(existingLayerSha)
-					h.AssertNil(t, err)
-					defer readCloser.Close()
-				})
+				h.AssertNotEq(t, topLayerDiffID, "")
+			})
 
-				it("sets the initial state from a windows/amd64 base image", func() {
-					baseImageName := "mcr.microsoft.com/windows/nanoserver@sha256:06281772b6a561411d4b338820d94ab1028fdeb076c85350bbc01e80c4bfa2b4"
-					existingLayerSha := "sha256:26fd2d9d4c64a4f965bbc77939a454a31b607470f430b5d69fc21ded301fa55e"
+			it("sets all platform required fields for linux", func() {
+				img, err := remote.NewImage(
+					newTestImageName(),
+					authn.DefaultKeychain,
+					remote.WithDefaultPlatform(imgutil.Platform{
+						Architecture: "arm",
+						OS:           "linux",
+					}),
+				)
+				h.AssertNil(t, err)
+				h.AssertNil(t, img.Save())
 
-					img, err := remote.NewImage(
-						repoName,
-						authn.DefaultKeychain,
-						remote.FromBaseImage(baseImageName),
-					)
-					h.AssertNil(t, err)
+				arch, err := img.Architecture()
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "arm")
 
-					os, err := img.OS()
-					h.AssertNil(t, err)
-					h.AssertEq(t, os, "windows")
+				os, err := img.OS()
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "linux")
 
-					osVersion, err := img.OSVersion()
-					h.AssertNil(t, err)
-					h.AssertEq(t, osVersion, "10.0.17763.1040")
+				_, err = img.TopLayer()
+				h.AssertError(t, err, "has no layers")
+			})
+		})
 
-					arch, err := img.Architecture()
-					h.AssertNil(t, err)
-					h.AssertEq(t, arch, "amd64")
+		when("#FromBaseImage", func() {
+			when("no platform is specified", func() {
+				when("base image is an individual image manifest", func() {
+					it("sets the initial state from a linux/arm base image", func() {
+						baseImageName := "arm64v8/busybox@sha256:50edf1d080946c6a76989d1c3b0e753b62f7d9b5f5e66e88bef23ebbd1e9709c"
+						existingLayerSha := "sha256:5a0b973aa300cd2650869fd76d8546b361fcd6dfc77bd37b9d4f082cca9874e4"
 
-					readCloser, err := img.GetLayer(existingLayerSha)
-					h.AssertNil(t, err)
-					defer readCloser.Close()
+						img, err := remote.NewImage(
+							repoName,
+							authn.DefaultKeychain,
+							remote.FromBaseImage(baseImageName),
+						)
+						h.AssertNil(t, err)
+
+						os, err := img.OS()
+						h.AssertNil(t, err)
+						h.AssertEq(t, os, "linux")
+
+						osVersion, err := img.OSVersion()
+						h.AssertNil(t, err)
+						h.AssertEq(t, osVersion, "")
+
+						arch, err := img.Architecture()
+						h.AssertNil(t, err)
+						h.AssertEq(t, arch, "arm64")
+
+						readCloser, err := img.GetLayer(existingLayerSha)
+						h.AssertNil(t, err)
+						defer readCloser.Close()
+					})
+
+					it("sets the initial state from a windows/amd64 base image", func() {
+						baseImageName := "mcr.microsoft.com/windows/nanoserver@sha256:06281772b6a561411d4b338820d94ab1028fdeb076c85350bbc01e80c4bfa2b4"
+						existingLayerSha := "sha256:26fd2d9d4c64a4f965bbc77939a454a31b607470f430b5d69fc21ded301fa55e"
+
+						img, err := remote.NewImage(
+							repoName,
+							authn.DefaultKeychain,
+							remote.FromBaseImage(baseImageName),
+						)
+						h.AssertNil(t, err)
+
+						os, err := img.OS()
+						h.AssertNil(t, err)
+						h.AssertEq(t, os, "windows")
+
+						osVersion, err := img.OSVersion()
+						h.AssertNil(t, err)
+						h.AssertEq(t, osVersion, "10.0.17763.1040")
+
+						arch, err := img.Architecture()
+						h.AssertNil(t, err)
+						h.AssertEq(t, arch, "amd64")
+
+						readCloser, err := img.GetLayer(existingLayerSha)
+						h.AssertNil(t, err)
+						defer readCloser.Close()
+					})
 				})
 
 				when("base image is a multi-OS/Arch manifest list", func() {
-					it("returns a base image matching the runtime GOOS/GOARCH", func() {
+					it("returns a base image matching linux/amd64", func() {
 						manifestListName := "golang:1.13.8"
 						existingLayerSha := "sha256:427da4a135b0869c1a274ba38e23d45bdbda93134c4ad99c8900cb0cfe9f0c9e"
 
@@ -166,24 +226,256 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						defer readCloser.Close()
 					})
 				})
+
+				when("base image does not exist", func() {
+					it("returns an empty image", func() {
+						img, err := remote.NewImage(
+							repoName,
+							authn.DefaultKeychain,
+							remote.FromBaseImage("some-bad-repo-name"),
+						)
+
+						h.AssertNil(t, err)
+
+						_, err = img.TopLayer()
+						h.AssertError(t, err, "has no layers")
+					})
+				})
 			})
 
-			when("base image does not exist", func() {
-				it("don't error", func() {
-					_, err := remote.NewImage(
-						repoName,
-						authn.DefaultKeychain,
-						remote.FromBaseImage("some-bad-repo-name"),
-					)
+			when("#WithDefaultPlatform", func() {
+				when("base image is an individual image manifest", func() {
+					when("platform matches image values", func() {
+						it("returns the base image", func() {
+							// "golang:1.15.0-nanoserver-1809" image manifest (windows/amd64/10.0.17763.1397)
+							windowsImageManifestName := "golang@sha256:6c09e9b9ca3aa2e939c8d0e695d6378f31d42c2473fd57293ba03c254257d9e3"
 
-					h.AssertNil(t, err)
+							img, err := remote.NewImage(
+								repoName,
+								authn.DefaultKeychain,
+								remote.FromBaseImage(windowsImageManifestName),
+								remote.WithDefaultPlatform(imgutil.Platform{
+									Architecture: "amd64",
+									OS:           "windows",
+									OSVersion:    "10.0.17763.1397",
+								}),
+							)
+							h.AssertNil(t, err)
+
+							arch, err := img.Architecture()
+							h.AssertNil(t, err)
+							h.AssertEq(t, arch, "amd64")
+
+							os, err := img.OS()
+							h.AssertNil(t, err)
+							h.AssertEq(t, os, "windows")
+
+							osVersion, err := img.OSVersion()
+							h.AssertNil(t, err)
+							h.AssertEq(t, osVersion, "10.0.17763.1397")
+						})
+					})
+
+					when("platform conflicts with image values", func() {
+						it("returns the base image, regardless of platform values", func() {
+							// "golang:1.15.0-nanoserver-1809" image manifest (windows/amd64/10.0.17763.1397)
+							windowsImageManifestName := "golang@sha256:6c09e9b9ca3aa2e939c8d0e695d6378f31d42c2473fd57293ba03c254257d9e3"
+
+							img, err := remote.NewImage(
+								repoName,
+								authn.DefaultKeychain,
+								remote.FromBaseImage(windowsImageManifestName),
+								remote.WithDefaultPlatform(imgutil.Platform{
+									OS:           "linux",
+									Architecture: "arm",
+								}),
+							)
+							h.AssertNil(t, err)
+
+							arch, err := img.Architecture()
+							h.AssertNil(t, err)
+							h.AssertEq(t, arch, "amd64")
+
+							os, err := img.OS()
+							h.AssertNil(t, err)
+							h.AssertEq(t, os, "windows")
+
+							osVersion, err := img.OSVersion()
+							h.AssertNil(t, err)
+							h.AssertEq(t, osVersion, "10.0.17763.1397")
+						})
+					})
+				})
+
+				when("base image is a multi-OS/Arch manifest list", func() {
+					when("image with matching platform fields exists", func() {
+						it("returns the image whose index matches the platform", func() {
+							manifestListName := "golang:1.13.8"
+
+							img, err := remote.NewImage(
+								repoName,
+								authn.DefaultKeychain,
+								remote.FromBaseImage(manifestListName),
+								remote.WithDefaultPlatform(imgutil.Platform{
+									OS:           "linux",
+									Architecture: "amd64",
+								}),
+							)
+							h.AssertNil(t, err)
+
+							arch, err := img.Architecture()
+							h.AssertNil(t, err)
+							h.AssertEq(t, arch, "amd64")
+
+							os, err := img.OS()
+							h.AssertNil(t, err)
+							h.AssertEq(t, os, "linux")
+						})
+					})
+
+					when("no image with matching platform exists", func() {
+						it("returns an empty image with platform fields set", func() {
+							manifestListName := "golang:1.13.8"
+
+							img, err := remote.NewImage(
+								repoName,
+								authn.DefaultKeychain,
+								remote.FromBaseImage(manifestListName),
+								remote.WithDefaultPlatform(imgutil.Platform{
+									OS:           "windows",
+									Architecture: "arm",
+								}),
+							)
+
+							h.AssertNil(t, err)
+
+							arch, err := img.Architecture()
+							h.AssertNil(t, err)
+							h.AssertEq(t, arch, "arm")
+
+							os, err := img.OS()
+							h.AssertNil(t, err)
+							h.AssertEq(t, os, "windows")
+
+							osVersion, err := img.OSVersion()
+							h.AssertNil(t, err)
+							h.AssertEq(t, osVersion, "")
+
+							// base layer is added for Windows
+							topLayerDiffID, err := img.TopLayer()
+							h.AssertNil(t, err)
+
+							h.AssertNotEq(t, topLayerDiffID, "")
+						})
+					})
+				})
+
+				when("base image does not exist", func() {
+					it("returns an empty linux image based on platform fields", func() {
+						img, err := remote.NewImage(
+							repoName,
+							authn.DefaultKeychain,
+							remote.FromBaseImage("some-bad-repo-name"),
+							remote.WithDefaultPlatform(imgutil.Platform{
+								Architecture: "arm",
+								OS:           "linux",
+							}),
+						)
+
+						h.AssertNil(t, err)
+
+						arch, err := img.Architecture()
+						h.AssertNil(t, err)
+						h.AssertEq(t, arch, "arm")
+
+						os, err := img.OS()
+						h.AssertNil(t, err)
+						h.AssertEq(t, os, "linux")
+
+						osVersion, err := img.OSVersion()
+						h.AssertNil(t, err)
+						h.AssertEq(t, osVersion, "")
+
+						_, err = img.TopLayer()
+						h.AssertError(t, err, "has no layers")
+					})
+
+					it("returns an empty windows image based on platform fields", func() {
+						img, err := remote.NewImage(
+							repoName,
+							authn.DefaultKeychain,
+							remote.FromBaseImage("some-bad-repo-name"),
+							remote.WithDefaultPlatform(imgutil.Platform{
+								Architecture: "arm",
+								OS:           "windows",
+								OSVersion:    "10.0.99999.9999",
+							}),
+						)
+
+						h.AssertNil(t, err)
+
+						arch, err := img.Architecture()
+						h.AssertNil(t, err)
+						h.AssertEq(t, arch, "arm")
+
+						os, err := img.OS()
+						h.AssertNil(t, err)
+						h.AssertEq(t, os, "windows")
+
+						osVersion, err := img.OSVersion()
+						h.AssertNil(t, err)
+						h.AssertEq(t, osVersion, "10.0.99999.9999")
+
+						//base layer is added for windows
+						topLayerDiffID, err := img.TopLayer()
+						h.AssertNil(t, err)
+
+						h.AssertNotEq(t, topLayerDiffID, "")
+					})
 				})
 			})
 		})
 
 		when("#WithPreviousImage", func() {
+			when("previous image is exists", func() {
+				it("provides reusable layers", func() {
+					baseImageName := "arm64v8/busybox@sha256:50edf1d080946c6a76989d1c3b0e753b62f7d9b5f5e66e88bef23ebbd1e9709c"
+					existingLayerSha := "sha256:5a0b973aa300cd2650869fd76d8546b361fcd6dfc77bd37b9d4f082cca9874e4"
+
+					img, err := remote.NewImage(
+						repoName,
+						authn.DefaultKeychain,
+						remote.WithPreviousImage(baseImageName),
+					)
+
+					h.AssertNil(t, err)
+
+					h.AssertNil(t, img.ReuseLayer(existingLayerSha))
+				})
+
+				when("#WithDefaultPlatform", func() {
+					it("provides reusable layers from image in a manifest list with specific platform", func() {
+						manifestListName := "golang:1.13.8"
+						existingLayerSha := "sha256:cba908afa240240fceb312eb682bd7660fd5a404ddfd22843852dfdef141314b"
+
+						img, err := remote.NewImage(
+							repoName,
+							authn.DefaultKeychain,
+							remote.WithPreviousImage(manifestListName),
+							remote.WithDefaultPlatform(imgutil.Platform{
+								OS:           "windows",
+								Architecture: "amd64",
+							}),
+						)
+						h.AssertNil(t, err)
+
+						h.AssertNil(t, img.ReuseLayer(existingLayerSha))
+					})
+				})
+			})
+
 			when("previous image does not exist", func() {
-				it("don't error", func() {
+				it("does not error", func() {
 					_, err := remote.NewImage(
 						repoName,
 						authn.DefaultKeychain,
@@ -874,8 +1166,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			manifestLayerDiffIDs := h.FetchManifestLayers(t, repoName)
 
-			h.AssertEq(t, oldLayerDiffID, manifestLayerDiffIDs[len(manifestLayerDiffIDs)-2])
-			h.AssertEq(t, newLayerDiffID, manifestLayerDiffIDs[len(manifestLayerDiffIDs)-1])
+			h.AssertEq(t, oldLayerDiffID, h.StringElementAt(manifestLayerDiffIDs, -2))
+			h.AssertEq(t, newLayerDiffID, h.StringElementAt(manifestLayerDiffIDs, -1))
 		})
 	})
 
@@ -916,8 +1208,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			manifestLayerDiffIDs := h.FetchManifestLayers(t, repoName)
 
-			h.AssertEq(t, oldLayerDiffID, manifestLayerDiffIDs[len(manifestLayerDiffIDs)-2])
-			h.AssertEq(t, newLayerDiffID, manifestLayerDiffIDs[len(manifestLayerDiffIDs)-1])
+			h.AssertEq(t, oldLayerDiffID, h.StringElementAt(manifestLayerDiffIDs, -2))
+			h.AssertEq(t, newLayerDiffID, h.StringElementAt(manifestLayerDiffIDs, -1))
 		})
 	})
 
@@ -976,8 +1268,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				manifestLayers := h.FetchManifestLayers(t, repoName)
 
-				newLayer1SHA := manifestLayers[len(manifestLayers)-2]
-				reusedLayer2SHA := manifestLayers[len(manifestLayers)-1]
+				newLayer1SHA := h.StringElementAt(manifestLayers, -2)
+				reusedLayer2SHA := h.StringElementAt(manifestLayers, -1)
 
 				h.AssertNotEq(t, prevLayer1SHA, newLayer1SHA)
 				h.AssertEq(t, prevLayer2SHA, reusedLayer2SHA)

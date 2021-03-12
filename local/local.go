@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/buildpacks/imgutil/layer"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -27,57 +29,72 @@ import (
 )
 
 type Image struct {
-	repoName         string
 	docker           client.CommonAPIClient
+	repoName         string
 	inspect          types.ImageInspect
 	layerPaths       []string
 	prevImage        *Image // reused layers will be fetched from prevImage
 	downloadBaseOnce *sync.Once
 }
 
-type ImageOption func(image *Image) (*Image, error)
+type ImageOption func(*options) error
 
+type options struct {
+	platform          imgutil.Platform
+	baseImageRepoName string
+	prevImageRepoName string
+}
+
+//WithPreviousImage loads an existing image as a source for reusable layers.
+//Use with ReuseLayer().
+//Ignored if image is not found.
 func WithPreviousImage(imageName string) ImageOption {
-	return func(i *Image) (*Image, error) {
-		if _, err := inspectOptionalImage(i.docker, imageName); err != nil {
-			return i, err
-		}
-
-		prevImage, err := NewImage(imageName, i.docker, FromBaseImage(imageName))
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get previous image '%s'", imageName)
-		}
-		i.prevImage = prevImage
-
-		return i, nil
+	return func(i *options) error {
+		i.prevImageRepoName = imageName
+		return nil
 	}
 }
 
+//FromBaseImage loads an existing image as the config and layers for the new image.
+//Ignored if image is not found.
 func FromBaseImage(imageName string) ImageOption {
-	return func(i *Image) (*Image, error) {
-		var (
-			err     error
-			inspect types.ImageInspect
-		)
-
-		if inspect, err = inspectOptionalImage(i.docker, imageName); err != nil {
-			return i, err
-		}
-
-		i.inspect = inspect
-		i.layerPaths = make([]string, len(i.inspect.RootFS.Layers))
-
-		return i, nil
+	return func(i *options) error {
+		i.baseImageRepoName = imageName
+		return nil
 	}
 }
 
-func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...ImageOption) (*Image, error) {
-	var err error
+//WithDefaultPlatform provides Architecture/OS/OSVersion defaults for the new image.
+//Defaults for a new image are ignored when FromBaseImage returns an image.
+func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
+	return func(i *options) error {
+		i.platform = platform
+		return nil
+	}
+}
 
-	inspect, err := defaultInspect(dockerClient)
+//NewImage returns a new Image that can be modified and saved to a registry.
+func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...ImageOption) (*Image, error) {
+	imageOpts := &options{}
+	for _, op := range ops {
+		if err := op(imageOpts); err != nil {
+			return nil, err
+		}
+	}
+
+	platform, err := defaultPlatform(dockerClient)
 	if err != nil {
 		return nil, err
 	}
+
+	if (imageOpts.platform != imgutil.Platform{}) {
+		if err := validatePlatformOption(platform, imageOpts.platform); err != nil {
+			return nil, err
+		}
+		platform = imageOpts.platform
+	}
+
+	inspect := defaultInspect(platform)
 
 	image := &Image{
 		docker:           dockerClient,
@@ -87,14 +104,94 @@ func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...Image
 		downloadBaseOnce: &sync.Once{},
 	}
 
-	for _, v := range ops {
-		image, err = v(image)
-		if err != nil {
+	if imageOpts.prevImageRepoName != "" {
+		if err := processPreviousImageOption(image, imageOpts.prevImageRepoName, platform, dockerClient); err != nil {
+			return nil, err
+		}
+	}
+
+	if imageOpts.baseImageRepoName != "" {
+		if err := processBaseImageOption(image, imageOpts.baseImageRepoName, platform, dockerClient); err != nil {
+			return nil, err
+		}
+	}
+
+	if image.inspect.Os == "windows" {
+		if err := prepareNewWindowsImage(image); err != nil {
 			return nil, err
 		}
 	}
 
 	return image, nil
+}
+
+func validatePlatformOption(defaultPlatform imgutil.Platform, optionPlatform imgutil.Platform) error {
+	if optionPlatform.OS != "" && optionPlatform.OS != defaultPlatform.OS {
+		return fmt.Errorf(`invalid os: platform os "%s" must match the daemon os "%s"`, optionPlatform.OS, defaultPlatform.OS)
+	}
+
+	return nil
+}
+
+func processPreviousImageOption(image *Image, prevImageRepoName string, platform imgutil.Platform, dockerClient client.CommonAPIClient) error {
+	if _, err := inspectOptionalImage(dockerClient, prevImageRepoName, platform); err != nil {
+		return err
+	}
+
+	prevImage, err := NewImage(prevImageRepoName, dockerClient, FromBaseImage(prevImageRepoName))
+	if err != nil {
+		return errors.Wrapf(err, "failed to get previous image '%s'", prevImageRepoName)
+	}
+
+	image.prevImage = prevImage
+
+	return nil
+}
+
+func processBaseImageOption(image *Image, baseImageRepoName string, platform imgutil.Platform, dockerClient client.CommonAPIClient) error {
+	inspect, err := inspectOptionalImage(dockerClient, baseImageRepoName, platform)
+	if err != nil {
+		return err
+	}
+
+	image.inspect = inspect
+	image.layerPaths = make([]string, len(image.inspect.RootFS.Layers))
+
+	return nil
+}
+
+func prepareNewWindowsImage(image *Image) error {
+	// only append base layer to empty image
+	if len(image.inspect.RootFS.Layers) > 0 {
+		return nil
+	}
+
+	layerReader, err := layer.WindowsBaseLayer()
+	if err != nil {
+		return err
+	}
+
+	layerFile, err := ioutil.TempFile("", "imgutil.local.image.windowsbaselayer")
+	if err != nil {
+		return errors.Wrap(err, "creating temp file")
+	}
+	defer layerFile.Close()
+
+	hasher := sha256.New()
+
+	multiWriter := io.MultiWriter(layerFile, hasher)
+
+	if _, err := io.Copy(multiWriter, layerReader); err != nil {
+		return errors.Wrap(err, "copying base layer")
+	}
+
+	diffID := "sha256:" + hex.EncodeToString(hasher.Sum(nil))
+
+	if err := image.AddLayerWithDiffID(layerFile.Name(), diffID); err != nil {
+		return errors.Wrap(err, "adding base layer to image")
+	}
+
+	return nil
 }
 
 func (i *Image) Label(key string) (string, error) {
@@ -647,7 +744,7 @@ func untar(r io.Reader, dest string) error {
 	}
 }
 
-func inspectOptionalImage(docker client.CommonAPIClient, imageName string) (types.ImageInspect, error) {
+func inspectOptionalImage(docker client.CommonAPIClient, imageName string, platform imgutil.Platform) (types.ImageInspect, error) {
 	var (
 		err     error
 		inspect types.ImageInspect
@@ -655,7 +752,7 @@ func inspectOptionalImage(docker client.CommonAPIClient, imageName string) (type
 
 	if inspect, _, err = docker.ImageInspectWithRaw(context.Background(), imageName); err != nil {
 		if client.IsErrNotFound(err) {
-			return defaultInspect(docker)
+			return defaultInspect(platform), nil
 		}
 
 		return types.ImageInspect{}, errors.Wrapf(err, "verifying image '%s'", imageName)
@@ -664,16 +761,24 @@ func inspectOptionalImage(docker client.CommonAPIClient, imageName string) (type
 	return inspect, nil
 }
 
-func defaultInspect(docker client.CommonAPIClient) (types.ImageInspect, error) {
-	daemonInfo, err := docker.Info(context.Background())
+func defaultInspect(platform imgutil.Platform) types.ImageInspect {
+	return types.ImageInspect{
+		Os:           platform.OS,
+		Architecture: platform.Architecture,
+		OsVersion:    platform.OSVersion,
+		Config:       &container.Config{},
+	}
+}
+
+func defaultPlatform(dockerClient client.CommonAPIClient) (imgutil.Platform, error) {
+	daemonInfo, err := dockerClient.Info(context.Background())
 	if err != nil {
-		return types.ImageInspect{}, err
+		return imgutil.Platform{}, err
 	}
 
-	return types.ImageInspect{
-		Os:           daemonInfo.OSType,
+	return imgutil.Platform{
+		OS:           daemonInfo.OSType,
 		Architecture: "amd64",
-		Config:       &container.Config{},
 	}, nil
 }
 

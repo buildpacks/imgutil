@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/buildpacks/imgutil/layer"
+
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -28,41 +30,58 @@ type Image struct {
 	prevLayers []v1.Layer
 }
 
-type ImageOption func(*Image) (*Image, error)
+type options struct {
+	platform          imgutil.Platform
+	baseImageRepoName string
+	prevImageRepoName string
+}
 
+type ImageOption func(*options) error
+
+//WithPreviousImage loads an existing image as a source for reusable layers.
+//Use with ReuseLayer().
+//Ignored if image is not found.
 func WithPreviousImage(imageName string) ImageOption {
-	return func(r *Image) (*Image, error) {
-		var err error
-
-		prevImage, err := newV1Image(r.keychain, imageName)
-		if err != nil {
-			return nil, err
-		}
-
-		prevLayers, err := prevImage.Layers()
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get layers for previous image with repo name '%s'", imageName)
-		}
-
-		r.prevLayers = prevLayers
-		return r, nil
+	return func(opts *options) error {
+		opts.prevImageRepoName = imageName
+		return nil
 	}
 }
 
+//FromBaseImage loads an existing image as the config and layers for the new image.
+//Ignored if image is not found.
 func FromBaseImage(imageName string) ImageOption {
-	return func(r *Image) (*Image, error) {
-		var err error
-
-		r.image, err = newV1Image(r.keychain, imageName)
-		if err != nil {
-			return nil, err
-		}
-		return r, nil
+	return func(opts *options) error {
+		opts.baseImageRepoName = imageName
+		return nil
 	}
 }
 
+//WithDefaultPlatform provides Architecture/OS/OSVersion defaults for the new image.
+//Defaults for a new image are ignored when FromBaseImage returns an image.
+//FromBaseImage and WithPreviousImage will use the platform to choose an image from a manifest list.
+func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
+	return func(opts *options) error {
+		opts.platform = platform
+		return nil
+	}
+}
+
+//NewImage returns a new Image that can be modified and saved to a Docker daemon.
 func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Image, error) {
-	image, err := emptyImage()
+	imageOpts := &options{}
+	for _, op := range ops {
+		if err := op(imageOpts); err != nil {
+			return nil, err
+		}
+	}
+
+	platform := defaultPlatform()
+	if (imageOpts.platform != imgutil.Platform{}) {
+		platform = imageOpts.platform
+	}
+
+	image, err := emptyImage(platform)
 	if err != nil {
 		return nil, err
 	}
@@ -73,9 +92,24 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 		image:    image,
 	}
 
-	for _, op := range ops {
-		ri, err = op(ri)
-		if err != nil {
+	if imageOpts.prevImageRepoName != "" {
+		if err := processPreviousImageOption(ri, imageOpts.prevImageRepoName, platform); err != nil {
+			return nil, err
+		}
+	}
+
+	if imageOpts.baseImageRepoName != "" {
+		if err := processBaseImageOption(ri, imageOpts.baseImageRepoName, platform); err != nil {
+			return nil, err
+		}
+	}
+
+	imgOS, err := ri.OS()
+	if err != nil {
+		return nil, err
+	}
+	if imgOS == "windows" {
+		if err := prepareNewWindowsImage(ri); err != nil {
 			return nil, err
 		}
 	}
@@ -83,19 +117,85 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 	return ri, nil
 }
 
-func newV1Image(keychain authn.Keychain, repoName string) (v1.Image, error) {
+func processPreviousImageOption(ri *Image, prevImageRepoName string, platform imgutil.Platform) error {
+	prevImage, err := newV1Image(ri.keychain, prevImageRepoName, platform)
+	if err != nil {
+		return err
+	}
+
+	prevLayers, err := prevImage.Layers()
+	if err != nil {
+		return errors.Wrapf(err, "failed to get layers for previous image with repo name '%s'", prevImageRepoName)
+	}
+
+	ri.prevLayers = prevLayers
+
+	return nil
+}
+
+func processBaseImageOption(ri *Image, baseImageRepoName string, platform imgutil.Platform) error {
+	baseImage, err := newV1Image(ri.keychain, baseImageRepoName, platform)
+	if err != nil {
+		return err
+	}
+
+	ri.image = baseImage
+
+	return nil
+}
+
+func prepareNewWindowsImage(ri *Image) error {
+	// only append base layer to empty image
+	cfgFile, err := ri.image.ConfigFile()
+	if err != nil {
+		return err
+	}
+	if len(cfgFile.RootFS.DiffIDs) > 0 {
+		return nil
+	}
+
+	layerBytes, err := layer.WindowsBaseLayer()
+	if err != nil {
+		return err
+	}
+
+	windowsBaseLayer, err := tarball.LayerFromReader(layerBytes)
+	if err != nil {
+		return err
+	}
+
+	image, err := mutate.AppendLayers(ri.image, windowsBaseLayer)
+	if err != nil {
+		return err
+	}
+
+	ri.image = image
+
+	return nil
+}
+
+func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platform) (v1.Image, error) {
 	ref, auth, err := referenceForRepoName(keychain, repoName)
 	if err != nil {
 		return nil, err
 	}
 
-	image, err := remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport))
+	v1Platform := v1.Platform{
+		Architecture: platform.Architecture,
+		OS:           platform.OS,
+		OSVersion:    platform.OSVersion,
+	}
+
+	image, err := remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport), remote.WithPlatform(v1Platform))
 	if err != nil {
 		if transportErr, ok := err.(*transport.Error); ok && len(transportErr.Errors) > 0 {
 			switch transportErr.StatusCode {
 			case http.StatusNotFound, http.StatusUnauthorized:
-				return emptyImage()
+				return emptyImage(platform)
 			}
+		}
+		if strings.Contains(err.Error(), "no child with platform") {
+			return emptyImage(platform)
 		}
 		return nil, fmt.Errorf("connect to repo store '%s': %s", repoName, err.Error())
 	}
@@ -103,16 +203,25 @@ func newV1Image(keychain authn.Keychain, repoName string) (v1.Image, error) {
 	return image, nil
 }
 
-func emptyImage() (v1.Image, error) {
+func emptyImage(platform imgutil.Platform) (v1.Image, error) {
 	cfg := &v1.ConfigFile{
-		OS:           "linux",
-		Architecture: "amd64",
+		Architecture: platform.Architecture,
+		OS:           platform.OS,
+		OSVersion:    platform.OSVersion,
 		RootFS: v1.RootFS{
 			Type:    "layers",
 			DiffIDs: []v1.Hash{},
 		},
 	}
+
 	return mutate.ConfigFile(empty.Image, cfg)
+}
+
+func defaultPlatform() imgutil.Platform {
+	return imgutil.Platform{
+		OS:           "linux",
+		Architecture: "amd64",
+	}
 }
 
 func referenceForRepoName(keychain authn.Keychain, ref string) (name.Reference, authn.Authenticator, error) {
