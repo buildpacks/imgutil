@@ -23,6 +23,8 @@ import (
 
 	dockertypes "github.com/docker/docker/api/types"
 	dockercli "github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/jsonmessage"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -159,6 +161,9 @@ func PullIfMissing(t *testing.T, docker dockercli.CommonAPIClient, ref string) {
 		rc, err = docker.ImagePull(context.Background(), ref, dockertypes.ImagePullOptions{})
 		AssertNil(t, err)
 	}
+
+	AssertNil(t, checkResponseError(rc))
+
 	_, err = io.Copy(ioutil.Discard, rc)
 	AssertNil(t, err)
 }
@@ -202,6 +207,11 @@ func PushImage(dockerCli dockercli.CommonAPIClient, refStr string) error {
 	if err != nil {
 		return err
 	}
+
+	if err := checkResponseError(rc); err != nil {
+		return errors.Wrap(err, "PushImage")
+	}
+
 	if _, err := io.Copy(ioutil.Discard, rc); err != nil {
 		return err
 	}
@@ -381,4 +391,23 @@ func StringElementAt(elements []string, offset int) string {
 		return elements[len(elements)+offset]
 	}
 	return elements[offset]
+}
+
+func checkResponseError(r io.Reader) error {
+	for {
+		decoder := json.NewDecoder(r)
+		var jsonMessage jsonmessage.JSONMessage
+		err := decoder.Decode(&jsonMessage)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return errors.Wrapf(err, "parsing daemon response")
+		}
+		if jsonMessage.Error != nil {
+			return errors.Wrap(jsonMessage.Error, "embedded daemon response")
+		}
+	}
+
+	return nil
 }
