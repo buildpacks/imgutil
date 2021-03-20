@@ -397,12 +397,8 @@ func checkResponseError(r io.Reader) error {
 	for {
 		decoder := json.NewDecoder(r)
 		var jsonMessage jsonmessage.JSONMessage
-		err := decoder.Decode(&jsonMessage)
-		if err == io.EOF {
+		if err := decoder.Decode(&jsonMessage); err != nil {
 			break
-		}
-		if err != nil {
-			return errors.Wrapf(err, "parsing daemon response")
 		}
 		if jsonMessage.Error != nil {
 			return errors.Wrap(jsonMessage.Error, "embedded daemon response")
