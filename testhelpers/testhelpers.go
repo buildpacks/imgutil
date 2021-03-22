@@ -4,7 +4,9 @@ import (
 	"archive/tar"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -21,6 +23,8 @@ import (
 
 	dockertypes "github.com/docker/docker/api/types"
 	dockercli "github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/jsonmessage"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -157,6 +161,9 @@ func PullIfMissing(t *testing.T, docker dockercli.CommonAPIClient, ref string) {
 		rc, err = docker.ImagePull(context.Background(), ref, dockertypes.ImagePullOptions{})
 		AssertNil(t, err)
 	}
+
+	AssertNil(t, checkResponseError(rc))
+
 	_, err = io.Copy(ioutil.Discard, rc)
 	AssertNil(t, err)
 }
@@ -177,11 +184,34 @@ func DockerRmi(dockerCli dockercli.CommonAPIClient, repoNames ...string) error {
 	return err
 }
 
-func PushImage(dockerCli dockercli.CommonAPIClient, ref string) error {
-	rc, err := dockerCli.ImagePush(context.Background(), ref, dockertypes.ImagePushOptions{RegistryAuth: "{}"})
+//PushImage pushes an image to a registry, optionally using credentials from any set DOCKER_CONFIG
+func PushImage(dockerCli dockercli.CommonAPIClient, refStr string) error {
+	ref, err := name.ParseReference(refStr, name.WeakValidation)
 	if err != nil {
 		return err
 	}
+	auth, err := authn.DefaultKeychain.Resolve(ref.Context().Registry)
+	if err != nil {
+		return err
+	}
+	authConfig, err := auth.Authorization()
+	if err != nil {
+		return err
+	}
+	encodedJSON, err := json.Marshal(authConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	rc, err := dockerCli.ImagePush(context.Background(), refStr, dockertypes.ImagePushOptions{RegistryAuth: base64.URLEncoding.EncodeToString(encodedJSON)})
+	if err != nil {
+		return err
+	}
+
+	if err := checkResponseError(rc); err != nil {
+		return errors.Wrap(err, "PushImage")
+	}
+
 	if _, err := io.Copy(ioutil.Discard, rc); err != nil {
 		return err
 	}
@@ -361,4 +391,23 @@ func StringElementAt(elements []string, offset int) string {
 		return elements[len(elements)+offset]
 	}
 	return elements[offset]
+}
+
+func checkResponseError(r io.Reader) error {
+	for {
+		decoder := json.NewDecoder(r)
+		var jsonMessage jsonmessage.JSONMessage
+		err := decoder.Decode(&jsonMessage)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return errors.Wrapf(err, "parsing daemon response")
+		}
+		if jsonMessage.Error != nil {
+			return errors.Wrap(jsonMessage.Error, "embedded daemon response")
+		}
+	}
+
+	return nil
 }
