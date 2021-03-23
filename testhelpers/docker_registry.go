@@ -222,7 +222,6 @@ func DockerHostname(t *testing.T) string {
 	for _, ipnet := range daemonInfo.RegistryConfig.InsecureRegistryCIDRs {
 		ones, _ := ipnet.Mask.Size()
 		if ones == 32 {
-			fmt.Printf("")
 			return ipnet.IP.String()
 		}
 	}
