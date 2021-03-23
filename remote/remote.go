@@ -189,7 +189,7 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 	}
 
 	var image v1.Image
-	for i := 0; i < maxRetries+1; i++ {
+	for i := 0; i <= maxRetries; i++ {
 		time.Sleep(100 * time.Duration(i) * time.Millisecond) // wait if retrying
 		image, err = remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport), remote.WithPlatform(v1Platform))
 		if err != nil {
