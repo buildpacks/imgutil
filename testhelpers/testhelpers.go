@@ -2,6 +2,7 @@ package testhelpers
 
 import (
 	"archive/tar"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
@@ -161,6 +162,7 @@ func PullIfMissing(t *testing.T, docker dockercli.CommonAPIClient, ref string) {
 		rc, err = docker.ImagePull(context.Background(), ref, dockertypes.ImagePullOptions{})
 		AssertNil(t, err)
 	}
+	defer rc.Close()
 
 	AssertNil(t, checkResponseError(rc))
 
@@ -185,37 +187,26 @@ func DockerRmi(dockerCli dockercli.CommonAPIClient, repoNames ...string) error {
 }
 
 //PushImage pushes an image to a registry, optionally using credentials from any set DOCKER_CONFIG
-func PushImage(dockerCli dockercli.CommonAPIClient, refStr string) error {
+func PushImage(t *testing.T, dockerCli dockercli.CommonAPIClient, refStr string) {
 	ref, err := name.ParseReference(refStr, name.WeakValidation)
-	if err != nil {
-		return err
-	}
+	AssertNil(t, err)
+
 	auth, err := authn.DefaultKeychain.Resolve(ref.Context().Registry)
-	if err != nil {
-		return err
-	}
+	AssertNil(t, err)
 	authConfig, err := auth.Authorization()
-	if err != nil {
-		return err
-	}
+	AssertNil(t, err)
+
 	encodedJSON, err := json.Marshal(authConfig)
-	if err != nil {
-		panic(err)
-	}
+	AssertNil(t, err)
 
 	rc, err := dockerCli.ImagePush(context.Background(), refStr, dockertypes.ImagePushOptions{RegistryAuth: base64.URLEncoding.EncodeToString(encodedJSON)})
-	if err != nil {
-		return err
-	}
+	AssertNil(t, err)
+	defer rc.Close()
 
-	if err := checkResponseError(rc); err != nil {
-		return errors.Wrap(err, "PushImage")
-	}
+	AssertNil(t, checkResponseError(rc))
 
-	if _, err := io.Copy(ioutil.Discard, rc); err != nil {
-		return err
-	}
-	return rc.Close()
+	_, err = io.Copy(ioutil.Discard, rc)
+	AssertNil(t, err)
 }
 
 func HTTPGetE(url string, headers map[string]string) (string, error) {
@@ -394,18 +385,25 @@ func StringElementAt(elements []string, offset int) string {
 }
 
 func checkResponseError(r io.Reader) error {
+	responseBytes, err := ioutil.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	responseBuf := bytes.NewBuffer(responseBytes)
+	decoder := json.NewDecoder(responseBuf)
+
 	for {
-		decoder := json.NewDecoder(r)
 		var jsonMessage jsonmessage.JSONMessage
 		err := decoder.Decode(&jsonMessage)
-		if err == io.EOF {
-			break
-		}
+
 		if err != nil {
-			return errors.Wrapf(err, "parsing daemon response")
+			return fmt.Errorf("parsing response: %w\n%s", err, responseBuf.String())
 		}
 		if jsonMessage.Error != nil {
 			return errors.Wrap(jsonMessage.Error, "embedded daemon response")
+		}
+		if !decoder.More() {
+			break
 		}
 	}
 
