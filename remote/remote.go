@@ -23,6 +23,8 @@ import (
 	"github.com/buildpacks/imgutil"
 )
 
+const maxRetries = 2
+
 type Image struct {
 	keychain   authn.Keychain
 	repoName   string
@@ -187,11 +189,11 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 	}
 
 	var image v1.Image
-	for i := 0; i < 3; i++ {
+	for i := 0; i <= maxRetries; i++ {
 		time.Sleep(100 * time.Duration(i) * time.Millisecond) // wait if retrying
 		image, err = remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport), remote.WithPlatform(v1Platform))
 		if err != nil {
-			if err == io.EOF {
+			if err == io.EOF && i != maxRetries {
 				continue // retry if EOF
 			}
 			if transportErr, ok := err.(*transport.Error); ok && len(transportErr.Errors) > 0 {
