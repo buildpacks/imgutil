@@ -118,12 +118,12 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 		img1, err := local.NewImage(imageName1, dockerClient, local.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img1)
-		h.AssertNil(t, h.PushImage(dockerClient, imageName1))
+		h.PushImage(t, dockerClient, imageName1)
 
 		img2, err := local.NewImage(imageName2, dockerClient, local.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img2)
-		h.AssertNil(t, h.PushImage(dockerClient, imageName2))
+		h.PushImage(t, dockerClient, imageName2)
 
 		compare(t, imageName1, imageName2)
 	})
@@ -136,7 +136,7 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 		img2, err := local.NewImage(imageName2, dockerClient, local.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img2)
-		h.AssertNil(t, h.PushImage(dockerClient, imageName2))
+		h.PushImage(t, dockerClient, imageName2)
 
 		compare(t, imageName1, imageName2)
 	})
