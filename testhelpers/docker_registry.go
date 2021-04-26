@@ -155,12 +155,17 @@ func (r *DockerRegistry) Start(t *testing.T) {
 		AssertNil(t, err)
 
 		hostPortMap := inspect.NetworkSettings.Ports["5000/tcp"]
-		if len(hostPortMap) == 1 {
-			r.Port = hostPortMap[0].HostPort
-			break
+		for _, hostPortEntry := range hostPortMap {
+			if hostPortEntry.HostIP == "0.0.0.0" {
+				r.Port = hostPortEntry.HostPort
+				break
+			}
 		}
 
 		time.Sleep(500 * time.Millisecond)
+	}
+	if r.Port == "" {
+		t.Fatal("docker returned no host-port for registry")
 	}
 
 	var authHeaders map[string]string
