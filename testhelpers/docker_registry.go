@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -120,7 +121,7 @@ func (r *DockerRegistry) Start(t *testing.T) {
 			storageBindPath = "c:/registry-storage"
 		}
 
-		volumeBinds = append(volumeBinds, fmt.Sprintf("%s:%s", r.volumeName, storageBindPath))
+		volumeBinds = append(volumeBinds, net.JoinHostPort(r.volumeName, storageBindPath))
 
 		storageEnv := fmt.Sprintf("REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY=%s", storageBindPath)
 		registryEnv = append(registryEnv, storageEnv)
