@@ -389,7 +389,7 @@ func (i *Image) GetLayer(diffID string) (io.ReadCloser, error) {
 }
 
 func (i *Image) AddLayer(path string) error {
-	f, err := os.Open(path)
+	f, err := os.Open(filepath.Clean(path))
 	if err != nil {
 		return errors.Wrapf(err, "AddLayer: open layer: %s", path)
 	}
@@ -518,7 +518,7 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 			continue
 		}
 		layerName := fmt.Sprintf("/%x.tar", sha256.Sum256([]byte(path)))
-		f, err := os.Open(path)
+		f, err := os.Open(filepath.Clean(path))
 		if err != nil {
 			return types.ImageInspect{}, err
 		}
@@ -622,7 +622,7 @@ func (i *Image) downloadBaseLayers() error {
 		return err
 	}
 
-	mf, err := os.Open(filepath.Join(tmpDir, "manifest.json"))
+	mf, err := os.Open(filepath.Clean(filepath.Join(tmpDir, "manifest.json")))
 	if err != nil {
 		return err
 	}
@@ -640,7 +640,7 @@ func (i *Image) downloadBaseLayers() error {
 		return fmt.Errorf("manifest.json had unexpected number of entries: %d", len(manifest))
 	}
 
-	df, err := os.Open(filepath.Join(tmpDir, manifest[0].Config))
+	df, err := os.Open(filepath.Clean(filepath.Join(tmpDir, manifest[0].Config)))
 	if err != nil {
 		return err
 	}
@@ -713,12 +713,12 @@ func untar(r io.Reader, dest string) error {
 		case tar.TypeReg, tar.TypeRegA:
 			_, err := os.Stat(filepath.Dir(path))
 			if os.IsNotExist(err) {
-				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+				if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
 					return err
 				}
 			}
 
-			fh, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, hdr.FileInfo().Mode())
+			fh, err := os.OpenFile(filepath.Clean(path), os.O_CREATE|os.O_WRONLY, hdr.FileInfo().Mode())
 			if err != nil {
 				return err
 			}
@@ -730,7 +730,7 @@ func untar(r io.Reader, dest string) error {
 		case tar.TypeSymlink:
 			_, err := os.Stat(filepath.Dir(path))
 			if os.IsNotExist(err) {
-				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+				if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
 					return err
 				}
 			}
