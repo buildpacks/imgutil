@@ -30,7 +30,7 @@ func main() {
 }
 
 func run(tmplPath, outputFilePath, outputPackageName, outputFuncName string) error {
-	outputFile, err := os.OpenFile(outputFilePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
+	outputFile, err := os.OpenFile(outputFilePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}

@@ -713,7 +713,7 @@ func untar(r io.Reader, dest string) error {
 		case tar.TypeReg, tar.TypeRegA:
 			_, err := os.Stat(filepath.Dir(path))
 			if os.IsNotExist(err) {
-				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+				if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
 					return err
 				}
 			}
@@ -730,7 +730,7 @@ func untar(r io.Reader, dest string) error {
 		case tar.TypeSymlink:
 			_, err := os.Stat(filepath.Dir(path))
 			if os.IsNotExist(err) {
-				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+				if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
 					return err
 				}
 			}
