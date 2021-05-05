@@ -4,9 +4,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"testing"
 	"time"
+
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/random"
 
 	"github.com/google/go-containerregistry/pkg/name"
 
@@ -20,6 +26,15 @@ import (
 )
 
 var dockerRegistry, readonlyDockerRegistry *h.DockerRegistry
+var count int
+
+type RemoteTestCase struct {
+	name        string
+	repo        string
+	statusCode  int
+	failedCount int
+	expected    int
+}
 
 func newTestImageName(providedPrefix ...string) string {
 	prefix := "pack-image-test"
@@ -42,7 +57,6 @@ func TestRemote(t *testing.T) {
 	dockerRegistry = h.NewDockerRegistry(h.WithAuth(dockerConfigDir), sharedStorageOpt)
 	dockerRegistry.Start(t)
 	defer dockerRegistry.Stop(t)
-
 	readonlyDockerRegistry = h.NewDockerRegistry(sharedStorageOpt)
 	readonlyDockerRegistry.Start(t)
 	defer readonlyDockerRegistry.Stop(t)
@@ -1495,4 +1509,58 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 	})
+}
+
+func TestRemoteRetryLogic(t *testing.T) {
+	testCases := []RemoteTestCase{
+		{name: "Do not retry after status code 200 ", repo: "org/do-not-retry", statusCode: http.StatusOK, failedCount: 0, expected: 1},
+		{name: "Retry after status code 404", repo: "org/retry-not-found", statusCode: http.StatusNotFound, failedCount: 2, expected: 3},
+		{name: "Retry after status code 401", repo: "org/retry-unauthorized", statusCode: http.StatusUnauthorized, failedCount: 2, expected: 3},
+	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			img, _ := random.Image(1024, 1)
+			configName, _ := img.ConfigName()
+			server := createServer(img, configName, tc)
+			u, err := url.Parse(server.URL)
+			if err != nil {
+				t.Fatalf("url.Parse(%v) = %v", server.URL, err)
+			}
+			defer server.Close()
+			var repoName = u.Hostname() + ":" + u.Port() + "/" + tc.repo
+
+			// exercise the subject
+			count = 0
+			_, err = remote.NewImage(repoName, authn.DefaultKeychain, remote.WithPreviousImage(repoName))
+			if err != nil {
+				t.Fatalf("Error: %v, running remoteNewImage", err)
+			}
+			if tc.expected != count {
+				t.Fatalf("Expected number of invocations %d different than actual value %d", tc.expected, count)
+			}
+		})
+	}
+}
+
+func createServer(img v1.Image, configName v1.Hash, tc RemoteTestCase) *httptest.Server {
+	manifestPath := fmt.Sprintf("/v2/%s/manifests/latest", tc.repo)
+	configPath := fmt.Sprintf("/v2/%s/blobs/%s", tc.repo, configName)
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v2/":
+			w.WriteHeader(http.StatusOK)
+		case configPath:
+			c, _ := img.RawConfigFile()
+			w.Write(c)
+		case manifestPath:
+			count++
+			if count <= tc.failedCount {
+				w.WriteHeader(tc.statusCode)
+			} else {
+				m, _ := img.RawManifest()
+				w.Write(m)
+			}
+		}
+	}))
 }

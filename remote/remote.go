@@ -193,7 +193,7 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 		time.Sleep(100 * time.Duration(i) * time.Millisecond) // wait if retrying
 		image, err = remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport), remote.WithPlatform(v1Platform))
 		if err != nil {
-			if err == io.EOF && i != maxRetries {
+			if isRetryable(err) && i != maxRetries {
 				continue // retry if EOF
 			}
 			if transportErr, ok := err.(*transport.Error); ok && len(transportErr.Errors) > 0 {
@@ -209,8 +209,20 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 		}
 		break
 	}
-
 	return image, nil
+}
+
+func isRetryable(err error) bool {
+	if err == io.EOF {
+		return true
+	}
+	if transportErr, ok := err.(*transport.Error); ok {
+		switch transportErr.StatusCode {
+		case http.StatusNotFound, http.StatusUnauthorized:
+			return true
+		}
+	}
+	return false
 }
 
 func emptyImage(platform imgutil.Platform) (v1.Image, error) {
