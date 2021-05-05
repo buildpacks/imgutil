@@ -209,32 +209,6 @@ func PushImage(t *testing.T, dockerCli dockercli.CommonAPIClient, refStr string)
 	AssertNil(t, err)
 }
 
-func HTTPGetE(url string, headers map[string]string) (string, error) {
-	request, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", errors.Wrap(err, "making new request")
-	}
-
-	for key, val := range headers {
-		request.Header.Set(key, val)
-	}
-
-	resp, err := http.DefaultClient.Do(request)
-	if err != nil {
-		return "", errors.Wrap(err, "doing request")
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 300 {
-		return "", fmt.Errorf("HTTP Status was bad: %s => %d", url, resp.StatusCode)
-	}
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
-}
-
 func ImageID(t *testing.T, repoName string) string {
 	t.Helper()
 	inspect, _, err := DockerCli(t).ImageInspectWithRaw(context.Background(), repoName)
