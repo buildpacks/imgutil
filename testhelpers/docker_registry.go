@@ -66,7 +66,7 @@ func BasicAuth(handler http.Handler, username, password, realm string) http.Hand
 		if !ok || user != username || pass != password {
 			w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`"`)
 			w.WriteHeader(401)
-			w.Write([]byte("Unauthorised.\n"))
+			_, _ = w.Write([]byte("Unauthorised.\n"))
 			return
 		}
 
@@ -78,7 +78,7 @@ func ReadOnly(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !(r.Method == "GET" || r.Method == "HEAD") {
 			w.WriteHeader(405)
-			w.Write([]byte("Method Not Allowed.\n"))
+			_, _ = w.Write([]byte("Method Not Allowed.\n"))
 			return
 		}
 
@@ -104,8 +104,12 @@ func (r *DockerRegistry) Start(t *testing.T) {
 		r.authnHandler = BasicAuth(r.regHandler, r.username, r.password, "registry")
 	}
 
-	// listen on desired host but choose random port
-	listener, err := net.Listen("tcp", r.Host+":0")
+	// listen on specific interface, relying on authorization to prevent untrusted writes
+	listenIP := "127.0.0.1"
+	if r.Host != "localhost" {
+		listenIP = r.Host
+	}
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:0", listenIP))
 	AssertNil(t, err)
 
 	r.server = &httptest.Server{
@@ -142,22 +146,55 @@ func (r *DockerRegistry) EncodedLabeledAuth() string {
 }
 
 //DockerHostname discovers the appropriate registry hostname.
-//For test to run where "localhost" is not the daemon host, a `insecure-registries` entry of `<host IP>/32` is required to allow test images to be written.
+//For test to run where "localhost" is not the daemon host, a `insecure-registries` entry of `<host IP>/<mask>` with a range that contains the host's non-loopback IP.
 //For Docker Desktop, this can be set here: https://docs.docker.com/docker-for-mac/#docker-engine
 //Otherwise, its set in the daemon.json: https://docs.docker.com/engine/reference/commandline/dockerd/#daemon-configuration-file
 //If the entry is not found, the fallback is "localhost"
 func DockerHostname(t *testing.T) string {
 	dockerCli := DockerCli(t)
 
-	// if daemon has insecure registry entry with /32, assume it is the host
+	// query daemon for insecure-registry network ranges
+	var insecureRegistryNets []*net.IPNet
 	daemonInfo, err := dockerCli.Info(context.TODO())
 	if err != nil {
 		t.Fatalf("unable to fetch client.DockerInfo: %s", err)
 	}
 	for _, ipnet := range daemonInfo.RegistryConfig.InsecureRegistryCIDRs {
-		ones, _ := ipnet.Mask.Size()
-		if ones == 32 {
-			return ipnet.IP.String()
+		t.Logf("REG NET: %s\n", ipnet.String())
+		insecureRegistryNets = append(insecureRegistryNets, (*net.IPNet)(ipnet))
+	}
+
+	// search for non-loopback interface IPs contained by a insecure-registry range
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		t.Fatalf("unable to fetch interfaces: %s", err)
+	}
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		if err != nil {
+			t.Fatalf("unable to fetch interface address: %s", err)
+		}
+
+		for _, addr := range addrs {
+			var interfaceIP net.IP
+			switch interfaceAddr := addr.(type) {
+			case *net.IPAddr:
+				interfaceIP = interfaceAddr.IP
+			case *net.IPNet:
+				interfaceIP = interfaceAddr.IP
+			}
+
+			// ignore blanks and loopbacks
+			if interfaceIP == nil || interfaceIP.IsLoopback() {
+				continue
+			}
+
+			// return first matching interface IP
+			for _, regNet := range insecureRegistryNets {
+				if regNet.Contains(interfaceIP) {
+					return interfaceIP.String()
+				}
+			}
 		}
 	}
 
