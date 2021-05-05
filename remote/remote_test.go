@@ -1547,20 +1547,24 @@ func createServer(img v1.Image, configName v1.Hash, tc RemoteTestCase) *httptest
 	manifestPath := fmt.Sprintf("/v2/%s/manifests/latest", tc.repo)
 	configPath := fmt.Sprintf("/v2/%s/blobs/%s", tc.repo, configName)
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var err error
 		switch r.URL.Path {
 		case "/v2/":
 			w.WriteHeader(http.StatusOK)
 		case configPath:
 			c, _ := img.RawConfigFile()
-			w.Write(c)
+			_, err = w.Write(c)
 		case manifestPath:
 			count++
 			if count <= tc.failedCount {
 				w.WriteHeader(tc.statusCode)
 			} else {
 				m, _ := img.RawManifest()
-				w.Write(m)
+				_, err = w.Write(m)
 			}
+		}
+		if err != nil {
+			fmt.Printf("There was an error in the mock registry %s\n", err)
 		}
 	}))
 }
