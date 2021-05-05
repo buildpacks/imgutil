@@ -1,0 +1,36 @@
+ARG image_tag
+FROM ${image_tag}
+
+SHELL ["cmd.exe", "/c"]
+
+RUN git clone --branch=v20.10.5 --depth=1 https://github.com/docker/cli c:\gopath\src\github.com\docker\cli && \
+    mkdir c:\docker-cli\bin && \
+    go build -o c:\docker-cli\bin\docker.exe github.com/docker/cli/cmd/docker && \
+    rmdir /q /s c:\gopath\src\github.com\docker\cli && \
+    \
+    mklink C:\git\usr\bin\bash.exe sh.exe && \
+    \
+    curl.exe -o make-installer.exe -L "https://sourceforge.net/projects/gnuwin32/files/make/3.81/make-3.81.exe" && \
+    make-installer.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=C:\make && \
+    del make-installer.exe && \
+    \
+    mkdir c:\jq\bin && \
+    curl.exe -o c:\jq\bin\jq.exe -L "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe" && \
+    \
+    setx /M PATH "%PATH%;c:\make\bin;c:\jq\bin;c:\docker-cli\bin" && \
+    \
+    git config --global core.autocrlf false && \
+    git config --global core.eol lf && \
+    git config --global core.symlinks true
+
+# For reusing dependencies `-v gopathcache:c:/gopath`
+ENV GOPATH=c:\\gopath
+ENV GOBIN=c:\\gopath\\bin
+VOLUME ["c:/gopath"]
+
+WORKDIR /imgutil
+
+# Copy git directory for consistent filesystem duplication of source (docker build, cp, volumes are inconsistent with symlinks/hardlinks on Windows)
+COPY . /imgutil/.git
+
+RUN git reset --hard HEAD
