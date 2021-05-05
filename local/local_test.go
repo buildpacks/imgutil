@@ -200,7 +200,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						defer func() {
 							err = h.DockerRmi(dockerClient, img.Name())
 							h.AssertNil(t, err)
-
 						}()
 
 						imgOS, err := img.OS()
