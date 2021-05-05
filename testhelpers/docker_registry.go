@@ -104,12 +104,12 @@ func (r *DockerRegistry) Start(t *testing.T) {
 		r.authnHandler = BasicAuth(r.regHandler, r.username, r.password, "registry")
 	}
 
-	// listen on specific interface, relying on authorization to prevent untrusted writes
+	// listen on specific interface with random port, relying on authorization to prevent untrusted writes
 	listenIP := "127.0.0.1"
 	if r.Host != "localhost" {
 		listenIP = r.Host
 	}
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:0", listenIP))
+	listener, err := net.Listen("tcp", net.JoinHostPort(listenIP, "0"))
 	AssertNil(t, err)
 
 	r.server = &httptest.Server{
@@ -146,7 +146,7 @@ func (r *DockerRegistry) EncodedLabeledAuth() string {
 }
 
 //DockerHostname discovers the appropriate registry hostname.
-//For test to run where "localhost" is not the daemon host, a `insecure-registries` entry of `<host IP>/<mask>` with a range that contains the host's non-loopback IP.
+//For test to run where "localhost" is not the daemon host, a `insecure-registries` entry of `<host net>/<mask>` with a range that contains the host's non-loopback IP.
 //For Docker Desktop, this can be set here: https://docs.docker.com/docker-for-mac/#docker-engine
 //Otherwise, its set in the daemon.json: https://docs.docker.com/engine/reference/commandline/dockerd/#daemon-configuration-file
 //If the entry is not found, the fallback is "localhost"
@@ -160,7 +160,6 @@ func DockerHostname(t *testing.T) string {
 		t.Fatalf("unable to fetch client.DockerInfo: %s", err)
 	}
 	for _, ipnet := range daemonInfo.RegistryConfig.InsecureRegistryCIDRs {
-		t.Logf("REG NET: %s\n", ipnet.String())
 		insecureRegistryNets = append(insecureRegistryNets, (*net.IPNet)(ipnet))
 	}
 
