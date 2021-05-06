@@ -1521,8 +1521,7 @@ func TestRemoteRetryLogic(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			img, _ := random.Image(1024, 1)
-			configName, _ := img.ConfigName()
-			server := createServer(img, configName, tc)
+			server := createServer(img, tc)
 			u, err := url.Parse(server.URL)
 			h.AssertNil(t, err)
 			defer server.Close()
@@ -1539,17 +1538,11 @@ func TestRemoteRetryLogic(t *testing.T) {
 	}
 }
 
-func createServer(img v1.Image, configName v1.Hash, tc RemoteTestCase) *httptest.Server {
+func createServer(img v1.Image, tc RemoteTestCase) *httptest.Server {
 	manifestPath := fmt.Sprintf("/v2/%s/manifests/latest", tc.repo)
-	configPath := fmt.Sprintf("/v2/%s/blobs/%s", tc.repo, configName)
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		switch r.URL.Path {
-		case "/v2/":
-			w.WriteHeader(http.StatusOK)
-		case configPath:
-			c, _ := img.RawConfigFile()
-			_, err = w.Write(c)
 		case manifestPath:
 			count++
 			if count <= tc.failedCount {
