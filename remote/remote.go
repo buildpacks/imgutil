@@ -197,8 +197,8 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 				continue // retry if EOF
 			}
 			if transportErr, ok := err.(*transport.Error); ok && len(transportErr.Errors) > 0 {
-				switch transportErr.StatusCode {
-				case http.StatusNotFound, http.StatusUnauthorized:
+				if transportErr.StatusCode == http.StatusNotFound ||
+					transportErr.StatusCode == http.StatusUnauthorized {
 					return emptyImage(platform)
 				}
 			}
@@ -217,8 +217,8 @@ func isRetryable(err error) bool {
 		return true
 	}
 	if transportErr, ok := err.(*transport.Error); ok {
-		switch transportErr.StatusCode {
-		case http.StatusNotFound, http.StatusUnauthorized:
+		if transportErr.StatusCode == http.StatusNotFound ||
+			transportErr.StatusCode == http.StatusUnauthorized {
 			return true
 		}
 	}
