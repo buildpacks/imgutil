@@ -29,11 +29,11 @@ var dockerRegistry, readonlyDockerRegistry *h.DockerRegistry
 var count int
 
 type RemoteTestCase struct {
-	name        string
-	repo        string
-	statusCode  int
-	failedCount int
-	expected    int
+	name          string
+	repo          string
+	statusCode    int
+	failedCount   int
+	expectedTries int
 }
 
 func newTestImageName(providedPrefix ...string) string {
@@ -1513,9 +1513,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 func TestRemoteRetryLogic(t *testing.T) {
 	testCases := []RemoteTestCase{
-		{name: "Do not retry after status code 200 ", repo: "org/do-not-retry", statusCode: http.StatusOK, failedCount: 0, expected: 1},
-		{name: "Retry after status code 404", repo: "org/retry-not-found", statusCode: http.StatusNotFound, failedCount: 2, expected: 3},
-		{name: "Retry after status code 401", repo: "org/retry-unauthorized", statusCode: http.StatusUnauthorized, failedCount: 2, expected: 3},
+		{name: "Do not retry after status code 200 ", repo: "org/do-not-retry", statusCode: http.StatusOK, failedCount: 0, expectedTries: 1},
+		{name: "Retry after status code 404", repo: "org/retry-not-found", statusCode: http.StatusNotFound, failedCount: 2, expectedTries: 3},
+		{name: "Retry after status code 401", repo: "org/retry-unauthorized", statusCode: http.StatusUnauthorized, failedCount: 2, expectedTries: 3},
 	}
 	for _, tc := range testCases {
 		tc := tc
@@ -1524,20 +1524,16 @@ func TestRemoteRetryLogic(t *testing.T) {
 			configName, _ := img.ConfigName()
 			server := createServer(img, configName, tc)
 			u, err := url.Parse(server.URL)
-			if err != nil {
-				t.Fatalf("url.Parse(%v) = %v", server.URL, err)
-			}
+			h.AssertNil(t, err)
 			defer server.Close()
 			var repoName = u.Hostname() + ":" + u.Port() + "/" + tc.repo
 
 			// exercise the subject
 			count = 0
 			_, err = remote.NewImage(repoName, authn.DefaultKeychain, remote.WithPreviousImage(repoName))
-			if err != nil {
-				t.Fatalf("Error: %v, running remoteNewImage", err)
-			}
-			if tc.expected != count {
-				t.Fatalf("Expected number of invocations %d different than actual value %d", tc.expected, count)
+			h.AssertNil(t, err)
+			if tc.expectedTries != count {
+				t.Fatalf("Expected number of invocations %d different than actual value %d", tc.expectedTries, count)
 			}
 		})
 	}
