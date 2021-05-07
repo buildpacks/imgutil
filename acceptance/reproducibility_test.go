@@ -96,8 +96,8 @@ func testReproducibility(t *testing.T, when spec.G, it spec.S) {
 
 	it.After(func() {
 		// clean up any local images
-		h.DockerRmi(dockerClient, imageName1)
-		h.DockerRmi(dockerClient, imageName2)
+		h.AssertNil(t, h.DockerRmi(dockerClient, imageName1))
+		h.AssertNil(t, h.DockerRmi(dockerClient, imageName2))
 		h.AssertNil(t, os.Remove(layer1))
 		h.AssertNil(t, os.Remove(layer2))
 	})
