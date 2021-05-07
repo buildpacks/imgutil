@@ -7,11 +7,11 @@ import (
 	"flag"
 	"fmt"
 	"go/format"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
-	"text/template"
 )
 
 const tmplPath = `bcdhive_encoded.go.tmpl`
