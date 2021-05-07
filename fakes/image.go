@@ -221,7 +221,10 @@ func (i *Image) Save(additionalNames ...string) error {
 
 	for sha, path := range i.layersMap {
 		newPath := filepath.Join(i.layerDir, filepath.Base(path))
-		i.copyLayer(path, newPath)
+		err = i.copyLayer(path, newPath)
+		if err != nil {
+			return err
+		}
 		i.layersMap[sha] = newPath
 	}
 
