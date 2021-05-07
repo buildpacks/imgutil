@@ -207,6 +207,7 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 			}
 			return nil, fmt.Errorf("connect to repo store '%s': %s", repoName, err.Error())
 		}
+		break
 	}
 
 	return image, nil
