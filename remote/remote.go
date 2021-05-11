@@ -193,14 +193,13 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 		time.Sleep(100 * time.Duration(i) * time.Millisecond) // wait if retrying
 		image, err = remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport), remote.WithPlatform(v1Platform))
 		if err != nil {
-			if isRetryable(err) && i != maxRetries {
+			transportErr, ok := err.(*transport.Error)
+			isValid40x := ok && is40x(transportErr)
+			if err == io.EOF || isValid40x && i != maxRetries {
 				continue // retry if EOF
 			}
-			if transportErr, ok := err.(*transport.Error); ok && len(transportErr.Errors) > 0 {
-				if transportErr.StatusCode == http.StatusNotFound ||
-					transportErr.StatusCode == http.StatusUnauthorized {
-					return emptyImage(platform)
-				}
+			if isValid40x && len(transportErr.Errors) > 0 {
+				return emptyImage(platform)
 			}
 			if strings.Contains(err.Error(), "no child with platform") {
 				return emptyImage(platform)
@@ -212,17 +211,9 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 	return image, nil
 }
 
-func isRetryable(err error) bool {
-	if err == io.EOF {
-		return true
-	}
-	if transportErr, ok := err.(*transport.Error); ok {
-		if transportErr.StatusCode == http.StatusNotFound ||
-			transportErr.StatusCode == http.StatusUnauthorized {
-			return true
-		}
-	}
-	return false
+func is40x(transportErr *transport.Error) bool {
+	return transportErr.StatusCode == http.StatusNotFound ||
+		transportErr.StatusCode == http.StatusUnauthorized
 }
 
 func emptyImage(platform imgutil.Platform) (v1.Image, error) {

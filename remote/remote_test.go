@@ -11,9 +11,6 @@ import (
 	"testing"
 	"time"
 
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/random"
-
 	"github.com/google/go-containerregistry/pkg/name"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -26,10 +23,10 @@ import (
 )
 
 var dockerRegistry, readonlyDockerRegistry *h.DockerRegistry
-var count int
 
 type RemoteTestCase struct {
-	name          string
+	when          string
+	it            string
 	repo          string
 	statusCode    int
 	failedCount   int
@@ -514,6 +511,59 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 				})
 			})
+		})
+
+		when("#RetryLogic", func() {
+			var server *httptest.Server
+			testCases := []RemoteTestCase{
+				{
+					when:          "Manifest API in registry returns status code 200",
+					it:            "Do not retry after status code 200 ",
+					repo:          "org/do-not-retry",
+					statusCode:    http.StatusOK,
+					failedCount:   0,
+					expectedTries: 1,
+				},
+				{
+					when:          "Manifest API in registry returns status code 404",
+					it:            "Retry after status code 404",
+					repo:          "org/retry-not-found",
+					statusCode:    http.StatusNotFound,
+					failedCount:   2,
+					expectedTries: 3,
+				},
+				{
+					when:          "Manifest API in registry returns status code 401",
+					it:            "Retry after status code 401",
+					repo:          "org/retry-unauthorized",
+					statusCode:    http.StatusUnauthorized,
+					failedCount:   2,
+					expectedTries: 3,
+				},
+			}
+
+			for _, tc := range testCases {
+				tc := tc
+				when(tc.when, func() {
+					mockServer := h.NewMockServer(tc.repo, tc.statusCode, tc.failedCount)
+					it.Before(func() {
+						server = mockServer.Server()
+						u, err := url.Parse(server.URL)
+						h.AssertNil(t, err)
+						repoName = u.Hostname() + ":" + u.Port() + "/" + tc.repo
+					})
+
+					it(tc.it, func() {
+						defer server.Close()
+						_, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.WithPreviousImage(repoName))
+						h.AssertNil(t, err)
+						if tc.expectedTries != mockServer.ActualCount() {
+							t.Fatalf("Expected number of invocations %d different than actual value %d",
+								tc.expectedTries, mockServer.ActualCount())
+						}
+					})
+				})
+			}
 		})
 	})
 
@@ -1509,51 +1559,4 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 	})
-}
-
-func TestRemoteRetryLogic(t *testing.T) {
-	testCases := []RemoteTestCase{
-		{name: "Do not retry after status code 200 ", repo: "org/do-not-retry", statusCode: http.StatusOK, failedCount: 0, expectedTries: 1},
-		{name: "Retry after status code 404", repo: "org/retry-not-found", statusCode: http.StatusNotFound, failedCount: 2, expectedTries: 3},
-		{name: "Retry after status code 401", repo: "org/retry-unauthorized", statusCode: http.StatusUnauthorized, failedCount: 2, expectedTries: 3},
-	}
-	for _, tc := range testCases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			img, _ := random.Image(1024, 1)
-			server := createServer(img, tc)
-			u, err := url.Parse(server.URL)
-			h.AssertNil(t, err)
-			defer server.Close()
-			var repoName = u.Hostname() + ":" + u.Port() + "/" + tc.repo
-
-			// exercise the subject
-			count = 0
-			_, err = remote.NewImage(repoName, authn.DefaultKeychain, remote.WithPreviousImage(repoName))
-			h.AssertNil(t, err)
-			if tc.expectedTries != count {
-				t.Fatalf("Expected number of invocations %d different than actual value %d", tc.expectedTries, count)
-			}
-		})
-	}
-}
-
-func createServer(img v1.Image, tc RemoteTestCase) *httptest.Server {
-	manifestPath := fmt.Sprintf("/v2/%s/manifests/latest", tc.repo)
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var err error
-		switch r.URL.Path {
-		case manifestPath:
-			count++
-			if count <= tc.failedCount {
-				w.WriteHeader(tc.statusCode)
-			} else {
-				m, _ := img.RawManifest()
-				_, err = w.Write(m)
-			}
-		}
-		if err != nil {
-			fmt.Printf("There was an error in the mock registry %s\n", err)
-		}
-	}))
 }
