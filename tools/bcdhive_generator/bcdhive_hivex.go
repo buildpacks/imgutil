@@ -80,7 +80,7 @@ func HiveBCD() ([]byte, error) {
 		return nil, err
 	}
 
-	if err := ioutil.WriteFile(hiveFile.Name(), origHiveBytes, 0666); err != nil {
+	if err := ioutil.WriteFile(hiveFile.Name(), origHiveBytes, 0600); err != nil {
 		return nil, errors.Wrap(err, "writing temp hive file")
 	}
 
