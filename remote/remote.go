@@ -464,10 +464,7 @@ func (i *Image) SetEnv(key, val string) error {
 		if foundKey == searchKey {
 			config.Env[idx] = fmt.Sprintf("%s=%s", key, val)
 			i.image, err = mutate.Config(i.image, config)
-			if err != nil {
-				return err
-			}
-			return nil
+			return err
 		}
 	}
 	config.Env = append(config.Env, fmt.Sprintf("%s=%s", key, val))

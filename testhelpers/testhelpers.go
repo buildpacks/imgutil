@@ -14,6 +14,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -355,7 +356,7 @@ func FetchManifestImageConfigFile(t *testing.T, repoName string) *v1.ConfigFile 
 }
 
 func FileDiffID(t *testing.T, path string) string {
-	tarFile, err := os.Open(path)
+	tarFile, err := os.Open(filepath.Clean(path))
 	AssertNil(t, err)
 	defer tarFile.Close()
 
