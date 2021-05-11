@@ -71,7 +71,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
 
-				defer h.DockerRmi(dockerClient, img.Name())
+				defer func() {
+					err = h.DockerRmi(dockerClient, img.Name())
+					h.AssertNil(t, err)
+				}()
 				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
 				h.AssertNil(t, err)
 
@@ -106,7 +109,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
 
-				defer h.DockerRmi(dockerClient, img.Name())
+				defer func() {
+					err = h.DockerRmi(dockerClient, img.Name())
+					h.AssertNil(t, err)
+				}()
 				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
 				h.AssertNil(t, err)
 
@@ -191,7 +197,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						)
 						h.AssertNil(t, err)
 						h.AssertNil(t, img.Save())
-						defer h.DockerRmi(dockerClient, img.Name())
+						defer func() {
+							err = h.DockerRmi(dockerClient, img.Name())
+							h.AssertNil(t, err)
+						}()
 
 						imgOS, err := img.OS()
 						h.AssertNil(t, err)
@@ -1405,7 +1414,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					h.AssertError(
 						t,
 						err,
-						fmt.Sprintf("image '%s' does not contain layer with diff ID 'not-exist'", repoName),
+						fmt.Sprintf(`image %q does not contain layer with diff ID "not-exist"`, repoName),
 					)
 				})
 			})
@@ -1418,7 +1427,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				readCloser, err := image.GetLayer("some-layer")
 				h.AssertNil(t, readCloser)
-				h.AssertError(t, err, "image 'not-exist' does not contain layer with diff ID 'some-layer'")
+				h.AssertError(t, err, `image "not-exist" does not contain layer with diff ID "some-layer"`)
 			})
 		})
 	})
