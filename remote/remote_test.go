@@ -1302,7 +1302,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				err = img.ReuseLayer("some-bad-sha")
 
-				h.AssertError(t, err, "previous image did not have layer with diff id 'some-bad-sha'")
+				h.AssertError(t, err, `previous image did not have layer with diff id "some-bad-sha"`)
 			})
 		})
 	})
