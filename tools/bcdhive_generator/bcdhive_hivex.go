@@ -113,7 +113,7 @@ func readMinimalHiveContents() ([]byte, error) {
 	}
 	hivexRootPath := filepath.Dir(pkgs[0].GoFiles[0])
 	minimalHivePath := filepath.Join(hivexRootPath, "testdata", "minimal")
-	return ioutil.ReadFile(minimalHivePath)
+	return ioutil.ReadFile(filepath.Clean(minimalHivePath))
 }
 
 func addBCDHiveEntries(h *hivex.Hivex) error {

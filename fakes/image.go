@@ -179,7 +179,7 @@ func (i *Image) AddLayerWithDiffID(path string, diffID string) error {
 }
 
 func shaForFile(path string) (string, error) {
-	rc, err := os.Open(path)
+	rc, err := os.Open(filepath.Clean(path))
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to open file")
 	}
@@ -199,7 +199,7 @@ func (i *Image) GetLayer(sha string) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("failed to get layer with sha '%s'", sha)
 	}
 
-	return os.Open(path)
+	return os.Open(filepath.Clean(path))
 }
 
 func (i *Image) ReuseLayer(sha string) error {
@@ -250,7 +250,7 @@ func (i *Image) Save(additionalNames ...string) error {
 }
 
 func (i *Image) copyLayer(path, newPath string) error {
-	src, err := os.Open(path)
+	src, err := os.Open(filepath.Clean(path))
 	if err != nil {
 		return errors.Wrap(err, "opening layer during copy")
 	}
@@ -320,7 +320,7 @@ func (i *Image) FindLayerWithPath(path string) (string, error) {
 	// we iterate backwards over the layer array b/c later layers could replace a file with a given path
 	for idx := len(i.layers) - 1; idx >= 0; idx-- {
 		tarPath := i.layers[idx]
-		rc, err := os.Open(tarPath)
+		rc, err := os.Open(filepath.Clean(tarPath))
 		if err != nil {
 			return "", errors.Wrapf(err, "opening layer file '%s'", tarPath)
 		}
@@ -358,7 +358,7 @@ func (i *Image) tarContents() string {
 func (i *Image) writeLayerContents(strBuilder *strings.Builder, tarPath string) {
 	strBuilder.WriteString(fmt.Sprintf("%s\n", filepath.Base(tarPath)))
 
-	rc, err := os.Open(tarPath)
+	rc, err := os.Open(filepath.Clean(tarPath))
 	if err != nil {
 		strBuilder.WriteString(fmt.Sprintf("Error reading layer files: %s\n", err))
 		return
