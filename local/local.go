@@ -127,7 +127,7 @@ func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...Image
 
 func validatePlatformOption(defaultPlatform imgutil.Platform, optionPlatform imgutil.Platform) error {
 	if optionPlatform.OS != "" && optionPlatform.OS != defaultPlatform.OS {
-		return fmt.Errorf(`invalid os: platform os "%s" must match the daemon os "%s"`, optionPlatform.OS, defaultPlatform.OS)
+		return fmt.Errorf("invalid os: platform os %q must match the daemon os %q", optionPlatform.OS, defaultPlatform.OS)
 	}
 
 	return nil
@@ -140,7 +140,7 @@ func processPreviousImageOption(image *Image, prevImageRepoName string, platform
 
 	prevImage, err := NewImage(prevImageRepoName, dockerClient, FromBaseImage(prevImageRepoName))
 	if err != nil {
-		return errors.Wrapf(err, "failed to get previous image '%s'", prevImageRepoName)
+		return errors.Wrapf(err, "getting previous image %q", prevImageRepoName)
 	}
 
 	image.prevImage = prevImage
@@ -273,7 +273,7 @@ func (i *Image) Rebase(baseTopLayer string, newBase imgutil.Image) error {
 		}
 	}
 	if keepLayersIdx == 0 {
-		return fmt.Errorf("'%s' not found in '%s' during rebase", baseTopLayer, i.repoName)
+		return fmt.Errorf("%q not found in %q during rebase", baseTopLayer, i.repoName)
 	}
 
 	// DOWNLOAD IMAGE
@@ -284,7 +284,7 @@ func (i *Image) Rebase(baseTopLayer string, newBase imgutil.Image) error {
 	// SWITCH BASE LAYERS
 	newBaseInspect, _, err := i.docker.ImageInspectWithRaw(ctx, newBase.Name())
 	if err != nil {
-		return errors.Wrapf(err, "read config for new base image '%s'", newBase)
+		return errors.Wrapf(err, "read config for new base image %q", newBase)
 	}
 	i.inspect.ID = newBaseInspect.ID
 	i.downloadBaseOnce = &sync.Once{}
@@ -304,7 +304,7 @@ func (i *Image) SetLabel(key, val string) error {
 
 func (i *Image) SetOS(osVal string) error {
 	if osVal != i.inspect.Os {
-		return fmt.Errorf(`invalid os: must match the daemon: "%s"`, i.inspect.Os)
+		return fmt.Errorf("invalid os: must match the daemon: %q", i.inspect.Os)
 	}
 	return nil
 }
@@ -362,7 +362,7 @@ func (i *Image) TopLayer() (string, error) {
 	all := i.inspect.RootFS.Layers
 
 	if len(all) == 0 {
-		return "", fmt.Errorf("image '%s' has no layers", i.repoName)
+		return "", fmt.Errorf("image %q has no layers", i.repoName)
 	}
 
 	topLayer := all[len(all)-1]
@@ -379,17 +379,17 @@ func (i *Image) GetLayer(diffID string) (io.ReadCloser, error) {
 				return nil, err
 			}
 			if i.layerPaths[l] == "" {
-				return nil, fmt.Errorf("failed to fetch layer '%s' from daemon", diffID)
+				return nil, fmt.Errorf("fetching layer %q from daemon", diffID)
 			}
 		}
 		return os.Open(i.layerPaths[l])
 	}
 
-	return nil, fmt.Errorf("image '%s' does not contain layer with diff ID '%s'", i.repoName, diffID)
+	return nil, fmt.Errorf("image %q does not contain layer with diff ID %q", i.repoName, diffID)
 }
 
 func (i *Image) AddLayer(path string) error {
-	f, err := os.Open(path)
+	f, err := os.Open(filepath.Clean(path))
 	if err != nil {
 		return errors.Wrapf(err, "AddLayer: open layer: %s", path)
 	}
@@ -413,7 +413,7 @@ func (i *Image) ReuseLayer(diffID string) error {
 		return errors.New("failed to reuse layer because no previous image was provided")
 	}
 	if !i.prevImage.Found() {
-		return fmt.Errorf("failed to reuse layer because previous image '%s' was not found in daemon", i.prevImage.repoName)
+		return fmt.Errorf("failed to reuse layer because previous image %q was not found in daemon", i.prevImage.repoName)
 	}
 
 	if err := i.prevImage.downloadBaseLayersOnce(); err != nil {
@@ -503,7 +503,7 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 
 	configFile, err := i.newConfigFile()
 	if err != nil {
-		return types.ImageInspect{}, errors.Wrap(err, "generate config file")
+		return types.ImageInspect{}, errors.Wrap(err, "generating config file")
 	}
 
 	id := fmt.Sprintf("%x", sha256.Sum256(configFile))
@@ -518,7 +518,7 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 			continue
 		}
 		layerName := fmt.Sprintf("/%x.tar", sha256.Sum256([]byte(path)))
-		f, err := os.Open(path)
+		f, err := os.Open(filepath.Clean(path))
 		if err != nil {
 			return types.ImageInspect{}, err
 		}
@@ -549,13 +549,13 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 	pw.Close()
 	err = <-done
 	if err != nil {
-		return types.ImageInspect{}, errors.Wrapf(err, "image load '%s'. first error", i.repoName)
+		return types.ImageInspect{}, errors.Wrapf(err, "loading image %q. first error", i.repoName)
 	}
 
 	inspect, _, err := i.docker.ImageInspectWithRaw(context.Background(), id)
 	if err != nil {
 		if client.IsErrNotFound(err) {
-			return types.ImageInspect{}, errors.Wrapf(err, "save image '%s'", i.repoName)
+			return types.ImageInspect{}, errors.Wrapf(err, "saving image %q", i.repoName)
 		}
 		return types.ImageInspect{}, err
 	}
@@ -598,7 +598,7 @@ func (i *Image) downloadBaseLayersOnce() error {
 		err = i.downloadBaseLayers()
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to fetch base layers")
+		return errors.Wrap(err, "fetching base layers")
 	}
 	return err
 }
@@ -608,7 +608,7 @@ func (i *Image) downloadBaseLayers() error {
 
 	imageReader, err := i.docker.ImageSave(ctx, []string{i.inspect.ID})
 	if err != nil {
-		return errors.Wrapf(err, "failed to save base image with ID '%s' from the docker daemon", i.inspect.ID)
+		return errors.Wrapf(err, "saving base image with ID %q from the docker daemon", i.inspect.ID)
 	}
 	defer ensureReaderClosed(imageReader)
 
@@ -622,7 +622,7 @@ func (i *Image) downloadBaseLayers() error {
 		return err
 	}
 
-	mf, err := os.Open(filepath.Join(tmpDir, "manifest.json"))
+	mf, err := os.Open(filepath.Clean(filepath.Join(tmpDir, "manifest.json")))
 	if err != nil {
 		return err
 	}
@@ -640,7 +640,7 @@ func (i *Image) downloadBaseLayers() error {
 		return fmt.Errorf("manifest.json had unexpected number of entries: %d", len(manifest))
 	}
 
-	df, err := os.Open(filepath.Join(tmpDir, manifest[0].Config))
+	df, err := os.Open(filepath.Clean(filepath.Join(tmpDir, manifest[0].Config)))
 	if err != nil {
 		return err
 	}
@@ -713,12 +713,12 @@ func untar(r io.Reader, dest string) error {
 		case tar.TypeReg, tar.TypeRegA:
 			_, err := os.Stat(filepath.Dir(path))
 			if os.IsNotExist(err) {
-				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+				if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
 					return err
 				}
 			}
 
-			fh, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, hdr.FileInfo().Mode())
+			fh, err := os.OpenFile(filepath.Clean(path), os.O_CREATE|os.O_WRONLY, hdr.FileInfo().Mode())
 			if err != nil {
 				return err
 			}
@@ -730,7 +730,7 @@ func untar(r io.Reader, dest string) error {
 		case tar.TypeSymlink:
 			_, err := os.Stat(filepath.Dir(path))
 			if os.IsNotExist(err) {
-				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+				if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
 					return err
 				}
 			}
@@ -755,7 +755,7 @@ func inspectOptionalImage(docker client.CommonAPIClient, imageName string, platf
 			return defaultInspect(platform), nil
 		}
 
-		return types.ImageInspect{}, errors.Wrapf(err, "verifying image '%s'", imageName)
+		return types.ImageInspect{}, errors.Wrapf(err, "verifying image %q", imageName)
 	}
 
 	return inspect, nil
