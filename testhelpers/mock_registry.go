@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"testing"
 
 	"github.com/google/go-containerregistry/pkg/v1/random"
 )
@@ -52,4 +54,15 @@ func (m *MockServer) ActualCount() int {
 
 func (m *MockServer) Server() *httptest.Server {
 	return m.server
+}
+
+func SetUpMockServer(t *testing.T, repo string, statusCode, failedCount int) (*MockServer, string) {
+	mockServer := NewMockServer(repo, statusCode, failedCount)
+	server := mockServer.Init()
+	u, err := url.Parse(server.URL)
+
+	AssertNil(t, err)
+
+	repoName := u.Hostname() + ":" + u.Port() + "/" + repo
+	return mockServer, repoName
 }

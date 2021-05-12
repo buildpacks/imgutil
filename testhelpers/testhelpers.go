@@ -13,7 +13,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
-	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -409,15 +408,4 @@ func checkResponseError(r io.Reader) error {
 	}
 
 	return nil
-}
-
-func SetUpMockServer(t *testing.T, repo string, statusCode, failedCount int) (*MockServer, string) {
-	mockServer := NewMockServer(repo, statusCode, failedCount)
-	server := mockServer.Init()
-	u, err := url.Parse(server.URL)
-
-	AssertNil(t, err)
-
-	repoName := u.Hostname() + ":" + u.Port() + "/" + repo
-	return mockServer, repoName
 }

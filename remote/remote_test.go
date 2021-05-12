@@ -511,7 +511,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				it("Do not retry after status code 200", func() {
-					VerifyRetryLogic(t, mockServer, repoName, 1)
+					verifyRetryLogic(t, mockServer, repoName, 1)
 				})
 			})
 
@@ -521,7 +521,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				it("Retry after status code 404", func() {
-					VerifyRetryLogic(t, mockServer, repoName, 3)
+					verifyRetryLogic(t, mockServer, repoName, 3)
 				})
 			})
 
@@ -531,7 +531,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				it("Retry after status code 401", func() {
-					VerifyRetryLogic(t, mockServer, repoName, 3)
+					verifyRetryLogic(t, mockServer, repoName, 3)
 				})
 			})
 		})
@@ -1531,7 +1531,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 }
 
-func VerifyRetryLogic(t *testing.T, mockServer *h.MockServer, repoName string, expectedCount int) {
+func verifyRetryLogic(t *testing.T, mockServer *h.MockServer, repoName string, expectedCount int) {
 	defer mockServer.Server().Close()
 	_, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.WithPreviousImage(repoName))
 
