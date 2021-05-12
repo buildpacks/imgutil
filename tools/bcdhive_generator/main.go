@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"text/template"
 )
 
@@ -30,7 +31,7 @@ func main() {
 }
 
 func run(tmplPath, outputFilePath, outputPackageName, outputFuncName string) error {
-	outputFile, err := os.OpenFile(outputFilePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
+	outputFile, err := os.OpenFile(filepath.Clean(outputFilePath), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}
@@ -77,7 +78,7 @@ func encodeData(rawBytes []byte) (string, error) {
 }
 
 func generateGoSource(tmplPath, packageName, funcName, bcdData string) (string, error) {
-	tmpl, err := ioutil.ReadFile(tmplPath)
+	tmpl, err := ioutil.ReadFile(filepath.Clean(tmplPath))
 	if err != nil {
 		return "", err
 	}
