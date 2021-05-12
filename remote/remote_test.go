@@ -5,8 +5,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -505,72 +503,35 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("#RetryLogic", func() {
-			var server *httptest.Server
-			var repo string
+			var mockServer *h.MockServer
 
 			when("Manifest API in registry returns status code 200", func() {
-				repo = "org/do-not-retry"
-				mockServer := h.NewMockServer(repo, http.StatusOK, 0)
-
 				it.Before(func() {
-					server = mockServer.Server()
-					u, err := url.Parse(server.URL)
-
-					h.AssertNil(t, err)
-
-					repoName = u.Hostname() + ":" + u.Port() + "/" + repo
+					mockServer, repoName = h.SetUpMockServer(t, "org/do-not-retry", http.StatusOK, 0)
 				})
 
 				it("Do not retry after status code 200", func() {
-					defer server.Close()
-					_, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.WithPreviousImage(repoName))
-
-					h.AssertNil(t, err)
-					h.AssertEq(t, mockServer.ActualCount(), 1)
+					VerifyRetryLogic(t, mockServer, repoName, 1)
 				})
 			})
 
 			when("Manifest API in registry returns status code 404", func() {
-				repo = "org/retry-not-found"
-				mockServer := h.NewMockServer(repo, http.StatusNotFound, 2)
-
 				it.Before(func() {
-					server = mockServer.Server()
-					u, err := url.Parse(server.URL)
-
-					h.AssertNil(t, err)
-
-					repoName = u.Hostname() + ":" + u.Port() + "/" + repo
+					mockServer, repoName = h.SetUpMockServer(t, "org/retry-not-found", http.StatusNotFound, 2)
 				})
 
 				it("Retry after status code 404", func() {
-					defer server.Close()
-					_, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.WithPreviousImage(repoName))
-
-					h.AssertNil(t, err)
-					h.AssertEq(t, mockServer.ActualCount(), 3)
+					VerifyRetryLogic(t, mockServer, repoName, 3)
 				})
 			})
 
 			when("Manifest API in registry returns status code 401", func() {
-				repo = "org/retry-unauthorized"
-				mockServer := h.NewMockServer(repo, http.StatusUnauthorized, 2)
-
 				it.Before(func() {
-					server = mockServer.Server()
-					u, err := url.Parse(server.URL)
-
-					h.AssertNil(t, err)
-
-					repoName = u.Hostname() + ":" + u.Port() + "/" + repo
+					mockServer, repoName = h.SetUpMockServer(t, "org/retry-unauthorized", http.StatusUnauthorized, 2)
 				})
 
 				it("Retry after status code 401", func() {
-					defer server.Close()
-					_, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.WithPreviousImage(repoName))
-
-					h.AssertNil(t, err)
-					h.AssertEq(t, mockServer.ActualCount(), 3)
+					VerifyRetryLogic(t, mockServer, repoName, 3)
 				})
 			})
 		})
@@ -1568,4 +1529,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 	})
+}
+
+func VerifyRetryLogic(t *testing.T, mockServer *h.MockServer, repoName string, expectedCount int) {
+	defer mockServer.Server().Close()
+	_, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.WithPreviousImage(repoName))
+
+	h.AssertNil(t, err)
+	h.AssertEq(t, mockServer.ActualCount(), expectedCount)
 }

@@ -25,7 +25,7 @@ func NewMockServer(repo string, statusCode, failedCount int) *MockServer {
 	}
 }
 
-func (m *MockServer) Server() *httptest.Server {
+func (m *MockServer) Init() *httptest.Server {
 	manifestPath := fmt.Sprintf("/v2/%s/manifests/latest", m.repo)
 	img, _ := random.Image(1024, 1)
 	m.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -48,4 +48,8 @@ func (m *MockServer) Server() *httptest.Server {
 
 func (m *MockServer) ActualCount() int {
 	return m.actualCount
+}
+
+func (m *MockServer) Server() *httptest.Server {
+	return m.server
 }
