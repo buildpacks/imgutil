@@ -66,7 +66,7 @@ func BasicAuth(handler http.Handler, username, password, realm string) http.Hand
 		if !ok || user != username || pass != password {
 			w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`"`)
 			w.WriteHeader(401)
-			_, _ = w.Write([]byte("Unauthorised.\n"))
+			_, _ = w.Write([]byte("Unauthorized.\n"))
 			return
 		}
 
