@@ -59,6 +59,7 @@ func NewDockerRegistry(ops ...RegistryOption) *DockerRegistry {
 	return registry
 }
 
+// BasicAuth wraps a handler, allowing requests with matching username and password headers, otherwise rejecting with a 401
 func BasicAuth(handler http.Handler, username, password, realm string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, pass, ok := r.BasicAuth()
@@ -74,6 +75,7 @@ func BasicAuth(handler http.Handler, username, password, realm string) http.Hand
 	})
 }
 
+// ReadOnly wraps a handler, allowing only GET and HEAD requests, otherwise rejecting with a 405
 func ReadOnly(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !(r.Method == "GET" || r.Method == "HEAD") {
