@@ -56,8 +56,8 @@ func (m *MockServer) Server() *httptest.Server {
 	return m.server
 }
 
-func SetUpMockServer(t *testing.T, repo string, statusCode, failedCount int) (*MockServer, string) {
-	mockServer := NewMockServer(repo, statusCode, failedCount)
+func SetUpMockServer(t *testing.T, repo string, initialCode, timesToFail int) (*MockServer, string) {
+	mockServer := NewMockServer(repo, initialCode, timesToFail)
 	server := mockServer.Init()
 	u, err := url.Parse(server.URL)
 

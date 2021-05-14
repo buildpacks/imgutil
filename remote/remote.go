@@ -193,13 +193,16 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 		time.Sleep(100 * time.Duration(i) * time.Millisecond) // wait if retrying
 		image, err = remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport), remote.WithPlatform(v1Platform))
 		if err != nil {
-			transportErr, ok := err.(*transport.Error)
-			isValid40x := ok && is40x(transportErr)
-			if err == io.EOF || isValid40x && i != maxRetries {
-				continue // retry if EOF
+			if err == io.EOF && i != maxRetries {
+				continue // retry
 			}
-			if isValid40x && len(transportErr.Errors) > 0 {
-				return emptyImage(platform)
+			if transportErr, ok := err.(*transport.Error); ok && is40x(transportErr) {
+				if i != maxRetries {
+					continue // retry
+				}
+				if len(transportErr.Errors) > 0 {
+					return emptyImage(platform)
+				}
 			}
 			if strings.Contains(err.Error(), "no child with platform") {
 				return emptyImage(platform)

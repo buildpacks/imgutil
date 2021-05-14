@@ -502,36 +502,48 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 
-		when("#RetryLogic", func() {
+		when("retry logic", func() {
 			var mockServer *h.MockServer
 
-			when("Manifest API in registry returns status code 200", func() {
+			when("manifest API in registry returns status code 200", func() {
 				it.Before(func() {
 					mockServer, repoName = h.SetUpMockServer(t, "org/do-not-retry", http.StatusOK, 0)
 				})
 
-				it("Do not retry after status code 200", func() {
-					verifyRetryLogic(t, mockServer, repoName, 1)
+				it.After(func() {
+					defer mockServer.Server().Close()
+				})
+
+				it("does not retry after status code 200", func() {
+					assertExpectedRetries(t, mockServer, repoName, 1)
 				})
 			})
 
-			when("Manifest API in registry returns status code 404", func() {
+			when("manifest API in registry returns status code 404", func() {
 				it.Before(func() {
 					mockServer, repoName = h.SetUpMockServer(t, "org/retry-not-found", http.StatusNotFound, 2)
 				})
 
-				it("Retry after status code 404", func() {
-					verifyRetryLogic(t, mockServer, repoName, 3)
+				it.After(func() {
+					defer mockServer.Server().Close()
+				})
+
+				it("retries after status code 404", func() {
+					assertExpectedRetries(t, mockServer, repoName, 3)
 				})
 			})
 
-			when("Manifest API in registry returns status code 401", func() {
+			when("manifest API in registry returns status code 401", func() {
 				it.Before(func() {
 					mockServer, repoName = h.SetUpMockServer(t, "org/retry-unauthorized", http.StatusUnauthorized, 2)
 				})
 
-				it("Retry after status code 401", func() {
-					verifyRetryLogic(t, mockServer, repoName, 3)
+				it.After(func() {
+					defer mockServer.Server().Close()
+				})
+
+				it("retries after status code 401", func() {
+					assertExpectedRetries(t, mockServer, repoName, 3)
 				})
 			})
 		})
@@ -1531,8 +1543,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 }
 
-func verifyRetryLogic(t *testing.T, mockServer *h.MockServer, repoName string, expectedCount int) {
-	defer mockServer.Server().Close()
+func assertExpectedRetries(t *testing.T, mockServer *h.MockServer, repoName string, expectedCount int) {
 	_, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.WithPreviousImage(repoName))
 
 	h.AssertNil(t, err)
