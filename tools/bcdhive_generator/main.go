@@ -12,7 +12,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"text/template"
+	"text/template" //nolint:gosec
 )
 
 const tmplPath = `bcdhive_encoded.go.tmpl`
