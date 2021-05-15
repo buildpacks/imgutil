@@ -722,7 +722,10 @@ func untar(r io.Reader, dest string) error {
 			if err != nil {
 				return err
 			}
-			if _, err := io.Copy(fh, tr); err != nil {
+			if _, err := io.CopyN(fh, tr, 1024); err != nil {
+				if err == io.EOF {
+					break
+				}
 				fh.Close()
 				return err
 			}
