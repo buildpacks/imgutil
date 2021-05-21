@@ -198,7 +198,9 @@ func testWindowsWriter(t *testing.T, when spec.G, it spec.S) {
 
 					h.AssertNil(t, lw.Close())
 
-					h.AssertNil(t, f.Seek(0, 0))
+					_, err = f.Seek(0,0)
+					h.AssertNil(t, err)
+
 
 					tr := tar.NewReader(f)
 
