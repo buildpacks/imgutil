@@ -4,42 +4,37 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"io"
 	"io/ioutil"
-	"os"
+	"log"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"testing"
-	"time"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/go-connections/nat"
-	"golang.org/x/crypto/bcrypt"
-
-	volumetypes "github.com/docker/docker/api/types/volume"
-	"github.com/docker/docker/errdefs"
+	"github.com/google/go-containerregistry/pkg/registry"
 )
 
 type DockerRegistry struct {
 	Host            string
 	Port            string
 	Name            string
+	server          *httptest.Server
 	DockerDirectory string
 	username        string
 	password        string
-	volumeName      string
+	regHandler      http.Handler
+	authnHandler    http.Handler
 }
-
-var registryImageName = "micahyoung/registry:latest"
 
 type RegistryOption func(registry *DockerRegistry)
 
-//WithSharedStorageVolume allows two instances to share the same data volume.
+//WithSharedHandler allows two instances to share the same data by re-using the registry handler.
 //Use an authenticated registry to write to a read-only unauthenticated registry.
-//Volumes that don't exist will be created, then removed on Stop().
-func WithSharedStorageVolume(volumeName string) RegistryOption {
+func WithSharedHandler(handler http.Handler) RegistryOption {
 	return func(registry *DockerRegistry) {
-		registry.volumeName = volumeName
+		registry.regHandler = handler
 	}
 }
 
@@ -64,143 +59,84 @@ func NewDockerRegistry(ops ...RegistryOption) *DockerRegistry {
 	return registry
 }
 
+// BasicAuth wraps a handler, allowing requests with matching username and password headers, otherwise rejecting with a 401
+func BasicAuth(handler http.Handler, username, password, realm string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+
+		if !ok || user != username || pass != password {
+			w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`"`)
+			w.WriteHeader(401)
+			_, _ = w.Write([]byte("Unauthorized.\n"))
+			return
+		}
+
+		handler.ServeHTTP(w, r)
+	})
+}
+
+// ReadOnly wraps a handler, allowing only GET and HEAD requests, otherwise rejecting with a 405
+func ReadOnly(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !(r.Method == "GET" || r.Method == "HEAD") {
+			w.WriteHeader(405)
+			_, _ = w.Write([]byte("Method Not Allowed.\n"))
+			return
+		}
+
+		handler.ServeHTTP(w, r)
+	})
+}
+
 func (r *DockerRegistry) Start(t *testing.T) {
 	t.Helper()
 
 	r.Host = DockerHostname(t)
 
-	t.Logf("run registry on %s", r.Host)
-
-	PullIfMissing(t, DockerCli(t), registryImageName)
-
-	registryEnv := []string{
-		"REGISTRY_STORAGE_DELETE_ENABLED=true",
+	// create registry handler, if not re-using a shared one
+	if r.regHandler == nil {
+		// change to os.Stderr for verbose output
+		logger := registry.Logger(log.New(ioutil.Discard, "registry ", log.Lshortfile))
+		r.regHandler = registry.New(logger)
 	}
 
-	var htpasswdTar io.ReadCloser
+	// wrap registry handler with authentication handler, defaulting to read-only
+	r.authnHandler = ReadOnly(r.regHandler)
 	if r.username != "" {
-		// Create htpasswdTar and configure registry env
-		tempDir, err := ioutil.TempDir("", "test.registry")
-		AssertNil(t, err)
-		defer os.RemoveAll(tempDir)
-
-		htpasswdTar = generateHtpasswd(t, tempDir, r.username, r.password)
-		defer htpasswdTar.Close()
-
-		otherEnvs := []string{
-			"REGISTRY_AUTH=htpasswd",
-			"REGISTRY_AUTH_HTPASSWD_REALM=Registry Realm",
-			"REGISTRY_AUTH_HTPASSWD_PATH=/registry_test_htpasswd",
-		}
-		registryEnv = append(registryEnv, otherEnvs...)
-	} else {
-		// make read-only without auth
-		readOnlyEnv := `REGISTRY_STORAGE_MAINTENANCE_READONLY={"enabled":true}`
-		registryEnv = append(registryEnv, readOnlyEnv)
+		r.authnHandler = BasicAuth(r.regHandler, r.username, r.password, "registry")
 	}
 
-	var volumeBinds []string
-	var containerUser string
-	if r.volumeName != "" {
-		// try to create volumes that may exist
-		_, err := DockerCli(t).VolumeCreate(context.Background(), volumetypes.VolumeCreateBody{Name: r.volumeName})
-		if err != nil {
-			// fail if err is not from existing volume
-			if !errdefs.IsConflict(err) {
-				AssertNil(t, err)
-			}
-		}
-
-		info, err := DockerCli(t).Info(context.Background())
-		AssertNil(t, err)
-
-		storageBindPath := "/registry-storage"
-		if info.OSType == "windows" {
-			containerUser = "ContainerAdministrator" //required for volume permissions
-			storageBindPath = "c:/registry-storage"
-		}
-
-		volumeBinds = append(volumeBinds, fmt.Sprintf("%s:%s", r.volumeName, storageBindPath))
-
-		storageEnv := fmt.Sprintf("REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY=%s", storageBindPath)
-		registryEnv = append(registryEnv, storageEnv)
+	// listen on specific interface with random port, relying on authorization to prevent untrusted writes
+	listenIP := "127.0.0.1"
+	if r.Host != "localhost" {
+		listenIP = r.Host
 	}
-
-	// Create container
-	ctx := context.Background()
-	ctr, err := DockerCli(t).ContainerCreate(ctx, &container.Config{
-		Image: registryImageName,
-		Env:   registryEnv,
-		User:  containerUser,
-	}, &container.HostConfig{
-		AutoRemove: true,
-		PortBindings: nat.PortMap{
-			"5000/tcp": []nat.PortBinding{{}},
-		},
-		Binds: volumeBinds,
-	}, nil, r.Name)
+	listener, err := net.Listen("tcp", net.JoinHostPort(listenIP, "0"))
 	AssertNil(t, err)
 
-	if r.username != "" {
-		// Copy htpasswdTar to container
-		AssertNil(t, DockerCli(t).CopyToContainer(ctx, ctr.ID, "/", htpasswdTar, types.CopyToContainerOptions{}))
+	r.server = &httptest.Server{
+		Listener: listener,
+		Config:   &http.Server{Handler: r.authnHandler},
 	}
 
-	// Start container
-	AssertNil(t, DockerCli(t).ContainerStart(ctx, ctr.ID, types.ContainerStartOptions{}))
+	r.server.Start()
 
-	// Get port when ready
-	for i := 0; i < 5; i++ {
-		inspect, err := DockerCli(t).ContainerInspect(ctx, ctr.ID)
-		AssertNil(t, err)
+	tcpAddr := r.server.Listener.Addr().(*net.TCPAddr)
 
-		hostPortMap := inspect.NetworkSettings.Ports["5000/tcp"]
-		for _, hostPortEntry := range hostPortMap {
-			if hostPortEntry.HostIP == "0.0.0.0" {
-				r.Port = hostPortEntry.HostPort
-				break
-			}
-		}
+	r.Port = strconv.Itoa(tcpAddr.Port)
+	t.Logf("run registry on %s:%s", r.Host, r.Port)
 
-		time.Sleep(500 * time.Millisecond)
-	}
-	if r.Port == "" {
-		t.Fatal("docker returned no host-port for registry")
-	}
-
-	var authHeaders map[string]string
 	if r.username != "" {
 		// Write Docker config and configure auth headers
 		writeDockerConfig(t, r.DockerDirectory, r.Host, r.Port, r.encodedAuth())
-		authHeaders = map[string]string{"Authorization": "Basic " + r.encodedAuth()}
 	}
-
-	// Wait for registry to be ready
-	Eventually(t, func() bool {
-		txt, err := HTTPGetE(fmt.Sprintf("http://%s:%s/v2/_catalog", r.Host, r.Port), authHeaders)
-		return err == nil && txt != ""
-	}, 100*time.Millisecond, 10*time.Second)
 }
 
 func (r *DockerRegistry) Stop(t *testing.T) {
 	t.Helper()
 	t.Log("stop registry")
 
-	if r.Name != "" {
-		DockerCli(t).ContainerKill(context.Background(), r.Name, "SIGKILL")
-		DockerCli(t).ContainerRemove(context.TODO(), r.Name, types.ContainerRemoveOptions{Force: true})
-	}
-
-	if r.volumeName != "" {
-		// try to cleanup shared volume if this is the last user
-		err := DockerCli(t).VolumeRemove(context.Background(), r.volumeName, false)
-		if err != nil {
-			// fail if err is not from volume in use
-			if !errdefs.IsConflict(err) {
-				AssertNil(t, err)
-			}
-		}
-	}
+	r.server.Close()
 }
 
 func (r *DockerRegistry) RepoName(name string) string {
@@ -212,22 +148,54 @@ func (r *DockerRegistry) EncodedLabeledAuth() string {
 }
 
 //DockerHostname discovers the appropriate registry hostname.
-//For test to run where "localhost" is not the daemon host, a `insecure-registries` entry of `<host IP>/32` is required to allow test images to be written.
+//For test to run where "localhost" is not the daemon host, a `insecure-registries` entry of `<host net>/<mask>` with a range that contains the host's non-loopback IP.
 //For Docker Desktop, this can be set here: https://docs.docker.com/docker-for-mac/#docker-engine
 //Otherwise, its set in the daemon.json: https://docs.docker.com/engine/reference/commandline/dockerd/#daemon-configuration-file
 //If the entry is not found, the fallback is "localhost"
 func DockerHostname(t *testing.T) string {
 	dockerCli := DockerCli(t)
 
-	// if daemon has insecure registry entry with /32, assume it is the host
+	// query daemon for insecure-registry network ranges
+	var insecureRegistryNets []*net.IPNet
 	daemonInfo, err := dockerCli.Info(context.TODO())
 	if err != nil {
 		t.Fatalf("unable to fetch client.DockerInfo: %s", err)
 	}
 	for _, ipnet := range daemonInfo.RegistryConfig.InsecureRegistryCIDRs {
-		ones, _ := ipnet.Mask.Size()
-		if ones == 32 {
-			return ipnet.IP.String()
+		insecureRegistryNets = append(insecureRegistryNets, (*net.IPNet)(ipnet))
+	}
+
+	// search for non-loopback interface IPs contained by a insecure-registry range
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		t.Fatalf("unable to fetch interfaces: %s", err)
+	}
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		if err != nil {
+			t.Fatalf("unable to fetch interface address: %s", err)
+		}
+
+		for _, addr := range addrs {
+			var interfaceIP net.IP
+			switch interfaceAddr := addr.(type) {
+			case *net.IPAddr:
+				interfaceIP = interfaceAddr.IP
+			case *net.IPNet:
+				interfaceIP = interfaceAddr.IP
+			}
+
+			// ignore blanks and loopbacks
+			if interfaceIP == nil || interfaceIP.IsLoopback() {
+				continue
+			}
+
+			// return first matching interface IP
+			for _, regNet := range insecureRegistryNets {
+				if regNet.Contains(interfaceIP) {
+					return interfaceIP.String()
+				}
+			}
 		}
 	}
 
@@ -237,14 +205,6 @@ func DockerHostname(t *testing.T) string {
 
 func (r *DockerRegistry) encodedAuth() string {
 	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", r.username, r.password)))
-}
-
-func generateHtpasswd(t *testing.T, tempDir string, username string, password string) io.ReadCloser {
-	// https://docs.docker.com/registry/deploying/#restricting-access
-	// HTPASSWD format: https://github.com/foomo/htpasswd/blob/e3a90e78da9cff06a83a78861847aa9092cbebdd/hashing.go#L23
-	passwordBytes, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-
-	return CreateSingleFileTarReader("/registry_test_htpasswd", username+":"+string(passwordBytes))
 }
 
 func writeDockerConfig(t *testing.T, configDir, host, port, auth string) {
