@@ -511,11 +511,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				it.After(func() {
-					defer mockServer.Server().Close()
+					mockServer.Server().Close()
 				})
 
 				it("does not retry after status code 200", func() {
-					assertExpectedRetries(t, mockServer, repoName, 1)
+					assertExpectedTries(t, mockServer, repoName, 1)
 				})
 			})
 
@@ -525,11 +525,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				it.After(func() {
-					defer mockServer.Server().Close()
+					mockServer.Server().Close()
 				})
 
 				it("retries after status code 404", func() {
-					assertExpectedRetries(t, mockServer, repoName, 3)
+					assertExpectedTries(t, mockServer, repoName, 3)
 				})
 			})
 
@@ -539,11 +539,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				it.After(func() {
-					defer mockServer.Server().Close()
+					mockServer.Server().Close()
 				})
 
 				it("retries after status code 401", func() {
-					assertExpectedRetries(t, mockServer, repoName, 3)
+					assertExpectedTries(t, mockServer, repoName, 3)
 				})
 			})
 		})
@@ -1543,7 +1543,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 }
 
-func assertExpectedRetries(t *testing.T, mockServer *h.MockServer, repoName string, expectedCount int) {
+func assertExpectedTries(t *testing.T, mockServer *h.MockServer, repoName string, expectedCount int) {
 	_, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.WithPreviousImage(repoName))
 
 	h.AssertNil(t, err)
