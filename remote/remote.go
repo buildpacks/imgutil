@@ -127,7 +127,7 @@ func processPreviousImageOption(ri *Image, prevImageRepoName string, platform im
 
 	prevLayers, err := prevImage.Layers()
 	if err != nil {
-		return errors.Wrapf(err, "failed to get layers for previous image with repo name '%s'", prevImageRepoName)
+		return errors.Wrapf(err, "getting layers for previous image with repo name %q", prevImageRepoName)
 	}
 
 	ri.prevLayers = prevLayers
@@ -207,7 +207,7 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 			if strings.Contains(err.Error(), "no child with platform") {
 				return emptyImage(platform)
 			}
-			return nil, fmt.Errorf("connect to repo store '%s': %s", repoName, err.Error())
+			return nil, errors.Wrapf(err, "connect to repo store %q", repoName)
 		}
 		break
 	}
@@ -256,8 +256,11 @@ func referenceForRepoName(keychain authn.Keychain, ref string) (name.Reference, 
 
 func (i *Image) Label(key string) (string, error) {
 	cfg, err := i.image.ConfigFile()
-	if err != nil || cfg == nil {
-		return "", fmt.Errorf("failed to get config file for image '%s'", i.repoName)
+	if err != nil {
+		return "", errors.Wrapf(err, "getting config file for image %q", i.repoName)
+	}
+	if cfg == nil {
+		return "", fmt.Errorf("missing config for image %q", i.repoName)
 	}
 	labels := cfg.Config.Labels
 	return labels[key], nil
@@ -265,16 +268,22 @@ func (i *Image) Label(key string) (string, error) {
 
 func (i *Image) Labels() (map[string]string, error) {
 	cfg, err := i.image.ConfigFile()
-	if err != nil || cfg == nil {
-		return nil, fmt.Errorf("failed to get config file for image '%s'", i.repoName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "getting config file for image %q", i.repoName)
+	}
+	if cfg == nil {
+		return nil, fmt.Errorf("missing config for image %q", i.repoName)
 	}
 	return cfg.Config.Labels, nil
 }
 
 func (i *Image) Env(key string) (string, error) {
 	cfg, err := i.image.ConfigFile()
-	if err != nil || cfg == nil {
-		return "", fmt.Errorf("failed to get config file for image '%s'", i.repoName)
+	if err != nil {
+		return "", errors.Wrapf(err, "getting config file for image %q", i.repoName)
+	}
+	if cfg == nil {
+		return "", fmt.Errorf("missing config for image %q", i.repoName)
 	}
 	for _, envVar := range cfg.Config.Env {
 		parts := strings.Split(envVar, "=")
@@ -287,32 +296,50 @@ func (i *Image) Env(key string) (string, error) {
 
 func (i *Image) Entrypoint() ([]string, error) {
 	cfg, err := i.image.ConfigFile()
-	if err != nil || cfg == nil {
-		return nil, fmt.Errorf("failed to get config file for image '%s'", i.repoName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "getting config file for image %q", i.repoName)
+	}
+	if cfg == nil {
+		return nil, fmt.Errorf("missing config for image %q", i.repoName)
 	}
 	return cfg.Config.Entrypoint, nil
 }
 
 func (i *Image) OS() (string, error) {
 	cfg, err := i.image.ConfigFile()
-	if err != nil || cfg == nil || cfg.OS == "" {
-		return "", fmt.Errorf("failed to get OS from config file for image '%s'", i.repoName)
+	if err != nil {
+		return "", errors.Wrapf(err, "getting config file for image %q", i.repoName)
+	}
+	if cfg == nil {
+		return "", fmt.Errorf("missing config for image %q", i.repoName)
+	}
+	if cfg.OS == "" {
+		return "", fmt.Errorf("missing OS for image %q", i.repoName)
 	}
 	return cfg.OS, nil
 }
 
 func (i *Image) OSVersion() (string, error) {
 	cfg, err := i.image.ConfigFile()
-	if err != nil || cfg == nil {
-		return "", fmt.Errorf("failed to get OSVersion from config file for image '%s'", i.repoName)
+	if err != nil {
+		return "", errors.Wrapf(err, "getting config file for image %q", i.repoName)
+	}
+	if cfg == nil {
+		return "", fmt.Errorf("missing config for image %q", i.repoName)
 	}
 	return cfg.OSVersion, nil
 }
 
 func (i *Image) Architecture() (string, error) {
 	cfg, err := i.image.ConfigFile()
-	if err != nil || cfg == nil || cfg.Architecture == "" {
-		return "", fmt.Errorf("failed to get Architecture from config file for image '%s'", i.repoName)
+	if err != nil {
+		return "", errors.Wrapf(err, "getting config file for image %q", i.repoName)
+	}
+	if cfg == nil {
+		return "", fmt.Errorf("missing config for image %q", i.repoName)
+	}
+	if cfg.Architecture == "" {
+		return "", fmt.Errorf("missing Architecture for image %q", i.repoName)
 	}
 	return cfg.Architecture, nil
 }
@@ -337,12 +364,12 @@ func (i *Image) Found() bool {
 func (i *Image) Identifier() (imgutil.Identifier, error) {
 	ref, err := name.ParseReference(i.repoName, name.WeakValidation)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse reference for image '%s': %s", i.repoName, err)
+		return nil, errors.Wrapf(err, "parsing reference for image %q", i.repoName)
 	}
 
 	hash, err := i.image.Digest()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get digest for image '%s': %s", i.repoName, err)
+		return nil, errors.Wrapf(err, "getting digest for image %q", i.repoName)
 	}
 
 	digestRef, err := name.NewDigest(fmt.Sprintf("%s@%s", ref.Context().Name(), hash.String()), name.WeakValidation)
@@ -358,7 +385,7 @@ func (i *Image) Identifier() (imgutil.Identifier, error) {
 func (i *Image) CreatedAt() (time.Time, error) {
 	configFile, err := i.image.ConfigFile()
 	if err != nil {
-		return time.Time{}, fmt.Errorf("failed to get createdAt time for image '%s': %s", i.repoName, err)
+		return time.Time{}, errors.Wrapf(err, "getting createdAt time for image %q", i.repoName)
 	}
 	return configFile.Created.UTC(), nil
 }
@@ -413,8 +440,11 @@ func (i *Image) SetLabel(key, val string) error {
 
 func (i *Image) RemoveLabel(key string) error {
 	cfg, err := i.image.ConfigFile()
-	if err != nil || cfg == nil {
-		return fmt.Errorf("failed to get config file for image '%s'", i.repoName)
+	if err != nil {
+		return errors.Wrapf(err, "getting config file for image %q", i.repoName)
+	}
+	if cfg == nil {
+		return fmt.Errorf("missing config for image %q", i.repoName)
 	}
 	config := *cfg.Config.DeepCopy()
 	delete(config.Labels, key)
@@ -440,10 +470,7 @@ func (i *Image) SetEnv(key, val string) error {
 		if foundKey == searchKey {
 			config.Env[idx] = fmt.Sprintf("%s=%s", key, val)
 			i.image, err = mutate.Config(i.image, config)
-			if err != nil {
-				return err
-			}
-			return nil
+			return err
 		}
 	}
 	config.Env = append(config.Env, fmt.Sprintf("%s=%s", key, val))
@@ -520,7 +547,7 @@ func (i *Image) TopLayer() (string, error) {
 		return "", err
 	}
 	if len(all) == 0 {
-		return "", fmt.Errorf("image %s has no layers", i.Name())
+		return "", fmt.Errorf("image %q has no layers", i.Name())
 	}
 	topLayer := all[len(all)-1]
 	hex, err := topLayer.DiffID()
@@ -581,7 +608,7 @@ func findLayerWithSha(layers []v1.Layer, diffID string) (v1.Layer, error) {
 			return layer, nil
 		}
 	}
-	return nil, fmt.Errorf(`previous image did not have layer with diff id '%s'`, diffID)
+	return nil, fmt.Errorf("previous image did not have layer with diff id %q", diffID)
 }
 
 func (i *Image) Save(additionalNames ...string) error {

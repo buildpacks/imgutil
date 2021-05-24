@@ -80,7 +80,7 @@ func HiveBCD() ([]byte, error) {
 		return nil, err
 	}
 
-	if err := ioutil.WriteFile(hiveFile.Name(), origHiveBytes, 0666); err != nil {
+	if err := ioutil.WriteFile(hiveFile.Name(), origHiveBytes, 0600); err != nil {
 		return nil, errors.Wrap(err, "writing temp hive file")
 	}
 
@@ -113,7 +113,7 @@ func readMinimalHiveContents() ([]byte, error) {
 	}
 	hivexRootPath := filepath.Dir(pkgs[0].GoFiles[0])
 	minimalHivePath := filepath.Join(hivexRootPath, "testdata", "minimal")
-	return ioutil.ReadFile(minimalHivePath)
+	return ioutil.ReadFile(filepath.Clean(minimalHivePath))
 }
 
 func addBCDHiveEntries(h *hivex.Hivex) error {

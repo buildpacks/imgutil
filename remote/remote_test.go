@@ -3,15 +3,16 @@ package remote_test
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/name"
-
 	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 
@@ -38,12 +39,12 @@ func TestRemote(t *testing.T) {
 	h.AssertNil(t, err)
 	defer os.RemoveAll(dockerConfigDir)
 
-	sharedStorageOpt := h.WithSharedStorageVolume("test-registry-volume" + h.RandString(10))
-
-	dockerRegistry = h.NewDockerRegistry(h.WithAuth(dockerConfigDir), sharedStorageOpt)
+	sharedRegistryHandler := registry.New(registry.Logger(log.New(ioutil.Discard, "", log.Lshortfile)))
+	dockerRegistry = h.NewDockerRegistry(h.WithAuth(dockerConfigDir), h.WithSharedHandler(sharedRegistryHandler))
 	dockerRegistry.Start(t)
 	defer dockerRegistry.Stop(t)
-	readonlyDockerRegistry = h.NewDockerRegistry(sharedStorageOpt)
+
+	readonlyDockerRegistry = h.NewDockerRegistry(h.WithSharedHandler(sharedRegistryHandler))
 	readonlyDockerRegistry.Start(t)
 	defer readonlyDockerRegistry.Stop(t)
 
@@ -1348,7 +1349,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				err = img.ReuseLayer("some-bad-sha")
 
-				h.AssertError(t, err, "previous image did not have layer with diff id 'some-bad-sha'")
+				h.AssertError(t, err, `previous image did not have layer with diff id "some-bad-sha"`)
 			})
 		})
 	})
@@ -1516,10 +1517,15 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, origImage.SetLabel("some-label", "some-val"))
 				h.AssertNil(t, origImage.Save())
 
+				identifier, err := origImage.Identifier()
+				h.AssertNil(t, err)
+
+				repoID := identifier.String()
+
 				img, err = remote.NewImage(
-					repoName,
+					repoID,
 					authn.DefaultKeychain,
-					remote.FromBaseImage(repoName),
+					remote.FromBaseImage(repoID),
 				)
 
 				h.AssertNil(t, err)
@@ -1537,7 +1543,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 
 				h.AssertEq(t, img.Found(), false)
-				h.AssertError(t, img.Delete(), "MANIFEST_UNKNOWN")
+				h.AssertError(t, img.Delete(), "NAME_UNKNOWN")
 			})
 		})
 	})
