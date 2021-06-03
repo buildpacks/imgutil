@@ -347,21 +347,20 @@ func (i *Image) Name() string {
 }
 
 func (i *Image) Found() bool {
-	_, err := i.FindDescriptor()
+	_, err := i.headManifest()
 	return err == nil
 }
 
 func (i *Image) CheckReadWriteAccess() bool {
 	ref, _, err := referenceForRepoName(i.keychain, i.repoName)
 	if err != nil {
-		fmt.Println("There was an error checking read / write access", err)
 		return false
 	}
 	return remote.CheckPushPermission(ref, i.keychain, http.DefaultTransport) == nil
 }
 
 func (i *Image) CheckReadAccess() bool {
-	_, err := i.FindDescriptor()
+	_, err := i.headManifest()
 	if err != nil {
 		if transportErr, ok := err.(*transport.Error); ok {
 			return transportErr.StatusCode != http.StatusUnauthorized &&
@@ -372,7 +371,7 @@ func (i *Image) CheckReadAccess() bool {
 	return true
 }
 
-func (i *Image) FindDescriptor() (*v1.Descriptor, error) {
+func (i *Image) headManifest() (*v1.Descriptor, error) {
 	ref, auth, err := referenceForRepoName(i.keychain, i.repoName)
 	if err != nil {
 		return nil, err
