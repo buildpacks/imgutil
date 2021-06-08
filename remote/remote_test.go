@@ -1523,7 +1523,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 
-		when("image does not exist in the registry and client hasn't read access", func() {
+		when("image does not exist in the registry and client doesn't have read access", func() {
 			it.Before(func() {
 				os.Setenv("DOCKER_CONFIG", readonlyDockerRegistry.DockerDirectory)
 			})
@@ -1541,7 +1541,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#CheckReadWriteAccess", func() {
-		when("image exists in the registry and client has read access", func() {
+		when("image exists in the registry and client has read/write access", func() {
 			it("returns true", func() {
 				origImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
@@ -1554,7 +1554,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 
-		when("image does not exist in the registry and client has read access", func() {
+		when("image does not exist in the registry and client has read/write access", func() {
 			it("returns true", func() {
 				image, err := remote.NewImage(repoName, authn.DefaultKeychain)
 				h.AssertNil(t, err)
@@ -1562,7 +1562,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 
-		when("image does not exist in the registry and client hasn't read access", func() {
+		when("image does not exist in the registry and client doesn't have read/write access", func() {
 			it.Before(func() {
 				os.Setenv("DOCKER_CONFIG", readonlyDockerRegistry.DockerDirectory)
 			})

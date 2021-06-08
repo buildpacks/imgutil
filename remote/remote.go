@@ -347,7 +347,7 @@ func (i *Image) Name() string {
 }
 
 func (i *Image) Found() bool {
-	_, err := i.headManifest()
+	_, err := i.found()
 	return err == nil
 }
 
@@ -360,7 +360,7 @@ func (i *Image) CheckReadWriteAccess() bool {
 }
 
 func (i *Image) CheckReadAccess() bool {
-	_, err := i.headManifest()
+	_, err := i.found()
 	if err != nil {
 		if transportErr, ok := err.(*transport.Error); ok {
 			return transportErr.StatusCode != http.StatusUnauthorized &&
@@ -371,7 +371,7 @@ func (i *Image) CheckReadAccess() bool {
 	return true
 }
 
-func (i *Image) headManifest() (*v1.Descriptor, error) {
+func (i *Image) found() (*v1.Descriptor, error) {
 	ref, auth, err := referenceForRepoName(i.keychain, i.repoName)
 	if err != nil {
 		return nil, err
