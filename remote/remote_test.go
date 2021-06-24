@@ -1500,4 +1500,100 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 	})
+
+	when("#CheckReadAccess", func() {
+		when("image exists in the registry and client has read access", func() {
+			it.Before(func() {
+				origImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertNil(t, origImage.Save())
+			})
+
+			it("returns true", func() {
+				image, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertEq(t, image.CheckReadAccess(), true)
+			})
+		})
+
+		when("image does not exist in the registry and client has read access", func() {
+			it("returns true", func() {
+				image, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertEq(t, image.CheckReadAccess(), true)
+			})
+		})
+
+		when("image does not exist in the registry and client doesn't have read access", func() {
+			it.Before(func() {
+				os.Unsetenv("DOCKER_CONFIG")
+			})
+
+			it.After(func() {
+				os.Setenv("DOCKER_CONFIG", dockerRegistry.DockerDirectory)
+			})
+
+			it("returns false", func() {
+				image, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertEq(t, image.CheckReadAccess(), false)
+			})
+		})
+	})
+
+	when("#CheckReadWriteAccess", func() {
+		when("image exists in the registry and client has read/write access", func() {
+			it.Before(func() {
+				origImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertNil(t, origImage.Save())
+			})
+
+			it("returns true", func() {
+				image, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertEq(t, image.CheckReadWriteAccess(), true)
+			})
+		})
+
+		when("image does not exist in the registry and client only has read access", func() {
+			it.Before(func() {
+				os.Setenv("DOCKER_CONFIG", readonlyDockerRegistry.DockerDirectory)
+			})
+
+			it.After(func() {
+				os.Setenv("DOCKER_CONFIG", dockerRegistry.DockerDirectory)
+			})
+
+			it("returns false", func() {
+				image, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertEq(t, image.CheckReadWriteAccess(), false)
+			})
+		})
+
+		when("image does not exist in the registry and client has read/write access", func() {
+			it("returns true", func() {
+				image, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertEq(t, image.CheckReadWriteAccess(), true)
+			})
+		})
+
+		when("image does not exist in the registry and client doesn't have read/write access", func() {
+			it.Before(func() {
+				os.Unsetenv("DOCKER_CONFIG")
+			})
+
+			it.After(func() {
+				os.Setenv("DOCKER_CONFIG", dockerRegistry.DockerDirectory)
+			})
+
+			it("returns false", func() {
+				image, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertEq(t, image.CheckReadWriteAccess(), false)
+			})
+		})
+	})
 }
