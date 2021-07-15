@@ -108,7 +108,7 @@ func Custom(handler http.Handler, permissions map[string]ImagePrivileges) http.H
 				}
 			} else {
 				if !permission.writable {
-					// write request was arrived while read permission isn't allowed
+					// write request was arrived while write permission isn't allowed
 					w.WriteHeader(401)
 					_, _ = w.Write([]byte("Unauthorized.\n"))
 					return
