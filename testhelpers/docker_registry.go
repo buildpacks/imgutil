@@ -11,7 +11,6 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/registry"
@@ -27,16 +26,10 @@ type DockerRegistry struct {
 	password         string
 	regHandler       http.Handler
 	authnHandler     http.Handler
-	customHandler    http.Handler
-	customPrivileges map[string]ImagePrivileges
+	customPrivileges map[string]*ImagePrivileges
 }
 
 type RegistryOption func(registry *DockerRegistry)
-
-type ImagePrivileges struct {
-	Readable  bool
-	Writeable bool
-}
 
 //WithSharedHandler allows two instances to share the same data by re-using the registry handler.
 //Use an authenticated registry to write to a read-only unauthenticated registry.
@@ -47,7 +40,7 @@ func WithSharedHandler(handler http.Handler) RegistryOption {
 }
 
 //WithCustomPrivileges allows to execute some customer read/write access validations based on the image name
-func WithCustomPrivileges(permissions map[string]ImagePrivileges) RegistryOption {
+func WithCustomPrivileges(permissions map[string]*ImagePrivileges) RegistryOption {
 	return func(registry *DockerRegistry) {
 		registry.customPrivileges = permissions
 	}
@@ -103,29 +96,20 @@ func ReadOnly(handler http.Handler) http.Handler {
 	})
 }
 
-func Custom(handler http.Handler, permissions map[string]ImagePrivileges) http.Handler {
+func Custom(handler http.Handler, permissions map[string]*ImagePrivileges) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Path, "blobs") ||
-			strings.Contains(r.URL.Path, "manifests") ||
-			strings.Contains(r.URL.Path, "tags") {
-			elems := strings.Split(r.URL.Path, "/")
-			elems = elems[1:]
-			name := elems[len(elems)-1]
+		if permission, ok := permissions[extractImageName(r.URL.Path)]; ok {
 			if r.Method == "GET" || r.Method == "HEAD" {
-				if permission, ok := permissions[name]; ok {
-					if !permission.Readable {
-						w.WriteHeader(401)
-						_, _ = w.Write([]byte("Unauthorized.\n"))
-						return
-					}
+				if !permission.readable {
+					w.WriteHeader(401)
+					_, _ = w.Write([]byte("Unauthorized.\n"))
+					return
 				}
 			} else {
-				if permission, ok := permissions[name]; ok {
-					if !permission.Writeable {
-						w.WriteHeader(401)
-						_, _ = w.Write([]byte("Unauthorized.\n"))
-						return
-					}
+				if !permission.writeable {
+					w.WriteHeader(401)
+					_, _ = w.Write([]byte("Unauthorized.\n"))
+					return
 				}
 			}
 		}
@@ -148,7 +132,8 @@ func (r *DockerRegistry) Start(t *testing.T) {
 	// wrap registry handler with authentication handler, defaulting to read-only
 	r.authnHandler = ReadOnly(r.regHandler)
 	if r.username != "" {
-		if r.customHandler != nil && r.customPrivileges != nil {
+		if r.customPrivileges != nil {
+			// wrap registry handler with custom handler
 			r.regHandler = Custom(r.regHandler, r.customPrivileges)
 		}
 		r.authnHandler = BasicAuth(r.regHandler, r.username, r.password, "registry")
