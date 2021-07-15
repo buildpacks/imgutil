@@ -13,8 +13,7 @@ type ImagePrivileges struct {
 }
 
 func NewImagePrivileges(imageName string) *ImagePrivileges {
-	isReadable := false
-	isWriteable := false
+	var isReadable, isWriteable bool
 	if strings.Contains(imageName, "readable") {
 		isReadable = true
 	}
