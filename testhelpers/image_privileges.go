@@ -18,6 +18,11 @@ func NewImagePrivileges(imageName string) (priv ImagePrivileges) {
 	return
 }
 
+// Based of the registry API specification https://docs.docker.com/registry/spec/api/
+// This method returns the image name for path value that matches requests to blobs, manifests or tags
+// For examples:
+// extractImageName("v2/foo.bar/blobs/") returns "foo.bar"
+// extractImageName("v2/foo/bar/manifests/") returns "foo/bar"
 func extractImageName(path string) string {
 	var name string
 	if strings.Contains(path, "blobs") ||

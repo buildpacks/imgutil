@@ -26,7 +26,7 @@ type DockerRegistry struct {
 	password         string
 	regHandler       http.Handler
 	authnHandler     http.Handler
-	customPrivileges map[string]ImagePrivileges
+	customPrivileges map[string]ImagePrivileges // map from an imageNames to its permissions
 }
 
 type RegistryOption func(registry *DockerRegistry)
