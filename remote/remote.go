@@ -356,7 +356,7 @@ func (i *Image) CheckReadWriteAccess() bool {
 	if err != nil {
 		return false
 	}
-	return remote.CheckPushPermission(ref, i.keychain, http.DefaultTransport) == nil
+	return i.CheckReadAccess() && remote.CheckPushPermission(ref, i.keychain, http.DefaultTransport) == nil
 }
 
 func (i *Image) CheckReadAccess() bool {
