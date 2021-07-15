@@ -26,7 +26,7 @@ type DockerRegistry struct {
 	password         string
 	regHandler       http.Handler
 	authnHandler     http.Handler
-	customPrivileges map[string]*ImagePrivileges
+	customPrivileges map[string]ImagePrivileges
 }
 
 type RegistryOption func(registry *DockerRegistry)
@@ -40,7 +40,7 @@ func WithSharedHandler(handler http.Handler) RegistryOption {
 }
 
 //WithCustomPrivileges allows to execute some customer read/write access validations based on the image name
-func WithCustomPrivileges(permissions map[string]*ImagePrivileges) RegistryOption {
+func WithCustomPrivileges(permissions map[string]ImagePrivileges) RegistryOption {
 	return func(registry *DockerRegistry) {
 		registry.customPrivileges = permissions
 	}
@@ -96,7 +96,7 @@ func ReadOnly(handler http.Handler) http.Handler {
 	})
 }
 
-func Custom(handler http.Handler, permissions map[string]*ImagePrivileges) http.Handler {
+func Custom(handler http.Handler, permissions map[string]ImagePrivileges) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if permission, ok := permissions[extractImageName(r.URL.Path)]; ok {
 			if r.Method == "GET" || r.Method == "HEAD" {
@@ -106,7 +106,7 @@ func Custom(handler http.Handler, permissions map[string]*ImagePrivileges) http.
 					return
 				}
 			} else {
-				if !permission.writeable {
+				if !permission.writable {
 					w.WriteHeader(401)
 					_, _ = w.Write([]byte("Unauthorized.\n"))
 					return

@@ -8,19 +8,14 @@ import (
 var urlRegex = regexp.MustCompile(`v2\/(.*)\/(?:blobs|manifests|tags)`)
 
 type ImagePrivileges struct {
-	readable  bool
-	writeable bool
+	readable bool
+	writable bool
 }
 
-func NewImagePrivileges(imageName string) *ImagePrivileges {
-	var isReadable, isWriteable bool
-	if strings.Contains(imageName, "readable") {
-		isReadable = true
-	}
-	if strings.Contains(imageName, "writable") {
-		isWriteable = true
-	}
-	return &ImagePrivileges{readable: isReadable, writeable: isWriteable}
+func NewImagePrivileges(imageName string) (priv ImagePrivileges) {
+	priv.readable = strings.Contains(imageName, "readable")
+	priv.writable = strings.Contains(imageName, "writable")
+	return
 }
 
 func extractImageName(path string) string {
