@@ -12,6 +12,12 @@ type ImagePrivileges struct {
 	writable bool
 }
 
+// Creates a new ImagePrivileges, use "readable" or "writable" to set the properties accordingly.
+// For examples:
+// NewImagePrivileges("") returns ImagePrivileges{readable: false, writable: false}
+// NewImagePrivileges("foo-readable") returns ImagePrivileges{readable: true, writable: false}
+// NewImagePrivileges("foo-writable") returns ImagePrivileges{readable: false, writable: true}
+// NewImagePrivileges("foo-writable-readable") returns ImagePrivileges{readable: true, writable: true}
 func NewImagePrivileges(imageName string) (priv ImagePrivileges) {
 	priv.readable = strings.Contains(imageName, "readable")
 	priv.writable = strings.Contains(imageName, "writable")
