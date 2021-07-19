@@ -17,15 +17,16 @@ import (
 )
 
 type DockerRegistry struct {
-	Host            string
-	Port            string
-	Name            string
-	server          *httptest.Server
-	DockerDirectory string
-	username        string
-	password        string
-	regHandler      http.Handler
-	authnHandler    http.Handler
+	Host             string
+	Port             string
+	Name             string
+	server           *httptest.Server
+	DockerDirectory  string
+	username         string
+	password         string
+	regHandler       http.Handler
+	authnHandler     http.Handler
+	customPrivileges map[string]ImagePrivileges // map from an imageName to its permissions
 }
 
 type RegistryOption func(registry *DockerRegistry)
@@ -35,6 +36,13 @@ type RegistryOption func(registry *DockerRegistry)
 func WithSharedHandler(handler http.Handler) RegistryOption {
 	return func(registry *DockerRegistry) {
 		registry.regHandler = handler
+	}
+}
+
+//WithCustomPrivileges allows to execute some customer read/write access validations based on the image name
+func WithCustomPrivileges(permissions map[string]ImagePrivileges) RegistryOption {
+	return func(registry *DockerRegistry) {
+		registry.customPrivileges = permissions
 	}
 }
 
@@ -88,6 +96,29 @@ func ReadOnly(handler http.Handler) http.Handler {
 	})
 }
 
+func Custom(handler http.Handler, permissions map[string]ImagePrivileges) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if permission, ok := permissions[extractImageName(r.URL.Path)]; ok {
+			if r.Method == "GET" || r.Method == "HEAD" {
+				if !permission.readable {
+					// read request was arrived while read permission isn't allowed
+					w.WriteHeader(401)
+					_, _ = w.Write([]byte("Unauthorized.\n"))
+					return
+				}
+			} else {
+				if !permission.writable {
+					// write request was arrived while write permission isn't allowed
+					w.WriteHeader(401)
+					_, _ = w.Write([]byte("Unauthorized.\n"))
+					return
+				}
+			}
+		}
+		handler.ServeHTTP(w, r)
+	})
+}
+
 func (r *DockerRegistry) Start(t *testing.T) {
 	t.Helper()
 
@@ -103,6 +134,10 @@ func (r *DockerRegistry) Start(t *testing.T) {
 	// wrap registry handler with authentication handler, defaulting to read-only
 	r.authnHandler = ReadOnly(r.regHandler)
 	if r.username != "" {
+		if r.customPrivileges != nil {
+			// wrap registry handler with custom handler
+			r.regHandler = Custom(r.regHandler, r.customPrivileges)
+		}
 		r.authnHandler = BasicAuth(r.regHandler, r.username, r.password, "registry")
 	}
 
