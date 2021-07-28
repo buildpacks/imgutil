@@ -68,17 +68,24 @@ func NewDockerRegistry(ops ...RegistryOption) *DockerRegistry {
 }
 
 // BasicAuth wraps a handler, allowing requests with matching username and password headers, otherwise rejecting with a 401
-func BasicAuth(handler http.Handler, username, password, realm string) http.Handler {
+// optPermissions is used to skip the authentication check if the image is readable.
+func BasicAuth(handler http.Handler, username, password, realm string, optPermissions ...map[string]ImagePrivileges) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if len(optPermissions) > 0 && (r.Method == "GET" || r.Method == "HEAD") {
+			permissions := optPermissions[0]
+			if permission, ok := permissions[extractImageName(r.URL.Path)]; ok {
+				if permission.readable {
+					handler.ServeHTTP(w, r)
+				}
+			}
+		}
 		user, pass, ok := r.BasicAuth()
-
 		if !ok || user != username || pass != password {
 			w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`"`)
 			w.WriteHeader(401)
 			_, _ = w.Write([]byte("Unauthorized.\n"))
 			return
 		}
-
 		handler.ServeHTTP(w, r)
 	})
 }
@@ -119,6 +126,11 @@ func Custom(handler http.Handler, permissions map[string]ImagePrivileges) http.H
 	})
 }
 
+// Start creates a docker registry following these rules:
+// - Shared handler will be use, otherwise a new one will be created
+// - by default the shared handler will be wrapped using a read only handler
+// - In case credentials are configured, the shared handler will be wrapped with a basic authentication handler and
+//   in any image privileges were set, then custom handler will be use to wrap the auth handler.
 func (r *DockerRegistry) Start(t *testing.T) {
 	t.Helper()
 
@@ -135,10 +147,14 @@ func (r *DockerRegistry) Start(t *testing.T) {
 	r.authnHandler = ReadOnly(r.regHandler)
 	if r.username != "" {
 		if r.customPrivileges != nil {
+			// wrap registry handler basic auth based on custom privileges
+			r.authnHandler = BasicAuth(r.regHandler, r.username, r.password, "registry", r.customPrivileges)
 			// wrap registry handler with custom handler
-			r.regHandler = Custom(r.regHandler, r.customPrivileges)
+			r.authnHandler = Custom(r.authnHandler, r.customPrivileges)
+		} else {
+			// wrap registry handler basic auth
+			r.authnHandler = BasicAuth(r.regHandler, r.username, r.password, "registry")
 		}
-		r.authnHandler = BasicAuth(r.regHandler, r.username, r.password, "registry")
 	}
 
 	// listen on specific interface with random port, relying on authorization to prevent untrusted writes
@@ -180,6 +196,13 @@ func (r *DockerRegistry) RepoName(name string) string {
 
 func (r *DockerRegistry) EncodedLabeledAuth() string {
 	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(`{"username":"%s","password":"%s"}`, r.username, r.password)))
+}
+
+// Add stores the given key name with the provided ImagePrivileges. For example
+// Add("my-image", NewImagePrivileges("foo-writable-readable")) will save "my-image" as a
+// readable and writable image into the registry
+func (r *DockerRegistry) Add(key string, privilege ImagePrivileges) {
+	r.customPrivileges[key] = privilege
 }
 
 //DockerHostname discovers the appropriate registry hostname.
