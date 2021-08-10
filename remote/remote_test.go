@@ -59,10 +59,10 @@ func TestRemote(t *testing.T) {
 	defer os.RemoveAll(customDockerConfigDir)
 
 	var customPrivileges = make(map[string]h.ImagePrivileges)
-	customPrivileges[readWriteImage] = h.NewImagePrivileges(readWriteImage)
-	customPrivileges[onlyReadImage] = h.NewImagePrivileges(onlyReadImage)
-	customPrivileges[onlyWriteImage] = h.NewImagePrivileges(onlyWriteImage)
-	customPrivileges[noAccessImage] = h.NewImagePrivileges(noAccessImage)
+	customPrivileges[readWriteImage] = h.NewImagePrivileges(h.Readable, h.Writable)
+	customPrivileges[onlyReadImage] = h.NewImagePrivileges(h.Readable)
+	customPrivileges[onlyWriteImage] = h.NewImagePrivileges(h.Writable)
+	customPrivileges[noAccessImage] = h.NewImagePrivileges()
 	customRegistry = h.NewDockerRegistry(h.WithAuth(customDockerConfigDir), h.WithSharedHandler(sharedRegistryHandler),
 		h.WithCustomPrivileges(customPrivileges))
 

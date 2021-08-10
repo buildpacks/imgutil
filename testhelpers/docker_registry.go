@@ -200,7 +200,7 @@ func (r *DockerRegistry) EncodedLabeledAuth() string {
 }
 
 // Add stores the given key name with the provided ImagePrivileges. For example
-// Add("my-image", NewImagePrivileges("foo-writable-readable")) will save "my-image" as a
+// Add("my-image", NewImagePrivileges(Readable, Writable)) will save "my-image" as a
 // readable and writable image into the registry.
 // It must be called before Start to have any effect.
 func (r *DockerRegistry) Add(key string, privilege ImagePrivileges) {

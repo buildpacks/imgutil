@@ -12,15 +12,28 @@ type ImagePrivileges struct {
 	writable bool
 }
 
-// NewImagePrivileges creates a new ImagePrivileges, use "readable" or "writable" to set the properties accordingly.
+type ImageAccess int
+
+const (
+	Readable ImageAccess = iota
+	Writable
+)
+
+// NewImagePrivileges creates a new ImagePrivileges, use Readable or Writable to set the properties accordingly.
 // For examples:
-// NewImagePrivileges("") returns ImagePrivileges{readable: false, writable: false}
-// NewImagePrivileges("foo-readable") returns ImagePrivileges{readable: true, writable: false}
-// NewImagePrivileges("foo-writable") returns ImagePrivileges{readable: false, writable: true}
-// NewImagePrivileges("foo-writable-readable") returns ImagePrivileges{readable: true, writable: true}
-func NewImagePrivileges(imageName string) (priv ImagePrivileges) {
-	priv.readable = strings.Contains(imageName, "readable")
-	priv.writable = strings.Contains(imageName, "writable")
+// NewImagePrivileges() returns ImagePrivileges{readable: false, writable: false}
+// NewImagePrivileges(Readable) returns ImagePrivileges{readable: true, writable: false}
+// NewImagePrivileges(Writable) returns ImagePrivileges{readable: false, writable: true}
+// NewImagePrivileges(Readable, Writable) returns ImagePrivileges{readable: true, writable: true}
+func NewImagePrivileges(imageAccess ...ImageAccess) (priv ImagePrivileges) {
+	for _, ia := range imageAccess {
+		switch ia {
+		case Readable:
+			priv.readable = true
+		case Writable:
+			priv.writable = true
+		}
+	}
 	return
 }
 
