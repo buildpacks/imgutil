@@ -68,7 +68,8 @@ func NewDockerRegistry(ops ...RegistryOption) *DockerRegistry {
 }
 
 // BasicAuth wraps a handler, allowing requests with matching username and password headers, otherwise rejecting with a 401
-// optPermissions is used to skip the authentication check if the image is readable.
+// optPermissions is used to skip the authentication check if the image has been
+// configured in the test setup to be always readable.
 func BasicAuth(handler http.Handler, username, password, realm string, optPermissions ...map[string]ImagePrivileges) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if len(optPermissions) > 0 && (r.Method == "GET" || r.Method == "HEAD") {
@@ -127,10 +128,10 @@ func Custom(handler http.Handler, permissions map[string]ImagePrivileges) http.H
 }
 
 // Start creates a docker registry following these rules:
-// - Shared handler will be use, otherwise a new one will be created
-// - by default the shared handler will be wrapped using a read only handler
+// - Shared handler will be used, otherwise a new one will be created
+// - By default the shared handler will be wrapped with a read only handler
 // - In case credentials are configured, the shared handler will be wrapped with a basic authentication handler and
-//   in any image privileges were set, then custom handler will be use to wrap the auth handler.
+//   if any image privileges were set, then the custom handler will be used to wrap the auth handler.
 func (r *DockerRegistry) Start(t *testing.T) {
 	t.Helper()
 
@@ -200,7 +201,8 @@ func (r *DockerRegistry) EncodedLabeledAuth() string {
 
 // Add stores the given key name with the provided ImagePrivileges. For example
 // Add("my-image", NewImagePrivileges("foo-writable-readable")) will save "my-image" as a
-// readable and writable image into the registry
+// readable and writable image into the registry.
+// It must be called before Start to have any effect.
 func (r *DockerRegistry) Add(key string, privilege ImagePrivileges) {
 	r.customPrivileges[key] = privilege
 }

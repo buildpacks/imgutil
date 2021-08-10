@@ -12,7 +12,7 @@ type ImagePrivileges struct {
 	writable bool
 }
 
-// NewImagePrivileges Creates a new ImagePrivileges, use "readable" or "writable" to set the properties accordingly.
+// NewImagePrivileges creates a new ImagePrivileges, use "readable" or "writable" to set the properties accordingly.
 // For examples:
 // NewImagePrivileges("") returns ImagePrivileges{readable: false, writable: false}
 // NewImagePrivileges("foo-readable") returns ImagePrivileges{readable: true, writable: false}
@@ -24,11 +24,11 @@ func NewImagePrivileges(imageName string) (priv ImagePrivileges) {
 	return
 }
 
-// extractImageName returns the image name for path value that matches requests to blobs, manifests or tags
+// extractImageName returns the image name from a path value that matches requests to blobs, manifests or tags
 // For examples:
 // extractImageName("v2/foo.bar/blobs/") returns "foo.bar"
 // extractImageName("v2/foo/bar/manifests/") returns "foo/bar"
-// Based of the registry API specification https://docs.docker.com/registry/spec/api/
+// Based on the Docker registry API specification: https://docs.docker.com/registry/spec/api/
 func extractImageName(path string) string {
 	var name string
 	if strings.Contains(path, "blobs") ||
