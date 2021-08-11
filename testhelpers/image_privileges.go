@@ -1,6 +1,7 @@
 package testhelpers
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -25,16 +26,19 @@ const (
 // NewImagePrivileges(Readable) returns ImagePrivileges{readable: true, writable: false}
 // NewImagePrivileges(Writable) returns ImagePrivileges{readable: false, writable: true}
 // NewImagePrivileges(Readable, Writable) returns ImagePrivileges{readable: true, writable: true}
-func NewImagePrivileges(imageAccess ...ImageAccess) (priv ImagePrivileges) {
+func NewImagePrivileges(imageAccess ...ImageAccess) (ImagePrivileges) {
+	var image ImagePrivileges
 	for _, ia := range imageAccess {
 		switch ia {
 		case Readable:
-			priv.readable = true
+			image.readable = true
 		case Writable:
-			priv.writable = true
+			image.writable = true
+		default:
+			fmt.Errorf("NewImagePrivileges doesn't recognize value '%d' as a valid image access value", imageAccess)
 		}
 	}
-	return
+	return image
 }
 
 // extractImageName returns the image name from a path value that matches requests to blobs, manifests or tags
