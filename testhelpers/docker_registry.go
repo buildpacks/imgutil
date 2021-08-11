@@ -107,7 +107,9 @@ func Custom(basicAuthHandler http.Handler, regHandler http.Handler, permissions 
 					return
 				}
 			} else {
-				if !permission.writable {
+				if permission.writable {
+					regHandler.ServeHTTP(w, r)
+				} else {
 					// write request was arrived while write permission isn't allowed
 					w.WriteHeader(401)
 					_, _ = w.Write([]byte("Unauthorized.\n"))
@@ -141,9 +143,9 @@ func (r *DockerRegistry) Start(t *testing.T) {
 	if r.username != "" {
 		if r.customPrivileges != nil {
 			// wrap registry handler with basic auth
-			r.authnHandler = BasicAuth(r.regHandler, r.username, r.password, "registry")
+			basicAuthHandler := BasicAuth(r.regHandler, r.username, r.password, "registry")
 			// wrap registry handler with custom handler
-			r.authnHandler = Custom(r.authnHandler, r.regHandler, r.customPrivileges)
+			r.authnHandler = Custom(basicAuthHandler, r.regHandler, r.customPrivileges)
 		} else {
 			// wrap registry handler basic auth
 			r.authnHandler = BasicAuth(r.regHandler, r.username, r.password, "registry")
