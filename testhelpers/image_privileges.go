@@ -26,7 +26,7 @@ const (
 // NewImagePrivileges(Readable) returns ImagePrivileges{readable: true, writable: false}
 // NewImagePrivileges(Writable) returns ImagePrivileges{readable: false, writable: true}
 // NewImagePrivileges(Readable, Writable) returns ImagePrivileges{readable: true, writable: true}
-func NewImagePrivileges(imageAccess ...ImageAccess) (ImagePrivileges) {
+func NewImagePrivileges(imageAccess ...ImageAccess) ImagePrivileges {
 	var image ImagePrivileges
 	for _, ia := range imageAccess {
 		switch ia {
@@ -35,7 +35,7 @@ func NewImagePrivileges(imageAccess ...ImageAccess) (ImagePrivileges) {
 		case Writable:
 			image.writable = true
 		default:
-			fmt.Errorf("NewImagePrivileges doesn't recognize value '%d' as a valid image access value", imageAccess)
+			fmt.Printf("NewImagePrivileges doesn't recognize value '%d' as a valid image access value", imageAccess)
 		}
 	}
 	return image
