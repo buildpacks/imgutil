@@ -97,27 +97,28 @@ func ReadOnly(handler http.Handler) http.Handler {
 
 func delegator(basicAuthHandler http.Handler, regHandler http.Handler, permissions map[string]ImagePrivileges) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if permission, ok := permissions[extractImageName(r.URL.Path)]; ok {
-			if r.Method == "GET" || r.Method == "HEAD" {
-				if permission.readable {
-					regHandler.ServeHTTP(w, r)
-				} else {
-					// read request was arrived while read permission isn't allowed
-					w.WriteHeader(401)
-					_, _ = w.Write([]byte("Unauthorized.\n"))
-				}
-			} else {
-				if permission.writable {
-					regHandler.ServeHTTP(w, r)
-				} else {
-					// write request was arrived while write permission isn't allowed
-					w.WriteHeader(401)
-					_, _ = w.Write([]byte("Unauthorized.\n"))
-				}
-			}
+		var (
+			image ImagePrivileges
+			ok    bool
+		)
+		if image, ok = permissions[extractImageName(r.URL.Path)]; !ok {
+			basicAuthHandler.ServeHTTP(w, r)
 			return
 		}
-		basicAuthHandler.ServeHTTP(w, r)
+		if r.Method == "GET" || r.Method == "HEAD" {
+			if !image.readable {
+				w.WriteHeader(401)
+				_, _ = w.Write([]byte("Unauthorized.\n"))
+				return
+			}
+		} else { // assume write request
+			if !image.writable {
+				w.WriteHeader(401)
+				_, _ = w.Write([]byte("Unauthorized.\n"))
+				return
+			}
+		}
+		regHandler.ServeHTTP(w, r)
 	})
 }
 
