@@ -23,10 +23,10 @@ import (
 var dockerRegistry, readonlyDockerRegistry, customRegistry *h.DockerRegistry
 
 const (
-	readWriteImage = "image-readable-writable"
-	onlyReadImage  = "image-readable"
-	onlyWriteImage = "image-writable"
-	noAccessImage  = "noAccessImage"
+	readWriteImage    = "image-readable-writable"
+	readOnlyImage     = "image-readable"
+	writeOnlyImage    = "image-writable"
+	inaccessibleImage = "image-inaccessible"
 )
 
 func newTestImageName(providedPrefix ...string) string {
@@ -57,15 +57,13 @@ func TestRemote(t *testing.T) {
 	customDockerConfigDir, err := ioutil.TempDir("", "test.docker.config.custom.dir")
 	h.AssertNil(t, err)
 	defer os.RemoveAll(customDockerConfigDir)
-
-	var customPrivileges = make(map[string]h.ImagePrivileges)
-	customPrivileges[readWriteImage] = h.NewImagePrivileges(h.Readable, h.Writable)
-	customPrivileges[onlyReadImage] = h.NewImagePrivileges(h.Readable)
-	customPrivileges[onlyWriteImage] = h.NewImagePrivileges(h.Writable)
-	customPrivileges[noAccessImage] = h.NewImagePrivileges()
 	customRegistry = h.NewDockerRegistry(h.WithAuth(customDockerConfigDir), h.WithSharedHandler(sharedRegistryHandler),
-		h.WithCustomPrivileges(customPrivileges))
+		h.WithImagePrivileges())
 
+	customRegistry.MakeReadWrite(readWriteImage)
+	customRegistry.MakeReadOnly(readOnlyImage)
+	customRegistry.MakeWriteOnly(writeOnlyImage)
+	customRegistry.MakeInaccessible(inaccessibleImage)
 	customRegistry.Start(t)
 
 	os.Setenv("DOCKER_CONFIG", dockerRegistry.DockerDirectory)
@@ -1580,7 +1578,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			when("image has read access but no write access", func() {
 				it("returns true", func() {
-					image, err := remote.NewImage(customRegistry.RepoName(onlyReadImage), authn.DefaultKeychain)
+					image, err := remote.NewImage(customRegistry.RepoName(readOnlyImage), authn.DefaultKeychain)
 					h.AssertNil(t, err)
 					h.AssertEq(t, image.CheckReadAccess(), true)
 				})
@@ -1588,7 +1586,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			when("image doesn't have read access but has write access", func() {
 				it("returns false", func() {
-					image, err := remote.NewImage(customRegistry.RepoName(onlyWriteImage), authn.DefaultKeychain)
+					image, err := remote.NewImage(customRegistry.RepoName(writeOnlyImage), authn.DefaultKeychain)
 					h.AssertNil(t, err)
 					h.AssertEq(t, image.CheckReadAccess(), false)
 				})
@@ -1596,7 +1594,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			when("image doesn't have read nor write access", func() {
 				it("returns false", func() {
-					image, err := remote.NewImage(customRegistry.RepoName(noAccessImage), authn.DefaultKeychain)
+					image, err := remote.NewImage(customRegistry.RepoName(inaccessibleImage), authn.DefaultKeychain)
 					h.AssertNil(t, err)
 					h.AssertEq(t, image.CheckReadAccess(), false)
 				})
@@ -1678,7 +1676,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			when("image has read access but no write access", func() {
 				it("returns false", func() {
-					image, err := remote.NewImage(customRegistry.RepoName(onlyReadImage), authn.DefaultKeychain)
+					image, err := remote.NewImage(customRegistry.RepoName(readOnlyImage), authn.DefaultKeychain)
 					h.AssertNil(t, err)
 					h.AssertEq(t, image.CheckReadWriteAccess(), false)
 				})
@@ -1686,7 +1684,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			when("image doesn't have read access but has write access", func() {
 				it("returns true", func() {
-					image, err := remote.NewImage(customRegistry.RepoName(onlyWriteImage), authn.DefaultKeychain)
+					image, err := remote.NewImage(customRegistry.RepoName(writeOnlyImage), authn.DefaultKeychain)
 					h.AssertNil(t, err)
 					h.AssertEq(t, image.CheckReadWriteAccess(), false)
 				})
@@ -1694,7 +1692,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			when("image doesn't have read nor write access", func() {
 				it("returns false", func() {
-					image, err := remote.NewImage(customRegistry.RepoName(noAccessImage), authn.DefaultKeychain)
+					image, err := remote.NewImage(customRegistry.RepoName(inaccessibleImage), authn.DefaultKeychain)
 					h.AssertNil(t, err)
 					h.AssertEq(t, image.CheckReadWriteAccess(), false)
 				})

@@ -17,16 +17,16 @@ import (
 )
 
 type DockerRegistry struct {
-	Host             string
-	Port             string
-	Name             string
-	server           *httptest.Server
-	DockerDirectory  string
-	username         string
-	password         string
-	regHandler       http.Handler
-	authnHandler     http.Handler
-	customPrivileges map[string]ImagePrivileges // map from an imageName to its permissions
+	Host            string
+	Port            string
+	Name            string
+	server          *httptest.Server
+	DockerDirectory string
+	username        string
+	password        string
+	regHandler      http.Handler
+	authnHandler    http.Handler
+	imagePrivileges map[string]ImagePrivileges // map from an imageName to its permissions
 }
 
 type RegistryOption func(registry *DockerRegistry)
@@ -39,10 +39,11 @@ func WithSharedHandler(handler http.Handler) RegistryOption {
 	}
 }
 
-//WithCustomPrivileges allows to execute some customer read/write access validations based on the image name
-func WithCustomPrivileges(permissions map[string]ImagePrivileges) RegistryOption {
+//WithImagePrivileges enables the execution of read/write access validations based on the image name
+func WithImagePrivileges() RegistryOption {
+	var permissions = make(map[string]ImagePrivileges)
 	return func(registry *DockerRegistry) {
-		registry.customPrivileges = permissions
+		registry.imagePrivileges = permissions
 	}
 }
 
@@ -94,7 +95,7 @@ func ReadOnly(handler http.Handler) http.Handler {
 	})
 }
 
-func Custom(basicAuthHandler http.Handler, regHandler http.Handler, permissions map[string]ImagePrivileges) http.Handler {
+func delegator(basicAuthHandler http.Handler, regHandler http.Handler, permissions map[string]ImagePrivileges) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if permission, ok := permissions[extractImageName(r.URL.Path)]; ok {
 			if r.Method == "GET" || r.Method == "HEAD" {
@@ -104,7 +105,6 @@ func Custom(basicAuthHandler http.Handler, regHandler http.Handler, permissions 
 					// read request was arrived while read permission isn't allowed
 					w.WriteHeader(401)
 					_, _ = w.Write([]byte("Unauthorized.\n"))
-					return
 				}
 			} else {
 				if permission.writable {
@@ -113,9 +113,9 @@ func Custom(basicAuthHandler http.Handler, regHandler http.Handler, permissions 
 					// write request was arrived while write permission isn't allowed
 					w.WriteHeader(401)
 					_, _ = w.Write([]byte("Unauthorized.\n"))
-					return
 				}
 			}
+			return
 		}
 		basicAuthHandler.ServeHTTP(w, r)
 	})
@@ -141,11 +141,10 @@ func (r *DockerRegistry) Start(t *testing.T) {
 	// wrap registry handler with authentication handler, defaulting to read-only
 	r.authnHandler = ReadOnly(r.regHandler)
 	if r.username != "" {
-		if r.customPrivileges != nil {
+		if r.imagePrivileges != nil {
 			// wrap registry handler with basic auth
 			basicAuthHandler := BasicAuth(r.regHandler, r.username, r.password, "registry")
-			// wrap registry handler with custom handler
-			r.authnHandler = Custom(basicAuthHandler, r.regHandler, r.customPrivileges)
+			r.authnHandler = delegator(basicAuthHandler, r.regHandler, r.imagePrivileges)
 		} else {
 			// wrap registry handler basic auth
 			r.authnHandler = BasicAuth(r.regHandler, r.username, r.password, "registry")
@@ -193,11 +192,37 @@ func (r *DockerRegistry) EncodedLabeledAuth() string {
 	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(`{"username":"%s","password":"%s"}`, r.username, r.password)))
 }
 
-// Add stores the given key name with the provided ImagePrivileges. For example
-// Add("my-image", NewImagePrivileges(Readable, Writable)) will save "my-image" as a
+// SetPrivilegesToImage sets the given image name with the provided ImagePrivileges if ImagePrivileges was enabled.
+// For example SetPrivilegesToImage("my-image", NewImagePrivileges(Readable, Writable)) will save "my-image" as a
 // readable and writable image into the registry.
-func (r *DockerRegistry) Add(key string, privilege ImagePrivileges) {
-	r.customPrivileges[key] = privilege
+func (r *DockerRegistry) setPrivilegesToImage(imageName string, privilege ImagePrivileges) {
+	if r.isImagePrivilegesEnable() {
+		r.imagePrivileges[imageName] = privilege
+	}
+}
+
+// MakeReadOnly set the given image name to be readable when the ImagePrivileges feature was enabled
+func (r *DockerRegistry) MakeReadOnly(imageName string) {
+	r.setPrivilegesToImage(imageName, NewImagePrivileges(Readable))
+}
+
+// MakeWriteOnly set the given image name to be writable when the ImagePrivileges feature was enabled
+func (r *DockerRegistry) MakeWriteOnly(imageName string) {
+	r.setPrivilegesToImage(imageName, NewImagePrivileges(Writable))
+}
+
+// MakeReadWrite set the given image name to be readable and writable when the ImagePrivileges feature was enabled
+func (r *DockerRegistry) MakeReadWrite(imageName string) {
+	r.setPrivilegesToImage(imageName, NewImagePrivileges(Readable, Writable))
+}
+
+// MakeInaccessible set the given image name to do not have any access when the ImagePrivileges feature was enabled
+func (r *DockerRegistry) MakeInaccessible(imageName string) {
+	r.setPrivilegesToImage(imageName, NewImagePrivileges())
+}
+
+func (r *DockerRegistry) isImagePrivilegesEnable() bool {
+	return r.imagePrivileges != nil
 }
 
 //DockerHostname discovers the appropriate registry hostname.
