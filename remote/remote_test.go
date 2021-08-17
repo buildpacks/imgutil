@@ -60,10 +60,10 @@ func TestRemote(t *testing.T) {
 	customRegistry = h.NewDockerRegistry(h.WithAuth(customDockerConfigDir), h.WithSharedHandler(sharedRegistryHandler),
 		h.WithImagePrivileges())
 
-	customRegistry.MakeReadWrite(readWriteImage)
-	customRegistry.MakeReadOnly(readOnlyImage)
-	customRegistry.MakeWriteOnly(writeOnlyImage)
-	customRegistry.MakeInaccessible(inaccessibleImage)
+	customRegistry.SetReadWrite(readWriteImage)
+	customRegistry.SetReadOnly(readOnlyImage)
+	customRegistry.SetWriteOnly(writeOnlyImage)
+	customRegistry.SetInaccessible(inaccessibleImage)
 	customRegistry.Start(t)
 
 	os.Setenv("DOCKER_CONFIG", dockerRegistry.DockerDirectory)
