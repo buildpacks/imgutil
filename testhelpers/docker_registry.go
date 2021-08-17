@@ -84,14 +84,14 @@ func BasicAuth(handler http.Handler, username, password, realm string) http.Hand
 
 // ReadOnly wraps a handler, allowing only GET and HEAD requests, otherwise rejecting with a 405
 func ReadOnly(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if !isReadRequest(request) {
-			w.WriteHeader(405)
-			_, _ = w.Write([]byte("Method Not Allowed.\n"))
+			response.WriteHeader(405)
+			_, _ = response.Write([]byte("Method Not Allowed.\n"))
 			return
 		}
 
-		handler.ServeHTTP(w, request)
+		handler.ServeHTTP(response, request)
 	})
 }
 
