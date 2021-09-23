@@ -511,23 +511,30 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 		return types.ImageInspect{}, err
 	}
 
+	var blankIdx int
 	var layerPaths []string
 	for _, path := range i.layerPaths {
 		if path == "" {
-			layerPaths = append(layerPaths, "")
-			continue
+			layerName := fmt.Sprintf("blank_%d", blankIdx)
+			blankIdx++
+			hdr := &tar.Header{Name: layerName, Mode: 0644, Size: 0}
+			if err := tw.WriteHeader(hdr); err != nil {
+				return types.ImageInspect{}, err
+			}
+			layerPaths = append(layerPaths, layerName)
+		} else {
+			layerName := fmt.Sprintf("/%x.tar", sha256.Sum256([]byte(path)))
+			f, err := os.Open(filepath.Clean(path))
+			if err != nil {
+				return types.ImageInspect{}, err
+			}
+			defer f.Close()
+			if err := addFileToTar(tw, layerName, f); err != nil {
+				return types.ImageInspect{}, err
+			}
+			f.Close()
+			layerPaths = append(layerPaths, layerName)
 		}
-		layerName := fmt.Sprintf("/%x.tar", sha256.Sum256([]byte(path)))
-		f, err := os.Open(filepath.Clean(path))
-		if err != nil {
-			return types.ImageInspect{}, err
-		}
-		defer f.Close()
-		if err := addFileToTar(tw, layerName, f); err != nil {
-			return types.ImageInspect{}, err
-		}
-		f.Close()
-		layerPaths = append(layerPaths, layerName)
 	}
 
 	manifest, err := json.Marshal([]map[string]interface{}{
