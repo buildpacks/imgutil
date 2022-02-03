@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -629,12 +631,26 @@ func findLayerWithSha(layers []v1.Layer, diffID string) (v1.Layer, error) {
 	return nil, fmt.Errorf("previous image did not have layer with diff id %q", diffID)
 }
 
+func getCreationTimeFromEnv() v1.Time {
+	epoch := os.Getenv("SOURCE_DATE_EPOCH")
+	if epoch == "" {
+		return v1.Time{Time: imgutil.NormalizedDateTime}
+	}
+
+	seconds, err := strconv.ParseInt(epoch, 10, 64)
+	if err != nil {
+		return v1.Time{Time: imgutil.NormalizedDateTime}
+	}
+	return v1.Time{Time: time.Unix(seconds, 0)}
+}
+
 func (i *Image) Save(additionalNames ...string) error {
 	var err error
 
 	allNames := append([]string{i.repoName}, additionalNames...)
 
-	i.image, err = mutate.CreatedAt(i.image, v1.Time{Time: imgutil.NormalizedDateTime})
+	creationTime := getCreationTimeFromEnv()
+	i.image, err = mutate.CreatedAt(i.image, creationTime)
 	if err != nil {
 		return errors.Wrap(err, "set creation time")
 	}
@@ -652,7 +668,7 @@ func (i *Image) Save(additionalNames ...string) error {
 	cfg.History = make([]v1.History, len(layers))
 	for i := range cfg.History {
 		cfg.History[i] = v1.History{
-			Created: v1.Time{Time: imgutil.NormalizedDateTime},
+			Created: creationTime,
 		}
 	}
 

@@ -1404,6 +1404,30 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, item.Created.Unix(), imgutil.NormalizedDateTime.Unix())
 				}
 			})
+
+			it("can override creation time", func() {
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				tarPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", "linux")
+				h.AssertNil(t, err)
+				defer os.Remove(tarPath)
+
+				h.AssertNil(t, img.AddLayer(tarPath))
+
+				epoch := time.Now().Unix()
+				os.Setenv("SOURCE_DATE_EPOCH", fmt.Sprintf("%d", epoch))
+				h.AssertNil(t, img.Save())
+
+				configFile := h.FetchManifestImageConfigFile(t, repoName)
+
+				h.AssertEq(t, configFile.Created.Time.Unix(), epoch)
+
+				h.AssertEq(t, len(configFile.History), len(configFile.RootFS.DiffIDs))
+				for _, item := range configFile.History {
+					h.AssertEq(t, item.Created.Unix(), epoch)
+				}
+			})
 		})
 
 		when("additional names are provided", func() {
