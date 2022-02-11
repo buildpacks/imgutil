@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -789,12 +790,27 @@ func defaultPlatform(dockerClient client.CommonAPIClient) (imgutil.Platform, err
 	}, nil
 }
 
+func getCreationTimeFromEnv() v1.Time {
+	epoch := os.Getenv("SOURCE_DATE_EPOCH")
+	if epoch == "" {
+		return v1.Time{Time: imgutil.NormalizedDateTime}
+	}
+
+	seconds, err := strconv.ParseInt(epoch, 10, 64)
+	if err != nil {
+		return v1.Time{Time: imgutil.NormalizedDateTime}
+	}
+	return v1.Time{Time: time.Unix(seconds, 0)}
+}
+
 func v1Config(inspect types.ImageInspect) (v1.ConfigFile, error) {
+	creationTime := getCreationTimeFromEnv()
+
 	history := make([]v1.History, len(inspect.RootFS.Layers))
 	for i := range history {
 		// zero history
 		history[i] = v1.History{
-			Created: v1.Time{Time: imgutil.NormalizedDateTime},
+			Created: creationTime,
 		}
 	}
 	diffIDs := make([]v1.Hash, len(inspect.RootFS.Layers))
@@ -850,7 +866,7 @@ func v1Config(inspect types.ImageInspect) (v1.ConfigFile, error) {
 	}
 	return v1.ConfigFile{
 		Architecture: inspect.Architecture,
-		Created:      v1.Time{Time: imgutil.NormalizedDateTime},
+		Created:      creationTime,
 		History:      history,
 		OS:           inspect.Os,
 		OSVersion:    inspect.OsVersion,
