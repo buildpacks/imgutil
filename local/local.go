@@ -35,6 +35,7 @@ type Image struct {
 	layerPaths       []string
 	prevImage        *Image // reused layers will be fetched from prevImage
 	downloadBaseOnce *sync.Once
+	createdAt        time.Time
 }
 
 type ImageOption func(*options) error
@@ -43,6 +44,7 @@ type options struct {
 	platform          imgutil.Platform
 	baseImageRepoName string
 	prevImageRepoName string
+	createdAt         time.Time
 }
 
 //WithPreviousImage loads an existing image as a source for reusable layers.
@@ -69,6 +71,15 @@ func FromBaseImage(imageName string) ImageOption {
 func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	return func(i *options) error {
 		i.platform = platform
+		return nil
+	}
+}
+
+//WithCreatedAt lets a caller set the created at timestamp for the image.
+//Defaults for a new image is imgutil.NormalizedDateTime
+func WithCreatedAt(createdAt time.Time) ImageOption {
+	return func(opts *options) error {
+		opts.createdAt = createdAt
 		return nil
 	}
 }
@@ -120,6 +131,12 @@ func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...Image
 		if err := prepareNewWindowsImage(image); err != nil {
 			return nil, err
 		}
+	}
+
+	if imageOpts.createdAt.IsZero() {
+		image.createdAt = imgutil.NormalizedDateTime
+	} else {
+		image.createdAt = imageOpts.createdAt
 	}
 
 	return image, nil
@@ -571,7 +588,7 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 }
 
 func (i *Image) newConfigFile() ([]byte, error) {
-	cfg, err := v1Config(i.inspect)
+	cfg, err := v1Config(i.inspect, i.createdAt)
 	if err != nil {
 		return nil, err
 	}
@@ -789,12 +806,12 @@ func defaultPlatform(dockerClient client.CommonAPIClient) (imgutil.Platform, err
 	}, nil
 }
 
-func v1Config(inspect types.ImageInspect) (v1.ConfigFile, error) {
+func v1Config(inspect types.ImageInspect, createdAt time.Time) (v1.ConfigFile, error) {
 	history := make([]v1.History, len(inspect.RootFS.Layers))
 	for i := range history {
 		// zero history
 		history[i] = v1.History{
-			Created: v1.Time{Time: imgutil.NormalizedDateTime},
+			Created: v1.Time{Time: createdAt},
 		}
 	}
 	diffIDs := make([]v1.Hash, len(inspect.RootFS.Layers))
@@ -850,7 +867,7 @@ func v1Config(inspect types.ImageInspect) (v1.ConfigFile, error) {
 	}
 	return v1.ConfigFile{
 		Architecture: inspect.Architecture,
-		Created:      v1.Time{Time: imgutil.NormalizedDateTime},
+		Created:      v1.Time{Time: createdAt},
 		History:      history,
 		OS:           inspect.Os,
 		OSVersion:    inspect.OsVersion,

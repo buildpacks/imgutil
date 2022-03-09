@@ -30,12 +30,14 @@ type Image struct {
 	repoName   string
 	image      v1.Image
 	prevLayers []v1.Layer
+	createdAt  time.Time
 }
 
 type options struct {
 	platform          imgutil.Platform
 	baseImageRepoName string
 	prevImageRepoName string
+	createdAt         time.Time
 }
 
 type ImageOption func(*options) error
@@ -65,6 +67,15 @@ func FromBaseImage(imageName string) ImageOption {
 func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	return func(opts *options) error {
 		opts.platform = platform
+		return nil
+	}
+}
+
+//WithCreatedAt lets a caller set the created at timestamp for the image.
+//Defaults for a new image is imgutil.NormalizedDateTime
+func WithCreatedAt(createdAt time.Time) ImageOption {
+	return func(opts *options) error {
+		opts.createdAt = createdAt
 		return nil
 	}
 }
@@ -114,6 +125,12 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 		if err := prepareNewWindowsImage(ri); err != nil {
 			return nil, err
 		}
+	}
+
+	if imageOpts.createdAt.IsZero() {
+		ri.createdAt = imgutil.NormalizedDateTime
+	} else {
+		ri.createdAt = imageOpts.createdAt
 	}
 
 	return ri, nil
@@ -634,7 +651,7 @@ func (i *Image) Save(additionalNames ...string) error {
 
 	allNames := append([]string{i.repoName}, additionalNames...)
 
-	i.image, err = mutate.CreatedAt(i.image, v1.Time{Time: imgutil.NormalizedDateTime})
+	i.image, err = mutate.CreatedAt(i.image, v1.Time{Time: i.createdAt})
 	if err != nil {
 		return errors.Wrap(err, "set creation time")
 	}
@@ -650,9 +667,9 @@ func (i *Image) Save(additionalNames ...string) error {
 		return errors.Wrap(err, "get image layers")
 	}
 	cfg.History = make([]v1.History, len(layers))
-	for i := range cfg.History {
-		cfg.History[i] = v1.History{
-			Created: v1.Time{Time: imgutil.NormalizedDateTime},
+	for j := range cfg.History {
+		cfg.History[j] = v1.History{
+			Created: v1.Time{Time: i.createdAt},
 		}
 	}
 

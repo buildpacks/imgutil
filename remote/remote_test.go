@@ -1404,6 +1404,35 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, item.Created.Unix(), imgutil.NormalizedDateTime.Unix())
 				}
 			})
+
+			when("the WithCreatedAt option is used", func() {
+				it("uses the value for all times and client specific fields", func() {
+					expectedTime := time.Date(2022, 1, 5, 5, 5, 5, 0, time.UTC)
+					img, err := remote.NewImage(repoName, authn.DefaultKeychain,
+						remote.WithCreatedAt(expectedTime),
+					)
+					h.AssertNil(t, err)
+
+					tarPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", "linux")
+					h.AssertNil(t, err)
+					defer os.Remove(tarPath)
+
+					h.AssertNil(t, img.AddLayer(tarPath))
+
+					h.AssertNil(t, img.Save())
+
+					configFile := h.FetchManifestImageConfigFile(t, repoName)
+
+					h.AssertEq(t, configFile.Created.Time, expectedTime)
+					h.AssertEq(t, configFile.Container, "")
+					h.AssertEq(t, configFile.DockerVersion, "")
+
+					h.AssertEq(t, len(configFile.History), len(configFile.RootFS.DiffIDs))
+					for _, item := range configFile.History {
+						h.AssertEq(t, item.Created.Unix(), expectedTime.Unix())
+					}
+				})
+			})
 		})
 
 		when("additional names are provided", func() {
