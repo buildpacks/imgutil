@@ -1606,6 +1606,38 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				}
 			})
 
+			when("the WithCreatedAt option is used", func() {
+				it("uses the value for all times and client specific fields", func() {
+					expectedTime := time.Date(2022, 1, 5, 5, 5, 5, 0, time.UTC)
+					img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(runnableBaseImageName),
+						local.WithCreatedAt(expectedTime),
+					)
+					h.AssertNil(t, err)
+
+					err = img.SetLabel("mykey", "newValue")
+					h.AssertNil(t, err)
+
+					err = img.AddLayer(tarPath)
+					h.AssertNil(t, err)
+
+					h.AssertNil(t, img.Save())
+
+					inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
+					h.AssertNil(t, err)
+
+					h.AssertEq(t, inspect.Created, expectedTime.Format(time.RFC3339))
+					h.AssertEq(t, inspect.Container, "")
+					h.AssertEq(t, inspect.DockerVersion, "")
+
+					history, err := dockerClient.ImageHistory(context.TODO(), repoName)
+					h.AssertNil(t, err)
+					h.AssertEq(t, len(history), len(inspect.RootFS.Layers))
+					for i := range inspect.RootFS.Layers {
+						h.AssertEq(t, history[i].Created, expectedTime.Unix())
+					}
+				})
+			})
+
 			when("additional names are provided", func() {
 				var (
 					additionalRepoNames = []string{

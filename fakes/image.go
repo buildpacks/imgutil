@@ -153,6 +153,11 @@ func (i *Image) SetCmd(v ...string) error {
 	return nil
 }
 
+func (i *Image) SetCreatedAt(t time.Time) error {
+	i.createdAt = t
+	return nil
+}
+
 func (i *Image) Env(k string) (string, error) {
 	return i.env[k], nil
 }
