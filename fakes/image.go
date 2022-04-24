@@ -313,8 +313,8 @@ func (i *Image) ReusedLayers() []string {
 	return i.reusedLayers
 }
 
-func (i *Image) WorkingDir() string {
-	return i.workingDir
+func (i *Image) WorkingDir() (string, error) {
+	return i.workingDir, nil
 }
 
 func (i *Image) AddPreviousLayer(sha, path string) {

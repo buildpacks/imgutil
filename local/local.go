@@ -234,6 +234,10 @@ func (i *Image) Env(key string) (string, error) {
 	return "", nil
 }
 
+func (i *Image) WorkingDir() (string, error) {
+	return i.inspect.Config.WorkingDir, nil
+}
+
 func (i *Image) Entrypoint() ([]string, error) {
 	return i.inspect.Config.Entrypoint, nil
 }

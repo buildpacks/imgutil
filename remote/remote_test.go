@@ -522,6 +522,56 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#WorkingDir", func() {
+		when("image exists", func() {
+			var repoName = newTestImageName()
+
+			it.Before(func() {
+				baseImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, baseImage.SetWorkingDir("/testWorkingDir"))
+				h.AssertNil(t, baseImage.Save())
+			})
+
+			it("returns the WorkingDir value", func() {
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
+				h.AssertNil(t, err)
+
+				val, err := img.WorkingDir()
+				h.AssertNil(t, err)
+
+				h.AssertEq(t, val, "/testWorkingDir")
+			})
+
+			it("returns empty string for a missing WorkingDir", func() {
+				baseImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertNil(t, baseImage.Save())
+
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain, remote.FromBaseImage(repoName))
+				h.AssertNil(t, err)
+
+				val, err := img.WorkingDir()
+				h.AssertNil(t, err)
+				var expected string
+				h.AssertEq(t, val, expected)
+			})
+		})
+
+		when("image NOT exists", func() {
+			it("returns empty string", func() {
+				img, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				val, err := img.WorkingDir()
+				h.AssertNil(t, err)
+				var expected string
+				h.AssertEq(t, val, expected)
+			})
+		})
+	})
+
 	when("#Entrypoint", func() {
 		when("image exists with entrypoint", func() {
 			var repoName = newTestImageName()
