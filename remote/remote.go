@@ -305,6 +305,17 @@ func (i *Image) Env(key string) (string, error) {
 	return "", nil
 }
 
+func (i *Image) WorkingDir() (string, error) {
+	cfg, err := i.image.ConfigFile()
+	if err != nil {
+		return "", errors.Wrapf(err, "getting config file for image %q", i.repoName)
+	}
+	if cfg == nil {
+		return "", fmt.Errorf("missing config for image %q", i.repoName)
+	}
+	return cfg.Config.WorkingDir, nil
+}
+
 func (i *Image) Entrypoint() ([]string, error) {
 	cfg, err := i.image.ConfigFile()
 	if err != nil {

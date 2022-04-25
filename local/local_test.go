@@ -551,6 +551,60 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#WorkingDir", func() {
+		when("image exists", func() {
+			var repoName = newTestImageName()
+
+			it.Before(func() {
+				existingImage, err := local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, existingImage.SetWorkingDir("/testWorkingDir"))
+				h.AssertNil(t, existingImage.Save())
+			})
+
+			it.After(func() {
+				h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
+			})
+
+			it("returns the WorkingDir value", func() {
+				img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
+				h.AssertNil(t, err)
+
+				val, err := img.WorkingDir()
+				h.AssertNil(t, err)
+
+				h.AssertEq(t, val, "/testWorkingDir")
+			})
+
+			it("returns empty string for missing WorkingDir", func() {
+				existingImage, err := local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
+				h.AssertNil(t, existingImage.Save())
+
+				img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
+				h.AssertNil(t, err)
+
+				val, err := img.WorkingDir()
+				h.AssertNil(t, err)
+				var expected string
+				h.AssertEq(t, val, expected)
+			})
+		})
+
+		when("image NOT exists", func() {
+			it("returns empty string", func() {
+				img, err := local.NewImage(newTestImageName(), dockerClient)
+				h.AssertNil(t, err)
+
+				val, err := img.WorkingDir()
+				h.AssertNil(t, err)
+				var expected string
+				h.AssertEq(t, val, expected)
+			})
+		})
+	})
+
 	when("#Entrypoint", func() {
 		when("image exists", func() {
 			var repoName = newTestImageName()
