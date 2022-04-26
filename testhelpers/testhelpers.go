@@ -343,6 +343,28 @@ func FileDiffID(t *testing.T, path string) string {
 	return diffID
 }
 
+func LayersSize(t *testing.T, repoName string) int {
+	t.Helper()
+
+	r, err := name.ParseReference(repoName, name.WeakValidation)
+	AssertNil(t, err)
+
+	auth, err := authn.DefaultKeychain.Resolve(r.Context().Registry)
+	AssertNil(t, err)
+
+	gImg, err := remote.Image(
+		r,
+		remote.WithTransport(http.DefaultTransport),
+		remote.WithAuth(auth),
+	)
+	AssertNil(t, err)
+
+	gLayers, err := gImg.Layers()
+	AssertNil(t, err)
+
+	return len(gLayers)
+}
+
 // RunnableBaseImage returns an image that can be used by a daemon of the same OS to create an container or run a command
 func RunnableBaseImage(os string) string {
 	if os == "windows" {
