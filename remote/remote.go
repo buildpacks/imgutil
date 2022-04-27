@@ -688,11 +688,6 @@ func (i *Image) Save(additionalNames ...string) error {
 	cfg = cfg.DeepCopy()
 
 	layers, err := i.image.Layers()
-	if len(layers) == 0 && i.addEmptyLayerOnSave {
-		empty := static.NewLayer([]byte{}, types.OCILayer)
-		i.image, err = mutate.AppendLayers(i.image, empty)
-	}
-
 	if err != nil {
 		return errors.Wrap(err, "get image layers")
 	}
@@ -708,6 +703,14 @@ func (i *Image) Save(additionalNames ...string) error {
 	i.image, err = mutate.ConfigFile(i.image, cfg)
 	if err != nil {
 		return errors.Wrap(err, "zeroing history")
+	}
+
+	if len(layers) == 0 && i.addEmptyLayerOnSave {
+		empty := static.NewLayer([]byte{}, types.OCILayer)
+		i.image, err = mutate.AppendLayers(i.image, empty)
+		if err != nil {
+			return errors.Wrap(err, "empty layer could not be added")
+		}
 	}
 
 	var diagnostics []imgutil.SaveDiagnostic

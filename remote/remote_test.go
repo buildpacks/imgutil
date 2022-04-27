@@ -532,7 +532,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				h.AssertNil(t, err)
 				h.AssertNil(t, image.Save())
-				h.AssertEq(t, h.LayersSize(t, repoName), 1)
+				h.AssertEq(t, len(h.FetchManifestLayers(t, repoName)), 1)
 			})
 		})
 	})
