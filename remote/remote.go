@@ -2,7 +2,6 @@ package remote
 
 import (
 	"fmt"
-	"github.com/google/go-containerregistry/pkg/v1/static"
 	"io"
 	"net/http"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
