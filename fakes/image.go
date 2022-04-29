@@ -33,6 +33,7 @@ func NewImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
 		os:            "linux",
 		osVersion:     "",
 		architecture:  "amd64",
+		workingDir:    "/test-workdir",
 	}
 }
 
