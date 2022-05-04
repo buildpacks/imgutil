@@ -520,6 +520,20 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				})
 			})
 		})
+
+		when("#AddEmptyLayerOnSave", func() {
+			it("an empty layer was added on save", func() {
+				image, err := remote.NewImage(
+					repoName,
+					authn.DefaultKeychain,
+					remote.AddEmptyLayerOnSave(),
+				)
+
+				h.AssertNil(t, err)
+				h.AssertNil(t, image.Save())
+				h.AssertEq(t, len(h.FetchManifestLayers(t, repoName)), 1)
+			})
+		})
 	})
 
 	when("#WorkingDir", func() {

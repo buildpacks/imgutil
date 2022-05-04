@@ -16,6 +16,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
@@ -31,6 +32,7 @@ type Image struct {
 	image      v1.Image
 	prevLayers []v1.Layer
 	createdAt  time.Time
+	addEmptyLayerOnSave bool
 }
 
 type options struct {
@@ -38,6 +40,7 @@ type options struct {
 	baseImageRepoName string
 	prevImageRepoName string
 	createdAt         time.Time
+	addEmptyLayerOnSave bool
 }
 
 type ImageOption func(*options) error
@@ -80,6 +83,16 @@ func WithCreatedAt(createdAt time.Time) ImageOption {
 	}
 }
 
+// AddEmptyLayerOnSave adds an empty layer before saving if the image has no layer at all.
+// This option is useful when exporting to registries that do not allow saving an image without layers,
+// for example: gcr.io
+func AddEmptyLayerOnSave() ImageOption {
+	return func(opts *options) error {
+		opts.addEmptyLayerOnSave = true
+		return nil
+	}
+}
+
 //NewImage returns a new Image that can be modified and saved to a Docker daemon.
 func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Image, error) {
 	imageOpts := &options{}
@@ -103,6 +116,7 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 		keychain: keychain,
 		repoName: repoName,
 		image:    image,
+		addEmptyLayerOnSave: imageOpts.addEmptyLayerOnSave,
 	}
 
 	if imageOpts.prevImageRepoName != "" {
@@ -689,6 +703,14 @@ func (i *Image) Save(additionalNames ...string) error {
 	i.image, err = mutate.ConfigFile(i.image, cfg)
 	if err != nil {
 		return errors.Wrap(err, "zeroing history")
+	}
+
+	if len(layers) == 0 && i.addEmptyLayerOnSave {
+		empty := static.NewLayer([]byte{}, types.OCILayer)
+		i.image, err = mutate.AppendLayers(i.image, empty)
+		if err != nil {
+			return errors.Wrap(err, "empty layer could not be added")
+		}
 	}
 
 	var diagnostics []imgutil.SaveDiagnostic
