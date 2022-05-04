@@ -526,7 +526,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				image, err := remote.NewImage(
 					repoName,
 					authn.DefaultKeychain,
-					remote.WithPreviousImage("some-bad-repo-name"),
 					remote.AddEmptyLayerOnSave(),
 				)
 

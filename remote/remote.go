@@ -40,7 +40,7 @@ type options struct {
 	baseImageRepoName string
 	prevImageRepoName string
 	createdAt         time.Time
-	emptyLayer	  bool
+	addEmptyLayerOnSave bool
 }
 
 type ImageOption func(*options) error
@@ -88,7 +88,7 @@ func WithCreatedAt(createdAt time.Time) ImageOption {
 // for example: gcr.io
 func AddEmptyLayerOnSave() ImageOption {
 	return func(opts *options) error {
-		opts.emptyLayer = true
+		opts.addEmptyLayerOnSave = true
 		return nil
 	}
 }
@@ -116,7 +116,7 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 		keychain: keychain,
 		repoName: repoName,
 		image:    image,
-		addEmptyLayerOnSave: imageOpts.emptyLayer,
+		addEmptyLayerOnSave: imageOpts.addEmptyLayerOnSave,
 	}
 
 	if imageOpts.prevImageRepoName != "" {
