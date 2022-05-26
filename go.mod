@@ -1,7 +1,7 @@
 module github.com/buildpacks/imgutil
 
 require (
-	github.com/docker/docker v20.10.12+incompatible
+	github.com/docker/docker v20.10.16+incompatible
 	github.com/google/go-cmp v0.5.8
 	github.com/google/go-containerregistry v0.8.0
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6 // indirect
