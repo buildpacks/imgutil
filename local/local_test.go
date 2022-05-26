@@ -119,13 +119,13 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				daemonInfo, err := dockerClient.Info(context.TODO())
 				h.AssertNil(t, err)
 
-				//image os must match daemon
+				// image os must match daemon
 				h.AssertEq(t, inspect.Os, daemonInfo.OSType)
 				h.AssertEq(t, inspect.Architecture, expectedArmArch)
 				h.AssertEq(t, inspect.OsVersion, expectedOSVersion)
 				h.AssertEq(t, inspect.RootFS.Type, "layers")
 
-				//base layer is added for windows
+				// base layer is added for windows
 				if daemonOS == "windows" {
 					h.AssertEq(t, len(inspect.RootFS.Layers), 1)
 				} else {
@@ -175,7 +175,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 						h.AssertNil(t, err)
 
-						//base layer is added for windows
+						// base layer is added for windows
 						if daemonOS == "windows" {
 							topLayerDiffID, err := img.TopLayer()
 							h.AssertNil(t, err)
@@ -312,12 +312,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						daemonInfo, err := dockerClient.Info(context.TODO())
 						h.AssertNil(t, err)
 
-						//image os must match daemon
+						// image os must match daemon
 						h.AssertEq(t, inspect.Os, daemonInfo.OSType)
 						h.AssertEq(t, inspect.Architecture, "arm64")
 						h.AssertEq(t, inspect.OsVersion, "10.0.99999.9999")
 
-						//base layer is added for windows
+						// base layer is added for windows
 						if daemonOS == "windows" {
 							h.AssertEq(t, len(inspect.RootFS.Layers), 1)
 						} else {
