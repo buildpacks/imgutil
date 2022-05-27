@@ -139,7 +139,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				h.AssertEq(t, osVersion, "10.0.17763.316")
 
-				//base layer is added for windows
+				// base layer is added for windows
 				topLayerDiffID, err := img.TopLayer()
 				h.AssertNil(t, err)
 
@@ -460,7 +460,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 						h.AssertEq(t, osVersion, "10.0.99999.9999")
 
-						//base layer is added for windows
+						// base layer is added for windows
 						topLayerDiffID, err := img.TopLayer()
 						h.AssertNil(t, err)
 
@@ -1426,7 +1426,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				h.AssertNil(t, img.Save())
 
-				//convert authenticated repo name to unauthenticated repo name
+				// convert authenticated repo name to unauthenticated repo name
 				authRepoRef, err := name.ParseReference(repoName, name.WeakValidation)
 				h.AssertNil(t, err)
 				sharedImageName := authRepoRef.Context().RepositoryStr()

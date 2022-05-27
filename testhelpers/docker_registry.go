@@ -31,15 +31,15 @@ type DockerRegistry struct {
 
 type RegistryOption func(registry *DockerRegistry)
 
-//WithSharedHandler allows two instances to share the same data by re-using the registry handler.
-//Use an authenticated registry to write to a read-only unauthenticated registry.
+// WithSharedHandler allows two instances to share the same data by re-using the registry handler.
+// Use an authenticated registry to write to a read-only unauthenticated registry.
 func WithSharedHandler(handler http.Handler) RegistryOption {
 	return func(registry *DockerRegistry) {
 		registry.regHandler = handler
 	}
 }
 
-//WithImagePrivileges enables the execution of read/write access validations based on the image name
+// WithImagePrivileges enables the execution of read/write access validations based on the image name
 func WithImagePrivileges() RegistryOption {
 	var permissions = make(map[string]ImagePrivileges)
 	return func(registry *DockerRegistry) {
@@ -47,7 +47,7 @@ func WithImagePrivileges() RegistryOption {
 	}
 }
 
-//WithAuth adds credentials to registry. Omitting will make the registry read-only
+// WithAuth adds credentials to registry. Omitting will make the registry read-only
 func WithAuth(dockerConfigDir string) RegistryOption {
 	return func(r *DockerRegistry) {
 		r.username = RandString(10)
@@ -238,11 +238,11 @@ func isReadRequest(req *http.Request) bool {
 	return req.Method == "GET" || req.Method == "HEAD"
 }
 
-//DockerHostname discovers the appropriate registry hostname.
-//For test to run where "localhost" is not the daemon host, a `insecure-registries` entry of `<host net>/<mask>` with a range that contains the host's non-loopback IP.
-//For Docker Desktop, this can be set here: https://docs.docker.com/docker-for-mac/#docker-engine
-//Otherwise, its set in the daemon.json: https://docs.docker.com/engine/reference/commandline/dockerd/#daemon-configuration-file
-//If the entry is not found, the fallback is "localhost"
+// DockerHostname discovers the appropriate registry hostname.
+// For test to run where "localhost" is not the daemon host, a `insecure-registries` entry of `<host net>/<mask>` with a range that contains the host's non-loopback IP.
+// For Docker Desktop, this can be set here: https://docs.docker.com/docker-for-mac/#docker-engine
+// Otherwise, its set in the daemon.json: https://docs.docker.com/engine/reference/commandline/dockerd/#daemon-configuration-file
+// If the entry is not found, the fallback is "localhost"
 func DockerHostname(t *testing.T) string {
 	dockerCli := DockerCli(t)
 
@@ -309,6 +309,6 @@ func writeDockerConfig(t *testing.T, configDir, host, port, auth string) {
 			  }
 			}
 			`, host, port, auth)),
-		0666,
+		0600,
 	))
 }

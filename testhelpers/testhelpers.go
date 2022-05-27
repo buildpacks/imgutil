@@ -38,7 +38,7 @@ import (
 func RandString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = 'a' + byte(rand.Intn(26))
+		b[i] = 'a' + byte(rand.Intn(26)) // #nosec G404
 	}
 	return string(b)
 }
@@ -187,7 +187,7 @@ func DockerRmi(dockerCli dockercli.CommonAPIClient, repoNames ...string) error {
 	return err
 }
 
-//PushImage pushes an image to a registry, optionally using credentials from any set DOCKER_CONFIG
+// PushImage pushes an image to a registry, optionally using credentials from any set DOCKER_CONFIG
 func PushImage(t *testing.T, dockerCli dockercli.CommonAPIClient, refStr string) {
 	ref, err := name.ParseReference(refStr, name.WeakValidation)
 	AssertNil(t, err)

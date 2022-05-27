@@ -27,27 +27,27 @@ import (
 const maxRetries = 2
 
 type Image struct {
-	keychain   authn.Keychain
-	repoName   string
-	image      v1.Image
-	prevLayers []v1.Layer
-	createdAt  time.Time
+	keychain            authn.Keychain
+	repoName            string
+	image               v1.Image
+	prevLayers          []v1.Layer
+	createdAt           time.Time
 	addEmptyLayerOnSave bool
 }
 
 type options struct {
-	platform          imgutil.Platform
-	baseImageRepoName string
-	prevImageRepoName string
-	createdAt         time.Time
+	platform            imgutil.Platform
+	baseImageRepoName   string
+	prevImageRepoName   string
+	createdAt           time.Time
 	addEmptyLayerOnSave bool
 }
 
 type ImageOption func(*options) error
 
-//WithPreviousImage loads an existing image as a source for reusable layers.
-//Use with ReuseLayer().
-//Ignored if image is not found.
+// WithPreviousImage loads an existing image as a source for reusable layers.
+// Use with ReuseLayer().
+// Ignored if image is not found.
 func WithPreviousImage(imageName string) ImageOption {
 	return func(opts *options) error {
 		opts.prevImageRepoName = imageName
@@ -55,8 +55,8 @@ func WithPreviousImage(imageName string) ImageOption {
 	}
 }
 
-//FromBaseImage loads an existing image as the config and layers for the new image.
-//Ignored if image is not found.
+// FromBaseImage loads an existing image as the config and layers for the new image.
+// Ignored if image is not found.
 func FromBaseImage(imageName string) ImageOption {
 	return func(opts *options) error {
 		opts.baseImageRepoName = imageName
@@ -64,9 +64,9 @@ func FromBaseImage(imageName string) ImageOption {
 	}
 }
 
-//WithDefaultPlatform provides Architecture/OS/OSVersion defaults for the new image.
-//Defaults for a new image are ignored when FromBaseImage returns an image.
-//FromBaseImage and WithPreviousImage will use the platform to choose an image from a manifest list.
+// WithDefaultPlatform provides Architecture/OS/OSVersion defaults for the new image.
+// Defaults for a new image are ignored when FromBaseImage returns an image.
+// FromBaseImage and WithPreviousImage will use the platform to choose an image from a manifest list.
 func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	return func(opts *options) error {
 		opts.platform = platform
@@ -74,8 +74,8 @@ func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	}
 }
 
-//WithCreatedAt lets a caller set the created at timestamp for the image.
-//Defaults for a new image is imgutil.NormalizedDateTime
+// WithCreatedAt lets a caller set the created at timestamp for the image.
+// Defaults for a new image is imgutil.NormalizedDateTime
 func WithCreatedAt(createdAt time.Time) ImageOption {
 	return func(opts *options) error {
 		opts.createdAt = createdAt
@@ -93,7 +93,7 @@ func AddEmptyLayerOnSave() ImageOption {
 	}
 }
 
-//NewImage returns a new Image that can be modified and saved to a Docker daemon.
+// NewImage returns a new Image that can be modified and saved to a Docker daemon.
 func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Image, error) {
 	imageOpts := &options{}
 	for _, op := range ops {
@@ -113,9 +113,9 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 	}
 
 	ri := &Image{
-		keychain: keychain,
-		repoName: repoName,
-		image:    image,
+		keychain:            keychain,
+		repoName:            repoName,
+		image:               image,
 		addEmptyLayerOnSave: imageOpts.addEmptyLayerOnSave,
 	}
 
@@ -192,7 +192,7 @@ func prepareNewWindowsImage(ri *Image) error {
 		return err
 	}
 
-	windowsBaseLayer, err := tarball.LayerFromReader(layerBytes)
+	windowsBaseLayer, err := tarball.LayerFromReader(layerBytes) // TODO: LayerFromReader is deprecated; LayerFromOpener or stream.NewLayer are suggested alternatives however the tests do not pass when they are used
 	if err != nil {
 		return err
 	}
