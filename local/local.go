@@ -28,8 +28,18 @@ import (
 	"github.com/buildpacks/imgutil"
 )
 
+// DockerClient is subset of client.CommonAPIClient required by this package
+type DockerClient interface {
+	ImageInspectWithRaw(ctx context.Context, image string) (types.ImageInspect, []byte, error)
+	ImageTag(ctx context.Context, image, ref string) error
+	ImageLoad(ctx context.Context, input io.Reader, quiet bool) (types.ImageLoadResponse, error)
+	ImageSave(ctx context.Context, images []string) (io.ReadCloser, error)
+	ImageRemove(ctx context.Context, image string, options types.ImageRemoveOptions) ([]types.ImageDeleteResponseItem, error)
+	Info(ctx context.Context) (types.Info, error)
+}
+
 type Image struct {
-	docker           client.CommonAPIClient
+	docker           DockerClient
 	repoName         string
 	inspect          types.ImageInspect
 	layerPaths       []string
@@ -85,7 +95,7 @@ func WithCreatedAt(createdAt time.Time) ImageOption {
 }
 
 // NewImage returns a new Image that can be modified and saved to a registry.
-func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...ImageOption) (*Image, error) {
+func NewImage(repoName string, dockerClient DockerClient, ops ...ImageOption) (*Image, error) {
 	imageOpts := &options{}
 	for _, op := range ops {
 		if err := op(imageOpts); err != nil {
@@ -150,7 +160,7 @@ func validatePlatformOption(defaultPlatform imgutil.Platform, optionPlatform img
 	return nil
 }
 
-func processPreviousImageOption(image *Image, prevImageRepoName string, platform imgutil.Platform, dockerClient client.CommonAPIClient) error {
+func processPreviousImageOption(image *Image, prevImageRepoName string, platform imgutil.Platform, dockerClient DockerClient) error {
 	if _, err := inspectOptionalImage(dockerClient, prevImageRepoName, platform); err != nil {
 		return err
 	}
@@ -165,7 +175,7 @@ func processPreviousImageOption(image *Image, prevImageRepoName string, platform
 	return nil
 }
 
-func processBaseImageOption(image *Image, baseImageRepoName string, platform imgutil.Platform, dockerClient client.CommonAPIClient) error {
+func processBaseImageOption(image *Image, baseImageRepoName string, platform imgutil.Platform, dockerClient DockerClient) error {
 	inspect, err := inspectOptionalImage(dockerClient, baseImageRepoName, platform)
 	if err != nil {
 		return err
@@ -783,7 +793,7 @@ func cleanPath(dest, header string) (string, error) {
 	return "", fmt.Errorf("bad filepath: %s", header)
 }
 
-func inspectOptionalImage(docker client.CommonAPIClient, imageName string, platform imgutil.Platform) (types.ImageInspect, error) {
+func inspectOptionalImage(docker DockerClient, imageName string, platform imgutil.Platform) (types.ImageInspect, error) {
 	var (
 		err     error
 		inspect types.ImageInspect
@@ -809,7 +819,7 @@ func defaultInspect(platform imgutil.Platform) types.ImageInspect {
 	}
 }
 
-func defaultPlatform(dockerClient client.CommonAPIClient) (imgutil.Platform, error) {
+func defaultPlatform(dockerClient DockerClient) (imgutil.Platform, error) {
 	daemonInfo, err := dockerClient.Info(context.Background())
 	if err != nil {
 		return imgutil.Platform{}, err
