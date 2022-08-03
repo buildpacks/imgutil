@@ -34,7 +34,7 @@ type Image struct {
 	prevLayers          []v1.Layer
 	createdAt           time.Time
 	addEmptyLayerOnSave bool
-	registries          []registry
+	registries          []reference
 }
 
 type options struct {
@@ -43,11 +43,11 @@ type options struct {
 	prevImageRepoName   string
 	createdAt           time.Time
 	addEmptyLayerOnSave bool
-	registries          []registry
+	registries          []reference
 }
 
-type registry struct {
-	repository         string
+type reference struct {
+	prefix             string
 	insecure           bool
 	insecureSkipVerify bool
 }
@@ -105,8 +105,8 @@ func AddEmptyLayerOnSave() ImageOption {
 // WithRegistry register a registry.
 func WithRegistry(repository string, insecure, insecureSkipVerify bool) ImageOption {
 	return func(opts *options) error {
-		opts.registries = append(opts.registries, registry{
-			repository:         repository,
+		opts.registries = append(opts.registries, reference{
+			prefix:             repository,
 			insecure:           insecure,
 			insecureSkipVerify: insecureSkipVerify,
 		})
@@ -142,15 +142,13 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 	}
 
 	if imageOpts.prevImageRepoName != "" {
-		reg := getRegistry(imageOpts.prevImageRepoName, ri.registries)
-		if err := processPreviousImageOption(ri, imageOpts.prevImageRepoName, platform, reg); err != nil {
+		if err := processPreviousImageOption(ri, imageOpts.prevImageRepoName, platform); err != nil {
 			return nil, err
 		}
 	}
 
 	if imageOpts.baseImageRepoName != "" {
-		reg := getRegistry(imageOpts.prevImageRepoName, ri.registries)
-		if err := processBaseImageOption(ri, imageOpts.baseImageRepoName, platform, reg); err != nil {
+		if err := processBaseImageOption(ri, imageOpts.baseImageRepoName, platform); err != nil {
 			return nil, err
 		}
 	}
@@ -174,17 +172,19 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 	return ri, nil
 }
 
-func getRegistry(repoName string, registries []registry) *registry {
+func getRegistry(repoName string, registries []reference) reference {
 	for _, r := range registries {
-		if strings.HasPrefix(repoName, r.repository) {
-			return &r
+		if strings.HasPrefix(repoName, r.prefix) {
+			return r
 		}
 	}
 
-	return nil
+	return reference{}
 }
 
-func processPreviousImageOption(ri *Image, prevImageRepoName string, platform imgutil.Platform, reg *registry) error {
+func processPreviousImageOption(ri *Image, prevImageRepoName string, platform imgutil.Platform) error {
+	reg := getRegistry(prevImageRepoName, ri.registries)
+
 	prevImage, err := newV1Image(ri.keychain, prevImageRepoName, platform, reg)
 	if err != nil {
 		return err
@@ -200,7 +200,9 @@ func processPreviousImageOption(ri *Image, prevImageRepoName string, platform im
 	return nil
 }
 
-func processBaseImageOption(ri *Image, baseImageRepoName string, platform imgutil.Platform, reg *registry) error {
+func processBaseImageOption(ri *Image, baseImageRepoName string, platform imgutil.Platform) error {
+	reg := getRegistry(baseImageRepoName, ri.registries)
+
 	baseImage, err := newV1Image(ri.keychain, baseImageRepoName, platform, reg)
 	if err != nil {
 		return err
@@ -241,8 +243,8 @@ func prepareNewWindowsImage(ri *Image) error {
 	return nil
 }
 
-func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platform, reg *registry) (v1.Image, error) {
-	ref, auth, err := referenceForRepoName(keychain, repoName, reg)
+func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platform, reg reference) (v1.Image, error) {
+	ref, auth, err := referenceForRepoName(keychain, repoName, reg.insecure)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +257,7 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 
 	opts := []remote.Option{remote.WithAuth(auth), remote.WithPlatform(v1Platform)}
 	// #nosec G402
-	if reg != nil && reg.insecureSkipVerify {
+	if reg.insecureSkipVerify {
 		opts = append(opts, remote.WithTransport(&http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
@@ -311,10 +313,10 @@ func defaultPlatform() imgutil.Platform {
 	}
 }
 
-func referenceForRepoName(keychain authn.Keychain, ref string, reg *registry) (name.Reference, authn.Authenticator, error) {
+func referenceForRepoName(keychain authn.Keychain, ref string, insecure bool) (name.Reference, authn.Authenticator, error) {
 	var auth authn.Authenticator
 	opts := []name.Option{name.WeakValidation}
-	if reg != nil && reg.insecure {
+	if insecure {
 		opts = append(opts, name.Insecure)
 	}
 	r, err := name.ParseReference(ref, opts...)
@@ -445,7 +447,7 @@ func (i *Image) Found() bool {
 
 func (i *Image) CheckReadWriteAccess() bool {
 	reg := getRegistry(i.repoName, i.registries)
-	ref, _, err := referenceForRepoName(i.keychain, i.repoName, reg)
+	ref, _, err := referenceForRepoName(i.keychain, i.repoName, reg.insecure)
 	if err != nil {
 		return false
 	}
@@ -466,7 +468,7 @@ func (i *Image) CheckReadAccess() bool {
 
 func (i *Image) found() (*v1.Descriptor, error) {
 	reg := getRegistry(i.repoName, i.registries)
-	ref, auth, err := referenceForRepoName(i.keychain, i.repoName, reg)
+	ref, auth, err := referenceForRepoName(i.keychain, i.repoName, reg.insecure)
 	if err != nil {
 		return nil, err
 	}
@@ -780,7 +782,7 @@ func (i *Image) Save(additionalNames ...string) error {
 
 func (i *Image) doSave(imageName string) error {
 	reg := getRegistry(i.repoName, i.registries)
-	ref, auth, err := referenceForRepoName(i.keychain, imageName, reg)
+	ref, auth, err := referenceForRepoName(i.keychain, imageName, reg.insecure)
 	if err != nil {
 		return err
 	}
@@ -793,7 +795,7 @@ func (i *Image) Delete() error {
 		return err
 	}
 	reg := getRegistry(i.repoName, i.registries)
-	ref, auth, err := referenceForRepoName(i.keychain, id.String(), reg)
+	ref, auth, err := referenceForRepoName(i.keychain, id.String(), reg.insecure)
 	if err != nil {
 		return err
 	}
