@@ -34,7 +34,7 @@ type Image struct {
 	prevLayers          []v1.Layer
 	createdAt           time.Time
 	addEmptyLayerOnSave bool
-	registries          []reference
+	registrySettings    []registrySetting
 }
 
 type options struct {
@@ -43,10 +43,10 @@ type options struct {
 	prevImageRepoName   string
 	createdAt           time.Time
 	addEmptyLayerOnSave bool
-	registries          []reference
+	registrySettings    []registrySetting
 }
 
-type reference struct {
+type registrySetting struct {
 	prefix             string
 	insecure           bool
 	insecureSkipVerify bool
@@ -102,10 +102,11 @@ func AddEmptyLayerOnSave() ImageOption {
 	}
 }
 
-// WithRegistry register a registry.
-func WithRegistry(repository string, insecure, insecureSkipVerify bool) ImageOption {
+// WithRegistrySetting registers options to use when accessing images in a registry in order to construct
+// the image. The referenced images could include the base image, a previous image, or the image itself.
+func WithRegistrySetting(repository string, insecure, insecureSkipVerify bool) ImageOption {
 	return func(opts *options) error {
-		opts.registries = append(opts.registries, reference{
+		opts.registrySettings = append(opts.registrySettings, registrySetting{
 			prefix:             repository,
 			insecure:           insecure,
 			insecureSkipVerify: insecureSkipVerify,
@@ -138,7 +139,7 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 		repoName:            repoName,
 		image:               image,
 		addEmptyLayerOnSave: imageOpts.addEmptyLayerOnSave,
-		registries:          imageOpts.registries,
+		registrySettings:    imageOpts.registrySettings,
 	}
 
 	if imageOpts.prevImageRepoName != "" {
@@ -172,18 +173,18 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 	return ri, nil
 }
 
-func getRegistry(repoName string, registries []reference) reference {
-	for _, r := range registries {
+func getRegistry(repoName string, registrySettings []registrySetting) registrySetting {
+	for _, r := range registrySettings {
 		if strings.HasPrefix(repoName, r.prefix) {
 			return r
 		}
 	}
 
-	return reference{}
+	return registrySetting{}
 }
 
 func processPreviousImageOption(ri *Image, prevImageRepoName string, platform imgutil.Platform) error {
-	reg := getRegistry(prevImageRepoName, ri.registries)
+	reg := getRegistry(prevImageRepoName, ri.registrySettings)
 
 	prevImage, err := newV1Image(ri.keychain, prevImageRepoName, platform, reg)
 	if err != nil {
@@ -201,7 +202,7 @@ func processPreviousImageOption(ri *Image, prevImageRepoName string, platform im
 }
 
 func processBaseImageOption(ri *Image, baseImageRepoName string, platform imgutil.Platform) error {
-	reg := getRegistry(baseImageRepoName, ri.registries)
+	reg := getRegistry(baseImageRepoName, ri.registrySettings)
 
 	baseImage, err := newV1Image(ri.keychain, baseImageRepoName, platform, reg)
 	if err != nil {
@@ -243,7 +244,7 @@ func prepareNewWindowsImage(ri *Image) error {
 	return nil
 }
 
-func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platform, reg reference) (v1.Image, error) {
+func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platform, reg registrySetting) (v1.Image, error) {
 	ref, auth, err := referenceForRepoName(keychain, repoName, reg.insecure)
 	if err != nil {
 		return nil, err
@@ -446,7 +447,7 @@ func (i *Image) Found() bool {
 }
 
 func (i *Image) CheckReadWriteAccess() bool {
-	reg := getRegistry(i.repoName, i.registries)
+	reg := getRegistry(i.repoName, i.registrySettings)
 	ref, _, err := referenceForRepoName(i.keychain, i.repoName, reg.insecure)
 	if err != nil {
 		return false
@@ -467,7 +468,7 @@ func (i *Image) CheckReadAccess() bool {
 }
 
 func (i *Image) found() (*v1.Descriptor, error) {
-	reg := getRegistry(i.repoName, i.registries)
+	reg := getRegistry(i.repoName, i.registrySettings)
 	ref, auth, err := referenceForRepoName(i.keychain, i.repoName, reg.insecure)
 	if err != nil {
 		return nil, err
@@ -781,7 +782,7 @@ func (i *Image) Save(additionalNames ...string) error {
 }
 
 func (i *Image) doSave(imageName string) error {
-	reg := getRegistry(i.repoName, i.registries)
+	reg := getRegistry(i.repoName, i.registrySettings)
 	ref, auth, err := referenceForRepoName(i.keychain, imageName, reg.insecure)
 	if err != nil {
 		return err
@@ -794,7 +795,7 @@ func (i *Image) Delete() error {
 	if err != nil {
 		return err
 	}
-	reg := getRegistry(i.repoName, i.registries)
+	reg := getRegistry(i.repoName, i.registrySettings)
 	ref, auth, err := referenceForRepoName(i.keychain, id.String(), reg.insecure)
 	if err != nil {
 		return err
