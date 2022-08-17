@@ -1761,6 +1761,107 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#SaveFile", func() {
+		var (
+			img      imgutil.Image
+			tarPath1 string
+			tarPath2 string
+			repoName = newTestImageName()
+		)
+
+		it.After(func() {
+			os.Remove(tarPath1)
+			os.Remove(tarPath2)
+		})
+
+		saveFileTest := func() {
+			err := img.AddLayer(tarPath1)
+			h.AssertNil(t, err)
+
+			err = img.AddLayer(tarPath2)
+			h.AssertNil(t, err)
+
+			path, err := img.SaveFile()
+			h.AssertNil(t, err)
+			defer os.Remove(path)
+
+			f, err := os.Open(path)
+			h.AssertNil(t, err)
+			defer f.Close()
+
+			_, err = dockerClient.ImageLoad(context.TODO(), f, true)
+			h.AssertNil(t, err)
+			defer h.DockerRmi(dockerClient, img.Name())
+
+			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
+			h.AssertNil(t, err)
+
+			for _, diffID := range inspect.RootFS.Layers {
+				rc, err := img.GetLayer(diffID)
+				h.AssertNil(t, err)
+				rc.Close()
+			}
+		}
+
+		when("no previous image or base image is configured", func() {
+			it.Before(func() {
+				var err error
+
+				img, err = local.NewImage(repoName, dockerClient)
+				h.AssertNil(t, err)
+
+				tarPath1, err = h.CreateSingleFileLayerTar("foo", "foo", daemonOS)
+				h.AssertNil(t, err)
+
+				tarPath2, err = h.CreateSingleFileLayerTar("bar", "bar", daemonOS)
+				h.AssertNil(t, err)
+			})
+
+			it("creates an archive that can be imported and has correct diffIDs", saveFileTest)
+		})
+
+		when("previous image is configured and layers are reused", func() {
+			it.Before(func() {
+				var err error
+
+				img, err = local.NewImage(repoName, dockerClient, local.WithPreviousImage(runnableBaseImageName))
+				h.AssertNil(t, err)
+
+				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), runnableBaseImageName)
+				h.AssertNil(t, err)
+				h.AssertTrue(t, func() bool { return len(inspect.RootFS.Layers) > 0 })
+
+				err = img.ReuseLayer(inspect.RootFS.Layers[0])
+				h.AssertNil(t, err)
+
+				tarPath1, err = h.CreateSingleFileLayerTar("foo", "foo", daemonOS)
+				h.AssertNil(t, err)
+
+				tarPath2, err = h.CreateSingleFileLayerTar("bar", "bar", daemonOS)
+				h.AssertNil(t, err)
+			})
+
+			it("creates an archive that can be imported and has correct diffIDs", saveFileTest)
+		})
+
+		when("base image is configured", func() {
+			it.Before(func() {
+				var err error
+
+				img, err = local.NewImage(repoName, dockerClient, local.FromBaseImage(runnableBaseImageName))
+				h.AssertNil(t, err)
+
+				tarPath1, err = h.CreateSingleFileLayerTar("foo", "foo", daemonOS)
+				h.AssertNil(t, err)
+
+				tarPath2, err = h.CreateSingleFileLayerTar("bar", "bar", daemonOS)
+				h.AssertNil(t, err)
+			})
+
+			it("creates an archive that can be imported and has correct diffIDs", saveFileTest)
+		})
+	})
+
 	when("#Found", func() {
 		when("it exists", func() {
 			var repoName = newTestImageName()

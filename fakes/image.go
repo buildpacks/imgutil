@@ -254,6 +254,10 @@ func (i *Image) Save(additionalNames ...string) error {
 	return nil
 }
 
+func (i *Image) SaveFile() (string, error) {
+	return "", errors.New("not yet implemented")
+}
+
 func (i *Image) copyLayer(path, newPath string) error {
 	src, err := os.Open(filepath.Clean(path))
 	if err != nil {

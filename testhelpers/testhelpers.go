@@ -115,6 +115,13 @@ func AssertNil(t *testing.T, actual interface{}) {
 	}
 }
 
+func AssertTrue(t *testing.T, p func() bool) {
+	t.Helper()
+	if !p() {
+		t.Fatal("Expected predicate to be true")
+	}
+}
+
 var dockerCliVal dockercli.CommonAPIClient
 var dockerCliOnce sync.Once
 
