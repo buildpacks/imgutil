@@ -599,7 +599,7 @@ func (i *Image) SaveFile() (string, error) {
 }
 
 func layerNameFromPath(path string) string {
-	return fmt.Sprintf("%x.tar", sha256.Sum256([]byte(path)))
+	return fmt.Sprintf("/%x.tar", sha256.Sum256([]byte(path)))
 }
 
 func (i *Image) doSave() (types.ImageInspect, error) {
@@ -662,7 +662,7 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 			}
 			layerPaths = append(layerPaths, layerName)
 		} else {
-			layerName := fmt.Sprintf("/%x.tar", sha256.Sum256([]byte(path)))
+			layerName := layerNameFromPath(path)
 			f, err := os.Open(filepath.Clean(path))
 			if err != nil {
 				return types.ImageInspect{}, err

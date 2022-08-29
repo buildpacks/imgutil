@@ -1810,10 +1810,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				img, err = local.NewImage(repoName, dockerClient)
 				h.AssertNil(t, err)
 
-				tarPath1, err = h.CreateSingleFileLayerTar("foo", "foo", daemonOS)
+				tarPath1, err = h.CreateSingleFileLayerTar("/foo", "foo", daemonOS)
 				h.AssertNil(t, err)
 
-				tarPath2, err = h.CreateSingleFileLayerTar("bar", "bar", daemonOS)
+				tarPath2, err = h.CreateSingleFileLayerTar("/bar", "bar", daemonOS)
 				h.AssertNil(t, err)
 			})
 
@@ -1834,10 +1834,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				err = img.ReuseLayer(inspect.RootFS.Layers[0])
 				h.AssertNil(t, err)
 
-				tarPath1, err = h.CreateSingleFileLayerTar("foo", "foo", daemonOS)
+				tarPath1, err = h.CreateSingleFileLayerTar("/foo", "foo", daemonOS)
 				h.AssertNil(t, err)
 
-				tarPath2, err = h.CreateSingleFileLayerTar("bar", "bar", daemonOS)
+				tarPath2, err = h.CreateSingleFileLayerTar("/bar", "bar", daemonOS)
 				h.AssertNil(t, err)
 			})
 
@@ -1851,10 +1851,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				img, err = local.NewImage(repoName, dockerClient, local.FromBaseImage(runnableBaseImageName))
 				h.AssertNil(t, err)
 
-				tarPath1, err = h.CreateSingleFileLayerTar("foo", "foo", daemonOS)
+				tarPath1, err = h.CreateSingleFileLayerTar("/foo", "foo", daemonOS)
 				h.AssertNil(t, err)
 
-				tarPath2, err = h.CreateSingleFileLayerTar("bar", "bar", daemonOS)
+				tarPath2, err = h.CreateSingleFileLayerTar("/bar", "bar", daemonOS)
 				h.AssertNil(t, err)
 			})
 
