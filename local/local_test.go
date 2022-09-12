@@ -1805,6 +1805,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					fmt.Println("Image:", tag)
 				}
 			}
+
 			/* DEBUG */
 			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
 			h.AssertNil(t, err)
