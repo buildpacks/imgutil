@@ -1793,6 +1793,19 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, err)
 			defer h.DockerRmi(dockerClient, img.Name())
 
+			/* DEBUG */
+			fmt.Println("RepoName:", repoName)
+
+			images, err := dockerClient.ImageList(context.TODO(), types.ImageListOptions{All: true})
+			if err != nil {
+				return
+			}
+			for _, image := range images {
+				for _, tag := range image.RepoTags {
+					fmt.Println("Image:", tag)
+				}
+			}
+			/* DEBUG */
 			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
 			h.AssertNil(t, err)
 
