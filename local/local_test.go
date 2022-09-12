@@ -1793,20 +1793,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, err)
 			defer h.DockerRmi(dockerClient, img.Name())
 
-			/* DEBUG */
-			fmt.Println("RepoName:", repoName)
-
-			images, err := dockerClient.ImageList(context.TODO(), types.ImageListOptions{All: true})
-			if err != nil {
-				return
-			}
-			for _, image := range images {
-				for _, tag := range image.RepoTags {
-					fmt.Println("Image:", tag)
-				}
-			}
-
-			/* DEBUG */
 			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
 			h.AssertNil(t, err)
 
@@ -1845,7 +1831,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				h.AssertTrue(t, func() bool { return len(inspect.RootFS.Layers) > 0 })
 
-				err = img.ReuseLayer(inspect.RootFS.Layers[0])
+				baseTopLayer := inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
+				err = img.ReuseLayer(baseTopLayer)
 				h.AssertNil(t, err)
 
 				tarPath1, err = h.CreateSingleFileLayerTar("/foo", "foo", daemonOS)
