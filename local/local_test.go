@@ -1827,12 +1827,13 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				img, err = local.NewImage(repoName, dockerClient, local.WithPreviousImage(runnableBaseImageName))
 				h.AssertNil(t, err)
 
-				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), runnableBaseImageName)
+				prevImage, err := local.NewImage(newTestImageName(), dockerClient, local.FromBaseImage(runnableBaseImageName))
 				h.AssertNil(t, err)
-				h.AssertTrue(t, func() bool { return len(inspect.RootFS.Layers) > 0 })
 
-				baseTopLayer := inspect.RootFS.Layers[len(inspect.RootFS.Layers)-1]
-				err = img.ReuseLayer(baseTopLayer)
+				prevImageTopLayer, err := prevImage.TopLayer()
+				h.AssertNil(t, err)
+
+				err = img.ReuseLayer(prevImageTopLayer)
 				h.AssertNil(t, err)
 
 				tarPath1, err = h.CreateSingleFileLayerTar("/foo", "foo", daemonOS)
