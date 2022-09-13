@@ -2,7 +2,7 @@ module github.com/buildpacks/imgutil
 
 require (
 	github.com/docker/docker v20.10.18+incompatible
-	github.com/google/go-cmp v0.5.8
+	github.com/google/go-cmp v0.5.9
 	github.com/google/go-containerregistry v0.11.0
 	github.com/pkg/errors v0.9.1
 	github.com/sclevine/spec v1.4.0
