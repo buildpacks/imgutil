@@ -542,7 +542,7 @@ func (i *Image) SaveFile() (string, error) {
 			return errors.Wrap(err, "failed to generate config file")
 		}
 
-		configName := fmt.Sprintf("%x.json", sha256.Sum256(config))
+		configName := fmt.Sprintf("/%x.json", sha256.Sum256(config))
 		if err := addTextToTar(tw, configName, config); err != nil {
 			return errors.Wrap(err, "failed to add config file to tar archive")
 		}
@@ -555,7 +555,7 @@ func (i *Image) SaveFile() (string, error) {
 				}
 				defer f.Close()
 
-				layerName := layerNameFromPath(path)
+				layerName := fmt.Sprintf("/%x.tar", sha256.Sum256([]byte(path)))
 				if err := addFileToTar(tw, layerName, f); err != nil {
 					return errors.Wrapf(err, "failed to add layer to tar archive from path: %s", path)
 				}
@@ -575,7 +575,7 @@ func (i *Image) SaveFile() (string, error) {
 
 		layers := make([]string, 0, len(i.layerPaths))
 		for _, path := range i.layerPaths {
-			layers = append(layers, layerNameFromPath(path))
+			layers = append(layers, fmt.Sprintf("/%x.tar", sha256.Sum256([]byte(path))))
 		}
 
 		manifest, err := json.Marshal([]map[string]interface{}{
@@ -589,7 +589,7 @@ func (i *Image) SaveFile() (string, error) {
 			return errors.Wrap(err, "failed to create manifest")
 		}
 
-		if err := addTextToTar(tw, "manifest.json", manifest); err != nil {
+		if err := addTextToTar(tw, "/manifest.json", manifest); err != nil {
 			return errors.Wrap(err, "failed to add manifest to tar archive")
 		}
 
@@ -609,10 +609,6 @@ func GetTarWriter(osType string, writer io.Writer) TarWriter {
 		return layer.NewWindowsWriter(writer)
 	}
 	return tar.NewWriter(writer)
-}
-
-func layerNameFromPath(path string) string {
-	return fmt.Sprintf("/%x.tar", sha256.Sum256([]byte(path)))
 }
 
 func (i *Image) doSave() (types.ImageInspect, error) {
@@ -675,7 +671,7 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 			}
 			layerPaths = append(layerPaths, layerName)
 		} else {
-			layerName := layerNameFromPath(path)
+			layerName := fmt.Sprintf("/%x.tar", sha256.Sum256([]byte(path)))
 			f, err := os.Open(filepath.Clean(path))
 			if err != nil {
 				return types.ImageInspect{}, err
