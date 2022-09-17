@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/buildpacks/imgutil/local"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -20,8 +21,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/buildpacks/imgutil/layer"
 
 	dockertypes "github.com/docker/docker/api/types"
 	dockercli "github.com/docker/docker/client"
@@ -251,19 +250,6 @@ func CreateSingleFileTarReader(path, txt string) io.ReadCloser {
 	return pr
 }
 
-type layerWriter interface {
-	WriteHeader(*tar.Header) error
-	Write([]byte) (int, error)
-	Close() error
-}
-
-func getLayerWriter(osType string, file *os.File) layerWriter {
-	if osType == "windows" {
-		return layer.NewWindowsWriter(file)
-	}
-	return tar.NewWriter(file)
-}
-
 func CreateSingleFileLayerTar(layerPath, txt, osType string) (string, error) {
 	tarFile, err := ioutil.TempFile("", "create-single-file-layer-tar-path")
 	if err != nil {
@@ -271,7 +257,7 @@ func CreateSingleFileLayerTar(layerPath, txt, osType string) (string, error) {
 	}
 	defer tarFile.Close()
 
-	tw := getLayerWriter(osType, tarFile)
+	tw := local.GetTarWriter(osType, tarFile)
 
 	if err := tw.WriteHeader(&tar.Header{Name: layerPath, Size: int64(len(txt)), Mode: 0644}); err != nil {
 		return "", err

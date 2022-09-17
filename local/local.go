@@ -58,6 +58,12 @@ type options struct {
 	createdAt         time.Time
 }
 
+type TarWriter interface {
+	WriteHeader(*tar.Header) error
+	Write([]byte) (int, error)
+	Close() error
+}
+
 // WithPreviousImage loads an existing image as a source for reusable layers.
 // Use with ReuseLayer().
 // Ignored if image is not found.
@@ -528,7 +534,7 @@ func (i *Image) SaveFile() (string, error) {
 	errs.Go(func() error {
 		defer pw.Close()
 
-		tw := tar.NewWriter(pw)
+		tw := GetTarWriter(i.inspect.Os, pw)
 		defer tw.Close()
 
 		config, err := i.newConfigFile()
@@ -596,6 +602,13 @@ func (i *Image) SaveFile() (string, error) {
 	}
 
 	return f.Name(), nil
+}
+
+func GetTarWriter(osType string, writer io.Writer) TarWriter {
+	if osType == "windows" {
+		return layer.NewWindowsWriter(writer)
+	}
+	return tar.NewWriter(writer)
 }
 
 func layerNameFromPath(path string) string {
@@ -815,7 +828,7 @@ func (i *Image) downloadBaseLayers() error {
 	return nil
 }
 
-func addTextToTar(tw *tar.Writer, name string, contents []byte) error {
+func addTextToTar(tw TarWriter, name string, contents []byte) error {
 	hdr := &tar.Header{Name: name, Mode: 0644, Size: int64(len(contents))}
 	if err := tw.WriteHeader(hdr); err != nil {
 		return err
@@ -824,7 +837,7 @@ func addTextToTar(tw *tar.Writer, name string, contents []byte) error {
 	return err
 }
 
-func addFileToTar(tw *tar.Writer, name string, contents *os.File) error {
+func addFileToTar(tw TarWriter, name string, contents *os.File) error {
 	fi, err := contents.Stat()
 	if err != nil {
 		return err
