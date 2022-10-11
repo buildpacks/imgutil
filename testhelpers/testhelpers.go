@@ -9,7 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/buildpacks/imgutil/local"
+	"github.com/buildpacks/imgutil/layer"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -250,6 +250,19 @@ func CreateSingleFileTarReader(path, txt string) io.ReadCloser {
 	return pr
 }
 
+type layerWriter interface {
+	WriteHeader(*tar.Header) error
+	Write([]byte) (int, error)
+	Close() error
+}
+
+func getLayerWriter(osType string, file *os.File) layerWriter {
+	if osType == "windows" {
+		return layer.NewWindowsWriter(file)
+	}
+	return tar.NewWriter(file)
+}
+
 func CreateSingleFileLayerTar(layerPath, txt, osType string) (string, error) {
 	tarFile, err := ioutil.TempFile("", "create-single-file-layer-tar-path")
 	if err != nil {
@@ -257,7 +270,7 @@ func CreateSingleFileLayerTar(layerPath, txt, osType string) (string, error) {
 	}
 	defer tarFile.Close()
 
-	tw := local.GetTarWriter(osType, tarFile)
+	tw := getLayerWriter(osType, tarFile)
 
 	if err := tw.WriteHeader(&tar.Header{Name: layerPath, Size: int64(len(txt)), Mode: 0644}); err != nil {
 		return "", err
