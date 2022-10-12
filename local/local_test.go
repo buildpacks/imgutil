@@ -1775,11 +1775,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		saveFileTest := func() {
-			err := img.AddLayer(tarPath1)
-			h.AssertNil(t, err)
-
-			err = img.AddLayer(tarPath2)
-			h.AssertNil(t, err)
+			h.AssertNil(t, img.AddLayer(tarPath1))
+			h.AssertNil(t, img.AddLayer(tarPath2))
 
 			path, err := img.SaveFile()
 			h.AssertNil(t, err)
@@ -1824,16 +1821,23 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it.Before(func() {
 				var err error
 
-				img, err = local.NewImage(repoName, dockerClient, local.WithPreviousImage(runnableBaseImageName))
+				prevImg, err := local.NewImage(newTestImageName(), dockerClient)
 				h.AssertNil(t, err)
 
-				prevImage, err := local.NewImage(newTestImageName(), dockerClient, local.FromBaseImage(runnableBaseImageName))
+				prevImgBase, err := h.CreateSingleFileLayerTar("/root", "root", daemonOS)
 				h.AssertNil(t, err)
 
-				prevImageTopLayer, err := prevImage.TopLayer()
+				h.AssertNil(t, prevImg.AddLayer(prevImgBase))
+				h.AssertNil(t, prevImg.Save())
+				defer h.DockerRmi(dockerClient, prevImg.Name())
+
+				img, err = local.NewImage(repoName, dockerClient, local.WithPreviousImage(prevImg.Name()))
 				h.AssertNil(t, err)
 
-				err = img.ReuseLayer(prevImageTopLayer)
+				prevImgTopLayer, err := prevImg.TopLayer()
+				h.AssertNil(t, err)
+
+				err = img.ReuseLayer(prevImgTopLayer)
 				h.AssertNil(t, err)
 
 				tarPath1, err = h.CreateSingleFileLayerTar("/foo", "foo", daemonOS)
