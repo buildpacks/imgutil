@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/buildpacks/imgutil/layer"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -20,8 +21,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/buildpacks/imgutil/layer"
 
 	dockertypes "github.com/docker/docker/api/types"
 	dockercli "github.com/docker/docker/client"
@@ -112,6 +111,13 @@ func AssertNil(t *testing.T, actual interface{}) {
 	t.Helper()
 	if actual != nil {
 		t.Fatalf("Expected nil: %s", actual)
+	}
+}
+
+func AssertTrue(t *testing.T, p func() bool) {
+	t.Helper()
+	if !p() {
+		t.Fatal("Expected predicate to be true")
 	}
 }
 

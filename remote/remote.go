@@ -781,6 +781,10 @@ func (i *Image) Save(additionalNames ...string) error {
 	return nil
 }
 
+func (i *Image) SaveFile() (string, error) {
+	return "", errors.New("not yet implemented")
+}
+
 func (i *Image) doSave(imageName string) error {
 	reg := getRegistry(i.repoName, i.registrySettings)
 	ref, auth, err := referenceForRepoName(i.keychain, imageName, reg.insecure)
