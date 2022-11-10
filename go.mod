@@ -3,7 +3,7 @@ module github.com/buildpacks/imgutil
 require (
 	github.com/docker/docker v20.10.21+incompatible
 	github.com/google/go-cmp v0.5.9
-	github.com/google/go-containerregistry v0.12.0
+	github.com/google/go-containerregistry v0.12.1
 	github.com/pkg/errors v0.9.1
 	github.com/sclevine/spec v1.4.0
 	golang.org/x/sync v0.1.0
