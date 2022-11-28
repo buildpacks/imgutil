@@ -102,7 +102,7 @@ func HiveBCD() ([]byte, error) {
 	return hiveBytes, nil
 }
 
-//readMinimalHiveContents finds the `minimal` hive binary from the package as there's no way to create this file
+// readMinimalHiveContents finds the `minimal` hive binary from the package as there's no way to create this file
 func readMinimalHiveContents() ([]byte, error) {
 	pkgs, err := packages.Load(&packages.Config{}, "github.com/gabriel-samfira/go-hivex")
 	if err != nil {

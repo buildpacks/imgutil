@@ -123,10 +123,10 @@ func delegator(basicAuthHandler http.Handler, regHandler http.Handler, permissio
 }
 
 // Start creates a docker registry following these rules:
-// - Shared handler will be used, otherwise a new one will be created
-// - By default the shared handler will be wrapped with a read only handler
-// - In case credentials are configured, the shared handler will be wrapped with a basic authentication handler and
-//   if any image privileges were set, then the custom handler will be used to wrap the auth handler.
+//   - Shared handler will be used, otherwise a new one will be created
+//   - By default the shared handler will be wrapped with a read only handler
+//   - In case credentials are configured, the shared handler will be wrapped with a basic authentication handler and
+//     if any image privileges were set, then the custom handler will be used to wrap the auth handler.
 func (r *DockerRegistry) Start(t *testing.T) {
 	t.Helper()
 
