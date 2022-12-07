@@ -49,7 +49,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("name(s) provided", func() {
-			it("creates an image without layers and org.opencontainers.image.ref.name annotation", func() {
+			it("creates an image ignoring the additional name provided", func() {
 				image, err := sparse.NewImage(imagePath, testImage)
 				h.AssertNil(t, err)
 
@@ -63,16 +63,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				// assert additional name
 				index := h.ReadIndexManifest(t, imagePath)
 				h.AssertEq(t, len(index.Manifests), 1)
-				h.AssertEq(t, "my-additional-tag", index.Manifests[0].Annotations["org.opencontainers.image.ref.name"])
-			})
-
-			it("failed on saved when more than one name is provided", func() {
-				image, err := sparse.NewImage(imagePath, testImage)
-				h.AssertNil(t, err)
-
-				// save on disk in OCI
-				err = image.Save("name1", "name2")
-				h.AssertError(t, err, "multiple additional names [name1 name2] are not allow when OCI layout is used")
+				h.AssertEq(t, 0, len(index.Manifests[0].Annotations))
 			})
 		})
 

@@ -3,6 +3,7 @@ package layout
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -180,7 +181,7 @@ func defaultPlatform() imgutil.Platform {
 func (i *Image) Label(key string) (string, error) {
 	cfg, err := i.Image.ConfigFile()
 	if err != nil {
-		return "", errors.Wrapf(err, "getting config file for image at path %q", i.path)
+		return "", fmt.Errorf("getting config for image at path %q: %w", i.path, err)
 	}
 	if cfg == nil {
 		return "", fmt.Errorf("missing config for image at path %q", i.path)
@@ -288,7 +289,7 @@ func (i *Image) Rename(name string) {
 
 // Found tells whether the image exists in the repository by `Name()`.
 func (i *Image) Found() bool {
-	return imageExists(i.path)
+	return ImageExists(i.path)
 }
 
 // Identifier
@@ -299,7 +300,7 @@ func (i *Image) Identifier() (imgutil.Identifier, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting identifier for image at path %q", i.path)
 	}
-	return newIDIdentifier(configFile)
+	return newDigestIdentifier(configFile)
 }
 
 func (i *Image) CreatedAt() (time.Time, error) {
@@ -311,7 +312,7 @@ func (i *Image) CreatedAt() (time.Time, error) {
 }
 
 func (i *Image) Rebase(s string, image imgutil.Image) error {
-	return nil
+	return errors.New("not yet implemented")
 }
 
 func (i *Image) SetLabel(key string, val string) error {
@@ -513,8 +514,13 @@ func findLayerWithSha(layers []v1.Layer, diffID string) (v1.Layer, error) {
 }
 
 func (i *Image) Save(additionalNames ...string) error {
+	return i.SaveAs(i.Name(), additionalNames...)
+}
+
+// SaveAs ignores the image `Name()` method and saves the image according to name & additional names provided to this method
+func (i *Image) SaveAs(name string, additionalNames ...string) error {
 	if len(additionalNames) > 1 {
-		return errors.Errorf("multiple additional names %v are not allow when OCI layout is used", additionalNames)
+		log.Printf("multiple additional names %v are ignored when OCI layout is used", additionalNames)
 	}
 
 	err := i.mutateCreatedAt(i.Image, v1.Time{Time: i.createdAt})
@@ -546,19 +552,14 @@ func (i *Image) Save(additionalNames ...string) error {
 		return errors.Wrap(err, "zeroing history")
 	}
 
-	// initialize path
-	path, err := Write(i.path, empty.Index)
+	// initialize image path
+	path, err := Write(name, empty.Index)
 	if err != nil {
 		return err
 	}
 
-	annotations := map[string]string{}
-	if len(additionalNames) == 1 {
-		annotations["org.opencontainers.image.ref.name"] = additionalNames[0]
-	}
-
 	var diagnostics []imgutil.SaveDiagnostic
-	err = path.AppendImage(i.Image, WithAnnotations(annotations))
+	err = path.AppendImage(i.Image)
 	if err != nil {
 		diagnostics = append(diagnostics, imgutil.SaveDiagnostic{ImageName: i.Name(), Cause: err})
 	}
@@ -608,6 +609,17 @@ func (i *Image) Layers() ([]v1.Layer, error) {
 	return retLayers, nil
 }
 
+func ImageExists(path string) bool {
+	if !pathExists(path) {
+		return false
+	}
+	index := filepath.Join(path, "index.json")
+	if _, err := os.Stat(index); os.IsNotExist(err) {
+		return false
+	}
+	return true
+}
+
 func hasData(layer v1.Layer) bool {
 	_, err := layer.Compressed()
 	return err == nil
@@ -622,17 +634,6 @@ func pathExists(path string) bool {
 	return false
 }
 
-func imageExists(path string) bool {
-	if !pathExists(path) {
-		return false
-	}
-	index := filepath.Join(path, "index.json")
-	if _, err := os.Stat(index); os.IsNotExist(err) {
-		return false
-	}
-	return true
-}
-
 func newV1Image(path string, platform imgutil.Platform) (v1.Image, error) {
 	var (
 		image  v1.Image
@@ -640,7 +641,7 @@ func newV1Image(path string, platform imgutil.Platform) (v1.Image, error) {
 		err    error
 	)
 
-	if imageExists(path) {
+	if ImageExists(path) {
 		layout, err = FromPath(path)
 		if err != nil {
 			return nil, errors.Wrap(err, "loading layout from path new")
@@ -663,7 +664,7 @@ func newV1Image(path string, platform imgutil.Platform) (v1.Image, error) {
 	}
 	return &Image{
 		Image: image,
-		path:  path, // TODO: is this needed?
+		path:  path,
 	}, nil
 }
 

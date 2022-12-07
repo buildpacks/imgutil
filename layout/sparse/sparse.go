@@ -1,9 +1,10 @@
 package sparse
 
 import (
+	"log"
+
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
-	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil/layout"
 
@@ -12,28 +13,28 @@ import (
 
 var _ imgutil.Image = (*Image)(nil)
 
+// Image is a struct created to overrides the Save() method of the image.
+// a sparse Image is saved on disk but does not include any layers in the `blobs` directory.
 type Image struct {
 	layout.Image
-	underlyingImage v1.Image
 }
 
 // NewImage returns a new Image saved on disk that can be modified
 func NewImage(path string, from v1.Image) (*Image, error) {
-	img, err := layout.NewImage(path)
+	img, err := layout.NewImage(path, layout.FromBaseImage(from))
 	if err != nil {
 		return nil, err
 	}
 
 	image := &Image{
-		Image:           *img,
-		underlyingImage: from,
+		Image: *img,
 	}
 	return image, nil
 }
 
 func (i *Image) Save(additionalNames ...string) error {
 	if len(additionalNames) > 1 {
-		return errors.Errorf("multiple additional names %v are not allow when OCI layout is used", additionalNames)
+		log.Printf("multiple additional names %v are ignored when OCI layout is used", additionalNames)
 	}
 
 	layoutPath, err := layout.Write(i.Name(), empty.Index)
@@ -41,13 +42,8 @@ func (i *Image) Save(additionalNames ...string) error {
 		return err
 	}
 
-	annotations := map[string]string{}
-	if len(additionalNames) == 1 {
-		annotations["org.opencontainers.image.ref.name"] = additionalNames[0]
-	}
-
 	var diagnostics []imgutil.SaveDiagnostic
-	err = layoutPath.AppendImage(i.underlyingImage, layout.WithoutLayers(), layout.WithAnnotations(annotations))
+	err = layoutPath.AppendImage(i, layout.WithoutLayers())
 	if err != nil {
 		diagnostics = append(diagnostics, imgutil.SaveDiagnostic{ImageName: i.Name(), Cause: err})
 	}

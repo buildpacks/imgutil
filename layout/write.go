@@ -91,12 +91,6 @@ func (l Path) appendImage(img v1.Image, annotations map[string]string) error {
 	return l.writeImageWithoutLayers(img, annotations)
 }
 
-// writeImage mimics GGCR's `sparse` writeImage in that it writes an underlyingImage config and manifest,
-// but it does not write any layers in the `blobs` directory.
-// The returned underlyingImage will return layers when Layers(), LayerByDiffID(), or LayerByDigest() are called,
-// but the returned layer will error when DiffID(), Compressed(), or Uncompressed() are called.
-// This is useful when we need to satisfy the v1.Image interface but do not need to access any layers,
-// such as when extending base images with kaniko.
 func (l Path) writeImage(img v1.Image) error {
 	// Write the config.
 	cfgName, err := img.ConfigName()

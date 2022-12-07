@@ -452,7 +452,10 @@ func RemoteRunnableBaseImage(t *testing.T) v1.Image {
 		}
 		opts = append(opts, remote.WithPlatform(windowsPlatform))
 	}
+	return RemoteImage(t, testImageName, opts)
+}
 
+func RemoteImage(t *testing.T, testImageName string, opts []remote.Option) v1.Image {
 	r, err := name.ParseReference(testImageName, name.WeakValidation)
 	AssertNil(t, err)
 
@@ -524,7 +527,6 @@ func ReadManifestAndConfigFile(t *testing.T, path string) (*v1.Manifest, *v1.Con
 	index := ReadIndexManifest(t, path)
 	AssertEq(t, len(index.Manifests), 1)
 
-	// TODO add platform to select the Manifest
 	manifest := ReadManifest(t, index.Manifests[0].Digest, path)
 	configFile := ReadConfigFile(t, manifest, path)
 	return manifest, configFile

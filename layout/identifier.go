@@ -7,18 +7,18 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 )
 
-type IDIdentifier struct {
-	ImageID string
+type DigestIdentifier struct {
+	Digest string
 }
 
-func newIDIdentifier(configFile *v1.ConfigFile) (IDIdentifier, error) {
-	return IDIdentifier{
-		ImageID: "sha256:" + asSha256(configFile),
+func newDigestIdentifier(configFile *v1.ConfigFile) (DigestIdentifier, error) {
+	return DigestIdentifier{
+		Digest: "sha256:" + asSha256(configFile),
 	}, nil
 }
 
-func (i IDIdentifier) String() string {
-	return i.ImageID
+func (i DigestIdentifier) String() string {
+	return i.Digest
 }
 
 func asSha256(o interface{}) string {
