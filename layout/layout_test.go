@@ -34,7 +34,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 	it.Before(func() {
 		// creates a v1.Image from a remote repository
-		testImage = h.CreateRemoteImage(t)
+		testImage = h.RemoteRunnableBaseImage(t)
 
 		// creates the directory to save all the OCI images on disk
 		tmpDir, err = os.MkdirTemp("", "layout")

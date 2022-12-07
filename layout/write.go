@@ -17,12 +17,11 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 )
 
-// AppendImage mimics GGCR's `sparse` AppendImage in that it appends an underlyingImage to a `layout.Path`,
-// but the underlyingImage appended does not include any layers in the `blobs` directory.
-// The returned underlyingImage will return layers when Layers(), LayerByDiffID(), or LayerByDigest() are called,
+// AppendImage mimics GGCR's AppendImage in that it appends an image to a `layout.Path`,
+// but the image appended does not include any layers in the `blobs` directory.
+// The returned image will return layers when Layers(), LayerByDiffID(), or LayerByDigest() are called,
 // but the returned layer will error when DiffID(), Compressed(), or Uncompressed() are called.
-// This is useful when we need to satisfy the v1.Image interface but do not need to access any layers, such as when extending
-// base images with kaniko.
+// This is useful when we need to satisfy the v1.Image interface but do not need to access any layers.
 func (l Path) AppendImage(img v1.Image, ops ...Option) error {
 	o := &options{}
 	for _, op := range ops {
@@ -190,7 +189,7 @@ func (l Path) writeBlob(hash v1.Hash, size int64, rc io.ReadCloser, renamer func
 		panic("writeBlob called an invalid hash and no renamer")
 	}
 
-	dir := l.path("blobs", hash.Algorithm)
+	dir := l.append("blobs", hash.Algorithm)
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil && !os.IsExist(err) {
 		return err
 	}
@@ -258,6 +257,6 @@ func (l Path) writeBlob(hash v1.Hash, size int64, rc io.ReadCloser, renamer func
 		return fmt.Errorf("error getting final digest of layer: %w", err)
 	}
 
-	renamePath := l.path("blobs", finalHash.Algorithm, finalHash.Hex)
+	renamePath := l.append("blobs", finalHash.Algorithm, finalHash.Hex)
 	return os.Rename(w.Name(), renamePath)
 }

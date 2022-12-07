@@ -26,7 +26,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	)
 
 	it.Before(func() {
-		testImage = h.CreateRemoteImage(t)
+		testImage = h.RemoteRunnableBaseImage(t)
 
 		// creates the directory to save all the OCI images on disk
 		tmpDir, err = os.MkdirTemp("", "layout-sparse")
@@ -48,7 +48,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			os.RemoveAll(imagePath)
 		})
 
-		when("additional names are provided", func() {
+		when("name(s) provided", func() {
 			it("creates an image without layers and org.opencontainers.image.ref.name annotation", func() {
 				image, err := sparse.NewImage(imagePath, testImage)
 				h.AssertNil(t, err)

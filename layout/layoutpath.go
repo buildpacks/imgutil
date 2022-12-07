@@ -29,7 +29,7 @@ func WithAnnotations(annotations map[string]string) Option {
 	}
 }
 
-func (l Path) path(elem ...string) string {
+func (l Path) append(elem ...string) string {
 	complete := []string{string(l.Path)}
 	return filepath.Join(append(complete, elem...)...)
 }

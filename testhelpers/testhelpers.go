@@ -438,7 +438,7 @@ func RandomLayer(t *testing.T, tmpDir string) (path string, sha string, contents
 	return path, "sha256:" + sha, contentsBuf.Bytes()
 }
 
-func CreateRemoteImage(t *testing.T) v1.Image {
+func RemoteRunnableBaseImage(t *testing.T) v1.Image {
 	testImageName := "busybox"
 	var opts []remote.Option
 
