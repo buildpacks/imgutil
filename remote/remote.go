@@ -727,9 +727,13 @@ func findLayerWithSha(layers []v1.Layer, diffID string) (v1.Layer, error) {
 }
 
 func (i *Image) Save(additionalNames ...string) error {
+	return i.SaveAs(i.Name(), additionalNames...)
+}
+
+func (i *Image) SaveAs(name string, additionalNames ...string) error {
 	var err error
 
-	allNames := append([]string{i.repoName}, additionalNames...)
+	allNames := append([]string{name}, additionalNames...)
 
 	i.image, err = mutate.CreatedAt(i.image, v1.Time{Time: i.createdAt})
 	if err != nil {

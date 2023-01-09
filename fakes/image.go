@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/name"
+	registryName "github.com/google/go-containerregistry/pkg/name"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
@@ -218,6 +218,10 @@ func (i *Image) ReuseLayer(sha string) error {
 }
 
 func (i *Image) Save(additionalNames ...string) error {
+	return i.SaveAs(i.Name(), additionalNames...)
+}
+
+func (i *Image) SaveAs(name string, additionalNames ...string) error {
 	var err error
 	i.layerDir, err = ioutil.TempDir("", "fake-image")
 	if err != nil {
@@ -235,11 +239,11 @@ func (i *Image) Save(additionalNames ...string) error {
 		i.layers[l] = filepath.Join(i.layerDir, filepath.Base(layerPath))
 	}
 
-	allNames := append([]string{i.name}, additionalNames...)
+	allNames := append([]string{name}, additionalNames...)
 
 	var errs []imgutil.SaveDiagnostic
 	for _, n := range allNames {
-		_, err := name.ParseReference(n, name.WeakValidation)
+		_, err := registryName.ParseReference(n, registryName.WeakValidation)
 		if err != nil {
 			errs = append(errs, imgutil.SaveDiagnostic{ImageName: n, Cause: err})
 		} else {
