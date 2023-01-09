@@ -23,7 +23,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
-	"github.com/google/go-containerregistry/pkg/name"
+	registryName "github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/pkg/errors"
 
@@ -462,19 +462,23 @@ func (i *Image) ReuseLayer(diffID string) error {
 }
 
 func (i *Image) Save(additionalNames ...string) error {
+	return i.SaveAs(i.Name(), additionalNames...)
+}
+
+func (i *Image) SaveAs(name string, additionalNames ...string) error {
 	// during the first save attempt some layers may be excluded. The docker daemon allows this if the given set
 	// of layers already exists in the daemon in the given order
-	inspect, err := i.doSave()
+	inspect, err := i.doSaveAs(name)
 	if err != nil {
 		// populate all layer paths and try again without the above performance optimization.
 		if err := i.downloadBaseLayersOnce(); err != nil {
 			return err
 		}
 
-		inspect, err = i.doSave()
+		inspect, err = i.doSaveAs(name)
 		if err != nil {
 			saveErr := imgutil.SaveError{}
-			for _, n := range append([]string{i.Name()}, additionalNames...) {
+			for _, n := range append([]string{name}, additionalNames...) {
 				saveErr.Errors = append(saveErr.Errors, imgutil.SaveDiagnostic{ImageName: n, Cause: err})
 			}
 			return saveErr
@@ -483,7 +487,7 @@ func (i *Image) Save(additionalNames ...string) error {
 	i.inspect = inspect
 
 	var errs []imgutil.SaveDiagnostic
-	for _, n := range append([]string{i.Name()}, additionalNames...) {
+	for _, n := range append([]string{name}, additionalNames...) {
 		if err := i.docker.ImageTag(context.Background(), i.inspect.ID, n); err != nil {
 			errs = append(errs, imgutil.SaveDiagnostic{ImageName: n, Cause: err})
 		}
@@ -563,7 +567,7 @@ func (i *Image) SaveFile() (string, error) {
 			}
 		}
 
-		t, err := name.NewTag(i.repoName, name.WeakValidation)
+		t, err := registryName.NewTag(i.repoName, registryName.WeakValidation)
 		if err != nil {
 			return errors.Wrap(err, "failed to create tag")
 		}
@@ -599,11 +603,11 @@ func (i *Image) SaveFile() (string, error) {
 	return f.Name(), nil
 }
 
-func (i *Image) doSave() (types.ImageInspect, error) {
+func (i *Image) doSaveAs(name string) (types.ImageInspect, error) {
 	ctx := context.Background()
 	done := make(chan error)
 
-	t, err := name.NewTag(i.repoName, name.WeakValidation)
+	t, err := registryName.NewTag(name, registryName.WeakValidation)
 	if err != nil {
 		return types.ImageInspect{}, err
 	}
