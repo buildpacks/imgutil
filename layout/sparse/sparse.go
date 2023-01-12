@@ -33,11 +33,15 @@ func NewImage(path string, from v1.Image) (*Image, error) {
 }
 
 func (i *Image) Save(additionalNames ...string) error {
+	return i.SaveAs(i.Name(), additionalNames...)
+}
+
+func (i *Image) SaveAs(name string, additionalNames ...string) error {
 	if len(additionalNames) > 1 {
 		log.Printf("multiple additional names %v are ignored when OCI layout is used", additionalNames)
 	}
 
-	layoutPath, err := layout.Write(i.Name(), empty.Index)
+	layoutPath, err := layout.Write(name, empty.Index)
 	if err != nil {
 		return err
 	}
@@ -45,7 +49,7 @@ func (i *Image) Save(additionalNames ...string) error {
 	var diagnostics []imgutil.SaveDiagnostic
 	err = layoutPath.AppendImage(i, layout.WithoutLayers())
 	if err != nil {
-		diagnostics = append(diagnostics, imgutil.SaveDiagnostic{ImageName: i.Name(), Cause: err})
+		diagnostics = append(diagnostics, imgutil.SaveDiagnostic{ImageName: name, Cause: err})
 	}
 
 	if len(diagnostics) > 0 {
