@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -113,6 +114,13 @@ func AssertNil(t *testing.T, actual interface{}) {
 	if actual != nil {
 		t.Fatalf("Expected nil: %s", actual)
 	}
+}
+
+func AssertBlobsLen(t *testing.T, path string, expected int) {
+	t.Helper()
+	fis, err := os.ReadDir(filepath.Join(path, "blobs", "sha256"))
+	AssertNil(t, err)
+	AssertEq(t, len(fis), expected)
 }
 
 func AssertTrue(t *testing.T, p func() bool) {
@@ -390,4 +398,136 @@ func checkResponseError(r io.Reader) error {
 	}
 
 	return nil
+}
+
+func CreateSingleFileTar(path, txt string) (io.Reader, error) {
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	if err := tw.WriteHeader(&tar.Header{Name: path, Size: int64(len(txt)), Mode: 0644}); err != nil {
+		return nil, err
+	}
+	if _, err := tw.Write([]byte(txt)); err != nil {
+		return nil, err
+	}
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+	return bytes.NewReader(buf.Bytes()), nil
+}
+
+func RandomLayer(t *testing.T, tmpDir string) (path string, sha string, contents []byte) {
+	t.Helper()
+
+	r, err := CreateSingleFileTar("/some-file", RandString(10))
+	AssertNil(t, err)
+
+	path = filepath.Join(tmpDir, RandString(10)+".tar")
+	fh, err := os.Create(path)
+	AssertNil(t, err)
+	defer fh.Close()
+
+	hasher := sha256.New()
+	var contentsBuf bytes.Buffer
+	mw := io.MultiWriter(hasher, fh, &contentsBuf)
+
+	_, err = io.Copy(mw, r)
+	AssertNil(t, err)
+
+	sha = hex.EncodeToString(hasher.Sum(make([]byte, 0, hasher.Size())))
+
+	return path, "sha256:" + sha, contentsBuf.Bytes()
+}
+
+func RemoteRunnableBaseImage(t *testing.T) v1.Image {
+	testImageName := "busybox"
+	var opts []remote.Option
+
+	if runtime.GOOS == "windows" {
+		testImageName = "mcr.microsoft.com/windows/nanoserver@sha256:8bd4389d56e69bebf6e4666251fba42f7cce3d5b768d28816884fb4370155fee" // mcr.microsoft.com/windows/nanoserver:1809
+
+		windowsPlatform := v1.Platform{
+			Architecture: "amd64",
+			OS:           "windows",
+			OSVersion:    "10.0.17763.3532",
+		}
+		opts = append(opts, remote.WithPlatform(windowsPlatform))
+	}
+	return RemoteImage(t, testImageName, opts)
+}
+
+func RemoteImage(t *testing.T, testImageName string, opts []remote.Option) v1.Image {
+	r, err := name.ParseReference(testImageName, name.WeakValidation)
+	AssertNil(t, err)
+
+	auth, err := authn.DefaultKeychain.Resolve(r.Context().Registry)
+	AssertNil(t, err)
+
+	opts = append(opts, remote.WithAuth(auth))
+
+	testImage, err := remote.Image(r, opts...)
+	AssertNil(t, err)
+
+	return testImage
+}
+
+func AssertPathExists(t *testing.T, path string) {
+	t.Helper()
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		t.Errorf("Expected %q to exist", path)
+	} else if err != nil {
+		t.Fatalf("Error stating %q: %v", path, err)
+	}
+}
+
+func ReadIndexManifest(t *testing.T, path string) *v1.IndexManifest {
+	indexPath := filepath.Join(path, "index.json")
+	AssertPathExists(t, filepath.Join(path, "oci-layout"))
+	AssertPathExists(t, indexPath)
+
+	// check index file
+	data, err := os.ReadFile(indexPath)
+	AssertNil(t, err)
+
+	index := &v1.IndexManifest{}
+	err = json.Unmarshal(data, index)
+	AssertNil(t, err)
+	return index
+}
+
+func ReadManifest(t *testing.T, digest v1.Hash, path string) *v1.Manifest {
+	manifestPath := filepath.Join(path, "blobs", digest.Algorithm, digest.Hex)
+	AssertPathExists(t, manifestPath)
+
+	data, err := os.ReadFile(manifestPath)
+	AssertNil(t, err)
+
+	manifest := &v1.Manifest{}
+	err = json.Unmarshal(data, manifest)
+	AssertNil(t, err)
+	return manifest
+}
+
+func ReadConfigFile(t *testing.T, manifest *v1.Manifest, path string) *v1.ConfigFile {
+	digest := manifest.Config.Digest
+	configPath := filepath.Join(path, "blobs", digest.Algorithm, digest.Hex)
+	AssertPathExists(t, configPath)
+
+	data, err := os.ReadFile(configPath)
+	AssertNil(t, err)
+
+	configFile := &v1.ConfigFile{}
+	err = json.Unmarshal(data, configFile)
+	AssertNil(t, err)
+
+	return configFile
+}
+
+func ReadManifestAndConfigFile(t *testing.T, path string) (*v1.Manifest, *v1.ConfigFile) {
+	index := ReadIndexManifest(t, path)
+	AssertEq(t, len(index.Manifests), 1)
+
+	manifest := ReadManifest(t, index.Manifests[0].Digest, path)
+	configFile := ReadConfigFile(t, manifest, path)
+	return manifest, configFile
 }
