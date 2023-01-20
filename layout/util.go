@@ -1,9 +1,10 @@
 package layout
 
 import (
-	"github.com/google/go-containerregistry/pkg/name"
 	"path/filepath"
 	"strings"
+
+	"github.com/google/go-containerregistry/pkg/name"
 )
 
 // ParseRefToPath parse the given image reference to local path directory following the rules:

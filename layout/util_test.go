@@ -2,13 +2,15 @@ package layout_test
 
 import (
 	"fmt"
-	"github.com/buildpacks/imgutil/layout"
-	h "github.com/buildpacks/imgutil/testhelpers"
+	"path/filepath"
+	"testing"
+
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
-	"path/filepath"
-	"testing"
+
+	"github.com/buildpacks/imgutil/layout"
+	h "github.com/buildpacks/imgutil/testhelpers"
 )
 
 const (
