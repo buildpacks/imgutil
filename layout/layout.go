@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/name"
+
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -23,17 +25,21 @@ var _ imgutil.Image = (*Image)(nil)
 
 type Image struct {
 	v1.Image
+	createdAt  time.Time
+	fileName   string // use for exporting to tarball
 	path       string
 	prevLayers []v1.Layer
-	createdAt  time.Time
+	tag        name.Reference // use for exporting to tarball
 }
 
 type imageOptions struct {
-	platform      imgutil.Platform
 	baseImage     v1.Image
 	baseImagePath string
-	prevImagePath string
 	createdAt     time.Time
+	platform      imgutil.Platform
+	prevImagePath string
+	tarFileName   string
+	tarNameRef    name.Reference
 }
 
 type ImageOption func(*imageOptions) error
@@ -76,6 +82,20 @@ func WithCreatedAt(createdAt time.Time) ImageOption {
 	}
 }
 
+// WithTarConfig lets a caller set file tarball file name and tag to be used when the image
+// is saved with the method imgutil.SaveFile
+// If fileName doesn't contain .tar extension it will be added
+func WithTarConfig(fileName string, tag name.Reference) ImageOption {
+	return func(i *imageOptions) error {
+		if fileName != "" && filepath.Ext(fileName) != ".tar" {
+			fileName = fmt.Sprintf("%s.tar", fileName)
+		}
+		i.tarFileName = fileName
+		i.tarNameRef = tag
+		return nil
+	}
+}
+
 // FromBaseImagePath loads an existing image as the config and layers for the new underlyingImage.
 // Ignored if underlyingImage is not found.
 func FromBaseImagePath(path string) ImageOption {
@@ -104,8 +124,10 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 	}
 
 	ri := &Image{
-		Image: image,
-		path:  path,
+		Image:    image,
+		path:     path,
+		fileName: imageOpts.tarFileName,
+		tag:      imageOpts.tarNameRef,
 	}
 
 	if imageOpts.prevImagePath != "" {
@@ -523,33 +545,9 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 		log.Printf("multiple additional names %v are ignored when OCI layout is used", additionalNames)
 	}
 
-	err := i.mutateCreatedAt(i.Image, v1.Time{Time: i.createdAt})
+	err := i.prepareImage()
 	if err != nil {
-		return errors.Wrap(err, "set creation time")
-	}
-
-	cfg, err := i.Image.ConfigFile()
-	if err != nil {
-		return errors.Wrap(err, "get image config")
-	}
-	cfg = cfg.DeepCopy()
-
-	layers, err := i.Image.Layers()
-	if err != nil {
-		return errors.Wrap(err, "get image layers")
-	}
-	cfg.History = make([]v1.History, len(layers))
-	for j := range cfg.History {
-		cfg.History[j] = v1.History{
-			Created: v1.Time{Time: i.createdAt},
-		}
-	}
-
-	cfg.DockerVersion = ""
-	cfg.Container = ""
-	err = i.mutateConfigFile(i.Image, cfg)
-	if err != nil {
-		return errors.Wrap(err, "zeroing history")
+		return err
 	}
 
 	// initialize image path
@@ -572,7 +570,38 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 }
 
 func (i *Image) SaveFile() (string, error) {
-	return "", errors.New("not yet implemented")
+	err := i.validateTarInputs()
+	if err != nil {
+		return "", err
+	}
+
+	err = i.prepareImage()
+	if err != nil {
+		return "", err
+	}
+
+	fileName := filepath.Join(i.Name(), i.fileName)
+
+	err = os.MkdirAll(i.Name(), os.ModePerm)
+	if err != nil {
+		return "", errors.Wrapf(err, "creating destination folder %s", i.Name())
+	}
+
+	f, err := os.Create(fileName)
+	if err != nil {
+		return "", errors.Wrapf(err, "creating destination file %s", fileName)
+	}
+	defer f.Close()
+
+	var diagnostics []imgutil.SaveDiagnostic
+	if err := tarball.Write(i.tag, i.Image, f); err != nil {
+		diagnostics = append(diagnostics, imgutil.SaveDiagnostic{ImageName: fileName, Cause: err})
+	}
+	if len(diagnostics) > 0 {
+		return "", imgutil.SaveError{Errors: diagnostics}
+	}
+
+	return fileName, nil
 }
 
 func (i *Image) Delete() error {
@@ -738,4 +767,48 @@ func (i *Image) mutateImage(base v1.Image) {
 	i.Image = &Image{
 		Image: base,
 	}
+}
+
+// prepareImage prepare the internal images representation before saving
+func (i *Image) prepareImage() error {
+	err := i.mutateCreatedAt(i.Image, v1.Time{Time: i.createdAt})
+	if err != nil {
+		return errors.Wrap(err, "set creation time")
+	}
+
+	cfg, err := i.Image.ConfigFile()
+	if err != nil {
+		return errors.Wrap(err, "get image config")
+	}
+	cfg = cfg.DeepCopy()
+
+	layers, err := i.Image.Layers()
+	if err != nil {
+		return errors.Wrap(err, "get image layers")
+	}
+	cfg.History = make([]v1.History, len(layers))
+	for j := range cfg.History {
+		cfg.History[j] = v1.History{
+			Created: v1.Time{Time: i.createdAt},
+		}
+	}
+
+	cfg.DockerVersion = ""
+	cfg.Container = ""
+	err = i.mutateConfigFile(i.Image, cfg)
+	if err != nil {
+		return errors.Wrap(err, "zeroing history")
+	}
+
+	return nil
+}
+
+func (i *Image) validateTarInputs() error {
+	if i.fileName == "" {
+		return errors.New("file name could not be empty when saving image as a tarball")
+	}
+	if i.tag == nil {
+		return errors.New("a tag must be provided when saving image as a tarball")
+	}
+	return nil
 }

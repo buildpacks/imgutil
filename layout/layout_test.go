@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/name"
+
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 
 	"github.com/buildpacks/imgutil"
@@ -966,6 +968,86 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				diffID := "sha256:40cf597a9181e86497f4121c604f9f0ab208950a98ca21db883f26b0a548a2eb"
 				_, err = image.GetLayer(diffID)
 				h.AssertNil(t, err)
+			})
+		})
+	})
+
+	when("#SaveFile", func() {
+		var tag name.Reference
+		var fileName string
+
+		it.After(func() {
+			os.RemoveAll(imagePath)
+		})
+
+		when("#FromBaseImage with full image", func() {
+			it.Before(func() {
+				imagePath = filepath.Join(tmpDir, "save-from-base-image")
+				tag, err = name.NewTag("my-app:latest")
+				fileName = "my-app"
+				h.AssertNil(t, err)
+			})
+
+			when("file name and tag are provided", func() {
+				when("file name do not have .tar extension", func() {
+					it.Before(func() {
+						fileName = "my-app"
+					})
+
+					it("saves the image in a tarball", func() {
+						image, err := layout.NewImage(imagePath, layout.FromBaseImage(testImage), layout.WithTarConfig(fileName, tag))
+						h.AssertNil(t, err)
+
+						// save tarball
+						output, err := image.SaveFile()
+						h.AssertNil(t, err)
+
+						h.AssertPathExists(t, output)
+						h.AssertEq(t, filepath.Base(output), "my-app.tar")
+					})
+				})
+
+				when("file name has .tar extension", func() {
+					it.Before(func() {
+						fileName = "my-app.tar"
+					})
+
+					it("saves the image in a tarball", func() {
+						image, err := layout.NewImage(imagePath, layout.FromBaseImage(testImage), layout.WithTarConfig(fileName, tag))
+						h.AssertNil(t, err)
+
+						// save tarball
+						output, err := image.SaveFile()
+						h.AssertNil(t, err)
+
+						h.AssertPathExists(t, output)
+						h.AssertEq(t, filepath.Base(output), "my-app.tar")
+					})
+				})
+			})
+
+			when("file name and tag are not provided", func() {
+				when("file name is not provided", func() {
+					it("error is thrown", func() {
+						image, err := layout.NewImage(imagePath, layout.FromBaseImage(testImage), layout.WithTarConfig("", tag))
+						h.AssertNil(t, err)
+
+						// save tarball
+						_, err = image.SaveFile()
+						h.AssertError(t, err, "file name could not be empty when saving image as a tarball")
+					})
+				})
+
+				when("tag is not provided", func() {
+					it("error is thrown", func() {
+						image, err := layout.NewImage(imagePath, layout.FromBaseImage(testImage), layout.WithTarConfig(fileName, nil))
+						h.AssertNil(t, err)
+
+						// save tarball
+						_, err = image.SaveFile()
+						h.AssertError(t, err, "a tag must be provided when saving image as a tarball")
+					})
+				})
 			})
 		})
 	})
