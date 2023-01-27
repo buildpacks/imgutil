@@ -480,6 +480,16 @@ func AssertPathExists(t *testing.T, path string) {
 	}
 }
 
+func AssertEqAnnotation(t *testing.T, manifest v1.Descriptor, key, value string) {
+	t.Helper()
+	AssertTrue(t, func() bool {
+		return len(manifest.Annotations) > 0
+	})
+	AssertTrue(t, func() bool {
+		return manifest.Annotations[key] == value
+	})
+}
+
 func ReadIndexManifest(t *testing.T, path string) *v1.IndexManifest {
 	indexPath := filepath.Join(path, "index.json")
 	AssertPathExists(t, filepath.Join(path, "oci-layout"))

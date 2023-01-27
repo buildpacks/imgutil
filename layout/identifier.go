@@ -1,28 +1,23 @@
 package layout
 
 import (
-	"crypto/sha256"
 	"fmt"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 )
 
-type DigestIdentifier struct {
+type Identifier struct {
 	Digest string
+	Path   string
 }
 
-func newDigestIdentifier(configFile *v1.ConfigFile) (DigestIdentifier, error) {
-	return DigestIdentifier{
-		Digest: "sha256:" + asSha256(configFile),
+func newLayoutIdentifier(path string, hash v1.Hash) (Identifier, error) {
+	return Identifier{
+		Digest: hash.String(),
+		Path:   path,
 	}, nil
 }
 
-func (i DigestIdentifier) String() string {
-	return i.Digest
-}
-
-func asSha256(o interface{}) string {
-	h := sha256.New()
-	h.Write([]byte(fmt.Sprintf("%v", o)))
-	return fmt.Sprintf("%x", h.Sum(nil))
+func (i Identifier) String() string {
+	return fmt.Sprintf("%s@%s", i.Path, i.Digest)
 }

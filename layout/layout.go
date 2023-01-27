@@ -3,7 +3,6 @@ package layout
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,6 +17,8 @@ import (
 
 	"github.com/buildpacks/imgutil"
 )
+
+const ImageRefNameKey = "org.opencontainers.image.ref.name"
 
 var _ imgutil.Image = (*Image)(nil)
 
@@ -296,11 +297,11 @@ func (i *Image) Found() bool {
 // Each image's ID is given by the SHA256 hash of its configuration JSON. It is represented as a hexadecimal encoding of 256 bits,
 // e.g., sha256:a9561eb1b190625c9adb5a9513e72c4dedafc1cb2d4c5236c9a6957ec7dfd5a9.
 func (i *Image) Identifier() (imgutil.Identifier, error) {
-	configFile, err := i.Image.ConfigFile()
+	hash, err := i.Image.Digest()
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting identifier for image at path %q", i.path)
 	}
-	return newDigestIdentifier(configFile)
+	return newLayoutIdentifier(i.path, hash)
 }
 
 func (i *Image) CreatedAt() (time.Time, error) {
@@ -519,10 +520,6 @@ func (i *Image) Save(additionalNames ...string) error {
 
 // SaveAs ignores the image `Name()` method and saves the image according to name & additional names provided to this method
 func (i *Image) SaveAs(name string, additionalNames ...string) error {
-	if len(additionalNames) > 1 {
-		log.Printf("multiple additional names %v are ignored when OCI layout is used", additionalNames)
-	}
-
 	err := i.mutateCreatedAt(i.Image, v1.Time{Time: i.createdAt})
 	if err != nil {
 		return errors.Wrap(err, "set creation time")
@@ -559,7 +556,8 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 	}
 
 	var diagnostics []imgutil.SaveDiagnostic
-	err = path.AppendImage(i.Image)
+	annotations := imageRefAnnotation(additionalNames...)
+	err = path.AppendImage(i.Image, WithAnnotations(annotations))
 	if err != nil {
 		diagnostics = append(diagnostics, imgutil.SaveDiagnostic{ImageName: i.Name(), Cause: err})
 	}
@@ -738,4 +736,14 @@ func (i *Image) mutateImage(base v1.Image) {
 	i.Image = &Image{
 		Image: base,
 	}
+}
+
+func imageRefAnnotation(additionalNames ...string) map[string]string {
+	annotations := make(map[string]string, len(additionalNames))
+	if len(additionalNames) > 0 {
+		// See Implementor's Note from:
+		// https://github.com/opencontainers/image-spec/blob/main/image-layout.md#indexjson-file
+		annotations[ImageRefNameKey] = strings.Join(additionalNames, ",")
+	}
+	return annotations
 }
