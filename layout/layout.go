@@ -13,6 +13,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
@@ -116,11 +117,11 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 	}
 
 	if imageOpts.baseImagePath != "" {
-		if err := processBaseImageOption(ri, imageOpts.baseImagePath, platform); err != nil {
+		if err := processBaseImagePathOption(ri, imageOpts.baseImagePath, platform); err != nil {
 			return nil, err
 		}
 	} else if imageOpts.baseImage != nil {
-		ri.Image = imageOpts.baseImage
+		ri.mutateImage(imageOpts.baseImage)
 	}
 
 	if imageOpts.createdAt.IsZero() {
@@ -148,13 +149,13 @@ func processPreviousImageOption(ri *Image, prevImagePath string, platform imguti
 	return nil
 }
 
-func processBaseImageOption(ri *Image, baseImagePath string, platform imgutil.Platform) error {
+func processBaseImagePathOption(ri *Image, baseImagePath string, platform imgutil.Platform) error {
 	baseImage, err := newV1Image(baseImagePath, platform)
 	if err != nil {
 		return err
 	}
 
-	ri.Image = baseImage
+	ri.mutateImage(baseImage)
 
 	return nil
 }
@@ -169,7 +170,9 @@ func emptyImage(platform imgutil.Platform) (v1.Image, error) {
 			DiffIDs: []v1.Hash{},
 		},
 	}
-	return mutate.ConfigFile(empty.Image, cfg)
+	image := mutate.MediaType(empty.Image, types.OCIManifestSchema1)
+	image = mutate.ConfigMediaType(image, types.OCIConfigJSON)
+	return mutate.ConfigFile(image, cfg)
 }
 
 func defaultPlatform() imgutil.Platform {
@@ -474,12 +477,7 @@ func (i *Image) AddLayer(path string) error {
 	if err != nil {
 		return err
 	}
-	image, err := mutate.AppendLayers(i.Image, layer)
-	if err != nil {
-		return errors.Wrap(err, "add layer")
-	}
-	i.mutateImage(image)
-	return nil
+	return i.addOCILayer(layer)
 }
 
 func (i *Image) AddLayerWithDiffID(path, diffID string) error {
@@ -493,12 +491,7 @@ func (i *Image) ReuseLayer(sha string) error {
 	if err != nil {
 		return err
 	}
-	image, err := mutate.AppendLayers(i.Image, layer)
-	if err != nil {
-		return err
-	}
-	i.mutateImage(image)
-	return nil
+	return i.addOCILayer(layer)
 }
 
 func findLayerWithSha(layers []v1.Layer, diffID string) (v1.Layer, error) {
@@ -632,6 +625,10 @@ func pathExists(path string) bool {
 	return false
 }
 
+// newV1Image creates a layout image from the given path.
+//   - If a ImageIndex for multiples platforms exists, then it will try to select the image
+//     according to the platform provided
+//   - If the image does not exist, then an empty image is returned
 func newV1Image(path string, platform imgutil.Platform) (v1.Image, error) {
 	var (
 		image  v1.Image
@@ -733,11 +730,33 @@ func (i *Image) mutateCreatedAt(base v1.Image, created v1.Time) error {
 
 // mutateImage wraps the provided v1.Image into a layout.Image
 func (i *Image) mutateImage(base v1.Image) {
-	i.Image = &Image{
-		Image: base,
+	manifest, _ := base.Manifest()
+	if validMediaTypes(manifest) {
+		i.Image = &Image{
+			Image: base,
+		}
+	} else {
+		// images has docker media types, we need to override them
+		newBaseImage := overridesMediaType(base)
+		i.Image = &Image{
+			Image: newBaseImage,
+		}
 	}
 }
 
+// addOCILayer append the provided layer with media type application/vnd.oci.image.layer.v1.tar+gzip
+func (i *Image) addOCILayer(layer v1.Layer) error {
+	additions := layersAddendum([]v1.Layer{layer})
+	image, err := mutate.Append(i.Image, additions...)
+	if err != nil {
+		return errors.Wrap(err, "add layer")
+	}
+	i.mutateImage(image)
+	return nil
+}
+
+// imageRefAnnotation add the 'org.opencontainers.image.ref.name' with the provides additional names.
+// If more than value is provided, then they will be appended separate by a ',' comma
 func imageRefAnnotation(additionalNames ...string) map[string]string {
 	annotations := make(map[string]string, len(additionalNames))
 	if len(additionalNames) > 0 {
@@ -746,4 +765,41 @@ func imageRefAnnotation(additionalNames ...string) map[string]string {
 		annotations[ImageRefNameKey] = strings.Join(additionalNames, ",")
 	}
 	return annotations
+}
+
+// validMediaTypes returns true if media types present in the manifest are the ones defined by the OCI spec
+// Docker Media Types will return false.
+func validMediaTypes(manifest *v1.Manifest) bool {
+	return manifest.MediaType == types.OCIManifestSchema1 &&
+		manifest.Config.MediaType == types.OCIConfigJSON
+}
+
+// overridesMediaType will create a new v1.Image from the provided base image, but replacing
+// manifest media type, config media type and layers media type by the ones defined by the OCI spec
+func overridesMediaType(base v1.Image) v1.Image {
+	config, _ := base.ConfigFile()
+	config.RootFS.DiffIDs = make([]v1.Hash, 0)
+
+	image := mutate.MediaType(empty.Image, types.OCIManifestSchema1)
+	image, _ = mutate.ConfigFile(image, config)
+	image = mutate.ConfigMediaType(image, types.OCIConfigJSON)
+
+	layers, _ := base.Layers()
+	additions := layersAddendum(layers)
+	image, _ = mutate.Append(image, additions...)
+
+	return image
+}
+
+// layersAddendum creates an Addendum array with the given layers
+// and 'application/vnd.oci.image.layer.v1.tar+gzip' media type
+func layersAddendum(layers []v1.Layer) []mutate.Addendum {
+	additions := make([]mutate.Addendum, 0)
+	for _, layer := range layers {
+		additions = append(additions, mutate.Addendum{
+			MediaType: types.OCILayer,
+			Layer:     layer,
+		})
+	}
+	return additions
 }

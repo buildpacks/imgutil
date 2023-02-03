@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/v1/types"
+
 	"github.com/buildpacks/imgutil/layer"
 
 	dockertypes "github.com/docker/docker/api/types"
@@ -488,6 +490,23 @@ func AssertEqAnnotation(t *testing.T, manifest v1.Descriptor, key, value string)
 	AssertTrue(t, func() bool {
 		return manifest.Annotations[key] == value
 	})
+}
+
+func AssertOCIMediaTypes(t *testing.T, image v1.Image) {
+	t.Helper()
+
+	mediaType, err := image.MediaType()
+	AssertNil(t, err)
+	AssertEq(t, mediaType, types.OCIManifestSchema1)
+
+	manifest, err := image.Manifest()
+	AssertNil(t, err)
+	AssertNotEq(t, manifest.MediaType, "")
+	AssertEq(t, manifest.Config.MediaType, types.OCIConfigJSON)
+
+	for _, layer := range manifest.Layers {
+		AssertEq(t, layer.MediaType, types.OCILayer)
+	}
 }
 
 func ReadIndexManifest(t *testing.T, path string) *v1.IndexManifest {

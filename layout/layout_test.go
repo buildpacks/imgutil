@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/v1/types"
+
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 
 	"github.com/buildpacks/imgutil"
@@ -81,6 +83,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				arch, err := img.Architecture()
 				h.AssertNil(t, err)
 				h.AssertEq(t, arch, "amd64")
+
+				h.AssertOCIMediaTypes(t, img)
 			})
 		})
 
@@ -96,6 +100,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				)
 				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
+				h.AssertOCIMediaTypes(t, img)
 
 				arch, err := img.Architecture()
 				h.AssertNil(t, err)
@@ -123,6 +128,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				)
 				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
+				h.AssertOCIMediaTypes(t, img)
 
 				arch, err := img.Architecture()
 				h.AssertNil(t, err)
@@ -150,6 +156,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 						img, err := layout.NewImage(imagePath, layout.FromBaseImage(testImage))
 						h.AssertNil(t, err)
+						h.AssertOCIMediaTypes(t, img)
 
 						os, err := img.OS()
 						h.AssertNil(t, err)
@@ -172,8 +179,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				when("base image does not exist", func() {
 					it("returns an empty image", func() {
 						img, err := layout.NewImage(imagePath, layout.FromBaseImage(nil))
-
 						h.AssertNil(t, err)
+						h.AssertOCIMediaTypes(t, img)
 
 						_, err = img.TopLayer()
 						h.AssertError(t, err, "has no layers")
@@ -189,6 +196,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 					img, err := layout.NewImage(imagePath, layout.FromBaseImagePath(fullBaseImagePath))
 					h.AssertNil(t, err)
+					h.AssertOCIMediaTypes(t, img)
 
 					os, err := img.OS()
 					h.AssertNil(t, err)
@@ -214,6 +222,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 					img, err := layout.NewImage(imagePath, layout.FromBaseImagePath(sparseBaseImagePath))
 					h.AssertNil(t, err)
+					h.AssertOCIMediaTypes(t, img)
 
 					os, err := img.OS()
 					h.AssertNil(t, err)
@@ -236,8 +245,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			when("base image does not exist", func() {
 				it("returns an empty image", func() {
 					img, err := layout.NewImage(imagePath, layout.FromBaseImagePath("some-bad-repo-name"))
-
 					h.AssertNil(t, err)
+					h.AssertOCIMediaTypes(t, img)
 
 					_, err = img.TopLayer()
 					h.AssertError(t, err, "has no layers")
@@ -267,8 +276,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 					it("provides reusable layers", func() {
 						img, err := layout.NewImage(imagePath, layout.WithPreviousImage(previousImagePath))
-
 						h.AssertNil(t, err)
+						h.AssertOCIMediaTypes(t, img)
 
 						h.AssertNil(t, img.ReuseLayer(layerDiffID))
 					})
@@ -282,8 +291,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 					it("provides reusable layers", func() {
 						img, err := layout.NewImage(imagePath, layout.WithPreviousImage(previousImagePath))
-
 						h.AssertNil(t, err)
+						h.AssertOCIMediaTypes(t, img)
 
 						h.AssertNil(t, img.ReuseLayer(layerDiffID))
 					})
@@ -810,9 +819,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						// expected blobs: manifest, config, reuse random layer
 						h.AssertBlobsLen(t, imagePath, 3)
 
-						size, err := image.ManifestSize()
+						mediaType, err := image.MediaType()
 						h.AssertNil(t, err)
-						h.AssertEq(t, size, int64(417))
+						h.AssertEq(t, mediaType, types.OCIManifestSchema1)
 					})
 				})
 			})
@@ -987,7 +996,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it("Get layer from sparse base image", func() {
 				image, err := layout.NewImage(imagePath, layout.FromBaseImagePath(sparseBaseImagePath))
 				h.AssertNil(t, err)
-
 				// from testdata/layout/busybox-sparse/
 				diffID := "sha256:40cf597a9181e86497f4121c604f9f0ab208950a98ca21db883f26b0a548a2eb"
 				_, err = image.GetLayer(diffID)
