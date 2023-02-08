@@ -744,7 +744,7 @@ func (i *Image) mutateImage(base v1.Image) {
 	}
 }
 
-// addOCILayer append the provided layer with media type application/vnd.oci.image.layer.v1.tar+gzip
+// addOCILayer appends the provided layer with media type application/vnd.oci.image.layer.v1.tar+gzip
 func (i *Image) addOCILayer(layer v1.Layer) error {
 	additions := layersAddendum([]v1.Layer{layer})
 	image, err := mutate.Append(i.Image, additions...)
@@ -776,7 +776,7 @@ func validMediaTypes(manifest *v1.Manifest) bool {
 
 // overridesMediaType will create a new v1.Image from the provided base image, but replacing
 // manifest media type, config media type and layers media type by the ones defined by the OCI spec
-func overridesMediaType(base v1.Image) v1.Image {
+func overrideMediaTypes(base v1.Image) v1.Image {
 	config, _ := base.ConfigFile()
 	config.RootFS.DiffIDs = make([]v1.Hash, 0)
 
