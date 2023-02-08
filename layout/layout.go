@@ -120,7 +120,9 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 			return nil, err
 		}
 	} else if imageOpts.baseImage != nil {
-		ri.mutateImage(imageOpts.baseImage)
+		if err := ri.mutateImage(imageOpts.baseImage); err != nil {
+			return nil, err
+		}
 	}
 
 	if imageOpts.createdAt.IsZero() {
@@ -154,9 +156,7 @@ func processBaseImagePathOption(ri *Image, baseImagePath string, platform imguti
 		return err
 	}
 
-	ri.mutateImage(baseImage)
-
-	return nil
+	return ri.mutateImage(baseImage)
 }
 
 func emptyImage(platform imgutil.Platform) (v1.Image, error) {
@@ -713,8 +713,7 @@ func (i *Image) mutateConfig(base v1.Image, config v1.Config) error {
 	if err != nil {
 		return err
 	}
-	i.mutateImage(image)
-	return nil
+	return i.mutateImage(image)
 }
 
 // mutateConfigFile mutates the provided v1.Image to have the provided v1.ConfigFile and wraps the result
@@ -724,8 +723,7 @@ func (i *Image) mutateConfigFile(base v1.Image, configFile *v1.ConfigFile) error
 	if err != nil {
 		return err
 	}
-	i.mutateImage(image)
-	return nil
+	return i.mutateImage(image)
 }
 
 // mutateCreatedAt mutates the provided v1.Image to have the provided v1.Time and wraps the result
@@ -735,24 +733,30 @@ func (i *Image) mutateCreatedAt(base v1.Image, created v1.Time) error {
 	if err != nil {
 		return err
 	}
-	i.mutateImage(image)
-	return nil
+	return i.mutateImage(image)
 }
 
 // mutateImage wraps the provided v1.Image into a layout.Image
-func (i *Image) mutateImage(base v1.Image) {
-	manifest, _ := base.Manifest()
+func (i *Image) mutateImage(base v1.Image) error {
+	manifest, err := base.Manifest()
+	if err != nil {
+		return err
+	}
 	if validMediaTypes(manifest) {
 		i.Image = &Image{
 			Image: base,
 		}
 	} else {
 		// images has docker media types, we need to override them
-		newBaseImage := overrideMediaTypes(base)
+		newBaseImage, err := overrideMediaTypes(base)
+		if err != nil {
+			return err
+		}
 		i.Image = &Image{
 			Image: newBaseImage,
 		}
 	}
+	return nil
 }
 
 // addOCILayer appends the provided layer with media type application/vnd.oci.image.layer.v1.tar+gzip
@@ -762,8 +766,7 @@ func (i *Image) addOCILayer(layer v1.Layer) error {
 	if err != nil {
 		return errors.Wrap(err, "add layer")
 	}
-	i.mutateImage(image)
-	return nil
+	return i.mutateImage(image)
 }
 
 // validMediaTypes returns true if media types present in the manifest are the ones defined by the OCI spec
@@ -773,21 +776,34 @@ func validMediaTypes(manifest *v1.Manifest) bool {
 		manifest.Config.MediaType == types.OCIConfigJSON
 }
 
-// overridesMediaType will create a new v1.Image from the provided base image, but replacing
+// overrideMediaTypes will create a new v1.Image from the provided base image, but replacing
 // manifest media type, config media type and layers media type by the ones defined by the OCI spec
-func overrideMediaTypes(base v1.Image) v1.Image {
-	config, _ := base.ConfigFile()
+func overrideMediaTypes(base v1.Image) (v1.Image, error) {
+	config, err := base.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
 	config.RootFS.DiffIDs = make([]v1.Hash, 0)
 
 	image := mutate.MediaType(empty.Image, types.OCIManifestSchema1)
-	image, _ = mutate.ConfigFile(image, config)
+	image, err = mutate.ConfigFile(image, config)
+	if err != nil {
+		return nil, err
+	}
 	image = mutate.ConfigMediaType(image, types.OCIConfigJSON)
 
-	layers, _ := base.Layers()
-	additions := layersAddendum(layers)
-	image, _ = mutate.Append(image, additions...)
+	layers, err := base.Layers()
+	if err != nil {
+		return nil, err
+	}
 
-	return image
+	additions := layersAddendum(layers)
+	image, err = mutate.Append(image, additions...)
+	if err != nil {
+		return nil, err
+	}
+
+	return image, nil
 }
 
 // layersAddendum creates an Addendum array with the given layers
