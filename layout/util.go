@@ -7,6 +7,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 )
 
+const ImageRefNameKey = "org.opencontainers.image.ref.name"
+
 // ParseRefToPath parse the given image reference to local path directory following the rules:
 // An image reference refers to either a tag reference or digest reference.
 //   - A tag reference refers to an identifier of form <registry>/<repo>:<tag>
@@ -28,4 +30,14 @@ func ParseRefToPath(imageRef string) (string, error) {
 	}
 
 	return path, nil
+}
+
+// ImageRefAnnotation creates a map containing the key 'org.opencontainers.image.ref.name' with the provided value.
+func ImageRefAnnotation(imageRefName string) map[string]string {
+	if imageRefName == "" {
+		return nil
+	}
+	annotations := make(map[string]string, 1)
+	annotations[ImageRefNameKey] = imageRefName
+	return annotations
 }

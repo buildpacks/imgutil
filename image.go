@@ -74,6 +74,9 @@ type Image interface {
 	Architecture() (string, error)
 	// ManifestSize returns the size of the manifest. If a manifest doesn't exist, it returns 0.
 	ManifestSize() (int64, error)
+	// AnnotateRefName set a value for the `org.opencontainers.image.ref.name` annotation
+	AnnotateRefName(refName string) error
+	GetAnnotateRefName() (string, error)
 }
 
 type Identifier fmt.Stringer

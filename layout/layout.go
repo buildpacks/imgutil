@@ -19,8 +19,6 @@ import (
 	"github.com/buildpacks/imgutil"
 )
 
-const ImageRefNameKey = "org.opencontainers.image.ref.name"
-
 var _ imgutil.Image = (*Image)(nil)
 
 type Image struct {
@@ -28,6 +26,7 @@ type Image struct {
 	path       string
 	prevLayers []v1.Layer
 	createdAt  time.Time
+	refName    string // holds org.opencontainers.image.ref.name value
 }
 
 type imageOptions struct {
@@ -542,17 +541,20 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 		return errors.Wrap(err, "zeroing history")
 	}
 
-	// initialize image path
-	path, err := Write(name, empty.Index)
-	if err != nil {
-		return err
-	}
-
 	var diagnostics []imgutil.SaveDiagnostic
-	annotations := imageRefAnnotation(additionalNames...)
-	err = path.AppendImage(i.Image, WithAnnotations(annotations))
-	if err != nil {
-		diagnostics = append(diagnostics, imgutil.SaveDiagnostic{ImageName: i.Name(), Cause: err})
+	annotations := ImageRefAnnotation(i.refName)
+	pathsToSave := append([]string{name}, additionalNames...)
+	for _, path := range pathsToSave {
+		// initialize image path
+		path, err := Write(path, empty.Index)
+		if err != nil {
+			return err
+		}
+
+		err = path.AppendImage(i.Image, WithAnnotations(annotations))
+		if err != nil {
+			diagnostics = append(diagnostics, imgutil.SaveDiagnostic{ImageName: i.Name(), Cause: err})
+		}
 	}
 
 	if len(diagnostics) > 0 {
@@ -598,6 +600,15 @@ func (i *Image) Layers() ([]v1.Layer, error) {
 		}
 	}
 	return retLayers, nil
+}
+
+func (i *Image) AnnotateRefName(refName string) error {
+	i.refName = refName
+	return nil
+}
+
+func (i *Image) GetAnnotateRefName() (string, error) {
+	return i.refName, nil
 }
 
 func ImageExists(path string) bool {
@@ -753,18 +764,6 @@ func (i *Image) addOCILayer(layer v1.Layer) error {
 	}
 	i.mutateImage(image)
 	return nil
-}
-
-// imageRefAnnotation add the 'org.opencontainers.image.ref.name' with the provides additional names.
-// If more than value is provided, then they will be appended separate by a ',' comma
-func imageRefAnnotation(additionalNames ...string) map[string]string {
-	annotations := make(map[string]string, len(additionalNames))
-	if len(additionalNames) > 0 {
-		// See Implementor's Note from:
-		// https://github.com/opencontainers/image-spec/blob/main/image-layout.md#indexjson-file
-		annotations[ImageRefNameKey] = strings.Join(additionalNames, ",")
-	}
-	return annotations
 }
 
 // validMediaTypes returns true if media types present in the manifest are the ones defined by the OCI spec

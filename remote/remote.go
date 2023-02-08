@@ -865,6 +865,12 @@ func (i *Image) ManifestSize() (int64, error) {
 	return i.image.Size()
 }
 
+func (i *Image) AnnotateRefName(refName string) error { return nil }
+
+func (i *Image) GetAnnotateRefName() (string, error) {
+	return "", nil
+}
+
 type subImage struct {
 	img       v1.Image
 	topDiffID string

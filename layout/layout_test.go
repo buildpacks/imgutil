@@ -663,40 +663,24 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			when("additional names are provided", func() {
-				it("creates an image and adds annotation org.opencontainers.image.ref.name with name provided", func() {
+				it("creates an image and save it to both path provided", func() {
 					image, err := layout.NewImage(imagePath, layout.FromBaseImage(testImage))
 					h.AssertNil(t, err)
 
+					anotherPath := filepath.Join(tmpDir, "another-save-from-base-image")
 					// save on disk in OCI
-					err = image.Save("my-additional-tag")
+					err = image.Save(anotherPath)
 					h.AssertNil(t, err)
 
 					//  expected blobs: manifest, config, layer
 					h.AssertBlobsLen(t, imagePath, 3)
-
-					// assert additional name
 					index := h.ReadIndexManifest(t, imagePath)
 					h.AssertEq(t, len(index.Manifests), 1)
-					h.AssertEq(t, 1, len(index.Manifests[0].Annotations))
-					h.AssertEqAnnotation(t, index.Manifests[0], layout.ImageRefNameKey, "my-additional-tag")
-				})
 
-				it("creates an image and adds annotation org.opencontainers.image.ref.name with names provided", func() {
-					image, err := layout.NewImage(imagePath, layout.FromBaseImage(testImage))
-					h.AssertNil(t, err)
-
-					// save on disk in OCI
-					err = image.Save("v1.0.0-vendor", "v2.0.0-debug")
-					h.AssertNil(t, err)
-
-					//  expected blobs: manifest, config, layer
-					h.AssertBlobsLen(t, imagePath, 3)
-
-					// assert additional name
-					index := h.ReadIndexManifest(t, imagePath)
+					// assert image saved on additional path
+					h.AssertBlobsLen(t, anotherPath, 3)
+					index = h.ReadIndexManifest(t, anotherPath)
 					h.AssertEq(t, len(index.Manifests), 1)
-					h.AssertEq(t, 1, len(index.Manifests[0].Annotations))
-					h.AssertEqAnnotation(t, index.Manifests[0], layout.ImageRefNameKey, "v1.0.0-vendor,v2.0.0-debug")
 				})
 			})
 
@@ -737,7 +721,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						// save on disk in OCI
-						err = image.Save("latest")
+						image.AnnotateRefName("latest")
+						err = image.Save()
 						h.AssertNil(t, err)
 
 						// expected blobs: manifest, config, base image layer, new random layer
@@ -763,14 +748,17 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						err = image.AddLayerWithDiffID(path, diffID)
 						h.AssertNil(t, err)
 
+						// adds org.opencontainers.image.ref.name annotation
+						image.AnnotateRefName("latest")
+
 						// save on disk in OCI
-						err = image.Save("latest")
+						err = image.Save()
 						h.AssertNil(t, err)
 
 						// expected blobs: manifest, config, new random layer
 						h.AssertBlobsLen(t, imagePath, 3)
 
-						// assert additional name
+						// assert org.opencontainers.image.ref.name annotation
 						index := h.ReadIndexManifest(t, imagePath)
 						h.AssertEq(t, len(index.Manifests), 1)
 						h.AssertEq(t, 1, len(index.Manifests[0].Annotations))
@@ -813,7 +801,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						// save on disk in OCI
-						err = image.Save("v1.0")
+						err = image.Save()
 						h.AssertNil(t, err)
 
 						// expected blobs: manifest, config, reuse random layer
@@ -842,7 +830,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						// save on disk in OCI
-						err = image.Save("v1.0")
+						err = image.Save()
 						h.AssertNil(t, err)
 
 						// expected blobs: manifest, config, random layer is not present

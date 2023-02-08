@@ -291,6 +291,14 @@ func (i *Image) Found() bool {
 	return !i.deleted
 }
 
+func (i *Image) AnnotateRefName(refName string) error {
+	return nil
+}
+
+func (i *Image) GetAnnotateRefName() (string, error) {
+	return "", nil
+}
+
 // test methods
 
 func (i *Image) SetIdentifier(identifier imgutil.Identifier) {
