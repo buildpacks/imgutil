@@ -748,7 +748,7 @@ func (i *Image) mutateImage(base v1.Image) {
 		}
 	} else {
 		// images has docker media types, we need to override them
-		newBaseImage := overridesMediaType(base)
+		newBaseImage := overrideMediaTypes(base)
 		i.Image = &Image{
 			Image: newBaseImage,
 		}
