@@ -33,6 +33,7 @@ func NewImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
 		os:            "linux",
 		osVersion:     "",
 		architecture:  "amd64",
+		annotations:   map[string]string{},
 	}
 }
 
@@ -58,6 +59,8 @@ type Image struct {
 	workingDir    string
 	savedNames    map[string]bool
 	manifestSize  int64
+	refName       string
+	annotations   map[string]string
 }
 
 func (i *Image) CreatedAt() (time.Time, error) {
@@ -240,6 +243,9 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 	}
 
 	allNames := append([]string{name}, additionalNames...)
+	if i.refName != "" {
+		i.annotations["org.opencontainers.image.ref.name"] = i.refName
+	}
 
 	var errs []imgutil.SaveDiagnostic
 	for _, n := range allNames {
@@ -292,11 +298,12 @@ func (i *Image) Found() bool {
 }
 
 func (i *Image) AnnotateRefName(refName string) error {
+	i.refName = refName
 	return nil
 }
 
 func (i *Image) GetAnnotateRefName() (string, error) {
-	return "", nil
+	return i.refName, nil
 }
 
 // test methods
@@ -440,4 +447,8 @@ func (i *Image) SetManifestSize(size int64) {
 
 func (i *Image) ManifestSize() (int64, error) {
 	return i.manifestSize, nil
+}
+
+func (i *Image) Annotations() map[string]string {
+	return i.annotations
 }
