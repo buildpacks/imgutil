@@ -146,7 +146,7 @@ Layers
 
 			_ = image.Save()
 
-			annotations := image.Annotations()
+			annotations := image.SavedAnnotations()
 			refName, _ := image.GetAnnotateRefName()
 			h.AssertEq(t, annotations["org.opencontainers.image.ref.name"], refName)
 		})
