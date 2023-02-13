@@ -20,44 +20,47 @@ import (
 
 func NewImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
 	return &Image{
-		labels:        nil,
-		env:           map[string]string{},
-		topLayerSha:   topLayerSha,
-		identifier:    identifier,
-		name:          name,
-		cmd:           []string{"initialCMD"},
-		layersMap:     map[string]string{},
-		prevLayersMap: map[string]string{},
-		createdAt:     time.Now(),
-		savedNames:    map[string]bool{},
-		os:            "linux",
-		osVersion:     "",
-		architecture:  "amd64",
+		labels:           nil,
+		env:              map[string]string{},
+		topLayerSha:      topLayerSha,
+		identifier:       identifier,
+		name:             name,
+		cmd:              []string{"initialCMD"},
+		layersMap:        map[string]string{},
+		prevLayersMap:    map[string]string{},
+		createdAt:        time.Now(),
+		savedNames:       map[string]bool{},
+		os:               "linux",
+		osVersion:        "",
+		architecture:     "amd64",
+		savedAnnotations: map[string]string{},
 	}
 }
 
 type Image struct {
-	deleted       bool
-	layers        []string
-	layersMap     map[string]string
-	prevLayersMap map[string]string
-	reusedLayers  []string
-	labels        map[string]string
-	env           map[string]string
-	topLayerSha   string
-	os            string
-	osVersion     string
-	architecture  string
-	identifier    imgutil.Identifier
-	name          string
-	entryPoint    []string
-	cmd           []string
-	base          string
-	createdAt     time.Time
-	layerDir      string
-	workingDir    string
-	savedNames    map[string]bool
-	manifestSize  int64
+	deleted          bool
+	layers           []string
+	layersMap        map[string]string
+	prevLayersMap    map[string]string
+	reusedLayers     []string
+	labels           map[string]string
+	env              map[string]string
+	topLayerSha      string
+	os               string
+	osVersion        string
+	architecture     string
+	identifier       imgutil.Identifier
+	name             string
+	entryPoint       []string
+	cmd              []string
+	base             string
+	createdAt        time.Time
+	layerDir         string
+	workingDir       string
+	savedNames       map[string]bool
+	manifestSize     int64
+	refName          string
+	savedAnnotations map[string]string
 }
 
 func (i *Image) CreatedAt() (time.Time, error) {
@@ -240,6 +243,9 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 	}
 
 	allNames := append([]string{name}, additionalNames...)
+	if i.refName != "" {
+		i.savedAnnotations["org.opencontainers.image.ref.name"] = i.refName
+	}
 
 	var errs []imgutil.SaveDiagnostic
 	for _, n := range allNames {
@@ -289,6 +295,15 @@ func (i *Image) Delete() error {
 
 func (i *Image) Found() bool {
 	return !i.deleted
+}
+
+func (i *Image) AnnotateRefName(refName string) error {
+	i.refName = refName
+	return nil
+}
+
+func (i *Image) GetAnnotateRefName() (string, error) {
+	return i.refName, nil
 }
 
 // test methods
@@ -432,4 +447,8 @@ func (i *Image) SetManifestSize(size int64) {
 
 func (i *Image) ManifestSize() (int64, error) {
 	return i.manifestSize, nil
+}
+
+func (i *Image) SavedAnnotations() map[string]string {
+	return i.savedAnnotations
 }

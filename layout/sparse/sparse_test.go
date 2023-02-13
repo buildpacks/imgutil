@@ -9,6 +9,7 @@ import (
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 
+	"github.com/buildpacks/imgutil/layout"
 	"github.com/buildpacks/imgutil/layout/sparse"
 	h "github.com/buildpacks/imgutil/testhelpers"
 )
@@ -49,21 +50,24 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("name(s) provided", func() {
-			it("creates an image ignoring the additional name provided", func() {
+			it("creates an image and save it also in the additional path provided", func() {
 				image, err := sparse.NewImage(imagePath, testImage)
 				h.AssertNil(t, err)
+				anotherPath := filepath.Join(tmpDir, "another-sparse-layout-image")
 
 				// save on disk in OCI
-				err = image.Save("my-additional-tag")
+				err = image.Save(anotherPath)
 				h.AssertNil(t, err)
 
 				//  expected blobs: manifest, config, layer
 				h.AssertBlobsLen(t, imagePath, 2)
-
-				// assert additional name
 				index := h.ReadIndexManifest(t, imagePath)
 				h.AssertEq(t, len(index.Manifests), 1)
-				h.AssertEq(t, 0, len(index.Manifests[0].Annotations))
+
+				// assert image saved on additional path
+				h.AssertBlobsLen(t, anotherPath, 2)
+				index = h.ReadIndexManifest(t, anotherPath)
+				h.AssertEq(t, len(index.Manifests), 1)
 			})
 		})
 
@@ -78,6 +82,29 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				// expected blobs: manifest, config
 				h.AssertBlobsLen(t, imagePath, 2)
+			})
+		})
+
+		when("#AnnotateRefName", func() {
+			it("creates an image and save it with `org.opencontainers.image.ref.name` annotation", func() {
+				image, err := sparse.NewImage(imagePath, testImage)
+				h.AssertNil(t, err)
+
+				// adds org.opencontainers.image.ref.name annotation
+				image.AnnotateRefName("my-tag")
+
+				// save
+				err = image.Save()
+				h.AssertNil(t, err)
+
+				// expected blobs: manifest, config
+				h.AssertBlobsLen(t, imagePath, 2)
+
+				// assert org.opencontainers.image.ref.name annotation
+				index := h.ReadIndexManifest(t, imagePath)
+				h.AssertEq(t, len(index.Manifests), 1)
+				h.AssertEq(t, 1, len(index.Manifests[0].Annotations))
+				h.AssertEqAnnotation(t, index.Manifests[0], layout.ImageRefNameKey, "my-tag")
 			})
 		})
 	})

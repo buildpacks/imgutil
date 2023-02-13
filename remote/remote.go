@@ -865,6 +865,16 @@ func (i *Image) ManifestSize() (int64, error) {
 	return i.image.Size()
 }
 
+func (i *Image) AnnotateRefName(refName string) error {
+	// TODO issue https://github.com/buildpacks/imgutil/issues/178
+	return errors.New("not yet implemented")
+}
+
+func (i *Image) GetAnnotateRefName() (string, error) {
+	// TODO issue https://github.com/buildpacks/imgutil/issues/178
+	return "", errors.New("not yet implemented")
+}
+
 type subImage struct {
 	img       v1.Image
 	topDiffID string

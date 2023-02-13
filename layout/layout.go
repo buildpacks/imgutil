@@ -3,7 +3,6 @@ package layout
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
@@ -26,6 +26,7 @@ type Image struct {
 	path       string
 	prevLayers []v1.Layer
 	createdAt  time.Time
+	refName    string // holds org.opencontainers.image.ref.name value
 }
 
 type imageOptions struct {
@@ -115,11 +116,13 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 	}
 
 	if imageOpts.baseImagePath != "" {
-		if err := processBaseImageOption(ri, imageOpts.baseImagePath, platform); err != nil {
+		if err := processBaseImagePathOption(ri, imageOpts.baseImagePath, platform); err != nil {
 			return nil, err
 		}
 	} else if imageOpts.baseImage != nil {
-		ri.Image = imageOpts.baseImage
+		if err := ri.mutateImage(imageOpts.baseImage); err != nil {
+			return nil, err
+		}
 	}
 
 	if imageOpts.createdAt.IsZero() {
@@ -147,15 +150,13 @@ func processPreviousImageOption(ri *Image, prevImagePath string, platform imguti
 	return nil
 }
 
-func processBaseImageOption(ri *Image, baseImagePath string, platform imgutil.Platform) error {
+func processBaseImagePathOption(ri *Image, baseImagePath string, platform imgutil.Platform) error {
 	baseImage, err := newV1Image(baseImagePath, platform)
 	if err != nil {
 		return err
 	}
 
-	ri.Image = baseImage
-
-	return nil
+	return ri.mutateImage(baseImage)
 }
 
 func emptyImage(platform imgutil.Platform) (v1.Image, error) {
@@ -168,7 +169,9 @@ func emptyImage(platform imgutil.Platform) (v1.Image, error) {
 			DiffIDs: []v1.Hash{},
 		},
 	}
-	return mutate.ConfigFile(empty.Image, cfg)
+	image := mutate.MediaType(empty.Image, types.OCIManifestSchema1)
+	image = mutate.ConfigMediaType(image, types.OCIConfigJSON)
+	return mutate.ConfigFile(image, cfg)
 }
 
 func defaultPlatform() imgutil.Platform {
@@ -296,11 +299,11 @@ func (i *Image) Found() bool {
 // Each image's ID is given by the SHA256 hash of its configuration JSON. It is represented as a hexadecimal encoding of 256 bits,
 // e.g., sha256:a9561eb1b190625c9adb5a9513e72c4dedafc1cb2d4c5236c9a6957ec7dfd5a9.
 func (i *Image) Identifier() (imgutil.Identifier, error) {
-	configFile, err := i.Image.ConfigFile()
+	hash, err := i.Image.Digest()
 	if err != nil {
 		return nil, errors.Wrapf(err, "getting identifier for image at path %q", i.path)
 	}
-	return newDigestIdentifier(configFile)
+	return newLayoutIdentifier(i.path, hash)
 }
 
 func (i *Image) CreatedAt() (time.Time, error) {
@@ -473,12 +476,7 @@ func (i *Image) AddLayer(path string) error {
 	if err != nil {
 		return err
 	}
-	image, err := mutate.AppendLayers(i.Image, layer)
-	if err != nil {
-		return errors.Wrap(err, "add layer")
-	}
-	i.mutateImage(image)
-	return nil
+	return i.addOCILayer(layer)
 }
 
 func (i *Image) AddLayerWithDiffID(path, diffID string) error {
@@ -492,12 +490,7 @@ func (i *Image) ReuseLayer(sha string) error {
 	if err != nil {
 		return err
 	}
-	image, err := mutate.AppendLayers(i.Image, layer)
-	if err != nil {
-		return err
-	}
-	i.mutateImage(image)
-	return nil
+	return i.addOCILayer(layer)
 }
 
 func findLayerWithSha(layers []v1.Layer, diffID string) (v1.Layer, error) {
@@ -519,10 +512,6 @@ func (i *Image) Save(additionalNames ...string) error {
 
 // SaveAs ignores the image `Name()` method and saves the image according to name & additional names provided to this method
 func (i *Image) SaveAs(name string, additionalNames ...string) error {
-	if len(additionalNames) > 1 {
-		log.Printf("multiple additional names %v are ignored when OCI layout is used", additionalNames)
-	}
-
 	err := i.mutateCreatedAt(i.Image, v1.Time{Time: i.createdAt})
 	if err != nil {
 		return errors.Wrap(err, "set creation time")
@@ -552,16 +541,20 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 		return errors.Wrap(err, "zeroing history")
 	}
 
-	// initialize image path
-	path, err := Write(name, empty.Index)
-	if err != nil {
-		return err
-	}
-
 	var diagnostics []imgutil.SaveDiagnostic
-	err = path.AppendImage(i.Image)
-	if err != nil {
-		diagnostics = append(diagnostics, imgutil.SaveDiagnostic{ImageName: i.Name(), Cause: err})
+	annotations := ImageRefAnnotation(i.refName)
+	pathsToSave := append([]string{name}, additionalNames...)
+	for _, path := range pathsToSave {
+		// initialize image path
+		path, err := Write(path, empty.Index)
+		if err != nil {
+			return err
+		}
+
+		err = path.AppendImage(i.Image, WithAnnotations(annotations))
+		if err != nil {
+			diagnostics = append(diagnostics, imgutil.SaveDiagnostic{ImageName: i.Name(), Cause: err})
+		}
 	}
 
 	if len(diagnostics) > 0 {
@@ -572,6 +565,7 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 }
 
 func (i *Image) SaveFile() (string, error) {
+	// TODO issue https://github.com/buildpacks/imgutil/issues/170
 	return "", errors.New("not yet implemented")
 }
 
@@ -609,6 +603,15 @@ func (i *Image) Layers() ([]v1.Layer, error) {
 	return retLayers, nil
 }
 
+func (i *Image) AnnotateRefName(refName string) error {
+	i.refName = refName
+	return nil
+}
+
+func (i *Image) GetAnnotateRefName() (string, error) {
+	return i.refName, nil
+}
+
 func ImageExists(path string) bool {
 	if !pathExists(path) {
 		return false
@@ -634,6 +637,10 @@ func pathExists(path string) bool {
 	return false
 }
 
+// newV1Image creates a layout image from the given path.
+//   - If a ImageIndex for multiples platforms exists, then it will try to select the image
+//     according to the platform provided
+//   - If the image does not exist, then an empty image is returned
 func newV1Image(path string, platform imgutil.Platform) (v1.Image, error) {
 	var (
 		image  v1.Image
@@ -707,8 +714,7 @@ func (i *Image) mutateConfig(base v1.Image, config v1.Config) error {
 	if err != nil {
 		return err
 	}
-	i.mutateImage(image)
-	return nil
+	return i.mutateImage(image)
 }
 
 // mutateConfigFile mutates the provided v1.Image to have the provided v1.ConfigFile and wraps the result
@@ -718,8 +724,7 @@ func (i *Image) mutateConfigFile(base v1.Image, configFile *v1.ConfigFile) error
 	if err != nil {
 		return err
 	}
-	i.mutateImage(image)
-	return nil
+	return i.mutateImage(image)
 }
 
 // mutateCreatedAt mutates the provided v1.Image to have the provided v1.Time and wraps the result
@@ -729,13 +734,88 @@ func (i *Image) mutateCreatedAt(base v1.Image, created v1.Time) error {
 	if err != nil {
 		return err
 	}
-	i.mutateImage(image)
-	return nil
+	return i.mutateImage(image)
 }
 
 // mutateImage wraps the provided v1.Image into a layout.Image
-func (i *Image) mutateImage(base v1.Image) {
-	i.Image = &Image{
-		Image: base,
+func (i *Image) mutateImage(base v1.Image) error {
+	manifest, err := base.Manifest()
+	if err != nil {
+		return err
 	}
+	if validMediaTypes(manifest) {
+		i.Image = &Image{
+			Image: base,
+		}
+	} else {
+		// images has docker media types, we need to override them
+		newBaseImage, err := overrideMediaTypes(base)
+		if err != nil {
+			return err
+		}
+		i.Image = &Image{
+			Image: newBaseImage,
+		}
+	}
+	return nil
+}
+
+// addOCILayer appends the provided layer with media type application/vnd.oci.image.layer.v1.tar+gzip
+func (i *Image) addOCILayer(layer v1.Layer) error {
+	additions := layersAddendum([]v1.Layer{layer})
+	image, err := mutate.Append(i.Image, additions...)
+	if err != nil {
+		return errors.Wrap(err, "add layer")
+	}
+	return i.mutateImage(image)
+}
+
+// validMediaTypes returns true if media types present in the manifest are the ones defined by the OCI spec
+// Docker Media Types will return false.
+func validMediaTypes(manifest *v1.Manifest) bool {
+	return manifest.MediaType == types.OCIManifestSchema1 &&
+		manifest.Config.MediaType == types.OCIConfigJSON
+}
+
+// overrideMediaTypes will create a new v1.Image from the provided base image, but replacing
+// manifest media type, config media type and layers media type by the ones defined by the OCI spec
+func overrideMediaTypes(base v1.Image) (v1.Image, error) {
+	config, err := base.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+	config.RootFS.DiffIDs = make([]v1.Hash, 0)
+
+	image := mutate.MediaType(empty.Image, types.OCIManifestSchema1)
+	image, err = mutate.ConfigFile(image, config)
+	if err != nil {
+		return nil, err
+	}
+	image = mutate.ConfigMediaType(image, types.OCIConfigJSON)
+
+	layers, err := base.Layers()
+	if err != nil {
+		return nil, err
+	}
+
+	additions := layersAddendum(layers)
+	image, err = mutate.Append(image, additions...)
+	if err != nil {
+		return nil, err
+	}
+
+	return image, nil
+}
+
+// layersAddendum creates an Addendum array with the given layers
+// and 'application/vnd.oci.image.layer.v1.tar+gzip' media type
+func layersAddendum(layers []v1.Layer) []mutate.Addendum {
+	additions := make([]mutate.Addendum, 0)
+	for _, layer := range layers {
+		additions = append(additions, mutate.Addendum{
+			MediaType: types.OCILayer,
+			Layer:     layer,
+		})
+	}
+	return additions
 }

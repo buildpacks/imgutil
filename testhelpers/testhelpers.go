@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/v1/types"
+
 	"github.com/buildpacks/imgutil/layer"
 
 	dockertypes "github.com/docker/docker/api/types"
@@ -477,6 +479,33 @@ func AssertPathExists(t *testing.T, path string) {
 		t.Errorf("Expected %q to exist", path)
 	} else if err != nil {
 		t.Fatalf("Error stating %q: %v", path, err)
+	}
+}
+
+func AssertEqAnnotation(t *testing.T, manifest v1.Descriptor, key, value string) {
+	t.Helper()
+	AssertTrue(t, func() bool {
+		return len(manifest.Annotations) > 0
+	})
+	AssertTrue(t, func() bool {
+		return manifest.Annotations[key] == value
+	})
+}
+
+func AssertOCIMediaTypes(t *testing.T, image v1.Image) {
+	t.Helper()
+
+	mediaType, err := image.MediaType()
+	AssertNil(t, err)
+	AssertEq(t, mediaType, types.OCIManifestSchema1)
+
+	manifest, err := image.Manifest()
+	AssertNil(t, err)
+	AssertNotEq(t, manifest.MediaType, "")
+	AssertEq(t, manifest.Config.MediaType, types.OCIConfigJSON)
+
+	for _, layer := range manifest.Layers {
+		AssertEq(t, layer.MediaType, types.OCILayer)
 	}
 }
 

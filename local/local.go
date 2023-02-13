@@ -734,6 +734,14 @@ func (i *Image) ManifestSize() (int64, error) {
 	return 0, nil
 }
 
+func (i *Image) AnnotateRefName(refName string) error {
+	return nil
+}
+
+func (i *Image) GetAnnotateRefName() (string, error) {
+	return "", nil
+}
+
 // downloadBaseLayersOnce exports the base image from the daemon and populates layerPaths the first time it is called.
 // subsequent calls do nothing.
 func (i *Image) downloadBaseLayersOnce() error {

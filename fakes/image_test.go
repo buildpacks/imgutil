@@ -136,6 +136,21 @@ Layers
 			})
 		})
 	})
+
+	when("#AnnotateRefName", func() {
+		var repoName = newRepoName()
+
+		it("adds org.opencontainers.image.ref.name annotation", func() {
+			image := fakes.NewImage(repoName, "", nil)
+			image.AnnotateRefName("my-tag")
+
+			_ = image.Save()
+
+			annotations := image.SavedAnnotations()
+			refName, _ := image.GetAnnotateRefName()
+			h.AssertEq(t, annotations["org.opencontainers.image.ref.name"], refName)
+		})
+	})
 }
 
 func createLayerTar(contents map[string]string) (string, error) {

@@ -1,8 +1,6 @@
 package sparse
 
 import (
-	"log"
-
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 
@@ -37,19 +35,22 @@ func (i *Image) Save(additionalNames ...string) error {
 }
 
 func (i *Image) SaveAs(name string, additionalNames ...string) error {
-	if len(additionalNames) > 1 {
-		log.Printf("multiple additional names %v are ignored when OCI layout is used", additionalNames)
-	}
-
-	layoutPath, err := layout.Write(name, empty.Index)
-	if err != nil {
-		return err
-	}
-
 	var diagnostics []imgutil.SaveDiagnostic
-	err = layoutPath.AppendImage(i, layout.WithoutLayers())
-	if err != nil {
-		diagnostics = append(diagnostics, imgutil.SaveDiagnostic{ImageName: name, Cause: err})
+
+	refName, _ := i.Image.GetAnnotateRefName()
+	annotations := layout.ImageRefAnnotation(refName)
+
+	pathsToSave := append([]string{name}, additionalNames...)
+	for _, path := range pathsToSave {
+		layoutPath, err := layout.Write(path, empty.Index)
+		if err != nil {
+			return err
+		}
+
+		err = layoutPath.AppendImage(i, layout.WithoutLayers(), layout.WithAnnotations(annotations))
+		if err != nil {
+			diagnostics = append(diagnostics, imgutil.SaveDiagnostic{ImageName: name, Cause: err})
+		}
 	}
 
 	if len(diagnostics) > 0 {
