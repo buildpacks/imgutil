@@ -282,6 +282,17 @@ func (i *Image) Architecture() (string, error) {
 	return cfg.Architecture, nil
 }
 
+func (i *Image) Variant() (string, error) {
+	cfg, err := i.Image.ConfigFile()
+	if err != nil {
+		return "", errors.Wrapf(err, "getting config file for image at path %q", i.path)
+	}
+	if cfg == nil {
+		return "", fmt.Errorf("missing config for image at path %q", i.path)
+	}
+	return cfg.Variant, nil
+}
+
 func (i *Image) Name() string {
 	return i.path
 }
@@ -434,6 +445,16 @@ func (i *Image) SetArchitecture(architecture string) error {
 		return err
 	}
 	configFile.Architecture = architecture
+	err = i.mutateConfigFile(i.Image, configFile)
+	return err
+}
+
+func (i *Image) SetVariant(variant string) error {
+	configFile, err := i.Image.ConfigFile()
+	if err != nil {
+		return err
+	}
+	configFile.Variant = variant
 	err = i.mutateConfigFile(i.Image, configFile)
 	return err
 }

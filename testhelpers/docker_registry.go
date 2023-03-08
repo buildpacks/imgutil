@@ -162,7 +162,7 @@ func (r *DockerRegistry) Start(t *testing.T) {
 
 	r.server = &httptest.Server{
 		Listener: listener,
-		Config:   &http.Server{Handler: r.authnHandler},
+		Config:   &http.Server{Handler: r.authnHandler}, //nolint
 	}
 
 	r.server.Start()
