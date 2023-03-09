@@ -266,6 +266,10 @@ func (i *Image) Architecture() (string, error) {
 	return i.inspect.Architecture, nil
 }
 
+func (i *Image) Variant() (string, error) {
+	return i.inspect.Variant, nil
+}
+
 func (i *Image) Rename(name string) {
 	i.repoName = name
 }
@@ -349,6 +353,11 @@ func (i *Image) SetOSVersion(osVersion string) error {
 
 func (i *Image) SetArchitecture(architecture string) error {
 	i.inspect.Architecture = architecture
+	return nil
+}
+
+func (i *Image) SetVariant(v string) error {
+	i.inspect.Variant = v
 	return nil
 }
 

@@ -49,6 +49,7 @@ type Image struct {
 	os               string
 	osVersion        string
 	architecture     string
+	variant          string
 	identifier       imgutil.Identifier
 	name             string
 	entryPoint       []string
@@ -89,6 +90,10 @@ func (i *Image) OSVersion() (string, error) {
 
 func (i *Image) Architecture() (string, error) {
 	return i.architecture, nil
+}
+
+func (i *Image) Variant() (string, error) {
+	return i.variant, nil
 }
 
 func (i *Image) Rename(name string) {
@@ -138,6 +143,11 @@ func (i *Image) SetOSVersion(v string) error {
 
 func (i *Image) SetArchitecture(a string) error {
 	i.architecture = a
+	return nil
+}
+
+func (i *Image) SetVariant(a string) error {
+	i.variant = a
 	return nil
 }
 

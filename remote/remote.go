@@ -483,6 +483,17 @@ func (i *Image) Architecture() (string, error) {
 	return cfg.Architecture, nil
 }
 
+func (i *Image) Variant() (string, error) {
+	cfg, err := i.image.ConfigFile()
+	if err != nil {
+		return "", errors.Wrapf(err, "getting config file for image %q", i.repoName)
+	}
+	if cfg == nil {
+		return "", fmt.Errorf("missing config for image %q", i.repoName)
+	}
+	return cfg.Variant, nil // it's optional so we don't care whether it's ""
+}
+
 func (i *Image) Rename(name string) {
 	i.repoName = name
 }
@@ -702,6 +713,16 @@ func (i *Image) SetArchitecture(architecture string) error {
 		return err
 	}
 	configFile.Architecture = architecture
+	i.image, err = mutate.ConfigFile(i.image, configFile)
+	return err
+}
+
+func (i *Image) SetVariant(variant string) error {
+	configFile, err := i.image.ConfigFile()
+	if err != nil {
+		return err
+	}
+	configFile.Variant = variant
 	i.image, err = mutate.ConfigFile(i.image, configFile)
 	return err
 }

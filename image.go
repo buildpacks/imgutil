@@ -50,6 +50,7 @@ type Image interface {
 	SetOS(string) error
 	SetOSVersion(string) error
 	SetArchitecture(string) error
+	SetVariant(string) error
 	Rebase(string, Image) error
 	AddLayer(path string) error
 	AddLayerWithDiffID(path, diffID string) error
@@ -72,6 +73,7 @@ type Image interface {
 	OS() (string, error)
 	OSVersion() (string, error)
 	Architecture() (string, error)
+	Variant() (string, error)
 	// ManifestSize returns the size of the manifest. If a manifest doesn't exist, it returns 0.
 	ManifestSize() (int64, error)
 	// AnnotateRefName set a value for the `org.opencontainers.image.ref.name` annotation
