@@ -76,9 +76,7 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 		ri.createdAt = imageOpts.createdAt
 	}
 
-	if imageOpts.mediaTypes != "" {
-		ri.requestedMediaTypes = imageOpts.mediaTypes
-	}
+	ri.requestedMediaTypes = imageOpts.mediaTypes
 	if err = ri.setUnderlyingImage(ri.image); err != nil { // update media types
 		return nil, err
 	}
