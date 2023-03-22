@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -189,6 +190,23 @@ func (i *Image) Layers() ([]v1.Layer, error) {
 func hasData(layer v1.Layer) bool {
 	_, err := layer.Compressed()
 	return err == nil
+}
+
+type notExistsLayer struct {
+	v1.Layer
+	diffID v1.Hash
+}
+
+func (l *notExistsLayer) Compressed() (io.ReadCloser, error) {
+	return io.NopCloser(bytes.NewReader([]byte{})), nil
+}
+
+func (l *notExistsLayer) DiffID() (v1.Hash, error) {
+	return l.diffID, nil
+}
+
+func (l *notExistsLayer) Uncompressed() (io.ReadCloser, error) {
+	return io.NopCloser(bytes.NewReader([]byte{})), nil
 }
 
 func (i *Image) ManifestSize() (int64, error) {
