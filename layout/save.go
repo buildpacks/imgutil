@@ -69,10 +69,10 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 
 // mutateCreatedAt mutates the provided v1.Image to have the provided v1.Time and wraps the result
 // into a layout.Image (requires for override methods like Layers()
-func (i *Image) mutateCreatedAt(base v1.Image, created v1.Time) error { // FIXME: this function doesn't need arguments
+func (i *Image) mutateCreatedAt(base v1.Image, created v1.Time) error { // FIXME: this function doesn't need arguments; we should also probably do this mutation at the time of image instantiation instead of at the point of saving
 	image, err := mutate.CreatedAt(i.Image, v1.Time{Time: i.createdAt})
 	if err != nil {
 		return err
 	}
-	return i.mutateImage(image)
+	return i.setUnderlyingImage(image)
 }

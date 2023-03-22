@@ -46,7 +46,7 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 			return nil, err
 		}
 	} else if imageOpts.baseImage != nil {
-		if err := ri.mutateImage(imageOpts.baseImage); err != nil {
+		if err := ri.setUnderlyingImage(imageOpts.baseImage); err != nil {
 			return nil, err
 		}
 	}
@@ -55,6 +55,15 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 		ri.createdAt = imgutil.NormalizedDateTime
 	} else {
 		ri.createdAt = imageOpts.createdAt
+	}
+
+	if imageOpts.mediaTypes != "" {
+		ri.requestedMediaTypes = imageOpts.mediaTypes
+	} else {
+		ri.requestedMediaTypes = imgutil.OCITypes // without media types option, default to oci media type
+	}
+	if err = ri.setUnderlyingImage(ri.Image); err != nil { // update media types
+		return nil, err
 	}
 
 	return ri, nil
@@ -174,5 +183,30 @@ func processBaseImagePathOption(ri *Image, baseImagePath string, platform imguti
 		return err
 	}
 
-	return ri.mutateImage(baseImage)
+	return ri.setUnderlyingImage(baseImage)
+}
+
+// setUnderlyingImage wraps the provided v1.Image into a layout.Image and sets it as the underlying image for the receiving layout.Image
+func (i *Image) setUnderlyingImage(base v1.Image) error {
+	manifest, err := base.Manifest()
+	if err != nil {
+		return err
+	}
+	if i.requestedMediaTypesMatch(manifest) {
+		i.Image = &Image{Image: base}
+		return nil
+	}
+	// provided v1.Image media types differ from requested, override them
+	newBase, err := imgutil.OverrideMediaTypes(base, i.requestedMediaTypes)
+	if err != nil {
+		return err
+	}
+	i.Image = &Image{Image: newBase}
+	return nil
+}
+
+// requestedMediaTypesMatch returns true if the manifest and config file use the requested media types
+func (i *Image) requestedMediaTypesMatch(manifest *v1.Manifest) bool {
+	return manifest.MediaType == i.requestedMediaTypes.ManifestType() &&
+		manifest.Config.MediaType == i.requestedMediaTypes.ConfigType()
 }

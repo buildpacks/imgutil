@@ -30,6 +30,7 @@ type Image struct {
 	createdAt           time.Time
 	addEmptyLayerOnSave bool
 	registrySettings    map[string]registrySetting
+	requestedMediaTypes imgutil.MediaTypes
 }
 
 type registrySetting struct {
@@ -368,11 +369,25 @@ func (i *Image) AddLayer(path string) error {
 	if err != nil {
 		return err
 	}
-	i.image, err = mutate.AppendLayers(i.image, layer)
+	additions := layersAddendum([]v1.Layer{layer}, i.requestedMediaTypes.LayerType())
+	i.image, err = mutate.Append(i.image, additions...)
 	if err != nil {
 		return errors.Wrap(err, "add layer")
 	}
 	return nil
+}
+
+// layersAddendum creates an Addendum array with the given layers
+// and the desired media type
+func layersAddendum(layers []v1.Layer, mediaType types.MediaType) []mutate.Addendum {
+	additions := make([]mutate.Addendum, 0)
+	for _, layer := range layers {
+		additions = append(additions, mutate.Addendum{
+			MediaType: mediaType,
+			Layer:     layer,
+		})
+	}
+	return additions
 }
 
 func (i *Image) AddLayerWithDiffID(path, diffID string) error {
@@ -472,6 +487,11 @@ func (i *Image) CheckReadWriteAccess() bool {
 		return false
 	}
 	return i.CheckReadAccess() && remote.CheckPushPermission(ref, i.keychain, http.DefaultTransport) == nil
+}
+
+// UnderlyingImage exposes the underlying image for testing
+func (i *Image) UnderlyingImage() v1.Image {
+	return i.image
 }
 
 // helpers

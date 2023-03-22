@@ -87,8 +87,6 @@ func (l Path) writeImageWithoutLayers(img v1.Image, annotations map[string]strin
 	return l.AppendDescriptor(desc)
 }
 
-// appendImage overrides the writeLayers operation from ggcr library.
-// calls the Layers() method on the mutateImage which is handling the logic to skip layers when it is required
 func (l Path) appendImage(img v1.Image, annotations map[string]string) error {
 	layers, err := img.Layers()
 	if err != nil {

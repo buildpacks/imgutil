@@ -15,9 +15,10 @@ type options struct {
 	createdAt           time.Time
 	addEmptyLayerOnSave bool
 	registrySettings    map[string]registrySetting
+	mediaTypes          imgutil.MediaTypes
 }
 
-// AddEmptyLayerOnSave adds an empty layer before saving if the image has no layer at all.
+// AddEmptyLayerOnSave (remote only) adds an empty layer before saving if the image has no layer at all.
 // This option is useful when exporting to registries that do not allow saving an image without layers,
 // for example: gcr.io
 func AddEmptyLayerOnSave() ImageOption {
@@ -55,6 +56,15 @@ func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	}
 }
 
+// WithMediaTypes lets a caller set the desired media types for the image manifest and config files,
+// including the layers referenced in the manifest, to be either OCI media types or Docker media types.
+func WithMediaTypes(requested imgutil.MediaTypes) ImageOption {
+	return func(i *options) error {
+		i.mediaTypes = requested
+		return nil
+	}
+}
+
 // WithPreviousImage loads an existing image as a source for reusable layers.
 // Use with ReuseLayer().
 // Ignored if image is not found.
@@ -65,7 +75,7 @@ func WithPreviousImage(imageName string) ImageOption {
 	}
 }
 
-// WithRegistrySetting registers options to use when accessing images in a registry in order to construct
+// WithRegistrySetting (remote only) registers options to use when accessing images in a registry in order to construct
 // the image. The referenced images could include the base image, a previous image, or the image itself.
 func WithRegistrySetting(repository string, insecure, insecureSkipVerify bool) ImageOption {
 	return func(opts *options) error {

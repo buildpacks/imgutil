@@ -535,6 +535,27 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertEq(t, len(h.FetchManifestLayers(t, repoName)), 1)
 			})
 		})
+
+		when("#WithMediaTypes", func() {
+			it("sets the requested media types", func() {
+				img, err := remote.NewImage(
+					newTestImageName(),
+					authn.DefaultKeychain,
+					remote.WithMediaTypes(imgutil.OCITypes),
+				)
+				h.AssertNil(t, err)
+				h.AssertOCIMediaTypes(t, img.UnderlyingImage()) // before saving
+				// add a random layer
+				newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", "linux")
+				h.AssertNil(t, err)
+				defer os.Remove(newLayerPath)
+				err = img.AddLayer(newLayerPath)
+				h.AssertNil(t, err)
+				h.AssertOCIMediaTypes(t, img.UnderlyingImage()) // after adding a layer
+				h.AssertNil(t, img.Save())
+				h.AssertOCIMediaTypes(t, img.UnderlyingImage()) // after saving
+			})
+		})
 	})
 
 	when("#WorkingDir", func() {

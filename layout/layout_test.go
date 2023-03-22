@@ -255,6 +255,24 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 
+		when("#WithMediaTypes", func() {
+			it("sets the requested media types", func() {
+				img, err := layout.NewImage(
+					imagePath,
+					layout.WithMediaTypes(imgutil.DockerTypes),
+				)
+				h.AssertNil(t, err)
+				h.AssertDockerMediaTypes(t, img) // before saving
+				// add a random layer
+				path, diffID, _ := h.RandomLayer(t, tmpDir)
+				err = img.AddLayerWithDiffID(path, diffID)
+				h.AssertNil(t, err)
+				h.AssertDockerMediaTypes(t, img) // after adding a layer
+				h.AssertNil(t, img.Save())
+				h.AssertDockerMediaTypes(t, img) // after saving
+			})
+		})
+
 		when("#WithPreviousImage", func() {
 			var (
 				layerDiffID       string
