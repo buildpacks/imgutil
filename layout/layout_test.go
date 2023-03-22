@@ -22,6 +22,7 @@ import (
 	h "github.com/buildpacks/imgutil/testhelpers"
 )
 
+// FIXME: relevant tests in this file should be moved into new_test.go and save_test.go to mirror the implementation
 func TestLayout(t *testing.T) {
 	spec.Run(t, "Image", testImage, spec.Sequential(), spec.Report(report.Terminal{}))
 }
