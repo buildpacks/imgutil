@@ -29,65 +29,8 @@ type Image struct {
 	refName    string // holds org.opencontainers.image.ref.name value
 }
 
-type imageOptions struct {
-	platform      imgutil.Platform
-	baseImage     v1.Image
-	baseImagePath string
-	prevImagePath string
-	createdAt     time.Time
-}
-
-type ImageOption func(*imageOptions) error
-
-// WithPreviousImage loads an existing image as a source for reusable layers.
-// Use with ReuseLayer().
-// Ignored if underlyingImage is not found.
-func WithPreviousImage(path string) ImageOption {
-	return func(i *imageOptions) error {
-		i.prevImagePath = path
-		return nil
-	}
-}
-
-// FromBaseImage loads the given image as the config and layers for the new image.
-// Ignored if image is not found.
-func FromBaseImage(base v1.Image) ImageOption {
-	return func(i *imageOptions) error {
-		i.baseImage = base
-		return nil
-	}
-}
-
-// WithDefaultPlatform provides Architecture/OS/OSVersion defaults for the new image.
-// Defaults for a new image are ignored when FromBaseImage returns an image.
-// FromBaseImage and WithPreviousImage will use the platform to choose an image from a manifest list.
-func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
-	return func(i *imageOptions) error {
-		i.platform = platform
-		return nil
-	}
-}
-
-// WithCreatedAt lets a caller set the created at timestamp for the image.
-// Defaults for a new image is imgutil.NormalizedDateTime
-func WithCreatedAt(createdAt time.Time) ImageOption {
-	return func(i *imageOptions) error {
-		i.createdAt = createdAt
-		return nil
-	}
-}
-
-// FromBaseImagePath loads an existing image as the config and layers for the new underlyingImage.
-// Ignored if underlyingImage is not found.
-func FromBaseImagePath(path string) ImageOption {
-	return func(i *imageOptions) error {
-		i.baseImagePath = path
-		return nil
-	}
-}
-
 func NewImage(path string, ops ...ImageOption) (*Image, error) {
-	imageOpts := &imageOptions{}
+	imageOpts := &options{}
 	for _, op := range ops {
 		if err := op(imageOpts); err != nil {
 			return nil, err

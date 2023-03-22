@@ -10,21 +10,21 @@ type Path struct {
 	ggcr.Path
 }
 
-type Option func(*options)
+type AppendOption func(*appendOptions)
 
-type options struct {
+type appendOptions struct {
 	withoutLayers bool
 	annotations   map[string]string
 }
 
-func WithoutLayers() Option {
-	return func(i *options) {
+func WithoutLayers() AppendOption {
+	return func(i *appendOptions) {
 		i.withoutLayers = true
 	}
 }
 
-func WithAnnotations(annotations map[string]string) Option {
-	return func(i *options) {
+func WithAnnotations(annotations map[string]string) AppendOption {
+	return func(i *appendOptions) {
 		i.annotations = annotations
 	}
 }
