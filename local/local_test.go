@@ -24,6 +24,7 @@ import (
 
 var localTestRegistry *h.DockerRegistry
 
+// FIXME: relevant tests in this file should be moved into new_test.go and save_test.go to mirror the implementation
 func TestLocal(t *testing.T) {
 	rand.Seed(time.Now().UTC().UnixNano())
 

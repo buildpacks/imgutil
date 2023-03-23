@@ -34,51 +34,59 @@ type Platform struct {
 }
 
 type Image interface {
-	Name() string
-	Rename(name string)
+	// getters
+
+	Architecture() (string, error)
+	CreatedAt() (time.Time, error)
+	Entrypoint() ([]string, error)
+	Env(key string) (string, error)
+	// Found tells whether the image exists in the repository by `Name()`.
+	Found() bool
+	GetAnnotateRefName() (string, error)
+	// GetLayer retrieves layer by diff id. Returns a reader of the uncompressed contents of the layer.
+	GetLayer(diffID string) (io.ReadCloser, error)
+	Identifier() (Identifier, error)
 	Label(string) (string, error)
 	Labels() (map[string]string, error)
-	SetLabel(string, string) error
-	RemoveLabel(string) error
-	Env(key string) (string, error)
-	WorkingDir() (string, error)
-	Entrypoint() ([]string, error)
-	SetEnv(string, string) error
-	SetEntrypoint(...string) error
-	SetWorkingDir(string) error
-	SetCmd(...string) error
-	SetOS(string) error
-	SetOSVersion(string) error
-	SetArchitecture(string) error
-	SetVariant(string) error
-	Rebase(string, Image) error
-	AddLayer(path string) error
-	AddLayerWithDiffID(path, diffID string) error
-	ReuseLayer(diffID string) error
+	// ManifestSize returns the size of the manifest. If a manifest doesn't exist, it returns 0.
+	ManifestSize() (int64, error)
+	Name() string
+	OS() (string, error)
+	OSVersion() (string, error)
 	// TopLayer returns the diff id for the top layer
 	TopLayer() (string, error)
+	Variant() (string, error)
+	WorkingDir() (string, error)
+
+	// setters
+
+	// AnnotateRefName set a value for the `org.opencontainers.image.ref.name` annotation
+	AnnotateRefName(refName string) error
+	Rename(name string)
+	SetArchitecture(string) error
+	SetCmd(...string) error
+	SetEntrypoint(...string) error
+	SetEnv(string, string) error
+	SetLabel(string, string) error
+	SetOS(string) error
+	SetOSVersion(string) error
+	SetVariant(string) error
+	SetWorkingDir(string) error
+
+	// modifiers
+
+	AddLayer(path string) error
+	AddLayerWithDiffID(path, diffID string) error
+	Delete() error
+	Rebase(string, Image) error
+	RemoveLabel(string) error
+	ReuseLayer(diffID string) error
 	// Save saves the image as `Name()` and any additional names provided to this method.
 	Save(additionalNames ...string) error
 	// SaveAs ignores the image `Name()` method and saves the image according to name & additional names provided to this method
 	SaveAs(name string, additionalNames ...string) error
 	// SaveFile saves the image as a docker archive and provides the filesystem location
 	SaveFile() (string, error)
-	// Found tells whether the image exists in the repository by `Name()`.
-	Found() bool
-	// GetLayer retrieves layer by diff id. Returns a reader of the uncompressed contents of the layer.
-	GetLayer(diffID string) (io.ReadCloser, error)
-	Delete() error
-	CreatedAt() (time.Time, error)
-	Identifier() (Identifier, error)
-	OS() (string, error)
-	OSVersion() (string, error)
-	Architecture() (string, error)
-	Variant() (string, error)
-	// ManifestSize returns the size of the manifest. If a manifest doesn't exist, it returns 0.
-	ManifestSize() (int64, error)
-	// AnnotateRefName set a value for the `org.opencontainers.image.ref.name` annotation
-	AnnotateRefName(refName string) error
-	GetAnnotateRefName() (string, error)
 }
 
 type Identifier fmt.Stringer

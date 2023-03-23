@@ -17,13 +17,32 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 )
 
+type AppendOption func(*appendOptions)
+
+type appendOptions struct {
+	withoutLayers bool
+	annotations   map[string]string
+}
+
+func WithoutLayers() AppendOption {
+	return func(i *appendOptions) {
+		i.withoutLayers = true
+	}
+}
+
+func WithAnnotations(annotations map[string]string) AppendOption {
+	return func(i *appendOptions) {
+		i.annotations = annotations
+	}
+}
+
 // AppendImage mimics GGCR's AppendImage in that it appends an image to a `layout.Path`,
 // but the image appended does not include any layers in the `blobs` directory.
 // The returned image will return layers when Layers(), LayerByDiffID(), or LayerByDigest() are called,
 // but the returned layer will error when DiffID(), Compressed(), or Uncompressed() are called.
 // This is useful when we need to satisfy the v1.Image interface but do not need to access any layers.
-func (l Path) AppendImage(img v1.Image, ops ...Option) error {
-	o := &options{}
+func (l Path) AppendImage(img v1.Image, ops ...AppendOption) error {
+	o := &appendOptions{}
 	for _, op := range ops {
 		op(o)
 	}
