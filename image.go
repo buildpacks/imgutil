@@ -77,39 +77,52 @@ type Platform struct {
 	OSVersion    string
 }
 
-type MediaTypes string
+type MediaTypes int
 
 const (
-	DefaultTypes MediaTypes = ""
-	OCITypes     MediaTypes = "oci"
-	DockerTypes  MediaTypes = "docker"
+	MissingTypes MediaTypes = iota
+	DefaultTypes
+	OCITypes
+	DockerTypes
 )
 
 func (t MediaTypes) ManifestType() types.MediaType {
-	if t == DockerTypes {
+	switch t {
+	case OCITypes:
+		return types.OCIManifestSchema1
+	case DockerTypes:
 		return types.DockerManifestSchema2
+	default:
+		return ""
 	}
-	return types.OCIManifestSchema1
 }
 
 func (t MediaTypes) ConfigType() types.MediaType {
-	if t == DockerTypes {
+	switch t {
+	case OCITypes:
+		return types.OCIConfigJSON
+	case DockerTypes:
 		return types.DockerConfigJSON
+	default:
+		return ""
 	}
-	return types.OCIConfigJSON
 }
 
 func (t MediaTypes) LayerType() types.MediaType {
-	if t == DockerTypes {
+	switch t {
+	case OCITypes:
+		return types.OCILayer
+	case DockerTypes:
 		return types.DockerLayer
+	default:
+		return ""
 	}
-	return types.OCILayer
 }
 
 // OverrideMediaTypes mutates the provided v1.Image to use the desired media types
 // in the image manifest and config files (including the layers referenced in the manifest)
 func OverrideMediaTypes(base v1.Image, mediaTypes MediaTypes) (v1.Image, error) {
-	if mediaTypes == DefaultTypes {
+	if mediaTypes == DefaultTypes || mediaTypes == MissingTypes {
 		// without media types option, default to original media types
 		return base, nil
 	}
