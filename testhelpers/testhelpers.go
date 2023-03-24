@@ -509,6 +509,23 @@ func AssertOCIMediaTypes(t *testing.T, image v1.Image) {
 	}
 }
 
+func AssertDockerMediaTypes(t *testing.T, image v1.Image) {
+	t.Helper()
+
+	mediaType, err := image.MediaType()
+	AssertNil(t, err)
+	AssertEq(t, mediaType, types.DockerManifestSchema2)
+
+	manifest, err := image.Manifest()
+	AssertNil(t, err)
+	AssertNotEq(t, manifest.MediaType, "")
+	AssertEq(t, manifest.Config.MediaType, types.DockerConfigJSON)
+
+	for _, layer := range manifest.Layers {
+		AssertEq(t, layer.MediaType, types.DockerLayer)
+	}
+}
+
 func ReadIndexManifest(t *testing.T, path string) *v1.IndexManifest {
 	indexPath := filepath.Join(path, "index.json")
 	AssertPathExists(t, filepath.Join(path, "oci-layout"))

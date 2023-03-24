@@ -76,6 +76,11 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 		ri.createdAt = imageOpts.createdAt
 	}
 
+	ri.requestedMediaTypes = imageOpts.mediaTypes
+	if err = ri.setUnderlyingImage(ri.image); err != nil { // update media types
+		return nil, err
+	}
+
 	return ri, nil
 }
 
@@ -288,4 +293,29 @@ func processBaseImageOption(ri *Image, baseImageRepoName string, platform imguti
 	ri.image = baseImage
 
 	return nil
+}
+
+// setUnderlyingImage wraps the provided v1.Image into a layout.Image and sets it as the underlying image for the receiving layout.Image
+func (i *Image) setUnderlyingImage(base v1.Image) error {
+	manifest, err := base.Manifest()
+	if err != nil {
+		return err
+	}
+	if i.requestedMediaTypesMatch(manifest) {
+		i.image = base
+		return nil
+	}
+	// provided v1.Image media types differ from requested, override them
+	newBase, err := imgutil.OverrideMediaTypes(base, i.requestedMediaTypes)
+	if err != nil {
+		return err
+	}
+	i.image = newBase
+	return nil
+}
+
+// requestedMediaTypesMatch returns true if the manifest and config file use the requested media types
+func (i *Image) requestedMediaTypesMatch(manifest *v1.Manifest) bool {
+	return manifest.MediaType == i.requestedMediaTypes.ManifestType() &&
+		manifest.Config.MediaType == i.requestedMediaTypes.ConfigType()
 }

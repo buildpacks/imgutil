@@ -12,7 +12,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
@@ -24,10 +23,11 @@ var _ imgutil.Image = (*Image)(nil)
 
 type Image struct {
 	v1.Image
-	path       string
-	prevLayers []v1.Layer
-	createdAt  time.Time
-	refName    string // holds org.opencontainers.image.ref.name value
+	path                string
+	prevLayers          []v1.Layer
+	createdAt           time.Time
+	refName             string // holds org.opencontainers.image.ref.name value
+	requestedMediaTypes imgutil.MediaTypes
 }
 
 // getters
@@ -415,26 +415,26 @@ func (i *Image) AddLayer(path string) error {
 	if err != nil {
 		return err
 	}
-	return i.addOCILayer(layer)
+	return i.addLayer(layer)
 }
 
-// addOCILayer appends the provided layer with media type application/vnd.oci.image.layer.v1.tar+gzip
-func (i *Image) addOCILayer(layer v1.Layer) error {
-	additions := layersAddendum([]v1.Layer{layer})
+// addLayer appends the provided layer with the desired media type
+func (i *Image) addLayer(layer v1.Layer) error {
+	additions := layersAddendum([]v1.Layer{layer}, i.requestedMediaTypes.LayerType())
 	image, err := mutate.Append(i.Image, additions...)
 	if err != nil {
 		return errors.Wrap(err, "add layer")
 	}
-	return i.mutateImage(image)
+	return i.setUnderlyingImage(image)
 }
 
 // layersAddendum creates an Addendum array with the given layers
-// and 'application/vnd.oci.image.layer.v1.tar+gzip' media type
-func layersAddendum(layers []v1.Layer) []mutate.Addendum {
+// and the desired media type
+func layersAddendum(layers []v1.Layer, mediaType types.MediaType) []mutate.Addendum {
 	additions := make([]mutate.Addendum, 0)
 	for _, layer := range layers {
 		additions = append(additions, mutate.Addendum{
-			MediaType: types.OCILayer,
+			MediaType: mediaType,
 			Layer:     layer,
 		})
 	}
@@ -474,7 +474,7 @@ func (i *Image) ReuseLayer(sha string) error {
 	if err != nil {
 		return err
 	}
-	return i.addOCILayer(layer)
+	return i.addLayer(layer)
 }
 
 // helpers
@@ -492,82 +492,24 @@ func findLayerWithSha(layers []v1.Layer, diffID string) (v1.Layer, error) {
 	return nil, fmt.Errorf("previous image did not have layer with diff id %q", diffID)
 }
 
-// mutateConfig mutates the provided v1.Image to have the provided v1.Config and wraps the result
-// into a layout.Image (requires for override methods like Layers()
+// mutateConfig mutates the provided v1.Image to have the provided v1.Config,
+// wraps the result into a layout.Image,
+// and sets it as the underlying image for the receiving layout.Image (required for overriding methods like Layers())
 func (i *Image) mutateConfig(base v1.Image, config v1.Config) error {
 	image, err := mutate.Config(base, config)
 	if err != nil {
 		return err
 	}
-	return i.mutateImage(image)
+	return i.setUnderlyingImage(image)
 }
 
-// mutateConfigFile mutates the provided v1.Image to have the provided v1.ConfigFile and wraps the result
-// into a layout.Image (requires for override methods like Layers()
+// mutateConfigFile mutates the provided v1.Image to have the provided v1.ConfigFile,
+// wraps the result into a layout.Image,
+// and sets it as the underlying image for the receiving layout.Image (required for overriding methods like Layers())
 func (i *Image) mutateConfigFile(base v1.Image, configFile *v1.ConfigFile) error {
 	image, err := mutate.ConfigFile(base, configFile)
 	if err != nil {
 		return err
 	}
-	return i.mutateImage(image)
-}
-
-// mutateImage wraps the provided v1.Image into a layout.Image
-func (i *Image) mutateImage(base v1.Image) error {
-	manifest, err := base.Manifest()
-	if err != nil {
-		return err
-	}
-	if validMediaTypes(manifest) {
-		i.Image = &Image{
-			Image: base,
-		}
-	} else {
-		// images has docker media types, we need to override them
-		newBaseImage, err := overrideMediaTypes(base)
-		if err != nil {
-			return err
-		}
-		i.Image = &Image{
-			Image: newBaseImage,
-		}
-	}
-	return nil
-}
-
-// validMediaTypes returns true if media types present in the manifest are the ones defined by the OCI spec
-// Docker Media Types will return false.
-func validMediaTypes(manifest *v1.Manifest) bool {
-	return manifest.MediaType == types.OCIManifestSchema1 &&
-		manifest.Config.MediaType == types.OCIConfigJSON
-}
-
-// overrideMediaTypes will create a new v1.Image from the provided base image, but replacing
-// manifest media type, config media type and layers media type by the ones defined by the OCI spec
-func overrideMediaTypes(base v1.Image) (v1.Image, error) {
-	config, err := base.ConfigFile()
-	if err != nil {
-		return nil, err
-	}
-	config.RootFS.DiffIDs = make([]v1.Hash, 0)
-
-	image := mutate.MediaType(empty.Image, types.OCIManifestSchema1)
-	image, err = mutate.ConfigFile(image, config)
-	if err != nil {
-		return nil, err
-	}
-	image = mutate.ConfigMediaType(image, types.OCIConfigJSON)
-
-	layers, err := base.Layers()
-	if err != nil {
-		return nil, err
-	}
-
-	additions := layersAddendum(layers)
-	image, err = mutate.Append(image, additions...)
-	if err != nil {
-		return nil, err
-	}
-
-	return image, nil
+	return i.setUnderlyingImage(image)
 }

@@ -5,33 +5,12 @@ import (
 	"io"
 	"strings"
 	"time"
+
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 )
-
-var NormalizedDateTime = time.Date(1980, time.January, 1, 0, 0, 1, 0, time.UTC)
-
-type SaveDiagnostic struct {
-	ImageName string
-	Cause     error
-}
-
-type SaveError struct {
-	Errors []SaveDiagnostic
-}
-
-func (e SaveError) Error() string {
-	var errors []string
-	for _, d := range e.Errors {
-		errors = append(errors, fmt.Sprintf("[%s: %s]", d.ImageName, d.Cause.Error()))
-	}
-	return fmt.Sprintf("failed to write image to the following tags: %s", strings.Join(errors, ","))
-}
-
-// Platform represents the target arch/os/os_version for an image construction and querying.
-type Platform struct {
-	Architecture string
-	OS           string
-	OSVersion    string
-}
 
 type Image interface {
 	// getters
@@ -90,3 +69,122 @@ type Image interface {
 }
 
 type Identifier fmt.Stringer
+
+// Platform represents the target arch/os/os_version for an image construction and querying.
+type Platform struct {
+	Architecture string
+	OS           string
+	OSVersion    string
+}
+
+type MediaTypes int
+
+const (
+	MissingTypes MediaTypes = iota
+	DefaultTypes
+	OCITypes
+	DockerTypes
+)
+
+func (t MediaTypes) ManifestType() types.MediaType {
+	switch t {
+	case OCITypes:
+		return types.OCIManifestSchema1
+	case DockerTypes:
+		return types.DockerManifestSchema2
+	default:
+		return ""
+	}
+}
+
+func (t MediaTypes) ConfigType() types.MediaType {
+	switch t {
+	case OCITypes:
+		return types.OCIConfigJSON
+	case DockerTypes:
+		return types.DockerConfigJSON
+	default:
+		return ""
+	}
+}
+
+func (t MediaTypes) LayerType() types.MediaType {
+	switch t {
+	case OCITypes:
+		return types.OCILayer
+	case DockerTypes:
+		return types.DockerLayer
+	default:
+		return ""
+	}
+}
+
+// OverrideMediaTypes mutates the provided v1.Image to use the desired media types
+// in the image manifest and config files (including the layers referenced in the manifest)
+func OverrideMediaTypes(base v1.Image, mediaTypes MediaTypes) (v1.Image, error) {
+	if mediaTypes == DefaultTypes || mediaTypes == MissingTypes {
+		// without media types option, default to original media types
+		return base, nil
+	}
+
+	// manifest media type
+	image := mutate.MediaType(empty.Image, mediaTypes.ManifestType())
+	// update empty image with base config
+	config, err := base.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+	config.RootFS.DiffIDs = make([]v1.Hash, 0)
+	image, err = mutate.ConfigFile(image, config)
+	if err != nil {
+		return nil, err
+	}
+
+	// config media type
+	image = mutate.ConfigMediaType(image, mediaTypes.ConfigType())
+
+	// layers media type
+	layers, err := base.Layers()
+	if err != nil {
+		return nil, err
+	}
+	additions := layersAddendum(layers, mediaTypes.LayerType())
+	image, err = mutate.Append(image, additions...)
+	if err != nil {
+		return nil, err
+	}
+
+	return image, nil
+}
+
+// layersAddendum creates an Addendum array with the given layers
+// and the desired media type
+func layersAddendum(layers []v1.Layer, mediaType types.MediaType) []mutate.Addendum {
+	additions := make([]mutate.Addendum, 0)
+	for _, layer := range layers {
+		additions = append(additions, mutate.Addendum{
+			MediaType: mediaType,
+			Layer:     layer,
+		})
+	}
+	return additions
+}
+
+var NormalizedDateTime = time.Date(1980, time.January, 1, 0, 0, 1, 0, time.UTC)
+
+type SaveDiagnostic struct {
+	ImageName string
+	Cause     error
+}
+
+type SaveError struct {
+	Errors []SaveDiagnostic
+}
+
+func (e SaveError) Error() string {
+	var errors []string
+	for _, d := range e.Errors {
+		errors = append(errors, fmt.Sprintf("[%s: %s]", d.ImageName, d.Cause.Error()))
+	}
+	return fmt.Sprintf("failed to write image to the following tags: %s", strings.Join(errors, ","))
+}

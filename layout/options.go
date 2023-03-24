@@ -16,6 +16,7 @@ type options struct {
 	baseImagePath string
 	prevImagePath string
 	createdAt     time.Time
+	mediaTypes    imgutil.MediaTypes
 }
 
 // FromBaseImage loads the given image as the config and layers for the new image.
@@ -27,7 +28,7 @@ func FromBaseImage(base v1.Image) ImageOption {
 	}
 }
 
-// FromBaseImagePath loads an existing image as the config and layers for the new underlyingImage.
+// FromBaseImagePath (layout only) loads an existing image as the config and layers for the new underlyingImage.
 // Ignored if underlyingImage is not found.
 func FromBaseImagePath(path string) ImageOption {
 	return func(i *options) error {
@@ -51,6 +52,15 @@ func WithCreatedAt(createdAt time.Time) ImageOption {
 func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	return func(i *options) error {
 		i.platform = platform
+		return nil
+	}
+}
+
+// WithMediaTypes lets a caller set the desired media types for the image manifest and config files,
+// including the layers referenced in the manifest, to be either OCI media types or Docker media types.
+func WithMediaTypes(requested imgutil.MediaTypes) ImageOption {
+	return func(i *options) error {
+		i.mediaTypes = requested
 		return nil
 	}
 }
