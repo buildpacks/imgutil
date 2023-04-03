@@ -15,6 +15,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/google/go-containerregistry/pkg/v1/validate"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
@@ -92,6 +93,7 @@ func (i *Image) Env(key string) (string, error) {
 
 func (i *Image) Found() bool {
 	_, err := i.found()
+
 	return err == nil
 }
 
@@ -102,6 +104,23 @@ func (i *Image) found() (*v1.Descriptor, error) {
 		return nil, err
 	}
 	return remote.Head(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport))
+}
+
+func (i *Image) Valid() bool {
+	return i.valid() == nil
+}
+
+func (i *Image) valid() error {
+	reg := getRegistry(i.repoName, i.registrySettings)
+	ref, auth, err := referenceForRepoName(i.keychain, i.repoName, reg.insecure)
+	if err != nil {
+		return err
+	}
+	img, err := remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport))
+	if err != nil {
+		return err
+	}
+	return validate.Image(img, validate.Fast)
 }
 
 func (i *Image) GetAnnotateRefName() (string, error) {

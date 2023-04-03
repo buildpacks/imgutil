@@ -912,6 +912,53 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#Valid", func() {
+		var image *layout.Image
+
+		it.Before(func() {
+			imagePath = filepath.Join(tmpDir, "found-image")
+			image, err = layout.NewImage(imagePath)
+			h.AssertNil(t, err)
+		})
+
+		it.After(func() {
+			os.RemoveAll(imagePath)
+		})
+
+		when("image doesn't exist on disk", func() {
+			it.Before(func() {
+				imagePath = filepath.Join(tmpDir, "non-exist-image")
+				image, err = layout.NewImage(imagePath)
+				h.AssertNil(t, err)
+			})
+
+			it("returns false", func() {
+				h.AssertTrue(t, func() bool {
+					return !image.Found()
+				})
+			})
+		})
+
+		when("image exists on disk", func() {
+			it.Before(func() {
+				imagePath = filepath.Join(testDataDir, "my-previous-image")
+				image, err = layout.NewImage(imagePath)
+				h.AssertNil(t, err)
+			})
+
+			it.After(func() {
+				// We don't want to delete testdata/my-previous-image
+				imagePath = ""
+			})
+
+			it("returns true", func() {
+				h.AssertTrue(t, func() bool {
+					return image.Found()
+				})
+			})
+		})
+	})
+
 	when("#Delete", func() {
 		var image *layout.Image
 
