@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -225,6 +226,28 @@ func PushImage(t *testing.T, dockerCli dockercli.CommonAPIClient, refStr string)
 
 	_, err = io.Copy(ioutil.Discard, rc)
 	AssertNil(t, err)
+}
+
+// DeleteRegistryBlob deletes the blob with the given digest from the registry by issuing an HTTP DELETE request.
+func DeleteRegistryBlob(t *testing.T, repoName string, digest v1.Hash, encodedAuth string) {
+	ref, err := name.ParseReference(repoName, name.WeakValidation)
+	AssertNil(t, err)
+	url := url.URL{
+		Scheme: ref.Context().Registry.Scheme(),
+		Host:   ref.Context().RegistryStr(),
+		Path:   fmt.Sprintf("/v2/%s/blobs/%s", ref.Context().RepositoryStr(), digest),
+	}
+	req, err := http.NewRequest(http.MethodDelete, url.String(), nil)
+	AssertNil(t, err)
+	req.Header.Add("Authorization", "Basic "+encodedAuth)
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	AssertNil(t, err)
+	defer resp.Body.Close()
+
+	_, err = io.ReadAll(resp.Body)
+	AssertNil(t, err)
+	AssertEq(t, resp.StatusCode, http.StatusAccepted)
 }
 
 func ImageID(t *testing.T, repoName string) string {

@@ -1595,6 +1595,53 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#Valid", func() {
+		when("it exists", func() {
+			it("returns true", func() {
+				origImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertNil(t, origImage.Save())
+
+				image, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				h.AssertEq(t, image.Valid(), true)
+			})
+		})
+
+		when("it is corrupt", func() {
+			it("returns false", func() {
+				origImage, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				tarPath, _, _ := h.RandomLayer(t, t.TempDir())
+				defer os.Remove(tarPath)
+				h.AssertNil(t, origImage.AddLayer(tarPath))
+				h.AssertNil(t, origImage.Save())
+
+				// delete the top layer from the registry
+				layers, err := origImage.UnderlyingImage().Layers()
+				h.AssertNil(t, err)
+				digest, err := layers[0].Digest()
+				h.AssertNil(t, err)
+				h.DeleteRegistryBlob(t, repoName, digest, dockerRegistry.EncodedAuth())
+
+				image, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				h.AssertEq(t, image.Valid(), false)
+			})
+		})
+
+		when("it does not exist", func() {
+			it("returns false", func() {
+				image, err := remote.NewImage(repoName, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+
+				h.AssertEq(t, image.Valid(), false)
+			})
+		})
+	})
+
 	when("#Delete", func() {
 		when("it exists", func() {
 			var img imgutil.Image
