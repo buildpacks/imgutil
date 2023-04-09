@@ -24,12 +24,12 @@ func (i *ImageIndex) Add(repoName string) error {
 		panic(err)
 	}
 
-	img, err := remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	desc, err := remote.Get(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	if err != nil {
 		panic(err)
 	}
 
-	desc, err := remote.Get(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	img, err := desc.Image()
 	if err != nil {
 		panic(err)
 	}
