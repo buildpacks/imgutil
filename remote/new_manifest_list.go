@@ -1,6 +1,7 @@
 package remote
 
 import (
+	"github.com/buildpacks/imgutil"
 	"github.com/google/go-containerregistry/pkg/authn"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -9,12 +10,24 @@ import (
 )
 
 func NewIndex(repoName string, keychain authn.Keychain, ops ...ImageIndexOption) (*ImageIndex, error) {
+	indexOpts := &indexOptions{}
+	for _, op := range ops {
+		if err := op(indexOpts); err != nil {
+			return nil, err
+		}
+	}
 
 	mediaType := defaultMediaType()
+	if indexOpts.mediaTypes.IndexManifestType() != "" {
+		mediaType = indexOpts.mediaTypes
+	}
 
 	path := "./layout/"
+	if indexOpts.path != "" {
+		path = indexOpts.path
+	}
 
-	index, err := emptyIndex(mediaType)
+	index, err := emptyIndex(mediaType.IndexManifestType())
 	if err != nil {
 		return nil, err
 	}
@@ -34,6 +47,6 @@ func emptyIndex(mediaType types.MediaType) (v1.ImageIndex, error) {
 	return mutate.IndexMediaType(empty.Index, mediaType), nil
 }
 
-func defaultMediaType() types.MediaType {
-	return types.OCIImageIndex
+func defaultMediaType() imgutil.MediaTypes {
+	return imgutil.OCITypes
 }
