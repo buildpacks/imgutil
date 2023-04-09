@@ -7,6 +7,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/match"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/pkg/errors"
@@ -61,7 +62,21 @@ func (i *ImageIndex) Add(repoName string) error {
 	return nil
 }
 
-// func (i *ImageIndex) Remove(repoName string) error
+func (i *ImageIndex) Remove(repoName string) error {
+	ref, err := name.ParseReference(repoName)
+	if err != nil {
+		panic(err)
+	}
+
+	desc, err := remote.Get(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		panic(err)
+	}
+
+	i.index = mutate.RemoveManifests(i.index, match.Digests(desc.Digest))
+
+	return nil
+}
 
 func (i *ImageIndex) Save() error {
 	// write the index on disk, for example
