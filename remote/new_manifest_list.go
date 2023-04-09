@@ -1,13 +1,14 @@
 package remote
 
 import (
+	"github.com/google/go-containerregistry/pkg/authn"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
-func NewIndex(repoName string, ops ...ImageOption) (*ImageIndex, error) {
+func NewIndex(repoName string, keychain authn.Keychain, ops ...ImageIndexOption) (*ImageIndex, error) {
 
 	mediaType := defaultMediaType()
 
@@ -19,6 +20,7 @@ func NewIndex(repoName string, ops ...ImageOption) (*ImageIndex, error) {
 	}
 
 	ridx := &ImageIndex{
+		keychain: keychain,
 		repoName: repoName,
 		index:    index,
 		path:     path,
