@@ -11,6 +11,8 @@ func NewIndex(repoName string, ops ...ImageOption) (*ImageIndex, error) {
 
 	mediaType := defaultMediaType()
 
+	path := "./layout/"
+
 	index, err := emptyIndex(mediaType)
 	if err != nil {
 		return nil, err
@@ -19,6 +21,7 @@ func NewIndex(repoName string, ops ...ImageOption) (*ImageIndex, error) {
 	ridx := &ImageIndex{
 		repoName: repoName,
 		index:    index,
+		path:     path,
 	}
 
 	return ridx, nil

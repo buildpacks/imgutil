@@ -16,6 +16,7 @@ type ImageIndex struct {
 	keychain authn.Keychain
 	repoName string
 	index    v1.ImageIndex
+	path     string
 }
 
 func (i *ImageIndex) Add(repoName string) error {
@@ -62,9 +63,9 @@ func (i *ImageIndex) Add(repoName string) error {
 
 // func (i *ImageIndex) Remove(repoName string) error
 
-func (i *ImageIndex) Save(path string) error {
+func (i *ImageIndex) Save() error {
 	// write the index on disk, for example
-	layout.Write(path, i.index)
+	layout.Write(i.path, i.index)
 
 	return nil
 }
