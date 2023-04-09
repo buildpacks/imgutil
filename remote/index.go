@@ -9,7 +9,6 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
 )
 
@@ -20,9 +19,6 @@ type ImageIndex struct {
 }
 
 func (i *ImageIndex) Add(repoName string) error {
-
-	i.index = mutate.IndexMediaType(i.index, types.DockerManifestList)
-
 	ref, err := name.ParseReference(repoName)
 	if err != nil {
 		panic(err)
