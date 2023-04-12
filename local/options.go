@@ -3,6 +3,8 @@ package local
 import (
 	"time"
 
+	"github.com/docker/docker/api/types/container"
+
 	"github.com/buildpacks/imgutil"
 )
 
@@ -13,6 +15,7 @@ type options struct {
 	baseImageRepoName string
 	prevImageRepoName string
 	createdAt         time.Time
+	config            *container.Config
 }
 
 // FromBaseImage loads an existing image as the config and layers for the new image.
@@ -29,6 +32,13 @@ func FromBaseImage(imageName string) ImageOption {
 func WithCreatedAt(createdAt time.Time) ImageOption {
 	return func(opts *options) error {
 		opts.createdAt = createdAt
+		return nil
+	}
+}
+
+func WithConfig(config *container.Config) ImageOption {
+	return func(opts *options) error {
+		opts.config = config
 		return nil
 	}
 }

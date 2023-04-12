@@ -3,6 +3,8 @@ package remote
 import (
 	"time"
 
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+
 	"github.com/buildpacks/imgutil"
 )
 
@@ -16,6 +18,7 @@ type options struct {
 	addEmptyLayerOnSave bool
 	registrySettings    map[string]registrySetting
 	mediaTypes          imgutil.MediaTypes
+	config              *v1.Config
 }
 
 // AddEmptyLayerOnSave (remote only) adds an empty layer before saving if the image has no layer at all.
@@ -42,6 +45,13 @@ func FromBaseImage(imageName string) ImageOption {
 func WithCreatedAt(createdAt time.Time) ImageOption {
 	return func(opts *options) error {
 		opts.createdAt = createdAt
+		return nil
+	}
+}
+
+func WithConfig(config *v1.Config) ImageOption {
+	return func(opts *options) error {
+		opts.config = config
 		return nil
 	}
 }
