@@ -72,6 +72,10 @@ func (i *Image) Found() bool {
 	return i.inspect.ID != ""
 }
 
+func (i *Image) Valid() bool {
+	return i.Found()
+}
+
 func (i *Image) GetAnnotateRefName() (string, error) {
 	return "", nil
 }

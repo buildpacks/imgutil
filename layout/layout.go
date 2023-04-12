@@ -87,6 +87,10 @@ func (i *Image) Found() bool {
 	return ImageExists(i.path)
 }
 
+func (i *Image) Valid() bool {
+	return i.Found()
+}
+
 func ImageExists(path string) bool {
 	if !pathExists(path) {
 		return false

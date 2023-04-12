@@ -307,6 +307,10 @@ func (i *Image) Found() bool {
 	return !i.deleted
 }
 
+func (i *Image) Valid() bool {
+	return !i.deleted
+}
+
 func (i *Image) AnnotateRefName(refName string) error {
 	i.refName = refName
 	return nil

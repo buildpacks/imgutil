@@ -174,7 +174,7 @@ func (r *DockerRegistry) Start(t *testing.T) {
 
 	if r.username != "" {
 		// Write Docker config and configure auth headers
-		writeDockerConfig(t, r.DockerDirectory, r.Host, r.Port, r.encodedAuth())
+		writeDockerConfig(t, r.DockerDirectory, r.Host, r.Port, r.EncodedAuth())
 	}
 }
 
@@ -294,7 +294,7 @@ func DockerHostname(t *testing.T) string {
 	return "localhost"
 }
 
-func (r *DockerRegistry) encodedAuth() string {
+func (r *DockerRegistry) EncodedAuth() string {
 	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", r.username, r.password)))
 }
 

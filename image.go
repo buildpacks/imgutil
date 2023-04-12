@@ -21,6 +21,8 @@ type Image interface {
 	Env(key string) (string, error)
 	// Found tells whether the image exists in the repository by `Name()`.
 	Found() bool
+	// Valid returns true if the image is well formed (e.g. all manifest layers exist on the registry).
+	Valid() bool
 	GetAnnotateRefName() (string, error)
 	// GetLayer retrieves layer by diff id. Returns a reader of the uncompressed contents of the layer.
 	GetLayer(diffID string) (io.ReadCloser, error)
