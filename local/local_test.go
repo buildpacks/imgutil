@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
@@ -389,6 +390,45 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					)
 
 					h.AssertNil(t, err)
+				})
+			})
+		})
+
+		when("#WithConfig", func() {
+			var config = &container.Config{Entrypoint: []string{"some-entrypoint"}}
+
+			it("sets the image config", func() {
+				localImage, err := local.NewImage(newTestImageName(), dockerClient, local.WithConfig(config))
+				h.AssertNil(t, err)
+
+				entrypoint, err := localImage.Entrypoint()
+				h.AssertNil(t, err)
+				h.AssertEq(t, entrypoint, []string{"some-entrypoint"})
+			})
+
+			when("#FromBaseImage", func() {
+				var baseImageName = newTestImageName()
+
+				it("overrides the base image config", func() {
+					baseImage, err := local.NewImage(baseImageName, dockerClient)
+					h.AssertNil(t, err)
+					h.AssertNil(t, baseImage.Save())
+
+					localImage, err := local.NewImage(
+						newTestImageName(),
+						dockerClient,
+						local.WithConfig(config),
+						local.FromBaseImage(baseImageName),
+					)
+					h.AssertNil(t, err)
+
+					entrypoint, err := localImage.Entrypoint()
+					h.AssertNil(t, err)
+					h.AssertEq(t, entrypoint, []string{"some-entrypoint"})
+				})
+
+				it.After(func() {
+					h.AssertNil(t, h.DockerRmi(dockerClient, baseImageName))
 				})
 			})
 		})

@@ -73,6 +73,10 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...ImageOption) (*
 		image.createdAt = imageOpts.createdAt
 	}
 
+	if imageOpts.config != nil {
+		image.inspect.Config = imageOpts.config
+	}
+
 	return image, nil
 }
 
