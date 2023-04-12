@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 
@@ -554,6 +555,41 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertOCIMediaTypes(t, img.UnderlyingImage()) // after adding a layer
 				h.AssertNil(t, img.Save())
 				h.AssertOCIMediaTypes(t, img.UnderlyingImage()) // after saving
+			})
+		})
+
+		when("#WithConfig", func() {
+			var config = &v1.Config{Entrypoint: []string{"some-entrypoint"}}
+
+			it("sets the image config", func() {
+				remoteImage, err := remote.NewImage(newTestImageName(), authn.DefaultKeychain, remote.WithConfig(config))
+				h.AssertNil(t, err)
+
+				entrypoint, err := remoteImage.Entrypoint()
+				h.AssertNil(t, err)
+				h.AssertEq(t, entrypoint, []string{"some-entrypoint"})
+			})
+
+			when("#FromBaseImage", func() {
+				var baseImageName = newTestImageName()
+
+				it("overrides the base image config", func() {
+					baseImage, err := remote.NewImage(baseImageName, authn.DefaultKeychain)
+					h.AssertNil(t, err)
+					h.AssertNil(t, baseImage.Save())
+
+					remoteImage, err := remote.NewImage(
+						newTestImageName(),
+						authn.DefaultKeychain,
+						remote.WithConfig(config),
+						remote.FromBaseImage(baseImageName),
+					)
+					h.AssertNil(t, err)
+
+					entrypoint, err := remoteImage.Entrypoint()
+					h.AssertNil(t, err)
+					h.AssertEq(t, entrypoint, []string{"some-entrypoint"})
+				})
 			})
 		})
 	})
