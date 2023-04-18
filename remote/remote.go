@@ -116,7 +116,19 @@ func (i *Image) valid() error {
 	if err != nil {
 		return err
 	}
-	img, err := remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport))
+	desc, err := remote.Get(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport))
+	if err != nil {
+		return err
+	}
+
+	if desc.MediaType == types.OCIImageIndex || desc.MediaType == types.DockerManifestList {
+		index, err := desc.ImageIndex()
+		if err != nil {
+			return err
+		}
+		return validate.Index(index, validate.Fast)
+	}
+	img, err := desc.Image()
 	if err != nil {
 		return err
 	}

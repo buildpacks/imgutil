@@ -1676,6 +1676,15 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertEq(t, image.Valid(), false)
 			})
 		})
+
+		when("windows image index", func() {
+			it("returns true", func() {
+				ref := "mcr.microsoft.com/windows/nanoserver@sha256:eea54849888c8070ea35f8df39b3a5e126bc9a5bd30afdcad6f430408b2c786d"
+				image, err := remote.NewImage(ref, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertEq(t, image.Valid(), true)
+			})
+		})
 	})
 
 	when("#Delete", func() {
