@@ -1,12 +1,13 @@
 package remote
 
 import (
-	"github.com/buildpacks/imgutil"
 	"github.com/google/go-containerregistry/pkg/authn"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+
+	"github.com/buildpacks/imgutil"
 )
 
 func NewIndex(repoName string, keychain authn.Keychain, ops ...ImageIndexOption) (*ImageIndex, error) {
@@ -22,11 +23,6 @@ func NewIndex(repoName string, keychain authn.Keychain, ops ...ImageIndexOption)
 		mediaType = indexOpts.mediaTypes
 	}
 
-	path := "./layout/"
-	if indexOpts.path != "" {
-		path = indexOpts.path
-	}
-
 	index, err := emptyIndex(mediaType.IndexManifestType())
 	if err != nil {
 		return nil, err
@@ -36,7 +32,6 @@ func NewIndex(repoName string, keychain authn.Keychain, ops ...ImageIndexOption)
 		keychain: keychain,
 		repoName: repoName,
 		index:    index,
-		path:     path,
 	}
 
 	return ridx, nil
