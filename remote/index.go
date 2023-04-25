@@ -3,6 +3,7 @@ package remote
 import (
 	"fmt"
 
+	"github.com/buildpacks/imgutil"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -13,9 +14,10 @@ import (
 )
 
 type ImageIndex struct {
-	keychain authn.Keychain
-	repoName string
-	index    v1.ImageIndex
+	keychain         authn.Keychain
+	repoName         string
+	index            v1.ImageIndex
+	registrySettings map[string]registrySetting
 }
 
 func (i *ImageIndex) Add(repoName string) error {
@@ -76,6 +78,40 @@ func (i *ImageIndex) Remove(repoName string) error {
 	return nil
 }
 
-func (i *ImageIndex) Save() error {
+func (i *ImageIndex) Save(additionalNames ...string) error {
+	return i.SaveAs(i.Name(), additionalNames...)
+}
+
+func (i *ImageIndex) SaveAs(name string, additionalNames ...string) error {
+	allNames := append([]string{name}, additionalNames...)
+
+	var diagnostics []imgutil.SaveIndexDiagnostic
+	for _, n := range allNames {
+		if err := i.doSave(n); err != nil {
+			diagnostics = append(diagnostics, imgutil.SaveIndexDiagnostic{ImageIndexName: n, Cause: err})
+		}
+	}
+	if len(diagnostics) > 0 {
+		return imgutil.SaveIndexError{Errors: diagnostics}
+	}
+
 	return nil
+
+}
+
+func (i *ImageIndex) doSave(indexName string) error {
+	reg := getRegistry(i.repoName, i.registrySettings)
+	ref, auth, err := referenceForRepoName(i.keychain, indexName, reg.insecure)
+	if err != nil {
+		return err
+	}
+	return remote.WriteIndex(ref, i.index, remote.WithAuth(auth))
+}
+
+func (i *ImageIndex) ManifestSize() (int64, error) {
+	return i.index.Size()
+}
+
+func (i *ImageIndex) Name() string {
+	return i.repoName
 }
