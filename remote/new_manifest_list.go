@@ -43,5 +43,5 @@ func emptyIndex(mediaType types.MediaType) (v1.ImageIndex, error) {
 }
 
 func defaultMediaType() imgutil.MediaTypes {
-	return imgutil.OCITypes
+	return imgutil.DockerTypes
 }
