@@ -3,7 +3,6 @@ package remote
 import (
 	"fmt"
 
-	"github.com/buildpacks/imgutil"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -11,6 +10,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/pkg/errors"
+
+	"github.com/buildpacks/imgutil"
 )
 
 type ImageIndex struct {
@@ -23,17 +24,17 @@ type ImageIndex struct {
 func (i *ImageIndex) Add(repoName string) error {
 	ref, err := name.ParseReference(repoName)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	desc, err := remote.Get(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	img, err := desc.Image()
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	cfg, err := img.ConfigFile()
@@ -65,12 +66,12 @@ func (i *ImageIndex) Add(repoName string) error {
 func (i *ImageIndex) Remove(repoName string) error {
 	ref, err := name.ParseReference(repoName)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	desc, err := remote.Get(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	i.index = mutate.RemoveManifests(i.index, match.Digests(desc.Digest))
