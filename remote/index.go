@@ -29,7 +29,7 @@ func (i *ImageIndex) Add(repoName string) error {
 
 	desc, err := remote.Get(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error fetching %s from registry", repoName)
 	}
 
 	img, err := desc.Image()
