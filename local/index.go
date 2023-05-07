@@ -30,17 +30,17 @@ var manifestDir string = "out/manifests"
 func (i *ImageIndex) Add(repoName string) error {
 	ref, err := name.ParseReference(repoName)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	desc, err := remote.Get(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	img, err := desc.Image()
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	cfg, err := img.ConfigFile()
@@ -74,12 +74,12 @@ func (i *ImageIndex) Add(repoName string) error {
 func (i *ImageIndex) Remove(repoName string) error {
 	ref, err := name.ParseReference(repoName)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	desc, err := remote.Get(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	i.index = mutate.RemoveManifests(i.index, match.Digests(desc.Digest))
