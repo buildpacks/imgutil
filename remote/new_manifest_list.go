@@ -23,6 +23,31 @@ func NewIndex(repoName string, keychain authn.Keychain, ops ...ImageIndexOption)
 		}
 	}
 
+	if len(indexOpts.manifest.Manifests) != 0 {
+		index, err := emptyIndex(indexOpts.manifest.MediaType)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, manifest_i := range indexOpts.manifest.Manifests {
+			img, _ := emptyImage(imgutil.Platform{
+				Architecture: manifest_i.Platform.Architecture,
+				OS:           manifest_i.Platform.OS,
+				OSVersion:    manifest_i.Platform.OSVersion,
+			})
+			index = mutate.AppendManifests(index, mutate.IndexAddendum{Add: img, Descriptor: manifest_i})
+		}
+
+		idx := &ImageIndex{
+			keychain: keychain,
+			repoName: repoName,
+			index:    index,
+		}
+
+		return idx, nil
+
+	}
+
 	mediaType := defaultMediaType()
 	if indexOpts.mediaTypes.IndexManifestType() != "" {
 		mediaType = indexOpts.mediaTypes
