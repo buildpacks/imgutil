@@ -3,7 +3,6 @@ package local
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,12 +19,10 @@ import (
 )
 
 type ImageIndex struct {
-	docker   DockerClient
 	repoName string
+	path     string
 	index    v1.ImageIndex
 }
-
-var manifestDir string = "out/manifests"
 
 func (i *ImageIndex) Add(repoName string) error {
 	ref, err := name.ParseReference(repoName)
@@ -88,7 +85,7 @@ func (i *ImageIndex) Remove(repoName string) error {
 }
 
 func (i *ImageIndex) Save(additionalNames ...string) error {
-	l := layout.Path(manifestDir)
+	l := layout.Path(i.path)
 
 	rawIndex, err := i.index.RawManifest()
 	if err != nil {
@@ -108,11 +105,6 @@ func makeFileSafeName(ref string) string {
 	return strings.Replace(fileName, "/", "_", -1)
 }
 
-func createManifestListDirectory(transaction string) error {
-	path := filepath.Join("/home/drac98/.docker/manifests", makeFileSafeName(transaction))
-	return os.MkdirAll(path, 0o755)
-}
-
 func (i *ImageIndex) ManifestSize() (int64, error) {
 	return 0, nil
 }
@@ -121,65 +113,13 @@ func (i *ImageIndex) Name() string {
 	return i.repoName
 }
 
-func ManifestDir() string {
-	return manifestDir
-}
-
-func AppendManifest(repoName string, manifestName string) error {
-	var manifest v1.IndexManifest
-
-	path := filepath.Join(manifestDir, makeFileSafeName(repoName))
-	jsonFile, err := ioutil.ReadFile(path)
+func (i *ImageIndex) AppendManifest(manifestName string) error {
+	err := i.Add(manifestName)
 	if err != nil {
 		return err
 	}
 
-	err = json.Unmarshal([]byte(jsonFile), &manifest)
-	if err != nil {
-		return err
-	}
-
-	ref, err := name.ParseReference(manifestName)
-	if err != nil {
-		return err
-	}
-
-	desc, err := remote.Get(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
-	if err != nil {
-		return err
-	}
-
-	img, err := desc.Image()
-	if err != nil {
-		panic(err)
-	}
-
-	cfg, err := img.ConfigFile()
-
-	if err != nil {
-		return errors.Wrapf(err, "getting config file for image %q", repoName)
-	}
-	if cfg == nil {
-		return fmt.Errorf("missing config for image %q", repoName)
-	}
-	if cfg.OS == "" {
-		return fmt.Errorf("missing OS for image %q", repoName)
-	}
-
-	platform := v1.Platform{}
-	platform.Architecture = cfg.Architecture
-	platform.OS = cfg.OS
-
-	desc.Descriptor.Platform = &platform
-
-	manifest.Manifests = append(manifest.Manifests, desc.Descriptor)
-
-	data, err := json.Marshal(manifest)
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile(path, data, os.ModePerm)
+	err = i.Save()
 	if err != nil {
 		return err
 	}
@@ -193,10 +133,10 @@ type AnnotateFields struct {
 	Variant      string
 }
 
-func AnnotateManifest(repoName string, manifestName string, opts AnnotateFields) error {
+func (i *ImageIndex) AnnotateManifest(manifestName string, opts AnnotateFields) error {
 	var manifest v1.IndexManifest
 
-	path := filepath.Join(manifestDir, makeFileSafeName(repoName))
+	path := filepath.Join(i.path, makeFileSafeName(i.repoName))
 	jsonFile, err := os.ReadFile(path)
 	if err != nil {
 		return err
