@@ -187,3 +187,26 @@ func (i *ImageIndex) AnnotateManifest(manifestName string, opts AnnotateFields) 
 
 	return errors.Errorf("Manifest %s not found", manifestName)
 }
+
+func GetIndexManifest(repoName string, path string) (v1.IndexManifest, error) {
+	var manifest v1.IndexManifest
+
+	_, err := name.ParseReference(repoName)
+	if err != nil {
+		return manifest, err
+	}
+
+	manifestDir := filepath.Join(path, makeFileSafeName(repoName))
+
+	jsonFile, err := os.ReadFile(manifestDir)
+	if err != nil {
+		return manifest, err
+	}
+
+	err = json.Unmarshal([]byte(jsonFile), &manifest)
+	if err != nil {
+		return manifest, err
+	}
+
+	return manifest, nil
+}

@@ -22,6 +22,31 @@ func NewIndex(repoName string, path string, ops ...ImageIndexOption) (*ImageInde
 		}
 	}
 
+	if len(indexOpts.manifest.Manifests) != 0 {
+		index, err := emptyIndex(indexOpts.manifest.MediaType)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, manifest_i := range indexOpts.manifest.Manifests {
+			img, _ := emptyImage(imgutil.Platform{
+				Architecture: manifest_i.Platform.Architecture,
+				OS:           manifest_i.Platform.OS,
+				OSVersion:    manifest_i.Platform.OSVersion,
+			})
+			index = mutate.AppendManifests(index, mutate.IndexAddendum{Add: img, Descriptor: manifest_i})
+		}
+
+		idx := &ImageIndex{
+			repoName: repoName,
+			path:     path,
+			index:    index,
+		}
+
+		return idx, nil
+
+	}
+
 	mediaType := defaultMediaType()
 	if indexOpts.mediaTypes.IndexManifestType() != "" {
 		mediaType = indexOpts.mediaTypes
@@ -44,6 +69,20 @@ func NewIndex(repoName string, path string, ops ...ImageIndexOption) (*ImageInde
 
 func emptyIndex(mediaType types.MediaType) (v1.ImageIndex, error) {
 	return mutate.IndexMediaType(empty.Index, mediaType), nil
+}
+
+func emptyImage(platform imgutil.Platform) (v1.Image, error) {
+	cfg := &v1.ConfigFile{
+		Architecture: platform.Architecture,
+		OS:           platform.OS,
+		OSVersion:    platform.OSVersion,
+		RootFS: v1.RootFS{
+			Type:    "layers",
+			DiffIDs: []v1.Hash{},
+		},
+	}
+
+	return mutate.ConfigFile(empty.Image, cfg)
 }
 
 func defaultMediaType() imgutil.MediaTypes {
