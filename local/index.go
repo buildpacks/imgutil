@@ -134,15 +134,9 @@ type AnnotateFields struct {
 }
 
 func (i *ImageIndex) AnnotateManifest(manifestName string, opts AnnotateFields) error {
-	var manifest v1.IndexManifest
-
 	path := filepath.Join(i.path, makeFileSafeName(i.repoName))
-	jsonFile, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
 
-	err = json.Unmarshal([]byte(jsonFile), &manifest)
+	manifest, err := i.index.IndexManifest()
 	if err != nil {
 		return err
 	}
