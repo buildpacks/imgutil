@@ -100,6 +100,7 @@ func defaultPlatform() imgutil.Platform {
 func emptyImage(platform imgutil.Platform) (v1.Image, error) {
 	cfg := &v1.ConfigFile{
 		Architecture: platform.Architecture,
+		History:      []v1.History{},
 		OS:           platform.OS,
 		OSVersion:    platform.OSVersion,
 		RootFS: v1.RootFS{
@@ -154,7 +155,13 @@ func processPreviousImageOption(ri *Image, prevImageRepoName string, platform im
 		return errors.Wrapf(err, "getting layers for previous image with repo name %q", prevImageRepoName)
 	}
 
+	configFile, err := prevImage.ConfigFile()
+	if err != nil {
+		return err
+	}
+
 	ri.prevLayers = prevLayers
+	ri.prevHistory = configFile.History
 
 	return nil
 }
@@ -296,9 +303,19 @@ func processBaseImageOption(ri *Image, baseImageRepoName string, platform imguti
 		return err
 	}
 
-	ri.image = baseImage
-
-	return nil
+	configFile, err := baseImage.ConfigFile()
+	if err != nil {
+		return err
+	}
+	layers, err := baseImage.Layers()
+	if err != nil {
+		return err
+	}
+	if len(configFile.History) != len(layers) {
+		configFile.History = make([]v1.History, len(layers))
+	}
+	ri.image, err = mutate.ConfigFile(baseImage, configFile)
+	return err
 }
 
 // setUnderlyingImage wraps the provided v1.Image into a layout.Image and sets it as the underlying image for the receiving layout.Image

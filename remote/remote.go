@@ -28,6 +28,7 @@ type Image struct {
 	repoName            string
 	image               v1.Image
 	prevLayers          []v1.Layer
+	prevHistory         []v1.History
 	createdAt           time.Time
 	addEmptyLayerOnSave bool
 	registrySettings    map[string]registrySetting
@@ -146,7 +147,7 @@ func (i *Image) GetLayer(sha string) (io.ReadCloser, error) {
 		return nil, err
 	}
 
-	layer, err := findLayerWithSha(layers, sha)
+	layer, _, err := findLayerWithSha(layers, sha)
 	if err != nil {
 		return nil, err
 	}
@@ -396,35 +397,33 @@ func (i *Image) SetWorkingDir(dir string) error {
 // modifiers
 
 func (i *Image) AddLayer(path string) error {
+	return i.AddLayerWithDiffIDAndHistory(path, "ignored", v1.History{})
+}
+
+func layerAddendum(layer v1.Layer, history v1.History, mediaType types.MediaType) mutate.Addendum {
+	return mutate.Addendum{
+		Layer:     layer,
+		History:   history,
+		MediaType: mediaType,
+	}
+}
+
+// AddLayerWithDiffID is equivalent to AddLayer in the remote case;
+// it exists to provide optimize performance for local images.
+func (i *Image) AddLayerWithDiffID(path, diffID string) error {
+	return i.AddLayerWithDiffIDAndHistory(path, "ignored", v1.History{})
+}
+
+func (i *Image) AddLayerWithDiffIDAndHistory(path, diffID string, history v1.History) error {
 	layer, err := tarball.LayerFromFile(path)
 	if err != nil {
 		return err
 	}
-	additions := layersAddendum([]v1.Layer{layer}, i.requestedMediaTypes.LayerType())
-	i.image, err = mutate.Append(i.image, additions...)
-	if err != nil {
-		return errors.Wrap(err, "add layer")
-	}
-	return nil
-}
-
-// layersAddendum creates an Addendum array with the given layers
-// and the desired media type
-func layersAddendum(layers []v1.Layer, mediaType types.MediaType) []mutate.Addendum {
-	additions := make([]mutate.Addendum, 0)
-	for _, layer := range layers {
-		additions = append(additions, mutate.Addendum{
-			MediaType: mediaType,
-			Layer:     layer,
-		})
-	}
-	return additions
-}
-
-func (i *Image) AddLayerWithDiffID(path, diffID string) error {
-	// this is equivalent to AddLayer in the remote case
-	// it exists to provide optimize performance for local images
-	return i.AddLayer(path)
+	i.image, err = mutate.Append(
+		i.image,
+		layerAddendum(layer, history, i.requestedMediaTypes.LayerType()),
+	)
+	return err
 }
 
 func (i *Image) Delete() error {
@@ -489,11 +488,14 @@ func (i *Image) RemoveLabel(key string) error {
 }
 
 func (i *Image) ReuseLayer(sha string) error {
-	layer, err := findLayerWithSha(i.prevLayers, sha)
+	layer, idx, err := findLayerWithSha(i.prevLayers, sha)
 	if err != nil {
 		return err
 	}
-	i.image, err = mutate.AppendLayers(i.image, layer)
+	i.image, err = mutate.Append(
+		i.image,
+		layerAddendum(layer, i.prevHistory[idx], i.requestedMediaTypes.LayerType()),
+	)
 	return err
 }
 
@@ -527,17 +529,17 @@ func (i *Image) UnderlyingImage() v1.Image {
 
 // helpers
 
-func findLayerWithSha(layers []v1.Layer, diffID string) (v1.Layer, error) {
-	for _, layer := range layers {
+func findLayerWithSha(layers []v1.Layer, diffID string) (v1.Layer, int, error) {
+	for idx, layer := range layers {
 		dID, err := layer.DiffID()
 		if err != nil {
-			return nil, errors.Wrap(err, "get diff ID for previous image layer")
+			return nil, idx, errors.Wrap(err, "get diff ID for previous image layer")
 		}
 		if diffID == dID.String() {
-			return layer, nil
+			return layer, idx, nil
 		}
 	}
-	return nil, fmt.Errorf("previous image did not have layer with diff id %q", diffID)
+	return nil, -1, fmt.Errorf("previous image did not have layer with diff id %q", diffID)
 }
 
 // for rebase

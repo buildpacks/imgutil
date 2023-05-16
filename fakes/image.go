@@ -13,6 +13,7 @@ import (
 	"time"
 
 	registryName "github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
@@ -194,6 +195,10 @@ func (i *Image) AddLayerWithDiffID(path string, diffID string) error {
 	i.layersMap[diffID] = path
 	i.layers = append(i.layers, path)
 	return nil
+}
+
+func (i *Image) AddLayerWithDiffIDAndHistory(path, diffID string, history v1.History) error {
+	return errors.New("not yet implemented")
 }
 
 func shaForFile(path string) (string, error) {

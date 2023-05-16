@@ -35,11 +35,11 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 	if err != nil {
 		return errors.Wrap(err, "get image layers")
 	}
-	cfg.History = make([]v1.History, len(layers))
+	if len(cfg.History) != len(layers) {
+		cfg.History = make([]v1.History, len(layers))
+	}
 	for j := range cfg.History {
-		cfg.History[j] = v1.History{
-			Created: v1.Time{Time: i.createdAt},
-		}
+		cfg.History[j].Created = v1.Time{Time: i.createdAt}
 	}
 
 	cfg.DockerVersion = ""

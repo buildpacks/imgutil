@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/image"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
@@ -22,6 +24,7 @@ type Image struct {
 	docker           DockerClient
 	repoName         string
 	inspect          types.ImageInspect
+	history          []v1.History
 	layerPaths       []string
 	prevImage        *Image // reused layers will be fetched from prevImage
 	downloadBaseOnce *sync.Once
@@ -30,11 +33,12 @@ type Image struct {
 
 // DockerClient is subset of client.CommonAPIClient required by this package
 type DockerClient interface {
+	ImageHistory(ctx context.Context, image string) ([]image.HistoryResponseItem, error)
 	ImageInspectWithRaw(ctx context.Context, image string) (types.ImageInspect, []byte, error)
-	ImageTag(ctx context.Context, image, ref string) error
 	ImageLoad(ctx context.Context, input io.Reader, quiet bool) (types.ImageLoadResponse, error)
-	ImageSave(ctx context.Context, images []string) (io.ReadCloser, error)
 	ImageRemove(ctx context.Context, image string, options types.ImageRemoveOptions) ([]types.ImageDeleteResponseItem, error)
+	ImageSave(ctx context.Context, images []string) (io.ReadCloser, error)
+	ImageTag(ctx context.Context, image, ref string) error
 	Info(ctx context.Context) (types.Info, error)
 }
 
@@ -241,12 +245,17 @@ func (i *Image) AddLayer(path string) error {
 		return errors.Wrapf(err, "AddLayer: calculate checksum: %s", path)
 	}
 	diffID := "sha256:" + hex.EncodeToString(hasher.Sum(make([]byte, 0, hasher.Size())))
-	return i.AddLayerWithDiffID(path, diffID)
+	return i.AddLayerWithDiffIDAndHistory(path, diffID, v1.History{})
 }
 
 func (i *Image) AddLayerWithDiffID(path, diffID string) error {
-	i.inspect.RootFS.Layers = append(i.inspect.RootFS.Layers, diffID)
+	return i.AddLayerWithDiffIDAndHistory(path, diffID, v1.History{})
+}
+
+func (i *Image) AddLayerWithDiffIDAndHistory(path, diffID string, history v1.History) error {
 	i.layerPaths = append(i.layerPaths, path)
+	i.inspect.RootFS.Layers = append(i.inspect.RootFS.Layers, diffID)
+	i.history = append(i.history, history)
 	return nil
 }
 
@@ -311,9 +320,9 @@ func (i *Image) ReuseLayer(diffID string) error {
 		return err
 	}
 
-	for l := range i.prevImage.inspect.RootFS.Layers {
-		if i.prevImage.inspect.RootFS.Layers[l] == diffID {
-			return i.AddLayerWithDiffID(i.prevImage.layerPaths[l], diffID)
+	for idx := range i.prevImage.inspect.RootFS.Layers {
+		if i.prevImage.inspect.RootFS.Layers[idx] == diffID {
+			return i.AddLayerWithDiffIDAndHistory(i.prevImage.layerPaths[idx], diffID, i.prevImage.history[idx])
 		}
 	}
 	return fmt.Errorf("SHA %s was not found in %s", diffID, i.prevImage.Name())

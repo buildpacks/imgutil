@@ -42,7 +42,7 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 	}
 
 	if imageOpts.baseImagePath != "" {
-		if err := processBaseImagePathOption(ri, imageOpts.baseImagePath, platform); err != nil {
+		if err := processBaseImageOption(ri, imageOpts.baseImagePath, platform); err != nil {
 			return nil, err
 		}
 	} else if imageOpts.baseImage != nil {
@@ -79,6 +79,7 @@ func defaultPlatform() imgutil.Platform {
 func emptyImage(platform imgutil.Platform) (v1.Image, error) {
 	cfg := &v1.ConfigFile{
 		Architecture: platform.Architecture,
+		History:      []v1.History{},
 		OS:           platform.OS,
 		OSVersion:    platform.OSVersion,
 		RootFS: v1.RootFS{
@@ -103,6 +104,11 @@ func processPreviousImageOption(ri *Image, prevImagePath string, platform imguti
 	}
 
 	ri.prevLayers = prevLayers
+	configFile, err := prevImage.ConfigFile()
+	if err != nil {
+		return err
+	}
+	ri.prevHistory = configFile.History
 
 	return nil
 }
@@ -139,6 +145,22 @@ func newV1Image(path string, platform imgutil.Platform) (v1.Image, error) {
 			return nil, errors.Wrap(err, "initializing empty image")
 		}
 	}
+	configFile, err := image.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+	layers, err := image.Layers()
+	if err != nil {
+		return nil, err
+	}
+	if len(configFile.History) != len(layers) {
+		configFile.History = make([]v1.History, len(layers))
+		image, err = mutate.ConfigFile(image, configFile)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &Image{
 		Image: image,
 		path:  path,
@@ -177,7 +199,7 @@ func imageFromIndex(index v1.ImageIndex, platform imgutil.Platform) (v1.Image, e
 	return image, nil
 }
 
-func processBaseImagePathOption(ri *Image, baseImagePath string, platform imgutil.Platform) error {
+func processBaseImageOption(ri *Image, baseImagePath string, platform imgutil.Platform) error { // TODO
 	baseImage, err := newV1Image(baseImagePath, platform)
 	if err != nil {
 		return err

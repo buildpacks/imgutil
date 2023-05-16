@@ -58,6 +58,7 @@ type Image interface {
 
 	AddLayer(path string) error
 	AddLayerWithDiffID(path, diffID string) error
+	AddLayerWithDiffIDAndHistory(path, diffID string, history v1.History) error
 	Delete() error
 	Rebase(string, Image) error
 	RemoveLabel(string) error
@@ -130,43 +131,69 @@ func OverrideMediaTypes(base v1.Image, mediaTypes MediaTypes) (v1.Image, error) 
 	}
 
 	// manifest media type
-	image := mutate.MediaType(empty.Image, mediaTypes.ManifestType())
+	retImage := mutate.MediaType(empty.Image, mediaTypes.ManifestType())
+
 	// update empty image with base config
 	config, err := base.ConfigFile()
 	if err != nil {
 		return nil, err
 	}
 	config.RootFS.DiffIDs = make([]v1.Hash, 0)
-	image, err = mutate.ConfigFile(image, config)
+	retImage, err = mutate.ConfigFile(retImage, config)
 	if err != nil {
 		return nil, err
 	}
 
 	// config media type
-	image = mutate.ConfigMediaType(image, mediaTypes.ConfigType())
+	retImage = mutate.ConfigMediaType(retImage, mediaTypes.ConfigType())
 
 	// layers media type
 	layers, err := base.Layers()
 	if err != nil {
 		return nil, err
 	}
-	additions := layersAddendum(layers, mediaTypes.LayerType())
-	image, err = mutate.Append(image, additions...)
+	additions := layersAddendum(layers, config.History, mediaTypes.LayerType())
+	retImage, err = mutate.Append(retImage, additions...)
 	if err != nil {
 		return nil, err
 	}
 
-	return image, nil
+	return retImage, nil
+}
+
+// OverrideHistoryIfNeeded zeroes out the history if the number of history entries doesn't match the number of layers.
+func OverrideHistoryIfNeeded(image *v1.Image) error { // TODO: use this in a few places to avoid duplication
+	configFile, err := (*image).ConfigFile()
+	if err != nil {
+		return err
+	}
+	layers, err := (*image).Layers()
+	if err != nil {
+		return err
+	}
+	if len(configFile.History) != len(layers) {
+		configFile.History = make([]v1.History, len(layers))
+		newImage, err := mutate.ConfigFile(*image, configFile)
+		if err != nil {
+			return err
+		}
+		*image = newImage
+	}
+	return nil
 }
 
 // layersAddendum creates an Addendum array with the given layers
 // and the desired media type
-func layersAddendum(layers []v1.Layer, mediaType types.MediaType) []mutate.Addendum {
+func layersAddendum(layers []v1.Layer, history []v1.History, mediaType types.MediaType) []mutate.Addendum {
 	additions := make([]mutate.Addendum, 0)
-	for _, layer := range layers {
+	if len(history) != len(layers) {
+		history = make([]v1.History, len(layers))
+	}
+	for idx, layer := range layers {
 		additions = append(additions, mutate.Addendum{
-			MediaType: mediaType,
 			Layer:     layer,
+			History:   history[idx],
+			MediaType: mediaType,
 		})
 	}
 	return additions
