@@ -69,6 +69,10 @@ func (i *Image) CreatedAt() (time.Time, error) {
 	return i.createdAt, nil
 }
 
+func (i *Image) History() ([]v1.History, error) {
+	return nil, errors.New("not yet implemented")
+}
+
 func (i *Image) Label(key string) (string, error) {
 	return i.labels[key], nil
 }
@@ -130,6 +134,10 @@ func (i *Image) RemoveLabel(key string) error {
 func (i *Image) SetEnv(k string, v string) error {
 	i.env[k] = v
 	return nil
+}
+
+func (i *Image) SetHistory(history []v1.History) error {
+	return errors.New("not yet implemented")
 }
 
 func (i *Image) SetOS(o string) error {

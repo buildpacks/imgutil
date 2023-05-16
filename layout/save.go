@@ -1,6 +1,8 @@
 package layout
 
 import (
+	"fmt"
+
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
@@ -20,25 +22,19 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 		return errors.Wrap(err, "set creation time")
 	}
 
+	if err = imgutil.OverrideHistoryIfNeeded(&i.Image); err != nil {
+		return fmt.Errorf("override history: %w", err)
+	}
+
 	cfg, err := i.Image.ConfigFile()
 	if err != nil {
 		return errors.Wrap(err, "get image config")
 	}
 	cfg = cfg.DeepCopy()
 
-	layers, err := i.Image.Layers()
-	if err != nil {
-		return errors.Wrap(err, "get image layers")
-	}
-	if len(cfg.History) != len(layers) {
-		cfg.History = make([]v1.History, len(layers))
-	}
 	for j := range cfg.History {
-		cfg.History[j] = v1.History{
-			Created: v1.Time{Time: i.createdAt},
-		}
+		cfg.History[j].Created = v1.Time{Time: i.createdAt}
 	}
-
 	cfg.DockerVersion = ""
 	cfg.Container = ""
 	err = i.mutateConfigFile(i.Image, cfg)

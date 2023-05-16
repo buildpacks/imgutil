@@ -1,8 +1,10 @@
 package layout_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -789,13 +791,13 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 		when("#FromPreviousImage", func() {
 			var (
-				layerDiffID       string
-				previousImagePath string
+				prevImageLayerDiffID string
+				previousImagePath    string
 			)
 
 			it.Before(func() {
 				// value from testdata/layout/my-previous-image config.RootFS.DiffIDs
-				layerDiffID = "sha256:ebc931a4ab83b0c934f2436c975cca387bc1bcebd1a5ced12824ff7592f317ea"
+				prevImageLayerDiffID = "sha256:ebc931a4ab83b0c934f2436c975cca387bc1bcebd1a5ced12824ff7592f317ea"
 				imagePath = filepath.Join(tmpDir, "save-from-previous-image")
 				previousImagePath = filepath.Join(testDataDir, "my-previous-image")
 			})
@@ -816,7 +818,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						// reuse layer from previous image
-						err = image.ReuseLayer(layerDiffID)
+						err = image.ReuseLayer(prevImageLayerDiffID)
 						h.AssertNil(t, err)
 
 						// save on disk in OCI
@@ -829,6 +831,67 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						mediaType, err := image.MediaType()
 						h.AssertNil(t, err)
 						h.AssertEq(t, mediaType, types.OCIManifestSchema1)
+					})
+
+					when("there is history", func() {
+						var prevHistory []v1.History
+
+						it.Before(func() {
+							prevImage, err := layout.NewImage(
+								filepath.Join(tmpDir, "previous-with-history"),
+								layout.FromBaseImagePath(previousImagePath),
+							)
+							h.AssertNil(t, err)
+							t.Logf("XXX Previous image: %s", filepath.Join(tmpDir, "previous-with-history"))
+							layers, err := prevImage.Image.Layers()
+							h.AssertNil(t, err)
+							prevHistory = make([]v1.History, len(layers))
+							for idx := range prevHistory {
+								prevHistory[idx].CreatedBy = fmt.Sprintf("some-history-%d", idx)
+							}
+							h.AssertNil(t, prevImage.SetHistory(prevHistory))
+							h.AssertNil(t, prevImage.Save())
+						})
+
+						it("reuses a layer with history", func() {
+							img, err := layout.NewImage(
+								imagePath,
+								layout.WithPreviousImage(filepath.Join(tmpDir, "previous-with-history")))
+							h.AssertNil(t, err)
+
+							// add a layer
+							newBaseLayerPath, err := h.CreateSingleFileLayerTar("/new-base.txt", "base-content", "linux")
+							h.AssertNil(t, err)
+							defer os.Remove(newBaseLayerPath)
+							h.AssertNil(t, img.AddLayer(newBaseLayerPath))
+
+							// re-use a layer
+							h.AssertNil(t, img.ReuseLayer(prevImageLayerDiffID))
+
+							h.AssertNil(t, img.Save())
+
+							layers, err := img.Image.Layers()
+							h.AssertNil(t, err)
+
+							// get re-used layer
+							reusedLayer := layers[len(layers)-1]
+							reusedLayerSHA, err := reusedLayer.DiffID()
+							h.AssertNil(t, err)
+							h.AssertEq(t, reusedLayerSHA.String(), prevImageLayerDiffID)
+
+							history, err := img.History()
+							h.AssertNil(t, err)
+							h.AssertEq(t, len(history), len(layers))
+							h.AssertEq(t, len(history) >= 2, true)
+
+							// check re-used layer history
+							reusedLayerHistory := history[len(history)-1]
+							h.AssertEq(t, strings.Contains(reusedLayerHistory.CreatedBy, "some-history-"), true)
+
+							// check added layer history
+							addedLayerHistory := history[len(history)-2]
+							h.AssertEq(t, addedLayerHistory, v1.History{Created: v1.Time{Time: imgutil.NormalizedDateTime}})
+						})
 					})
 				})
 			})
@@ -845,7 +908,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						// reuse layer from previous image
-						err = image.ReuseLayer(layerDiffID)
+						err = image.ReuseLayer(prevImageLayerDiffID)
 						h.AssertNil(t, err)
 
 						// save on disk in OCI
