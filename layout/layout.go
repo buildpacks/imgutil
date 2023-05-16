@@ -131,6 +131,14 @@ func (i *Image) GetLayer(sha string) (io.ReadCloser, error) {
 	return layer.Uncompressed()
 }
 
+func (i *Image) History() ([]v1.History, error) {
+	configFile, err := i.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+	return configFile.History, nil
+}
+
 // Identifier
 // Each image's ID is given by the SHA256 hash of its configuration JSON. It is represented as a hexadecimal encoding of 256 bits,
 // e.g., sha256:a9561eb1b190625c9adb5a9513e72c4dedafc1cb2d4c5236c9a6957ec7dfd5a9.
@@ -316,6 +324,17 @@ func (i *Image) SetCmd(cmd ...string) error {
 	return err
 }
 
+func (i *Image) SetEntrypoint(ep ...string) error {
+	configFile, err := i.Image.ConfigFile()
+	if err != nil {
+		return err
+	}
+	config := *configFile.Config.DeepCopy()
+	config.Entrypoint = ep
+	err = i.mutateConfig(i.Image, config)
+	return err
+}
+
 func (i *Image) SetEnv(key string, val string) error {
 	configFile, err := i.Image.ConfigFile()
 	if err != nil {
@@ -342,14 +361,13 @@ func (i *Image) SetEnv(key string, val string) error {
 	return err
 }
 
-func (i *Image) SetEntrypoint(ep ...string) error {
-	configFile, err := i.Image.ConfigFile()
+func (i *Image) SetHistory(history []v1.History) error {
+	configFile, err := i.Image.ConfigFile() // TODO: check if we need to use DeepCopy
 	if err != nil {
 		return err
 	}
-	config := *configFile.Config.DeepCopy()
-	config.Entrypoint = ep
-	err = i.mutateConfig(i.Image, config)
+	configFile.History = history
+	i.Image, err = mutate.ConfigFile(i.Image, configFile)
 	return err
 }
 

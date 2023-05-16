@@ -161,7 +161,11 @@ func processPreviousImageOption(ri *Image, prevImageRepoName string, platform im
 	}
 
 	ri.prevLayers = prevLayers
-	ri.prevHistory = configFile.History
+	prevHistory := configFile.History
+	if len(prevLayers) != len(prevHistory) {
+		prevHistory = make([]v1.History, len(prevLayers))
+	}
+	ri.prevHistory = prevHistory
 
 	return nil
 }
@@ -297,25 +301,15 @@ func referenceForRepoName(keychain authn.Keychain, ref string, insecure bool) (n
 
 func processBaseImageOption(ri *Image, baseImageRepoName string, platform imgutil.Platform) error {
 	reg := getRegistry(baseImageRepoName, ri.registrySettings)
-
 	baseImage, err := NewV1Image(baseImageRepoName, ri.keychain, WithV1DefaultPlatform(platform), WithV1RegistrySetting(reg.insecure, reg.insecureSkipVerify))
 	if err != nil {
 		return err
 	}
-
-	configFile, err := baseImage.ConfigFile()
-	if err != nil {
+	if err = imgutil.OverrideHistoryIfNeeded(&baseImage); err != nil {
 		return err
 	}
-	layers, err := baseImage.Layers()
-	if err != nil {
-		return err
-	}
-	if len(configFile.History) != len(layers) {
-		configFile.History = make([]v1.History, len(layers))
-	}
-	ri.image, err = mutate.ConfigFile(baseImage, configFile)
-	return err
+	ri.image = baseImage
+	return nil
 }
 
 // setUnderlyingImage wraps the provided v1.Image into a layout.Image and sets it as the underlying image for the receiving layout.Image

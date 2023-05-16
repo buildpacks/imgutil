@@ -103,6 +103,10 @@ func (i *Image) GetLayer(diffID string) (io.ReadCloser, error) {
 	return nil, fmt.Errorf("image %q does not contain layer with diff ID %q", i.repoName, diffID)
 }
 
+func (i *Image) History() ([]v1.History, error) {
+	return i.history, nil
+}
+
 func (i *Image) Identifier() (imgutil.Identifier, error) {
 	return IDIdentifier{
 		ImageID: strings.TrimPrefix(i.inspect.ID, "sha256:"),
@@ -198,6 +202,11 @@ func (i *Image) SetEnv(key, val string) error {
 		}
 	}
 	i.inspect.Config.Env = append(i.inspect.Config.Env, fmt.Sprintf("%s=%s", key, val))
+	return nil
+}
+
+func (i *Image) SetHistory(history []v1.History) error {
+	i.history = history
 	return nil
 }
 

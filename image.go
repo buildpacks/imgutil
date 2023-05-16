@@ -21,11 +21,12 @@ type Image interface {
 	Env(key string) (string, error)
 	// Found tells whether the image exists in the repository by `Name()`.
 	Found() bool
-	// Valid returns true if the image is well formed (e.g. all manifest layers exist on the registry).
+	// Valid returns true if the image is well-formed (e.g. all manifest layers exist on the registry).
 	Valid() bool
 	GetAnnotateRefName() (string, error)
 	// GetLayer retrieves layer by diff id. Returns a reader of the uncompressed contents of the layer.
 	GetLayer(diffID string) (io.ReadCloser, error)
+	History() ([]v1.History, error)
 	Identifier() (Identifier, error)
 	Label(string) (string, error)
 	Labels() (map[string]string, error)
@@ -48,6 +49,7 @@ type Image interface {
 	SetCmd(...string) error
 	SetEntrypoint(...string) error
 	SetEnv(string, string) error
+	SetHistory([]v1.History) error
 	SetLabel(string, string) error
 	SetOS(string) error
 	SetOSVersion(string) error
@@ -162,7 +164,7 @@ func OverrideMediaTypes(base v1.Image, mediaTypes MediaTypes) (v1.Image, error) 
 }
 
 // OverrideHistoryIfNeeded zeroes out the history if the number of history entries doesn't match the number of layers.
-func OverrideHistoryIfNeeded(image *v1.Image) error { // TODO: use this in a few places to avoid duplication
+func OverrideHistoryIfNeeded(image *v1.Image) error {
 	configFile, err := (*image).ConfigFile()
 	if err != nil {
 		return err

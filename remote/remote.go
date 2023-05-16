@@ -155,6 +155,14 @@ func (i *Image) GetLayer(sha string) (io.ReadCloser, error) {
 	return layer.Uncompressed()
 }
 
+func (i *Image) History() ([]v1.History, error) {
+	configFile, err := i.image.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+	return configFile.History, nil
+}
+
 func (i *Image) Identifier() (imgutil.Identifier, error) {
 	ref, err := name.ParseReference(i.repoName, name.WeakValidation)
 	if err != nil {
@@ -336,6 +344,16 @@ func (i *Image) SetEnv(key, val string) error {
 	}
 	config.Env = append(config.Env, fmt.Sprintf("%s=%s", key, val))
 	i.image, err = mutate.Config(i.image, config)
+	return err
+}
+
+func (i *Image) SetHistory(history []v1.History) error {
+	configFile, err := i.image.ConfigFile() // TODO: check if we need to use DeepCopy
+	if err != nil {
+		return err
+	}
+	configFile.History = history
+	i.image, err = mutate.ConfigFile(i.image, configFile)
 	return err
 }
 
