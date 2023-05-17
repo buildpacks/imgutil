@@ -1,17 +1,20 @@
 package local
 
 import (
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	"github.com/buildpacks/imgutil"
 )
 
 func NewIndex(repoName string, path string, ops ...ImageIndexOption) (*ImageIndex, error) {
-	if _, err := name.ParseReference(repoName, name.WeakValidation); err != nil {
+	ref, err := name.ParseReference(repoName, name.WeakValidation)
+	if err != nil {
 		return nil, err
 	}
 
@@ -20,6 +23,22 @@ func NewIndex(repoName string, path string, ops ...ImageIndexOption) (*ImageInde
 		if err := op(indexOpts); err != nil {
 			return nil, err
 		}
+	}
+
+	desc, err := remote.Get(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err == nil {
+		index, err := desc.ImageIndex()
+		if err != nil {
+			return nil, err
+		}
+
+		idx := &ImageIndex{
+			repoName: repoName,
+			path:     path,
+			index:    index,
+		}
+
+		return idx, nil
 	}
 
 	if len(indexOpts.manifest.Manifests) != 0 {
