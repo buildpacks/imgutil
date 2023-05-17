@@ -130,3 +130,16 @@ func (i *ImageIndex) ManifestSize() (int64, error) {
 func (i *ImageIndex) Name() string {
 	return i.repoName
 }
+
+type ImageIndexTest struct {
+	ImageIndex
+}
+
+func (i *ImageIndexTest) MediaType() (types.MediaType, error) {
+	mediaType, err := i.ImageIndex.index.MediaType()
+	if err != nil {
+		return "", err
+	}
+
+	return mediaType, nil
+}
