@@ -855,7 +855,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 								layout.FromBaseImagePath(previousImagePath),
 							)
 							h.AssertNil(t, err)
-							t.Logf("XXX Previous image: %s", filepath.Join(tmpDir, "previous-with-history"))
+							// set history
 							layers, err := prevImage.Image.Layers()
 							h.AssertNil(t, err)
 							prevHistory = make([]v1.History, len(layers))

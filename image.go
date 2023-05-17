@@ -126,17 +126,17 @@ func (t MediaTypes) LayerType() types.MediaType {
 
 // OverrideMediaTypes mutates the provided v1.Image to use the desired media types
 // in the image manifest and config files (including the layers referenced in the manifest)
-func OverrideMediaTypes(base v1.Image, mediaTypes MediaTypes) (v1.Image, error) {
+func OverrideMediaTypes(image v1.Image, mediaTypes MediaTypes) (v1.Image, error) {
 	if mediaTypes == DefaultTypes || mediaTypes == MissingTypes {
 		// without media types option, default to original media types
-		return base, nil
+		return image, nil
 	}
 
 	// manifest media type
 	retImage := mutate.MediaType(empty.Image, mediaTypes.ManifestType())
 
-	// update empty image with base config
-	config, err := base.ConfigFile()
+	// update empty image with image config
+	config, err := image.ConfigFile()
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +153,7 @@ func OverrideMediaTypes(base v1.Image, mediaTypes MediaTypes) (v1.Image, error) 
 	retImage = mutate.ConfigMediaType(retImage, mediaTypes.ConfigType())
 
 	// layers media type
-	layers, err := base.Layers()
+	layers, err := image.Layers()
 	if err != nil {
 		return nil, err
 	}
@@ -167,24 +167,24 @@ func OverrideMediaTypes(base v1.Image, mediaTypes MediaTypes) (v1.Image, error) 
 }
 
 // OverrideHistoryIfNeeded zeroes out the history if the number of history entries doesn't match the number of layers.
-func OverrideHistoryIfNeeded(image *v1.Image) error { // TODO: this is weird
-	configFile, err := (*image).ConfigFile()
+func OverrideHistoryIfNeeded(image v1.Image) (v1.Image, error) {
+	configFile, err := image.ConfigFile()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	layers, err := (*image).Layers()
+	layers, err := image.Layers()
 	if err != nil {
-		return err
+		return nil, err
 	}
+	retImage := image
 	if len(configFile.History) != len(layers) {
 		configFile.History = make([]v1.History, len(layers))
-		newImage, err := mutate.ConfigFile(*image, configFile)
+		retImage, err = mutate.ConfigFile(image, configFile)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		*image = newImage
 	}
-	return nil
+	return retImage, nil
 }
 
 // layersAddendum creates an Addendum array with the given layers

@@ -305,10 +305,9 @@ func processBaseImageOption(ri *Image, baseImageRepoName string, platform imguti
 	if err != nil {
 		return err
 	}
-	if err = imgutil.OverrideHistoryIfNeeded(&baseImage); err != nil {
+	if ri.image, err = imgutil.OverrideHistoryIfNeeded(baseImage); err != nil {
 		return err
 	}
-	ri.image = baseImage
 	return nil
 }
 

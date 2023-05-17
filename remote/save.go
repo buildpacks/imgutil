@@ -1,12 +1,13 @@
 package remote
 
 import (
+	"fmt"
+
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
 )
@@ -17,46 +18,49 @@ func (i *Image) Save(additionalNames ...string) error {
 
 func (i *Image) SaveAs(name string, additionalNames ...string) error {
 	var err error
-
 	allNames := append([]string{name}, additionalNames...)
 
-	i.image, err = mutate.CreatedAt(i.image, v1.Time{Time: i.createdAt})
-	if err != nil {
-		return errors.Wrap(err, "set creation time")
+	// create time
+	if i.image, err = mutate.CreatedAt(i.image, v1.Time{Time: i.createdAt}); err != nil {
+		return fmt.Errorf("setting creation time: %w", err)
 	}
 
+	// history
+	if i.image, err = imgutil.OverrideHistoryIfNeeded(i.image); err != nil {
+		return fmt.Errorf("overriding history: %w", err)
+	}
 	cfg, err := i.image.ConfigFile()
 	if err != nil {
-		return errors.Wrap(err, "get image config")
-	}
-	cfg = cfg.DeepCopy()
-
-	layers, err := i.image.Layers()
-	if err != nil {
-		return errors.Wrap(err, "get image layers")
-	}
-	if len(cfg.History) != len(layers) {
-		cfg.History = make([]v1.History, len(layers))
+		return fmt.Errorf("getting config file: %w", err)
 	}
 	for j := range cfg.History {
 		cfg.History[j].Created = v1.Time{Time: i.createdAt}
 	}
 
+	// docker, container
 	cfg.DockerVersion = ""
 	cfg.Container = ""
+
+	// commit config
 	i.image, err = mutate.ConfigFile(i.image, cfg)
 	if err != nil {
-		return errors.Wrap(err, "zeroing history")
+		return fmt.Errorf("zeroing history: %w", err)
 	}
 
+	// layers
+	layers, err := i.image.Layers()
+	if err != nil {
+		return fmt.Errorf("getting layers: %w", err)
+	}
 	if len(layers) == 0 && i.addEmptyLayerOnSave {
 		empty := static.NewLayer([]byte{}, types.OCILayer)
 		i.image, err = mutate.AppendLayers(i.image, empty)
 		if err != nil {
-			return errors.Wrap(err, "empty layer could not be added")
+			return fmt.Errorf("adding empty layer: %w", err)
 		}
 	}
 
+	// save
 	var diagnostics []imgutil.SaveDiagnostic
 	for _, n := range allNames {
 		if err := i.doSave(n); err != nil {

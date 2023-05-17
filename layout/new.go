@@ -145,7 +145,7 @@ func newV1Image(path string, platform imgutil.Platform) (v1.Image, error) {
 			return nil, fmt.Errorf("initializing empty image: %w", err)
 		}
 	}
-	if err = imgutil.OverrideHistoryIfNeeded(&image); err != nil {
+	if image, err = imgutil.OverrideHistoryIfNeeded(image); err != nil {
 		return nil, fmt.Errorf("overriding history: %w", err)
 	}
 

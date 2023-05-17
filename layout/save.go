@@ -22,7 +22,7 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 		return errors.Wrap(err, "set creation time")
 	}
 
-	if err = imgutil.OverrideHistoryIfNeeded(&i.Image); err != nil {
+	if i.Image, err = imgutil.OverrideHistoryIfNeeded(i.Image); err != nil {
 		return fmt.Errorf("override history: %w", err)
 	}
 
