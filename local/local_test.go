@@ -1731,7 +1731,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				)
 				h.AssertNil(t, err)
 
-				newBaseLayerPath, err := h.CreateSingleFileLayerTar("/new-base.txt", "base-content", "linux")
+				newBaseLayerPath, err := h.CreateSingleFileLayerTar("/new-base.txt", "base-content", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayerPath)
 

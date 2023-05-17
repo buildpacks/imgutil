@@ -873,7 +873,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							h.AssertNil(t, err)
 
 							// add a layer
-							newBaseLayerPath, err := h.CreateSingleFileLayerTar("/new-base.txt", "base-content", "linux")
+							newBaseLayerPath, _, _ := h.RandomLayer(t, tmpDir)
 							h.AssertNil(t, err)
 							defer os.Remove(newBaseLayerPath)
 							h.AssertNil(t, img.AddLayer(newBaseLayerPath))
