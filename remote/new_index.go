@@ -75,3 +75,16 @@ func emptyIndex(mediaType types.MediaType) (v1.ImageIndex, error) {
 func defaultMediaType() imgutil.MediaTypes {
 	return imgutil.DockerTypes
 }
+
+func NewIndexTest(repoName string, keychain authn.Keychain, ops ...ImageIndexOption) (*ImageIndexTest, error) {
+	ridx, err := NewIndex(repoName, keychain, ops...)
+	if err != nil {
+		return nil, err
+	}
+
+	ridxt := &ImageIndexTest{
+		ImageIndex: *ridx,
+	}
+
+	return ridxt, nil
+}
