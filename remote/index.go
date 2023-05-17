@@ -9,6 +9,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/match"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
@@ -106,6 +107,19 @@ func (i *ImageIndex) doSave(indexName string) error {
 	if err != nil {
 		return err
 	}
+
+	iManifest, err := i.index.IndexManifest()
+
+	for _, j := range iManifest.Manifests {
+		switch j.MediaType {
+		case types.OCIManifestSchema1, types.DockerManifestSchema2:
+			if j.Platform.Architecture == "" || j.Platform.OS == "" {
+				return errors.Errorf("manifest with digest %s is missing either OS or Architecture information to be pushed to a registry", j.Digest)
+			}
+		}
+	}
+	// slices.Contains([]types.MediaType{types.OCIManifestSchema1, types.DockerManifestSchema}, j.MediaType) && (
+
 	return remote.WriteIndex(ref, i.index, remote.WithAuth(auth))
 }
 
