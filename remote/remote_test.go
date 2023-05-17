@@ -1405,18 +1405,21 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			oldNHistory := len(history)
 			addedHistory := v1.History{
 				Author:     "some-author",
+				Created:    v1.Time{Time: imgutil.NormalizedDateTime},
 				CreatedBy:  "some-history",
 				Comment:    "some-comment",
 				EmptyLayer: false,
 			}
 			err = img.AddLayerWithDiffIDAndHistory(newLayerPath, newLayerDiffID, addedHistory)
 			h.AssertNil(t, err)
+
+			h.AssertNil(t, img.Save())
+
+			// check history
 			history, err = img.History()
 			h.AssertNil(t, err)
 			h.AssertEq(t, len(history), oldNHistory+1)
 			h.AssertEq(t, history[len(history)-1], addedHistory)
-
-			h.AssertNil(t, img.Save())
 
 			manifestLayerDiffIDs := h.FetchManifestLayers(t, repoName)
 

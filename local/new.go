@@ -181,8 +181,8 @@ func processBaseImageOption(image *Image, baseImageRepoName string, platform img
 	}
 
 	v1History := toV1History(history)
-	if len(history) != len(image.inspect.RootFS.Layers) {
-		v1History = make([]v1.History, len(image.inspect.RootFS.Layers))
+	if len(history) != len(inspect.RootFS.Layers) {
+		v1History = make([]v1.History, len(inspect.RootFS.Layers))
 	}
 
 	image.inspect = inspect
@@ -194,8 +194,9 @@ func processBaseImageOption(image *Image, baseImageRepoName string, platform img
 
 func toV1History(history []image.HistoryResponseItem) []v1.History {
 	v1History := make([]v1.History, len(history))
-	for idx, h := range history {
-		v1History[idx] = v1.History{
+	for offset, h := range history {
+		// the daemon reports history in reverse order, so build up the array backwards
+		v1History[len(v1History)-offset-1] = v1.History{
 			Created:   v1.Time{Time: time.Unix(h.Created, 0)},
 			CreatedBy: h.CreatedBy,
 			Comment:   h.Comment,

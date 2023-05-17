@@ -15,6 +15,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 
@@ -1437,6 +1438,76 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, img.AddLayerWithDiffID(newLayerPath, newLayerDiffID))
 			h.AssertNil(t, img.Save())
 			defer h.DockerRmi(dockerClient, repoName)
+
+			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
+			h.AssertNil(t, err)
+
+			h.AssertEq(t, oldLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -2))
+			h.AssertEq(t, newLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -1))
+		})
+	})
+
+	when("#AddLayerWithDiffIDAndHistory", func() {
+		it("appends a layer", func() {
+			repoName := newTestImageName()
+
+			existingImage, err := local.NewImage(repoName, dockerClient)
+			h.AssertNil(t, err)
+
+			oldLayerPath, err := h.CreateSingleFileLayerTar("/old-layer.txt", "old-layer", daemonOS)
+			h.AssertNil(t, err)
+			defer os.Remove(oldLayerPath)
+
+			oldLayerDiffID := h.FileDiffID(t, oldLayerPath)
+
+			h.AssertNil(t, existingImage.AddLayer(oldLayerPath))
+
+			h.AssertNil(t, existingImage.Save())
+
+			id, err := existingImage.Identifier()
+			h.AssertNil(t, err)
+
+			existingImageID := id.String()
+			defer h.DockerRmi(dockerClient, existingImageID)
+
+			img, err := local.NewImage(
+				repoName,
+				dockerClient,
+				local.FromBaseImage(repoName),
+			)
+			h.AssertNil(t, err)
+
+			newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", daemonOS)
+			h.AssertNil(t, err)
+			defer os.Remove(newLayerPath)
+
+			newLayerDiffID := h.FileDiffID(t, newLayerPath)
+
+			oldHistory, err := img.History()
+			h.AssertNil(t, err)
+			addedHistory := v1.History{
+				Author:     "some-author",
+				Created:    v1.Time{Time: imgutil.NormalizedDateTime},
+				CreatedBy:  "some-history",
+				Comment:    "some-comment",
+				EmptyLayer: false,
+			}
+			err = img.AddLayerWithDiffIDAndHistory(newLayerPath, newLayerDiffID, addedHistory)
+			h.AssertNil(t, err)
+
+			h.AssertNil(t, img.Save())
+
+			// check history
+			imageReportsHistory, err := img.History()
+			h.AssertNil(t, err)
+			h.AssertEq(t, len(imageReportsHistory), len(oldHistory)+1)
+			h.AssertEq(t, imageReportsHistory[len(imageReportsHistory)-1], addedHistory)
+
+			daemonReportsHistory, err := dockerClient.ImageHistory(context.TODO(), repoName)
+			h.AssertNil(t, err)
+			h.AssertEq(t, len(imageReportsHistory), len(daemonReportsHistory))
+			lastHistory := daemonReportsHistory[0] // the daemon reports history in reverse order
+			h.AssertEq(t, lastHistory.CreatedBy, "some-history")
 
 			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 			h.AssertNil(t, err)
