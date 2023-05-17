@@ -127,38 +127,26 @@ func newV1Image(path string, platform imgutil.Platform) (v1.Image, error) {
 	if ImageExists(path) {
 		layout, err = FromPath(path)
 		if err != nil {
-			return nil, errors.Wrap(err, "loading layout from path new")
+			return nil, fmt.Errorf("loading layout from path new: %w", err)
 		}
 
 		index, err := layout.ImageIndex()
 		if err != nil {
-			return nil, errors.Wrap(err, "reading index")
+			return nil, fmt.Errorf("reading index: %w", err)
 		}
 
 		image, err = imageFromIndex(index, platform)
 		if err != nil {
-			return nil, errors.Wrap(err, "getting image from index")
+			return nil, fmt.Errorf("getting image from index: %w", err)
 		}
 	} else {
 		image, err = emptyImage(platform)
 		if err != nil {
-			return nil, errors.Wrap(err, "initializing empty image")
+			return nil, fmt.Errorf("initializing empty image: %w", err)
 		}
 	}
-	configFile, err := image.ConfigFile()
-	if err != nil {
-		return nil, err
-	}
-	layers, err := image.Layers()
-	if err != nil {
-		return nil, err
-	}
-	if len(configFile.History) != len(layers) {
-		configFile.History = make([]v1.History, len(layers))
-		image, err = mutate.ConfigFile(image, configFile)
-		if err != nil {
-			return nil, err
-		}
+	if err = imgutil.OverrideHistoryIfNeeded(&image); err != nil {
+		return nil, fmt.Errorf("overriding history: %w", err)
 	}
 
 	return &Image{
@@ -199,7 +187,7 @@ func imageFromIndex(index v1.ImageIndex, platform imgutil.Platform) (v1.Image, e
 	return image, nil
 }
 
-func processBaseImageOption(ri *Image, baseImagePath string, platform imgutil.Platform) error { // TODO
+func processBaseImageOption(ri *Image, baseImagePath string, platform imgutil.Platform) error {
 	baseImage, err := newV1Image(baseImagePath, platform)
 	if err != nil {
 		return err

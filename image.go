@@ -140,7 +140,10 @@ func OverrideMediaTypes(base v1.Image, mediaTypes MediaTypes) (v1.Image, error) 
 	if err != nil {
 		return nil, err
 	}
+	history := config.History
+	// zero out diff IDs and history, as these will be updated when we call `mutate.Append`
 	config.RootFS.DiffIDs = make([]v1.Hash, 0)
+	config.History = []v1.History{}
 	retImage, err = mutate.ConfigFile(retImage, config)
 	if err != nil {
 		return nil, err
@@ -154,7 +157,7 @@ func OverrideMediaTypes(base v1.Image, mediaTypes MediaTypes) (v1.Image, error) 
 	if err != nil {
 		return nil, err
 	}
-	additions := layersAddendum(layers, config.History, mediaTypes.LayerType())
+	additions := layersAddendum(layers, history, mediaTypes.LayerType())
 	retImage, err = mutate.Append(retImage, additions...)
 	if err != nil {
 		return nil, err
@@ -164,7 +167,7 @@ func OverrideMediaTypes(base v1.Image, mediaTypes MediaTypes) (v1.Image, error) 
 }
 
 // OverrideHistoryIfNeeded zeroes out the history if the number of history entries doesn't match the number of layers.
-func OverrideHistoryIfNeeded(image *v1.Image) error {
+func OverrideHistoryIfNeeded(image *v1.Image) error { // TODO: this is weird
 	configFile, err := (*image).ConfigFile()
 	if err != nil {
 		return err

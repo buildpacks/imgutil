@@ -737,23 +737,36 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						// add a random layer
-						path, diffID, _ := h.RandomLayer(t, tmpDir)
-						err = image.AddLayerWithDiffID(path, diffID)
-						h.AssertNil(t, err)
+						path1, diffID1, _ := h.RandomLayer(t, tmpDir)
+						h.AssertNil(t, image.AddLayerWithDiffID(path1, diffID1))
+
+						// add a layer with history
+						path2, diffID2, _ := h.RandomLayer(t, tmpDir)
+						h.AssertNil(t, image.AddLayerWithDiffIDAndHistory(path2, diffID2, v1.History{CreatedBy: "some-history"}))
 
 						// save on disk in OCI
 						image.AnnotateRefName("latest")
-						err = image.Save()
-						h.AssertNil(t, err)
+						h.AssertNil(t, image.Save())
 
-						// expected blobs: manifest, config, base image layer, new random layer
-						h.AssertBlobsLen(t, imagePath, 4)
+						// expected blobs: manifest, config, base image layer, new random layer, new layer with history
+						h.AssertBlobsLen(t, imagePath, 5)
 
 						// assert additional name
 						index := h.ReadIndexManifest(t, imagePath)
 						h.AssertEq(t, len(index.Manifests), 1)
 						h.AssertEq(t, 1, len(index.Manifests[0].Annotations))
 						h.AssertEqAnnotation(t, index.Manifests[0], layout.ImageRefNameKey, "latest")
+
+						// assert history
+						digest := index.Manifests[0].Digest
+						manifest := h.ReadManifest(t, digest, imagePath)
+						config := h.ReadConfigFile(t, manifest, imagePath)
+						h.AssertEq(t, len(config.History), 3)
+						lastLayerHistory := config.History[len(config.History)-1]
+						h.AssertEq(t, lastLayerHistory, v1.History{
+							Created:   v1.Time{Time: imgutil.NormalizedDateTime},
+							CreatedBy: "some-history",
+						})
 					})
 				})
 			})
