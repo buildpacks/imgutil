@@ -31,6 +31,7 @@ type Image struct {
 	prevHistory         []v1.History
 	createdAt           time.Time
 	addEmptyLayerOnSave bool
+	withHistory         bool
 	registrySettings    map[string]registrySetting
 	requestedMediaTypes imgutil.MediaTypes
 }
@@ -506,13 +507,21 @@ func (i *Image) RemoveLabel(key string) error {
 }
 
 func (i *Image) ReuseLayer(sha string) error {
-	layer, idx, err := findLayerWithSha(i.prevLayers, sha)
+	_, idx, err := findLayerWithSha(i.prevLayers, sha)
+	if err != nil {
+		return err
+	}
+	return i.ReuseLayerWithHistory(sha, i.prevHistory[idx])
+}
+
+func (i *Image) ReuseLayerWithHistory(sha string, history v1.History) error {
+	layer, _, err := findLayerWithSha(i.prevLayers, sha)
 	if err != nil {
 		return err
 	}
 	i.image, err = mutate.Append(
 		i.image,
-		layerAddendum(layer, i.prevHistory[idx], i.requestedMediaTypes.LayerType()),
+		layerAddendum(layer, history, i.requestedMediaTypes.LayerType()),
 	)
 	return err
 }

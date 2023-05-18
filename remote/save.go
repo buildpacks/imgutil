@@ -26,15 +26,24 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 	}
 
 	// history
-	if i.image, err = imgutil.OverrideHistoryIfNeeded(i.image); err != nil {
-		return fmt.Errorf("overriding history: %w", err)
-	}
 	cfg, err := i.image.ConfigFile()
 	if err != nil {
 		return fmt.Errorf("getting config file: %w", err)
 	}
-	for j := range cfg.History {
-		cfg.History[j].Created = v1.Time{Time: i.createdAt}
+	if i.image, err = imgutil.OverrideHistoryIfNeeded(i.image); err != nil {
+		return fmt.Errorf("overriding history: %w", err)
+	}
+	created := v1.Time{Time: i.createdAt}
+	if i.withHistory {
+		// set created
+		for j := range cfg.History {
+			cfg.History[j].Created = created
+		}
+	} else {
+		// zero history, set created
+		for j := range cfg.History {
+			cfg.History[j] = v1.History{Created: created}
+		}
 	}
 
 	// docker, container

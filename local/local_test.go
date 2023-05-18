@@ -1476,6 +1476,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				repoName,
 				dockerClient,
 				local.FromBaseImage(repoName),
+				local.WithHistory(),
 			)
 			h.AssertNil(t, err)
 
@@ -1615,6 +1616,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				prevImageName,
 				dockerClient,
 				local.FromBaseImage(runnableBaseImageName),
+				local.WithHistory(),
 			)
 			h.AssertNil(t, err)
 
@@ -1728,6 +1730,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					dockerClient,
 					local.WithPreviousImage(prevImageName),
 					local.FromBaseImage(runnableBaseImageName),
+					local.WithHistory(),
 				)
 				h.AssertNil(t, err)
 
@@ -1758,6 +1761,88 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertEq(t, strings.Contains(reusedLayer2History.CreatedBy, "some-history-"), true)
 				h.AssertEq(t, newLayer1History, v1.History{Created: v1.Time{Time: imgutil.NormalizedDateTime}})
 			})
+		})
+	})
+
+	when("#ReuseLayerWithHistory", func() {
+		var (
+			prevImage     *local.Image
+			prevImageName = newTestImageName()
+			repoName      = newTestImageName()
+			prevLayer1SHA string
+			prevLayer2SHA string
+		)
+
+		it.Before(func() {
+			var err error
+			prevImage, err = local.NewImage(
+				prevImageName,
+				dockerClient,
+				local.FromBaseImage(runnableBaseImageName),
+				local.WithHistory(),
+			)
+			h.AssertNil(t, err)
+
+			layer1Path, err := h.CreateSingleFileLayerTar("/layer-1.txt", "old-layer-1", daemonOS)
+			h.AssertNil(t, err)
+			defer os.Remove(layer1Path)
+
+			layer2Path, err := h.CreateSingleFileLayerTar("/layer-2.txt", "old-layer-2", daemonOS)
+			h.AssertNil(t, err)
+			defer os.Remove(layer2Path)
+
+			h.AssertNil(t, prevImage.AddLayer(layer1Path))
+			h.AssertNil(t, prevImage.AddLayer(layer2Path))
+
+			h.AssertNil(t, prevImage.Save())
+
+			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), prevImageName)
+			h.AssertNil(t, err)
+
+			prevLayer1SHA = h.StringElementAt(inspect.RootFS.Layers, -2)
+			prevLayer2SHA = h.StringElementAt(inspect.RootFS.Layers, -1)
+		})
+
+		it.After(func() {
+			h.AssertNil(t, h.DockerRmi(dockerClient, repoName, prevImageName))
+		})
+
+		it("reuses a layer with history", func() {
+			img, err := local.NewImage(
+				repoName,
+				dockerClient,
+				local.WithPreviousImage(prevImageName),
+				local.FromBaseImage(runnableBaseImageName),
+				local.WithHistory(),
+			)
+			h.AssertNil(t, err)
+
+			newBaseLayerPath, err := h.CreateSingleFileLayerTar("/new-base.txt", "base-content", daemonOS)
+			h.AssertNil(t, err)
+			defer os.Remove(newBaseLayerPath)
+
+			h.AssertNil(t, img.AddLayer(newBaseLayerPath))
+
+			err = img.ReuseLayerWithHistory(prevLayer2SHA, v1.History{CreatedBy: "some-new-history"})
+			h.AssertNil(t, err)
+
+			h.AssertNil(t, img.Save())
+
+			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
+			h.AssertNil(t, err)
+
+			newLayer1SHA := h.StringElementAt(inspect.RootFS.Layers, -2)
+			reusedLayer2SHA := h.StringElementAt(inspect.RootFS.Layers, -1)
+
+			h.AssertNotEq(t, prevLayer1SHA, newLayer1SHA)
+			h.AssertEq(t, prevLayer2SHA, reusedLayer2SHA)
+
+			history, err := img.History()
+			h.AssertNil(t, err)
+			reusedLayer2History := history[len(history)-1]
+			newLayer1History := history[len(history)-2]
+			h.AssertEq(t, strings.Contains(reusedLayer2History.CreatedBy, "some-new-history"), true)
+			h.AssertEq(t, newLayer1History, v1.History{Created: v1.Time{Time: imgutil.NormalizedDateTime}})
 		})
 	})
 

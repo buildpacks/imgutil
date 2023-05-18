@@ -29,6 +29,7 @@ type Image struct {
 	prevImage        *Image // reused layers will be fetched from prevImage
 	downloadBaseOnce *sync.Once
 	createdAt        time.Time
+	withHistory      bool
 }
 
 // DockerClient is subset of client.CommonAPIClient required by this package
@@ -318,21 +319,38 @@ func (i *Image) RemoveLabel(key string) error {
 }
 
 func (i *Image) ReuseLayer(diffID string) error {
-	if i.prevImage == nil {
-		return errors.New("failed to reuse layer because no previous image was provided")
-	}
-	if !i.prevImage.Found() {
-		return fmt.Errorf("failed to reuse layer because previous image %q was not found in daemon", i.prevImage.repoName)
-	}
-
-	if err := i.prevImage.downloadBaseLayersOnce(); err != nil {
+	if err := i.ensureLayers(); err != nil {
 		return err
 	}
-
 	for idx := range i.prevImage.inspect.RootFS.Layers {
 		if i.prevImage.inspect.RootFS.Layers[idx] == diffID {
 			return i.AddLayerWithDiffIDAndHistory(i.prevImage.layerPaths[idx], diffID, i.prevImage.history[idx])
 		}
 	}
 	return fmt.Errorf("SHA %s was not found in %s", diffID, i.prevImage.Name())
+}
+
+func (i *Image) ReuseLayerWithHistory(diffID string, history v1.History) error {
+	if err := i.ensureLayers(); err != nil {
+		return err
+	}
+	for idx := range i.prevImage.inspect.RootFS.Layers {
+		if i.prevImage.inspect.RootFS.Layers[idx] == diffID {
+			return i.AddLayerWithDiffIDAndHistory(i.prevImage.layerPaths[idx], diffID, history)
+		}
+	}
+	return fmt.Errorf("SHA %s was not found in %s", diffID, i.prevImage.Name())
+}
+
+func (i *Image) ensureLayers() error {
+	if i.prevImage == nil {
+		return errors.New("failed to reuse layer because no previous image was provided")
+	}
+	if !i.prevImage.Found() {
+		return fmt.Errorf("failed to reuse layer because previous image %q was not found in daemon", i.prevImage.repoName)
+	}
+	if err := i.prevImage.downloadBaseLayersOnce(); err != nil {
+		return err
+	}
+	return nil
 }

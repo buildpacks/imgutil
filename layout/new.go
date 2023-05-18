@@ -31,8 +31,9 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 	}
 
 	ri := &Image{
-		Image: image,
-		path:  path,
+		Image:       image,
+		path:        path,
+		withHistory: imageOpts.withHistory,
 	}
 
 	if imageOpts.prevImagePath != "" {

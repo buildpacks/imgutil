@@ -65,6 +65,7 @@ type Image interface {
 	Rebase(string, Image) error
 	RemoveLabel(string) error
 	ReuseLayer(diffID string) error
+	ReuseLayerWithHistory(diffID string, history v1.History) error
 	// Save saves the image as `Name()` and any additional names provided to this method.
 	Save(additionalNames ...string) error
 	// SaveAs ignores the image `Name()` method and saves the image according to name & additional names provided to this method

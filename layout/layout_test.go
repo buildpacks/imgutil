@@ -733,7 +733,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			when("full image was saved on disk in OCI layout format", func() {
 				when("a new layer was added", func() {
 					it("image is saved on disk with all the layers", func() {
-						image, err := layout.NewImage(imagePath, layout.FromBaseImagePath(fullBaseImagePath))
+						image, err := layout.NewImage(
+							imagePath,
+							layout.FromBaseImagePath(fullBaseImagePath),
+							layout.WithHistory(),
+						)
 						h.AssertNil(t, err)
 
 						// add a random layer
@@ -853,6 +857,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							prevImage, err := layout.NewImage(
 								filepath.Join(tmpDir, "previous-with-history"),
 								layout.FromBaseImagePath(previousImagePath),
+								layout.WithHistory(),
 							)
 							h.AssertNil(t, err)
 							// set history
@@ -869,7 +874,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						it("reuses a layer with history", func() {
 							img, err := layout.NewImage(
 								imagePath,
-								layout.WithPreviousImage(filepath.Join(tmpDir, "previous-with-history")))
+								layout.WithPreviousImage(filepath.Join(tmpDir, "previous-with-history")),
+								layout.WithHistory(),
+							)
 							h.AssertNil(t, err)
 
 							// add a layer
@@ -905,6 +912,60 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							addedLayerHistory := history[len(history)-2]
 							h.AssertEq(t, addedLayerHistory, v1.History{Created: v1.Time{Time: imgutil.NormalizedDateTime}})
 						})
+					})
+				})
+
+				when("#ReuseLayerWithHistory", func() {
+					it.Before(func() {
+						prevImage, err := layout.NewImage(
+							filepath.Join(tmpDir, "previous-with-history"),
+							layout.FromBaseImagePath(previousImagePath),
+							layout.WithHistory(),
+						)
+						h.AssertNil(t, err)
+						h.AssertNil(t, prevImage.Save())
+					})
+
+					it("reuses a layer with history", func() {
+						img, err := layout.NewImage(
+							imagePath,
+							layout.WithPreviousImage(filepath.Join(tmpDir, "previous-with-history")),
+							layout.WithHistory(),
+						)
+						h.AssertNil(t, err)
+
+						// add a layer
+						newBaseLayerPath, _, _ := h.RandomLayer(t, tmpDir)
+						h.AssertNil(t, err)
+						defer os.Remove(newBaseLayerPath)
+						h.AssertNil(t, img.AddLayer(newBaseLayerPath))
+
+						// re-use a layer
+						h.AssertNil(t, img.ReuseLayerWithHistory(prevImageLayerDiffID, v1.History{CreatedBy: "some-new-history"}))
+
+						h.AssertNil(t, img.Save())
+
+						layers, err := img.Image.Layers()
+						h.AssertNil(t, err)
+
+						// get re-used layer
+						reusedLayer := layers[len(layers)-1]
+						reusedLayerSHA, err := reusedLayer.DiffID()
+						h.AssertNil(t, err)
+						h.AssertEq(t, reusedLayerSHA.String(), prevImageLayerDiffID)
+
+						history, err := img.History()
+						h.AssertNil(t, err)
+						h.AssertEq(t, len(history), len(layers))
+						h.AssertEq(t, len(history) >= 2, true)
+
+						// check re-used layer history
+						reusedLayerHistory := history[len(history)-1]
+						h.AssertEq(t, strings.Contains(reusedLayerHistory.CreatedBy, "some-new-history"), true)
+
+						// check added layer history
+						addedLayerHistory := history[len(history)-2]
+						h.AssertEq(t, addedLayerHistory, v1.History{Created: v1.Time{Time: imgutil.NormalizedDateTime}})
 					})
 				})
 			})

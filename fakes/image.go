@@ -243,6 +243,10 @@ func (i *Image) ReuseLayer(sha string) error {
 	return nil
 }
 
+func (i *Image) ReuseLayerWithHistory(sha string, history v1.History) error {
+	return errors.New("not yet implemented")
+}
+
 func (i *Image) Save(additionalNames ...string) error {
 	return i.SaveAs(i.Name(), additionalNames...)
 }

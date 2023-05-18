@@ -32,8 +32,17 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 	}
 	cfg = cfg.DeepCopy()
 
-	for j := range cfg.History {
-		cfg.History[j].Created = v1.Time{Time: i.createdAt}
+	created := v1.Time{Time: i.createdAt}
+	if i.withHistory {
+		// set created
+		for j := range cfg.History {
+			cfg.History[j].Created = created
+		}
+	} else {
+		// zero history, set created
+		for j := range cfg.History {
+			cfg.History[j] = v1.History{Created: created}
+		}
 	}
 	cfg.DockerVersion = ""
 	cfg.Container = ""

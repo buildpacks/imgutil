@@ -51,6 +51,7 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...ImageOption) (*
 		history:          make([]v1.History, len(inspect.RootFS.Layers)),
 		layerPaths:       make([]string, len(inspect.RootFS.Layers)),
 		downloadBaseOnce: &sync.Once{},
+		withHistory:      imageOpts.withHistory,
 	}
 
 	if imageOpts.prevImageRepoName != "" {

@@ -28,6 +28,7 @@ type Image struct {
 	createdAt           time.Time
 	refName             string // holds org.opencontainers.image.ref.name value
 	requestedMediaTypes imgutil.MediaTypes
+	withHistory         bool
 }
 
 // getters
@@ -496,6 +497,14 @@ func (i *Image) ReuseLayer(sha string) error {
 		return err
 	}
 	return i.addLayer(layer, i.prevHistory[idx])
+}
+
+func (i *Image) ReuseLayerWithHistory(sha string, history v1.History) error {
+	layer, _, err := findLayerWithSha(i.prevLayers, sha)
+	if err != nil {
+		return err
+	}
+	return i.addLayer(layer, history)
 }
 
 // helpers

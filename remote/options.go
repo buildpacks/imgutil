@@ -16,6 +16,7 @@ type options struct {
 	prevImageRepoName   string
 	createdAt           time.Time
 	addEmptyLayerOnSave bool
+	withHistory         bool
 	registrySettings    map[string]registrySetting
 	mediaTypes          imgutil.MediaTypes
 	config              *v1.Config
@@ -66,6 +67,15 @@ func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	}
 }
 
+// WithHistory if provided will configure the image to preserve history when saved
+// (including any history from the base image if valid).
+func WithHistory() ImageOption {
+	return func(opts *options) error {
+		opts.withHistory = true
+		return nil
+	}
+}
+
 // WithMediaTypes lets a caller set the desired media types for the image manifest and config files,
 // including the layers referenced in the manifest, to be either OCI media types or Docker media types.
 func WithMediaTypes(requested imgutil.MediaTypes) ImageOption {
@@ -90,6 +100,33 @@ func WithPreviousImage(imageName string) ImageOption {
 func WithRegistrySetting(repository string, insecure, insecureSkipVerify bool) ImageOption {
 	return func(opts *options) error {
 		opts.registrySettings[repository] = registrySetting{
+			insecure:           insecure,
+			insecureSkipVerify: insecureSkipVerify,
+		}
+		return nil
+	}
+}
+
+// v1Options is used to configure the behavior when a v1.Image is created
+type v1Options struct {
+	platform        imgutil.Platform
+	registrySetting registrySetting
+}
+
+type V1ImageOption func(*v1Options) error
+
+// WithV1DefaultPlatform provides Architecture/OS/OSVersion defaults for the new v1.Image.
+func WithV1DefaultPlatform(platform imgutil.Platform) V1ImageOption {
+	return func(opts *v1Options) error {
+		opts.platform = platform
+		return nil
+	}
+}
+
+// WithV1RegistrySetting registers options to use when accessing images in a registry in order to construct a v1.Image.
+func WithV1RegistrySetting(insecure, insecureSkipVerify bool) V1ImageOption {
+	return func(opts *v1Options) error {
+		opts.registrySetting = registrySetting{
 			insecure:           insecure,
 			insecureSkipVerify: insecureSkipVerify,
 		}

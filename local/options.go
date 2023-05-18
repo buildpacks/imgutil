@@ -14,6 +14,7 @@ type options struct {
 	platform          imgutil.Platform
 	baseImageRepoName string
 	prevImageRepoName string
+	withHistory       bool
 	createdAt         time.Time
 	config            *container.Config
 }
@@ -48,6 +49,15 @@ func WithConfig(config *container.Config) ImageOption {
 func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	return func(i *options) error {
 		i.platform = platform
+		return nil
+	}
+}
+
+// WithHistory if provided will configure the image to preserve history when saved
+// (including any history from the base image if valid).
+func WithHistory() ImageOption {
+	return func(opts *options) error {
+		opts.withHistory = true
 		return nil
 	}
 }

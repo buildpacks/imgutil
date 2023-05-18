@@ -123,6 +123,10 @@ func (i *Image) SaveFile() (string, error) {
 }
 
 func (i *Image) newConfigFile() ([]byte, error) {
+	if !i.withHistory {
+		// zero history
+		i.history = make([]v1.History, len(i.inspect.RootFS.Layers))
+	}
 	cfg, err := v1Config(i.inspect, i.createdAt, i.history)
 	if err != nil {
 		return nil, err

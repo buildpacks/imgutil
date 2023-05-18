@@ -45,6 +45,7 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 		repoName:            repoName,
 		image:               image,
 		addEmptyLayerOnSave: imageOpts.addEmptyLayerOnSave,
+		withHistory:         imageOpts.withHistory,
 		registrySettings:    imageOpts.registrySettings,
 	}
 
@@ -177,33 +178,6 @@ func getRegistry(repoName string, registrySettings map[string]registrySetting) r
 		}
 	}
 	return registrySetting{}
-}
-
-// v1Options is used to configure the behavior when a v1.Image is created
-type v1Options struct {
-	platform        imgutil.Platform
-	registrySetting registrySetting
-}
-
-type V1ImageOption func(*v1Options) error
-
-// WithV1DefaultPlatform provides Architecture/OS/OSVersion defaults for the new v1.Image.
-func WithV1DefaultPlatform(platform imgutil.Platform) V1ImageOption {
-	return func(opts *v1Options) error {
-		opts.platform = platform
-		return nil
-	}
-}
-
-// WithV1RegistrySetting registers options to use when accessing images in a registry in order to construct a v1.Image.
-func WithV1RegistrySetting(insecure, insecureSkipVerify bool) V1ImageOption {
-	return func(opts *v1Options) error {
-		opts.registrySetting = registrySetting{
-			insecure:           insecure,
-			insecureSkipVerify: insecureSkipVerify,
-		}
-		return nil
-	}
 }
 
 // NewV1Image returns a new v1.Image
