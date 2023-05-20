@@ -123,10 +123,6 @@ func (i *ImageIndex) doSave(indexName string) error {
 	return remote.WriteIndex(ref, i.index, remote.WithAuth(auth))
 }
 
-func (i *ImageIndex) ManifestSize() (int64, error) {
-	return i.index.Size()
-}
-
 func (i *ImageIndex) Name() string {
 	return i.repoName
 }

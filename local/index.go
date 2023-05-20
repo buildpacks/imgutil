@@ -105,10 +105,6 @@ func makeFileSafeName(ref string) string {
 	return strings.Replace(fileName, "/", "_", -1)
 }
 
-func (i *ImageIndex) ManifestSize() (int64, error) {
-	return 0, nil
-}
-
 func (i *ImageIndex) Name() string {
 	return i.repoName
 }
