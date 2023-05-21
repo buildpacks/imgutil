@@ -110,20 +110,6 @@ func (i *ImageIndex) Name() string {
 	return i.repoName
 }
 
-func (i *ImageIndex) AppendManifest(manifestName string) error {
-	err := i.Add(manifestName)
-	if err != nil {
-		return err
-	}
-
-	err = i.Save()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Fields which are allowed to be annotated in a local index
 type AnnotateFields struct {
 	Architecture string
