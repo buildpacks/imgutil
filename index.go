@@ -8,7 +8,11 @@ import (
 )
 
 type ImageIndex interface {
+	// getters
+
 	Name() string
+
+	// modifiers
 	Add(repoName string) error
 	Remove(repoName string) error
 	Save(additionalNames ...string) error

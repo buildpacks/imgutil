@@ -12,8 +12,7 @@ type indexOptions struct {
 	manifest   v1.IndexManifest
 }
 
-// WithIndexMediaTypes loads an existing index as a source.
-// If mediatype is not found ignore.
+// WithIndexMediaTypes lets a caller set the desired media types for the index manifest
 func WithIndexMediaTypes(requested imgutil.MediaTypes) ImageIndexOption {
 	return func(opts *indexOptions) error {
 		opts.mediaTypes = requested
@@ -21,6 +20,7 @@ func WithIndexMediaTypes(requested imgutil.MediaTypes) ImageIndexOption {
 	}
 }
 
+// WithManifest uses an existing v1.IndexManifest as a base to create the index
 func WithManifest(manifest v1.IndexManifest) ImageIndexOption {
 	return func(opts *indexOptions) error {
 		opts.manifest = manifest
