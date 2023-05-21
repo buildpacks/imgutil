@@ -54,12 +54,6 @@ func (i *ImageIndex) Add(repoName string) error {
 	if cfg == nil {
 		return fmt.Errorf("missing config for image %q", repoName)
 	}
-	if cfg.OS == "" {
-		return fmt.Errorf("missing OS for image %q", repoName)
-	}
-	// if cfg.Architecture == "" {
-	// 	return fmt.Errorf("missing Architecture for image %q", repoName)
-	// }
 
 	platform := v1.Platform{}
 	platform.Architecture = cfg.Architecture
