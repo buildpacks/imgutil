@@ -41,6 +41,7 @@ func NewImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
 type Image struct {
 	deleted          bool
 	layers           []string
+	history          []v1.History
 	layersMap        map[string]string
 	prevLayersMap    map[string]string
 	reusedLayers     []string
@@ -70,7 +71,7 @@ func (i *Image) CreatedAt() (time.Time, error) {
 }
 
 func (i *Image) History() ([]v1.History, error) {
-	return nil, errors.New("not yet implemented")
+	return i.history, nil
 }
 
 func (i *Image) Label(key string) (string, error) {
@@ -137,7 +138,8 @@ func (i *Image) SetEnv(k string, v string) error {
 }
 
 func (i *Image) SetHistory(history []v1.History) error {
-	return errors.New("not yet implemented")
+	i.history = history
+	return nil
 }
 
 func (i *Image) SetOS(o string) error {
@@ -196,17 +198,22 @@ func (i *Image) AddLayer(path string) error {
 
 	i.layersMap["sha256:"+sha] = path
 	i.layers = append(i.layers, path)
+	i.history = append(i.history, v1.History{})
 	return nil
 }
 
 func (i *Image) AddLayerWithDiffID(path string, diffID string) error {
 	i.layersMap[diffID] = path
 	i.layers = append(i.layers, path)
+	i.history = append(i.history, v1.History{})
 	return nil
 }
 
 func (i *Image) AddLayerWithDiffIDAndHistory(path, diffID string, history v1.History) error {
-	return errors.New("not yet implemented")
+	i.layersMap[diffID] = path
+	i.layers = append(i.layers, path)
+	i.history = append(i.history, history)
+	return nil
 }
 
 func shaForFile(path string) (string, error) {
@@ -244,7 +251,11 @@ func (i *Image) ReuseLayer(sha string) error {
 }
 
 func (i *Image) ReuseLayerWithHistory(sha string, history v1.History) error {
-	return errors.New("not yet implemented")
+	if err := i.ReuseLayer(sha); err != nil {
+		return err
+	}
+	i.history = append(i.history, history)
+	return nil
 }
 
 func (i *Image) Save(additionalNames ...string) error {
