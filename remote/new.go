@@ -275,11 +275,15 @@ func referenceForRepoName(keychain authn.Keychain, ref string, insecure bool) (n
 
 func processBaseImageOption(ri *Image, baseImageRepoName string, platform imgutil.Platform) error {
 	reg := getRegistry(baseImageRepoName, ri.registrySettings)
-	baseImage, err := NewV1Image(baseImageRepoName, ri.keychain, WithV1DefaultPlatform(platform), WithV1RegistrySetting(reg.insecure, reg.insecureSkipVerify))
+	var err error
+	ri.image, err = NewV1Image(baseImageRepoName, ri.keychain, WithV1DefaultPlatform(platform), WithV1RegistrySetting(reg.insecure, reg.insecureSkipVerify))
 	if err != nil {
 		return err
 	}
-	if ri.image, err = imgutil.OverrideHistoryIfNeeded(baseImage); err != nil {
+	if !ri.withHistory {
+		return nil
+	}
+	if ri.image, err = imgutil.OverrideHistoryIfNeeded(ri.image); err != nil {
 		return err
 	}
 	return nil

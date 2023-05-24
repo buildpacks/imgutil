@@ -170,22 +170,31 @@ func OverrideMediaTypes(image v1.Image, mediaTypes MediaTypes) (v1.Image, error)
 // OverrideHistoryIfNeeded zeroes out the history if the number of history entries doesn't match the number of layers.
 func OverrideHistoryIfNeeded(image v1.Image) (v1.Image, error) {
 	configFile, err := image.ConfigFile()
-	if err != nil {
-		return nil, err
+	if err != nil || configFile == nil {
+		return nil, fmt.Errorf("getting image config: %w", err)
 	}
-	layers, err := image.Layers()
-	if err != nil {
-		return nil, err
+	configFile.History = NormalizedHistory(configFile.History, len(configFile.RootFS.DiffIDs))
+	return mutate.ConfigFile(image, configFile)
+}
+
+func NormalizedHistory(history []v1.History, nLayers int) []v1.History {
+	if history == nil {
+		return make([]v1.History, nLayers)
 	}
-	retImage := image
-	if len(configFile.History) != len(layers) {
-		configFile.History = make([]v1.History, len(layers))
-		retImage, err = mutate.ConfigFile(image, configFile)
-		if err != nil {
-			return nil, err
+	if len(history) == nLayers {
+		return history
+	}
+	// try to remove history for empty layers
+	var nHistory []v1.History
+	for _, h := range history {
+		if !h.EmptyLayer {
+			nHistory = append(nHistory, h)
 		}
 	}
-	return retImage, nil
+	if len(nHistory) == nLayers {
+		return nHistory
+	}
+	return make([]v1.History, nLayers)
 }
 
 // layersAddendum creates an Addendum array with the given layers

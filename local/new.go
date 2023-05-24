@@ -181,10 +181,7 @@ func processBaseImageOption(image *Image, baseImageRepoName string, platform img
 		return err
 	}
 
-	v1History := toV1History(history)
-	if len(history) != len(inspect.RootFS.Layers) {
-		v1History = make([]v1.History, len(inspect.RootFS.Layers))
-	}
+	v1History := imgutil.NormalizedHistory(toV1History(history), len(inspect.RootFS.Layers))
 
 	image.inspect = inspect
 	image.history = v1History
