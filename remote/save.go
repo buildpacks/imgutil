@@ -26,12 +26,12 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 	}
 
 	// history
+	if i.image, err = imgutil.OverrideHistoryIfNeeded(i.image); err != nil {
+		return fmt.Errorf("overriding history: %w", err)
+	}
 	cfg, err := i.image.ConfigFile()
 	if err != nil {
 		return fmt.Errorf("getting config file: %w", err)
-	}
-	if i.image, err = imgutil.OverrideHistoryIfNeeded(i.image); err != nil {
-		return fmt.Errorf("overriding history: %w", err)
 	}
 	created := v1.Time{Time: i.createdAt}
 	if i.withHistory {

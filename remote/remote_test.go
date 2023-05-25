@@ -867,7 +867,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			identifier, err := img.Identifier()
 			h.AssertNil(t, err)
-			h.AssertEq(t, identifier.String(), repoName+"@sha256:5c3b80b77fb1e48c139185fa3c3729501841242c877d8301d559ff5f17582b68") // config updated with empty history
+			h.AssertEq(t, identifier.String(), repoName+"@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5")
 		})
 
 		it("accurately parses the reference for an image with a sha", func() {
@@ -880,7 +880,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			identifier, err := img.Identifier()
 			h.AssertNil(t, err)
-			h.AssertEq(t, identifier.String(), repoName+"@sha256:5c3b80b77fb1e48c139185fa3c3729501841242c877d8301d559ff5f17582b68") // config updated with empty history
+			h.AssertEq(t, identifier.String(), repoName+"@sha256:915f390a8912e16d4beb8689720a17348f3f6d1a7b659697df850ab625ea29d5")
 		})
 
 		when("the image has been modified and saved", func() {

@@ -181,10 +181,7 @@ func NormalizedHistory(history []v1.History, nLayers int) []v1.History {
 	if history == nil {
 		return make([]v1.History, nLayers)
 	}
-	if len(history) == nLayers {
-		return history
-	}
-	// try to remove history for empty layers
+	// ensure we remove history for empty layers
 	var nHistory []v1.History
 	for _, h := range history {
 		if !h.EmptyLayer {
