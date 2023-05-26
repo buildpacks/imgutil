@@ -85,12 +85,17 @@ func (i *ImageIndex) Remove(repoName string) error {
 func (i *ImageIndex) Save(additionalNames ...string) error {
 	l := layout.Path(i.path)
 
-	rawIndex, err := i.index.RawManifest()
+	indexManifest, err := i.index.IndexManifest()
 	if err != nil {
 		return err
 	}
 
-	err = l.WriteFile(makeFileSafeName(i.repoName), rawIndex, os.ModePerm)
+	rawManifest, err := json.MarshalIndent(indexManifest, "", "    ")
+	if err != nil {
+		return err
+	}
+
+	err = l.WriteFile(makeFileSafeName(i.repoName), rawManifest, os.ModePerm)
 	if err != nil {
 		return err
 	}
