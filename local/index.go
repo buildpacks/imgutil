@@ -12,7 +12,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/match"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -83,8 +82,6 @@ func (i *ImageIndex) Remove(repoName string) error {
 
 // Save stores the ImageIndex manifest information in a plain text in the ined file in JSON format.
 func (i *ImageIndex) Save(additionalNames ...string) error {
-	l := layout.Path(i.path)
-
 	indexManifest, err := i.index.IndexManifest()
 	if err != nil {
 		return err
@@ -95,7 +92,9 @@ func (i *ImageIndex) Save(additionalNames ...string) error {
 		return err
 	}
 
-	err = l.WriteFile(makeFileSafeName(i.repoName), rawManifest, os.ModePerm)
+	manifestDir := filepath.Join(i.path, makeFileSafeName(i.repoName))
+
+	err = os.WriteFile(manifestDir, rawManifest, os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -188,7 +187,7 @@ func GetIndexManifest(repoName string, path string) (v1.IndexManifest, error) {
 
 	jsonFile, err := os.ReadFile(manifestDir)
 	if err != nil {
-		return manifest, err
+		return manifest, errors.Wrapf(err, "No local index %q in path %q", repoName, path)
 	}
 
 	err = json.Unmarshal([]byte(jsonFile), &manifest)
