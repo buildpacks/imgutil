@@ -80,6 +80,22 @@ func (i *ImageIndex) Remove(repoName string) error {
 	return nil
 }
 
+// Delete method removes the specified index from the local storage
+func (i *ImageIndex) Delete(additionalNames ...string) error {
+	_, err := name.ParseReference(i.repoName)
+	if err != nil {
+		return err
+	}
+
+	manifestPath := filepath.Join(i.path, makeFileSafeName(i.repoName))
+	err = os.Remove(manifestPath)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Save stores the ImageIndex manifest information in a plain text in the ined file in JSON format.
 func (i *ImageIndex) Save(additionalNames ...string) error {
 	indexManifest, err := i.index.IndexManifest()
