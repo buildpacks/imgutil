@@ -203,12 +203,12 @@ func GetIndexManifest(repoName string, path string) (v1.IndexManifest, error) {
 
 	jsonFile, err := os.ReadFile(manifestDir)
 	if err != nil {
-		return manifest, errors.Wrapf(err, "No local index %q in path %q", repoName, path)
+		return manifest, errors.Wrapf(err, "Reading local index %q in path %q", repoName, path)
 	}
 
 	err = json.Unmarshal([]byte(jsonFile), &manifest)
 	if err != nil {
-		return manifest, err
+		return manifest, errors.Wrapf(err, "Decoding local index %q", repoName)
 	}
 
 	return manifest, nil
