@@ -8,10 +8,13 @@ import (
 	"io"
 	"io/ioutil"
 	"sync"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
@@ -45,8 +48,10 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...ImageOption) (*
 		docker:           dockerClient,
 		repoName:         repoName,
 		inspect:          inspect,
+		history:          make([]v1.History, len(inspect.RootFS.Layers)),
 		layerPaths:       make([]string, len(inspect.RootFS.Layers)),
 		downloadBaseOnce: &sync.Once{},
+		withHistory:      imageOpts.withHistory,
 	}
 
 	if imageOpts.prevImageRepoName != "" {
@@ -71,6 +76,10 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...ImageOption) (*
 		image.createdAt = imgutil.NormalizedDateTime
 	} else {
 		image.createdAt = imageOpts.createdAt
+	}
+
+	if imageOpts.config != nil {
+		image.inspect.Config = imageOpts.config
 	}
 
 	return image, nil
@@ -106,8 +115,19 @@ func defaultInspect(platform imgutil.Platform) types.ImageInspect {
 }
 
 func processPreviousImageOption(image *Image, prevImageRepoName string, platform imgutil.Platform, dockerClient DockerClient) error {
-	if _, err := inspectOptionalImage(dockerClient, prevImageRepoName, platform); err != nil {
+	inspect, err := inspectOptionalImage(dockerClient, prevImageRepoName, platform)
+	if err != nil {
 		return err
+	}
+
+	history, err := historyOptionalImage(dockerClient, prevImageRepoName)
+	if err != nil {
+		return err
+	}
+
+	v1History := toV1History(history)
+	if len(history) != len(inspect.RootFS.Layers) {
+		v1History = make([]v1.History, len(inspect.RootFS.Layers))
 	}
 
 	prevImage, err := NewImage(prevImageRepoName, dockerClient, FromBaseImage(prevImageRepoName))
@@ -116,6 +136,7 @@ func processPreviousImageOption(image *Image, prevImageRepoName string, platform
 	}
 
 	image.prevImage = prevImage
+	image.prevImage.history = v1History
 
 	return nil
 }
@@ -125,7 +146,6 @@ func inspectOptionalImage(docker DockerClient, imageName string, platform imguti
 		err     error
 		inspect types.ImageInspect
 	)
-
 	if inspect, _, err = docker.ImageInspectWithRaw(context.Background(), imageName); err != nil {
 		if client.IsErrNotFound(err) {
 			return defaultInspect(platform), nil
@@ -133,8 +153,21 @@ func inspectOptionalImage(docker DockerClient, imageName string, platform imguti
 
 		return types.ImageInspect{}, errors.Wrapf(err, "verifying image %q", imageName)
 	}
-
 	return inspect, nil
+}
+
+func historyOptionalImage(docker DockerClient, imageName string) ([]image.HistoryResponseItem, error) {
+	var (
+		history []image.HistoryResponseItem
+		err     error
+	)
+	if history, err = docker.ImageHistory(context.Background(), imageName); err != nil {
+		if client.IsErrNotFound(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("getting history for image: %w", err)
+	}
+	return history, nil
 }
 
 func processBaseImageOption(image *Image, baseImageRepoName string, platform imgutil.Platform, dockerClient DockerClient) error {
@@ -143,10 +176,31 @@ func processBaseImageOption(image *Image, baseImageRepoName string, platform img
 		return err
 	}
 
+	history, err := historyOptionalImage(dockerClient, baseImageRepoName)
+	if err != nil {
+		return err
+	}
+
+	v1History := imgutil.NormalizedHistory(toV1History(history), len(inspect.RootFS.Layers))
+
 	image.inspect = inspect
+	image.history = v1History
 	image.layerPaths = make([]string, len(image.inspect.RootFS.Layers))
 
 	return nil
+}
+
+func toV1History(history []image.HistoryResponseItem) []v1.History {
+	v1History := make([]v1.History, len(history))
+	for offset, h := range history {
+		// the daemon reports history in reverse order, so build up the array backwards
+		v1History[len(v1History)-offset-1] = v1.History{
+			Created:   v1.Time{Time: time.Unix(h.Created, 0)},
+			CreatedBy: h.CreatedBy,
+			Comment:   h.Comment,
+		}
+	}
+	return v1History
 }
 
 func prepareNewWindowsImage(image *Image) error {
@@ -176,7 +230,7 @@ func prepareNewWindowsImage(image *Image) error {
 
 	diffID := "sha256:" + hex.EncodeToString(hasher.Sum(nil))
 
-	if err := image.AddLayerWithDiffID(layerFile.Name(), diffID); err != nil {
+	if err := image.AddLayerWithDiffIDAndHistory(layerFile.Name(), diffID, v1.History{}); err != nil {
 		return errors.Wrap(err, "adding base layer to image")
 	}
 

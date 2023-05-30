@@ -3,6 +3,8 @@ package remote
 import (
 	"time"
 
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+
 	"github.com/buildpacks/imgutil"
 )
 
@@ -14,8 +16,10 @@ type options struct {
 	prevImageRepoName   string
 	createdAt           time.Time
 	addEmptyLayerOnSave bool
+	withHistory         bool
 	registrySettings    map[string]registrySetting
 	mediaTypes          imgutil.MediaTypes
+	config              *v1.Config
 }
 
 // AddEmptyLayerOnSave (remote only) adds an empty layer before saving if the image has no layer at all.
@@ -46,12 +50,28 @@ func WithCreatedAt(createdAt time.Time) ImageOption {
 	}
 }
 
+func WithConfig(config *v1.Config) ImageOption {
+	return func(opts *options) error {
+		opts.config = config
+		return nil
+	}
+}
+
 // WithDefaultPlatform provides Architecture/OS/OSVersion defaults for the new image.
 // Defaults for a new image are ignored when FromBaseImage returns an image.
 // FromBaseImage and WithPreviousImage will use the platform to choose an image from a manifest list.
 func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	return func(opts *options) error {
 		opts.platform = platform
+		return nil
+	}
+}
+
+// WithHistory if provided will configure the image to preserve history when saved
+// (including any history from the base image if valid).
+func WithHistory() ImageOption {
+	return func(opts *options) error {
+		opts.withHistory = true
 		return nil
 	}
 }
@@ -80,6 +100,33 @@ func WithPreviousImage(imageName string) ImageOption {
 func WithRegistrySetting(repository string, insecure, insecureSkipVerify bool) ImageOption {
 	return func(opts *options) error {
 		opts.registrySettings[repository] = registrySetting{
+			insecure:           insecure,
+			insecureSkipVerify: insecureSkipVerify,
+		}
+		return nil
+	}
+}
+
+// v1Options is used to configure the behavior when a v1.Image is created
+type v1Options struct {
+	platform        imgutil.Platform
+	registrySetting registrySetting
+}
+
+type V1ImageOption func(*v1Options) error
+
+// WithV1DefaultPlatform provides Architecture/OS/OSVersion defaults for the new v1.Image.
+func WithV1DefaultPlatform(platform imgutil.Platform) V1ImageOption {
+	return func(opts *v1Options) error {
+		opts.platform = platform
+		return nil
+	}
+}
+
+// WithV1RegistrySetting registers options to use when accessing images in a registry in order to construct a v1.Image.
+func WithV1RegistrySetting(insecure, insecureSkipVerify bool) V1ImageOption {
+	return func(opts *v1Options) error {
+		opts.registrySetting = registrySetting{
 			insecure:           insecure,
 			insecureSkipVerify: insecureSkipVerify,
 		}

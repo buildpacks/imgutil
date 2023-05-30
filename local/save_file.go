@@ -123,7 +123,11 @@ func (i *Image) SaveFile() (string, error) {
 }
 
 func (i *Image) newConfigFile() ([]byte, error) {
-	cfg, err := v1Config(i.inspect, i.createdAt)
+	if !i.withHistory {
+		// zero history
+		i.history = make([]v1.History, len(i.inspect.RootFS.Layers))
+	}
+	cfg, err := v1Config(i.inspect, i.createdAt, i.history)
 	if err != nil {
 		return nil, err
 	}
@@ -218,13 +222,13 @@ func untar(r io.Reader, dest string) error {
 	}
 }
 
-func v1Config(inspect types.ImageInspect, createdAt time.Time) (v1.ConfigFile, error) {
-	history := make([]v1.History, len(inspect.RootFS.Layers))
+func v1Config(inspect types.ImageInspect, createdAt time.Time, history []v1.History) (v1.ConfigFile, error) {
+	if len(history) != len(inspect.RootFS.Layers) {
+		history = make([]v1.History, len(inspect.RootFS.Layers))
+	}
 	for i := range history {
 		// zero history
-		history[i] = v1.History{
-			Created: v1.Time{Time: createdAt},
-		}
+		history[i].Created = v1.Time{Time: createdAt}
 	}
 	diffIDs := make([]v1.Hash, len(inspect.RootFS.Layers))
 	for i, layer := range inspect.RootFS.Layers {

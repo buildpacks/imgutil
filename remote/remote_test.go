@@ -6,12 +6,14 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 
@@ -554,6 +556,41 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertOCIMediaTypes(t, img.UnderlyingImage()) // after adding a layer
 				h.AssertNil(t, img.Save())
 				h.AssertOCIMediaTypes(t, img.UnderlyingImage()) // after saving
+			})
+		})
+
+		when("#WithConfig", func() {
+			var config = &v1.Config{Entrypoint: []string{"some-entrypoint"}}
+
+			it("sets the image config", func() {
+				remoteImage, err := remote.NewImage(newTestImageName(), authn.DefaultKeychain, remote.WithConfig(config))
+				h.AssertNil(t, err)
+
+				entrypoint, err := remoteImage.Entrypoint()
+				h.AssertNil(t, err)
+				h.AssertEq(t, entrypoint, []string{"some-entrypoint"})
+			})
+
+			when("#FromBaseImage", func() {
+				var baseImageName = newTestImageName()
+
+				it("overrides the base image config", func() {
+					baseImage, err := remote.NewImage(baseImageName, authn.DefaultKeychain)
+					h.AssertNil(t, err)
+					h.AssertNil(t, baseImage.Save())
+
+					remoteImage, err := remote.NewImage(
+						newTestImageName(),
+						authn.DefaultKeychain,
+						remote.WithConfig(config),
+						remote.FromBaseImage(baseImageName),
+					)
+					h.AssertNil(t, err)
+
+					entrypoint, err := remoteImage.Entrypoint()
+					h.AssertNil(t, err)
+					h.AssertEq(t, entrypoint, []string{"some-entrypoint"})
+				})
 			})
 		})
 	})
@@ -1333,9 +1370,69 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#AddLayerWithDiffIDAndHistory", func() {
+		it("appends a layer with history", func() {
+			existingImage, err := remote.NewImage(
+				repoName,
+				authn.DefaultKeychain,
+			)
+			h.AssertNil(t, err)
+
+			oldLayerPath, err := h.CreateSingleFileLayerTar("/old-layer.txt", "old-layer", "linux")
+			h.AssertNil(t, err)
+			defer os.Remove(oldLayerPath)
+			oldLayerDiffID := h.FileDiffID(t, oldLayerPath)
+
+			h.AssertNil(t, existingImage.AddLayer(oldLayerPath))
+
+			h.AssertNil(t, existingImage.Save())
+
+			img, err := remote.NewImage(
+				repoName,
+				authn.DefaultKeychain,
+				remote.FromBaseImage(repoName),
+				remote.WithHistory(),
+			)
+			h.AssertNil(t, err)
+
+			newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", "linux")
+			h.AssertNil(t, err)
+			defer os.Remove(newLayerPath)
+
+			newLayerDiffID := h.FileDiffID(t, newLayerPath)
+
+			history, err := img.History()
+			h.AssertNil(t, err)
+			oldNHistory := len(history)
+			addedHistory := v1.History{
+				Author:     "some-author",
+				Created:    v1.Time{Time: imgutil.NormalizedDateTime},
+				CreatedBy:  "some-history",
+				Comment:    "some-comment",
+				EmptyLayer: false,
+			}
+			err = img.AddLayerWithDiffIDAndHistory(newLayerPath, newLayerDiffID, addedHistory)
+			h.AssertNil(t, err)
+
+			h.AssertNil(t, img.Save())
+
+			// check history
+			history, err = img.History()
+			h.AssertNil(t, err)
+			h.AssertEq(t, len(history), oldNHistory+1)
+			h.AssertEq(t, history[len(history)-1], addedHistory)
+
+			manifestLayerDiffIDs := h.FetchManifestLayers(t, repoName)
+
+			h.AssertEq(t, oldLayerDiffID, h.StringElementAt(manifestLayerDiffIDs, -2))
+			h.AssertEq(t, newLayerDiffID, h.StringElementAt(manifestLayerDiffIDs, -1))
+		})
+	})
+
 	when("#ReuseLayer", func() {
 		when("previous image", func() {
 			var (
+				prevImage     *remote.Image
 				prevImageName string
 				prevLayer1SHA string
 				prevLayer2SHA string
@@ -1343,9 +1440,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			it.Before(func() {
 				prevImageName = newTestImageName()
-				prevImage, err := remote.NewImage(
+				var err error
+				prevImage, err = remote.NewImage(
 					prevImageName,
 					authn.DefaultKeychain,
+					remote.WithHistory(),
 				)
 				h.AssertNil(t, err)
 
@@ -1408,6 +1507,132 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				err = img.ReuseLayer("some-bad-sha")
 
 				h.AssertError(t, err, `previous image did not have layer with diff id "some-bad-sha"`)
+			})
+
+			when("there is history", func() {
+				var prevHistory []v1.History
+
+				it.Before(func() {
+					layers, err := prevImage.UnderlyingImage().Layers()
+					h.AssertNil(t, err)
+					prevHistory = make([]v1.History, len(layers))
+					for idx := range prevHistory {
+						prevHistory[idx].CreatedBy = fmt.Sprintf("some-history-%d", idx)
+					}
+					h.AssertNil(t, prevImage.SetHistory(prevHistory))
+					h.AssertNil(t, prevImage.Save())
+				})
+
+				it("reuses a layer with history", func() {
+					img, err := remote.NewImage(
+						repoName,
+						authn.DefaultKeychain,
+						remote.WithPreviousImage(prevImageName),
+						remote.WithHistory(),
+					)
+					h.AssertNil(t, err)
+
+					newBaseLayerPath, err := h.CreateSingleFileLayerTar("/new-base.txt", "base-content", "linux")
+					h.AssertNil(t, err)
+					defer os.Remove(newBaseLayerPath)
+
+					h.AssertNil(t, img.AddLayer(newBaseLayerPath))
+
+					err = img.ReuseLayer(prevLayer2SHA)
+					h.AssertNil(t, err)
+
+					h.AssertNil(t, img.Save())
+
+					manifestLayers := h.FetchManifestLayers(t, repoName)
+
+					newLayer1SHA := h.StringElementAt(manifestLayers, -2)
+					reusedLayer2SHA := h.StringElementAt(manifestLayers, -1)
+
+					h.AssertNotEq(t, prevLayer1SHA, newLayer1SHA)
+					h.AssertEq(t, prevLayer2SHA, reusedLayer2SHA)
+
+					history, err := img.History()
+					h.AssertNil(t, err)
+					reusedLayer2History := history[len(history)-1]
+					newLayer1History := history[len(history)-2]
+					h.AssertEq(t, strings.Contains(reusedLayer2History.CreatedBy, "some-history-"), true)
+					h.AssertEq(t, newLayer1History, v1.History{Created: v1.Time{Time: imgutil.NormalizedDateTime}})
+				})
+			})
+		})
+	})
+
+	when("#ReuseLayerWithHistory", func() {
+		when("previous image", func() {
+			var (
+				prevImage     *remote.Image
+				prevImageName string
+				prevLayer1SHA string
+				prevLayer2SHA string
+			)
+
+			it.Before(func() {
+				prevImageName = newTestImageName()
+				var err error
+				prevImage, err = remote.NewImage(
+					prevImageName,
+					authn.DefaultKeychain,
+					remote.WithHistory(),
+				)
+				h.AssertNil(t, err)
+
+				layer1Path, err := h.CreateSingleFileLayerTar("/layer-1.txt", "old-layer-1", "linux")
+				h.AssertNil(t, err)
+				defer os.Remove(layer1Path)
+
+				prevLayer1SHA = h.FileDiffID(t, layer1Path)
+
+				layer2Path, err := h.CreateSingleFileLayerTar("/layer-2.txt", "old-layer-2", "linux")
+				h.AssertNil(t, err)
+				defer os.Remove(layer2Path)
+
+				prevLayer2SHA = h.FileDiffID(t, layer2Path)
+
+				h.AssertNil(t, prevImage.AddLayer(layer1Path))
+				h.AssertNil(t, prevImage.AddLayer(layer2Path))
+
+				h.AssertNil(t, prevImage.Save())
+			})
+
+			it("reuses a layer with history", func() {
+				img, err := remote.NewImage(
+					repoName,
+					authn.DefaultKeychain,
+					remote.WithPreviousImage(prevImageName),
+					remote.WithHistory(),
+				)
+				h.AssertNil(t, err)
+
+				newBaseLayerPath, err := h.CreateSingleFileLayerTar("/new-base.txt", "base-content", "linux")
+				h.AssertNil(t, err)
+				defer os.Remove(newBaseLayerPath)
+
+				h.AssertNil(t, img.AddLayer(newBaseLayerPath))
+
+				err = img.ReuseLayerWithHistory(prevLayer2SHA, v1.History{CreatedBy: "some-new-history"})
+				h.AssertNil(t, err)
+
+				h.AssertNil(t, img.Save())
+
+				manifestLayers := h.FetchManifestLayers(t, repoName)
+
+				newLayer1SHA := h.StringElementAt(manifestLayers, -2)
+				reusedLayer2SHA := h.StringElementAt(manifestLayers, -1)
+
+				h.AssertNotEq(t, prevLayer1SHA, newLayer1SHA)
+				h.AssertEq(t, prevLayer2SHA, reusedLayer2SHA)
+
+				history, err := img.History()
+				h.AssertNil(t, err)
+				reusedLayer2History := history[len(history)-1]
+				newLayer1History := history[len(history)-2]
+				h.AssertEq(t, strings.Contains(reusedLayer2History.CreatedBy, "some-new-history"), true)
+				h.AssertEq(t, newLayer1History, v1.History{Created: v1.Time{Time: imgutil.NormalizedDateTime}})
 			})
 		})
 	})
@@ -1638,6 +1863,15 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 
 				h.AssertEq(t, image.Valid(), false)
+			})
+		})
+
+		when("windows image index", func() {
+			it("returns true", func() {
+				ref := "mcr.microsoft.com/windows/nanoserver@sha256:eea54849888c8070ea35f8df39b3a5e126bc9a5bd30afdcad6f430408b2c786d"
+				image, err := remote.NewImage(ref, authn.DefaultKeychain)
+				h.AssertNil(t, err)
+				h.AssertEq(t, image.Valid(), true)
 			})
 		})
 	})

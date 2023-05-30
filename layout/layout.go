@@ -9,10 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/v1/tarball"
-
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
 
@@ -25,9 +24,11 @@ type Image struct {
 	v1.Image
 	path                string
 	prevLayers          []v1.Layer
+	prevHistory         []v1.History
 	createdAt           time.Time
 	refName             string // holds org.opencontainers.image.ref.name value
 	requestedMediaTypes imgutil.MediaTypes
+	withHistory         bool
 }
 
 // getters
@@ -123,12 +124,20 @@ func (i *Image) GetLayer(sha string) (io.ReadCloser, error) {
 		return nil, err
 	}
 
-	layer, err := findLayerWithSha(layers, sha)
+	layer, _, err := findLayerWithSha(layers, sha)
 	if err != nil {
 		return nil, err
 	}
 
 	return layer.Uncompressed()
+}
+
+func (i *Image) History() ([]v1.History, error) {
+	configFile, err := i.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+	return configFile.History, nil
 }
 
 // Identifier
@@ -316,6 +325,17 @@ func (i *Image) SetCmd(cmd ...string) error {
 	return err
 }
 
+func (i *Image) SetEntrypoint(ep ...string) error {
+	configFile, err := i.Image.ConfigFile()
+	if err != nil {
+		return err
+	}
+	config := *configFile.Config.DeepCopy()
+	config.Entrypoint = ep
+	err = i.mutateConfig(i.Image, config)
+	return err
+}
+
 func (i *Image) SetEnv(key string, val string) error {
 	configFile, err := i.Image.ConfigFile()
 	if err != nil {
@@ -342,14 +362,13 @@ func (i *Image) SetEnv(key string, val string) error {
 	return err
 }
 
-func (i *Image) SetEntrypoint(ep ...string) error {
-	configFile, err := i.Image.ConfigFile()
+func (i *Image) SetHistory(history []v1.History) error {
+	configFile, err := i.Image.ConfigFile() // TODO: check if we need to use DeepCopy
 	if err != nil {
 		return err
 	}
-	config := *configFile.Config.DeepCopy()
-	config.Entrypoint = ep
-	err = i.mutateConfig(i.Image, config)
+	configFile.History = history
+	i.Image, err = mutate.ConfigFile(i.Image, configFile)
 	return err
 }
 
@@ -415,40 +434,39 @@ func (i *Image) SetWorkingDir(dir string) error {
 
 // AddLayer adds an uncompressed tarred layer to the image
 func (i *Image) AddLayer(path string) error {
-	layer, err := tarball.LayerFromFile(path)
-	if err != nil {
-		return err
-	}
-	return i.addLayer(layer)
+	return i.AddLayerWithDiffIDAndHistory(path, "ignored", v1.History{})
 }
 
-// addLayer appends the provided layer with the desired media type
-func (i *Image) addLayer(layer v1.Layer) error {
-	additions := layersAddendum([]v1.Layer{layer}, i.requestedMediaTypes.LayerType())
-	image, err := mutate.Append(i.Image, additions...)
+func (i *Image) addLayer(layer v1.Layer, history v1.History) error {
+	image, err := mutate.Append(
+		i.Image,
+		layerAddendum(layer, history, i.requestedMediaTypes.LayerType()),
+	)
 	if err != nil {
 		return errors.Wrap(err, "add layer")
 	}
 	return i.setUnderlyingImage(image)
 }
 
-// layersAddendum creates an Addendum array with the given layers
-// and the desired media type
-func layersAddendum(layers []v1.Layer, mediaType types.MediaType) []mutate.Addendum {
-	additions := make([]mutate.Addendum, 0)
-	for _, layer := range layers {
-		additions = append(additions, mutate.Addendum{
-			MediaType: mediaType,
-			Layer:     layer,
-		})
+func layerAddendum(layer v1.Layer, history v1.History, mediaType types.MediaType) mutate.Addendum {
+	return mutate.Addendum{
+		Layer:     layer,
+		History:   history,
+		MediaType: mediaType,
 	}
-	return additions
 }
 
 func (i *Image) AddLayerWithDiffID(path, diffID string) error {
-	// this is equivalent to AddLayer in the layout case
-	// it exists to provide optimize performance for local images
-	return i.AddLayer(path)
+	return i.AddLayerWithDiffIDAndHistory(path, "ignored", v1.History{})
+}
+
+func (i *Image) AddLayerWithDiffIDAndHistory(path, diffID string, history v1.History) error {
+	// add layer
+	layer, err := tarball.LayerFromFile(path)
+	if err != nil {
+		return err
+	}
+	return i.addLayer(layer, history)
 }
 
 func (i *Image) Delete() error {
@@ -474,26 +492,34 @@ func (i *Image) RemoveLabel(key string) error {
 }
 
 func (i *Image) ReuseLayer(sha string) error {
-	layer, err := findLayerWithSha(i.prevLayers, sha)
+	layer, idx, err := findLayerWithSha(i.prevLayers, sha)
 	if err != nil {
 		return err
 	}
-	return i.addLayer(layer)
+	return i.addLayer(layer, i.prevHistory[idx])
+}
+
+func (i *Image) ReuseLayerWithHistory(sha string, history v1.History) error {
+	layer, _, err := findLayerWithSha(i.prevLayers, sha)
+	if err != nil {
+		return err
+	}
+	return i.addLayer(layer, history)
 }
 
 // helpers
 
-func findLayerWithSha(layers []v1.Layer, diffID string) (v1.Layer, error) {
-	for _, layer := range layers {
+func findLayerWithSha(layers []v1.Layer, diffID string) (v1.Layer, int, error) {
+	for idx, layer := range layers {
 		dID, err := layer.DiffID()
 		if err != nil {
-			return nil, errors.Wrap(err, "get diff ID for previous image layer")
+			return nil, idx, errors.Wrap(err, "get diff ID for previous image layer")
 		}
 		if diffID == dID.String() {
-			return layer, nil
+			return layer, idx, nil
 		}
 	}
-	return nil, fmt.Errorf("previous image did not have layer with diff id %q", diffID)
+	return nil, -1, fmt.Errorf("previous image did not have layer with diff id %q", diffID)
 }
 
 // mutateConfig mutates the provided v1.Image to have the provided v1.Config,
