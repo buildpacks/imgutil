@@ -13,6 +13,7 @@ import (
 	"time"
 
 	registryName "github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
@@ -40,6 +41,7 @@ func NewImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
 type Image struct {
 	deleted          bool
 	layers           []string
+	history          []v1.History
 	layersMap        map[string]string
 	prevLayersMap    map[string]string
 	reusedLayers     []string
@@ -66,6 +68,10 @@ type Image struct {
 
 func (i *Image) CreatedAt() (time.Time, error) {
 	return i.createdAt, nil
+}
+
+func (i *Image) History() ([]v1.History, error) {
+	return i.history, nil
 }
 
 func (i *Image) Label(key string) (string, error) {
@@ -131,6 +137,11 @@ func (i *Image) SetEnv(k string, v string) error {
 	return nil
 }
 
+func (i *Image) SetHistory(history []v1.History) error {
+	i.history = history
+	return nil
+}
+
 func (i *Image) SetOS(o string) error {
 	i.os = o
 	return nil
@@ -187,12 +198,21 @@ func (i *Image) AddLayer(path string) error {
 
 	i.layersMap["sha256:"+sha] = path
 	i.layers = append(i.layers, path)
+	i.history = append(i.history, v1.History{})
 	return nil
 }
 
 func (i *Image) AddLayerWithDiffID(path string, diffID string) error {
 	i.layersMap[diffID] = path
 	i.layers = append(i.layers, path)
+	i.history = append(i.history, v1.History{})
+	return nil
+}
+
+func (i *Image) AddLayerWithDiffIDAndHistory(path, diffID string, history v1.History) error {
+	i.layersMap[diffID] = path
+	i.layers = append(i.layers, path)
+	i.history = append(i.history, history)
 	return nil
 }
 
@@ -227,6 +247,14 @@ func (i *Image) ReuseLayer(sha string) error {
 	}
 	i.reusedLayers = append(i.reusedLayers, sha)
 	i.layersMap[sha] = prevLayer
+	return nil
+}
+
+func (i *Image) ReuseLayerWithHistory(sha string, history v1.History) error {
+	if err := i.ReuseLayer(sha); err != nil {
+		return err
+	}
+	i.history = append(i.history, history)
 	return nil
 }
 

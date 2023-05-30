@@ -31,8 +31,9 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 	}
 
 	ri := &Image{
-		Image: image,
-		path:  path,
+		Image:       image,
+		path:        path,
+		withHistory: imageOpts.withHistory,
 	}
 
 	if imageOpts.prevImagePath != "" {
@@ -42,7 +43,7 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 	}
 
 	if imageOpts.baseImagePath != "" {
-		if err := processBaseImagePathOption(ri, imageOpts.baseImagePath, platform); err != nil {
+		if err := processBaseImageOption(ri, imageOpts.baseImagePath, platform); err != nil {
 			return nil, err
 		}
 	} else if imageOpts.baseImage != nil {
@@ -79,6 +80,7 @@ func defaultPlatform() imgutil.Platform {
 func emptyImage(platform imgutil.Platform) (v1.Image, error) {
 	cfg := &v1.ConfigFile{
 		Architecture: platform.Architecture,
+		History:      []v1.History{},
 		OS:           platform.OS,
 		OSVersion:    platform.OSVersion,
 		RootFS: v1.RootFS{
@@ -92,7 +94,7 @@ func emptyImage(platform imgutil.Platform) (v1.Image, error) {
 }
 
 func processPreviousImageOption(ri *Image, prevImagePath string, platform imgutil.Platform) error {
-	prevImage, err := newV1Image(prevImagePath, platform)
+	prevImage, err := newV1Image(prevImagePath, platform, ri.withHistory)
 	if err != nil {
 		return err
 	}
@@ -103,6 +105,11 @@ func processPreviousImageOption(ri *Image, prevImagePath string, platform imguti
 	}
 
 	ri.prevLayers = prevLayers
+	configFile, err := prevImage.ConfigFile()
+	if err != nil {
+		return err
+	}
+	ri.prevHistory = configFile.History
 
 	return nil
 }
@@ -111,7 +118,7 @@ func processPreviousImageOption(ri *Image, prevImagePath string, platform imguti
 //   - If a ImageIndex for multiples platforms exists, then it will try to select the image
 //     according to the platform provided
 //   - If the image does not exist, then an empty image is returned
-func newV1Image(path string, platform imgutil.Platform) (v1.Image, error) {
+func newV1Image(path string, platform imgutil.Platform, withHistory bool) (v1.Image, error) {
 	var (
 		image  v1.Image
 		layout Path
@@ -121,24 +128,31 @@ func newV1Image(path string, platform imgutil.Platform) (v1.Image, error) {
 	if ImageExists(path) {
 		layout, err = FromPath(path)
 		if err != nil {
-			return nil, errors.Wrap(err, "loading layout from path new")
+			return nil, fmt.Errorf("loading layout from path new: %w", err)
 		}
 
 		index, err := layout.ImageIndex()
 		if err != nil {
-			return nil, errors.Wrap(err, "reading index")
+			return nil, fmt.Errorf("reading index: %w", err)
 		}
 
 		image, err = imageFromIndex(index, platform)
 		if err != nil {
-			return nil, errors.Wrap(err, "getting image from index")
+			return nil, fmt.Errorf("getting image from index: %w", err)
 		}
 	} else {
 		image, err = emptyImage(platform)
 		if err != nil {
-			return nil, errors.Wrap(err, "initializing empty image")
+			return nil, fmt.Errorf("initializing empty image: %w", err)
 		}
 	}
+
+	if withHistory {
+		if image, err = imgutil.OverrideHistoryIfNeeded(image); err != nil {
+			return nil, fmt.Errorf("overriding history: %w", err)
+		}
+	}
+
 	return &Image{
 		Image: image,
 		path:  path,
@@ -177,8 +191,8 @@ func imageFromIndex(index v1.ImageIndex, platform imgutil.Platform) (v1.Image, e
 	return image, nil
 }
 
-func processBaseImagePathOption(ri *Image, baseImagePath string, platform imgutil.Platform) error {
-	baseImage, err := newV1Image(baseImagePath, platform)
+func processBaseImageOption(ri *Image, baseImagePath string, platform imgutil.Platform) error {
+	baseImage, err := newV1Image(baseImagePath, platform, ri.withHistory)
 	if err != nil {
 		return err
 	}

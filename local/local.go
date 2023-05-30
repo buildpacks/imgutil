@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/image"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
@@ -22,19 +24,22 @@ type Image struct {
 	docker           DockerClient
 	repoName         string
 	inspect          types.ImageInspect
+	history          []v1.History
 	layerPaths       []string
 	prevImage        *Image // reused layers will be fetched from prevImage
 	downloadBaseOnce *sync.Once
 	createdAt        time.Time
+	withHistory      bool
 }
 
 // DockerClient is subset of client.CommonAPIClient required by this package
 type DockerClient interface {
+	ImageHistory(ctx context.Context, image string) ([]image.HistoryResponseItem, error)
 	ImageInspectWithRaw(ctx context.Context, image string) (types.ImageInspect, []byte, error)
-	ImageTag(ctx context.Context, image, ref string) error
 	ImageLoad(ctx context.Context, input io.Reader, quiet bool) (types.ImageLoadResponse, error)
-	ImageSave(ctx context.Context, images []string) (io.ReadCloser, error)
 	ImageRemove(ctx context.Context, image string, options types.ImageRemoveOptions) ([]types.ImageDeleteResponseItem, error)
+	ImageSave(ctx context.Context, images []string) (io.ReadCloser, error)
+	ImageTag(ctx context.Context, image, ref string) error
 	Info(ctx context.Context) (types.Info, error)
 }
 
@@ -97,6 +102,10 @@ func (i *Image) GetLayer(diffID string) (io.ReadCloser, error) {
 	}
 
 	return nil, fmt.Errorf("image %q does not contain layer with diff ID %q", i.repoName, diffID)
+}
+
+func (i *Image) History() ([]v1.History, error) {
+	return i.history, nil
 }
 
 func (i *Image) Identifier() (imgutil.Identifier, error) {
@@ -197,6 +206,11 @@ func (i *Image) SetEnv(key, val string) error {
 	return nil
 }
 
+func (i *Image) SetHistory(history []v1.History) error {
+	i.history = history
+	return nil
+}
+
 func (i *Image) SetLabel(key, val string) error {
 	if i.inspect.Config.Labels == nil {
 		i.inspect.Config.Labels = map[string]string{}
@@ -241,12 +255,17 @@ func (i *Image) AddLayer(path string) error {
 		return errors.Wrapf(err, "AddLayer: calculate checksum: %s", path)
 	}
 	diffID := "sha256:" + hex.EncodeToString(hasher.Sum(make([]byte, 0, hasher.Size())))
-	return i.AddLayerWithDiffID(path, diffID)
+	return i.AddLayerWithDiffIDAndHistory(path, diffID, v1.History{})
 }
 
 func (i *Image) AddLayerWithDiffID(path, diffID string) error {
-	i.inspect.RootFS.Layers = append(i.inspect.RootFS.Layers, diffID)
+	return i.AddLayerWithDiffIDAndHistory(path, diffID, v1.History{})
+}
+
+func (i *Image) AddLayerWithDiffIDAndHistory(path, diffID string, history v1.History) error {
 	i.layerPaths = append(i.layerPaths, path)
+	i.inspect.RootFS.Layers = append(i.inspect.RootFS.Layers, diffID)
+	i.history = append(i.history, history)
 	return nil
 }
 
@@ -300,21 +319,38 @@ func (i *Image) RemoveLabel(key string) error {
 }
 
 func (i *Image) ReuseLayer(diffID string) error {
+	if err := i.ensureLayers(); err != nil {
+		return err
+	}
+	for idx := range i.prevImage.inspect.RootFS.Layers {
+		if i.prevImage.inspect.RootFS.Layers[idx] == diffID {
+			return i.AddLayerWithDiffIDAndHistory(i.prevImage.layerPaths[idx], diffID, i.prevImage.history[idx])
+		}
+	}
+	return fmt.Errorf("SHA %s was not found in %s", diffID, i.prevImage.Name())
+}
+
+func (i *Image) ReuseLayerWithHistory(diffID string, history v1.History) error {
+	if err := i.ensureLayers(); err != nil {
+		return err
+	}
+	for idx := range i.prevImage.inspect.RootFS.Layers {
+		if i.prevImage.inspect.RootFS.Layers[idx] == diffID {
+			return i.AddLayerWithDiffIDAndHistory(i.prevImage.layerPaths[idx], diffID, history)
+		}
+	}
+	return fmt.Errorf("SHA %s was not found in %s", diffID, i.prevImage.Name())
+}
+
+func (i *Image) ensureLayers() error {
 	if i.prevImage == nil {
 		return errors.New("failed to reuse layer because no previous image was provided")
 	}
 	if !i.prevImage.Found() {
 		return fmt.Errorf("failed to reuse layer because previous image %q was not found in daemon", i.prevImage.repoName)
 	}
-
 	if err := i.prevImage.downloadBaseLayersOnce(); err != nil {
 		return err
 	}
-
-	for l := range i.prevImage.inspect.RootFS.Layers {
-		if i.prevImage.inspect.RootFS.Layers[l] == diffID {
-			return i.AddLayerWithDiffID(i.prevImage.layerPaths[l], diffID)
-		}
-	}
-	return fmt.Errorf("SHA %s was not found in %s", diffID, i.prevImage.Name())
+	return nil
 }
