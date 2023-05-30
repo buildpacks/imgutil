@@ -21,11 +21,12 @@ type Image interface {
 	Env(key string) (string, error)
 	// Found tells whether the image exists in the repository by `Name()`.
 	Found() bool
-	// Valid returns true if the image is well formed (e.g. all manifest layers exist on the registry).
+	// Valid returns true if the image is well-formed (e.g. all manifest layers exist on the registry).
 	Valid() bool
 	GetAnnotateRefName() (string, error)
 	// GetLayer retrieves layer by diff id. Returns a reader of the uncompressed contents of the layer.
 	GetLayer(diffID string) (io.ReadCloser, error)
+	History() ([]v1.History, error)
 	Identifier() (Identifier, error)
 	Label(string) (string, error)
 	Labels() (map[string]string, error)
@@ -48,6 +49,7 @@ type Image interface {
 	SetCmd(...string) error
 	SetEntrypoint(...string) error
 	SetEnv(string, string) error
+	SetHistory([]v1.History) error
 	SetLabel(string, string) error
 	SetOS(string) error
 	SetOSVersion(string) error
@@ -58,10 +60,12 @@ type Image interface {
 
 	AddLayer(path string) error
 	AddLayerWithDiffID(path, diffID string) error
+	AddLayerWithDiffIDAndHistory(path, diffID string, history v1.History) error
 	Delete() error
 	Rebase(string, Image) error
 	RemoveLabel(string) error
 	ReuseLayer(diffID string) error
+	ReuseLayerWithHistory(diffID string, history v1.History) error
 	// Save saves the image as `Name()` and any additional names provided to this method.
 	Save(additionalNames ...string) error
 	// SaveAs ignores the image `Name()` method and saves the image according to name & additional names provided to this method
@@ -123,50 +127,85 @@ func (t MediaTypes) LayerType() types.MediaType {
 
 // OverrideMediaTypes mutates the provided v1.Image to use the desired media types
 // in the image manifest and config files (including the layers referenced in the manifest)
-func OverrideMediaTypes(base v1.Image, mediaTypes MediaTypes) (v1.Image, error) {
+func OverrideMediaTypes(image v1.Image, mediaTypes MediaTypes) (v1.Image, error) {
 	if mediaTypes == DefaultTypes || mediaTypes == MissingTypes {
 		// without media types option, default to original media types
-		return base, nil
+		return image, nil
 	}
 
 	// manifest media type
-	image := mutate.MediaType(empty.Image, mediaTypes.ManifestType())
-	// update empty image with base config
-	config, err := base.ConfigFile()
+	retImage := mutate.MediaType(empty.Image, mediaTypes.ManifestType())
+
+	// update empty image with image config
+	config, err := image.ConfigFile()
 	if err != nil {
 		return nil, err
 	}
+	history := config.History
+	// zero out diff IDs and history, as these will be updated when we call `mutate.Append`
 	config.RootFS.DiffIDs = make([]v1.Hash, 0)
-	image, err = mutate.ConfigFile(image, config)
+	config.History = []v1.History{}
+	retImage, err = mutate.ConfigFile(retImage, config)
 	if err != nil {
 		return nil, err
 	}
 
 	// config media type
-	image = mutate.ConfigMediaType(image, mediaTypes.ConfigType())
+	retImage = mutate.ConfigMediaType(retImage, mediaTypes.ConfigType())
 
 	// layers media type
-	layers, err := base.Layers()
+	layers, err := image.Layers()
 	if err != nil {
 		return nil, err
 	}
-	additions := layersAddendum(layers, mediaTypes.LayerType())
-	image, err = mutate.Append(image, additions...)
+	additions := layersAddendum(layers, history, mediaTypes.LayerType())
+	retImage, err = mutate.Append(retImage, additions...)
 	if err != nil {
 		return nil, err
 	}
 
-	return image, nil
+	return retImage, nil
+}
+
+// OverrideHistoryIfNeeded zeroes out the history if the number of history entries doesn't match the number of layers.
+func OverrideHistoryIfNeeded(image v1.Image) (v1.Image, error) {
+	configFile, err := image.ConfigFile()
+	if err != nil || configFile == nil {
+		return nil, fmt.Errorf("getting image config: %w", err)
+	}
+	configFile.History = NormalizedHistory(configFile.History, len(configFile.RootFS.DiffIDs))
+	return mutate.ConfigFile(image, configFile)
+}
+
+func NormalizedHistory(history []v1.History, nLayers int) []v1.History {
+	if history == nil {
+		return make([]v1.History, nLayers)
+	}
+	// ensure we remove history for empty layers
+	var nHistory []v1.History
+	for _, h := range history {
+		if !h.EmptyLayer {
+			nHistory = append(nHistory, h)
+		}
+	}
+	if len(nHistory) == nLayers {
+		return nHistory
+	}
+	return make([]v1.History, nLayers)
 }
 
 // layersAddendum creates an Addendum array with the given layers
 // and the desired media type
-func layersAddendum(layers []v1.Layer, mediaType types.MediaType) []mutate.Addendum {
+func layersAddendum(layers []v1.Layer, history []v1.History, mediaType types.MediaType) []mutate.Addendum {
 	additions := make([]mutate.Addendum, 0)
-	for _, layer := range layers {
+	if len(history) != len(layers) {
+		history = make([]v1.History, len(layers))
+	}
+	for idx, layer := range layers {
 		additions = append(additions, mutate.Addendum{
-			MediaType: mediaType,
 			Layer:     layer,
+			History:   history[idx],
+			MediaType: mediaType,
 		})
 	}
 	return additions
