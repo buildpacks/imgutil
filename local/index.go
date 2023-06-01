@@ -58,6 +58,23 @@ func (i *ImageIndex) Add(repoName string) error {
 
 	desc.Descriptor.Platform = &platform
 
+	indexRef, err := name.ParseReference(i.repoName)
+	if err != nil {
+		return err
+	}
+
+	// Check if the image is in the same repository as the index
+	// If it is in a different repository then copy the image to
+	// the same repository as the index
+	if ref.Context().Name() != indexRef.Context().Name() {
+		imgRefName := indexRef.Context().Name() + "@" + desc.Digest.Algorithm + ":" + desc.Digest.Hex
+		imgRef, err := name.ParseReference(imgRefName)
+		err = remote.Write(imgRef, img, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+		if err != nil {
+			return errors.Wrapf(err, "failed to copy image '%s' to index repository", imgRef.Name())
+		}
+	}
+
 	i.index = mutate.AppendManifests(i.index, mutate.IndexAddendum{Add: img, Descriptor: desc.Descriptor})
 
 	return nil
