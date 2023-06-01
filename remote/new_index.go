@@ -25,22 +25,8 @@ func NewIndex(repoName string, keychain authn.Keychain, ops ...ImageIndexOption)
 		}
 	}
 
-	desc, err := remote.Get(ref, remote.WithAuthFromKeychain(keychain))
-	if err == nil {
-		index, err := desc.ImageIndex()
-		if err != nil {
-			return nil, err
-		}
-
-		idx := &ImageIndex{
-			keychain: keychain,
-			repoName: repoName,
-			index:    index,
-		}
-
-		return idx, nil
-	}
-
+	// If WithManifest option is given, create an index using
+	// the provided v1.IndexManifest
 	if len(indexOpts.manifest.Manifests) != 0 {
 		index, err := emptyIndex(indexOpts.manifest.MediaType)
 		if err != nil {
@@ -63,7 +49,23 @@ func NewIndex(repoName string, keychain authn.Keychain, ops ...ImageIndexOption)
 		}
 
 		return idx, nil
+	}
 
+	// If index already exists in registry, use it as a base
+	desc, err := remote.Get(ref, remote.WithAuthFromKeychain(keychain))
+	if err == nil {
+		index, err := desc.ImageIndex()
+		if err != nil {
+			return nil, err
+		}
+
+		idx := &ImageIndex{
+			keychain: keychain,
+			repoName: repoName,
+			index:    index,
+		}
+
+		return idx, nil
 	}
 
 	mediaType := defaultMediaType()
