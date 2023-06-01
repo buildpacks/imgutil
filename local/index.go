@@ -69,6 +69,10 @@ func (i *ImageIndex) Add(repoName string) error {
 	if ref.Context().Name() != indexRef.Context().Name() {
 		imgRefName := indexRef.Context().Name() + "@" + desc.Digest.Algorithm + ":" + desc.Digest.Hex
 		imgRef, err := name.ParseReference(imgRefName)
+		if err != nil {
+			return err
+		}
+
 		err = remote.Write(imgRef, img, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 		if err != nil {
 			return errors.Wrapf(err, "failed to copy image '%s' to index repository", imgRef.Name())
@@ -139,8 +143,8 @@ func (i *ImageIndex) Save(additionalNames ...string) error {
 // Ex: cnbs/sample-package:hello-multiarch-universe
 // to cnbs_sample-package-hello-multiarch-universe
 func makeFileSafeName(ref string) string {
-	fileName := strings.Replace(ref, ":", "-", -1)
-	return strings.Replace(fileName, "/", "_", -1)
+	fileName := strings.ReplaceAll(ref, ":", "-")
+	return strings.ReplaceAll(fileName, "/", "_")
 }
 
 func (i *ImageIndex) Name() string {
@@ -174,8 +178,8 @@ func (i *ImageIndex) AnnotateManifest(manifestName string, opts AnnotateFields) 
 		return err
 	}
 
-	for i, desc_i := range manifest.Manifests {
-		if desc_i.Digest.String() == desc.Digest.String() {
+	for i, iDesc := range manifest.Manifests {
+		if iDesc.Digest.String() == desc.Digest.String() {
 			if opts.Architecture != "" {
 				manifest.Manifests[i].Platform.Architecture = opts.Architecture
 			}
@@ -223,7 +227,7 @@ func GetIndexManifest(repoName string, path string) (v1.IndexManifest, error) {
 		return manifest, errors.Wrapf(err, "Reading local index %q in path %q", repoName, path)
 	}
 
-	err = json.Unmarshal([]byte(jsonFile), &manifest)
+	err = json.Unmarshal(jsonFile, &manifest)
 	if err != nil {
 		return manifest, errors.Wrapf(err, "Decoding local index %q", repoName)
 	}

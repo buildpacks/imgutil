@@ -29,7 +29,6 @@ func newTestIndexName(providedPrefix ...string) string {
 }
 
 func TestIndex(t *testing.T) {
-
 	dockerConfigDir, err := ioutil.TempDir("", "test.docker.config.dir")
 	h.AssertNil(t, err)
 	defer os.RemoveAll(dockerConfigDir)
@@ -77,7 +76,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 		when("when index is found in registry", func() {
 			it("use the index found in registry as base", func() {
 			})
-
 		})
 
 		when("#WithIndexMediaTypes", func() {
@@ -91,7 +89,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				mediatype, err := idxt.MediaType()
 				h.AssertNil(t, err)
 				h.AssertEq(t, mediatype, types.OCIImageIndex)
-
 			})
 		})
 	})
@@ -106,7 +103,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				err = idx.Add(manifestName)
 				h.AssertError(t, err, fmt.Sprintf("error fetching %s from registry", manifestName))
 			})
-
 		})
 
 		when("manifest name is invalid", func() {
@@ -118,7 +114,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				err = idx.Add(manifestName)
 				h.AssertError(t, err, fmt.Sprintf("could not parse reference: %s", manifestName))
 			})
-
 		})
 
 		when("manifest is in registry", func() {
@@ -135,14 +130,13 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						OS:           "linux",
 					}),
 				)
+				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
 
 				err = idx.Add(manifestName)
 				h.AssertNil(t, err)
 			})
-
 		})
-
 	})
 
 	when("#Save", func() {
@@ -161,6 +155,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						OS:           "linux",
 					}),
 				)
+				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
 
 				h.AssertNil(t, idx.Add(manifestName))
@@ -186,7 +181,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						OS:           "linux",
 					}),
 				)
-
+				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
 
 				h.AssertNil(t, idx.Add(manifestName))

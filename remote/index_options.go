@@ -1,8 +1,9 @@
 package remote
 
 import (
-	"github.com/buildpacks/imgutil"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+
+	"github.com/buildpacks/imgutil"
 )
 
 type ImageIndexOption func(*indexOptions) error

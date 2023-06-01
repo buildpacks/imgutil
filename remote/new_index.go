@@ -33,13 +33,17 @@ func NewIndex(repoName string, keychain authn.Keychain, ops ...ImageIndexOption)
 			return nil, err
 		}
 
-		for _, manifest_i := range indexOpts.manifest.Manifests {
-			img, _ := emptyImage(imgutil.Platform{
-				Architecture: manifest_i.Platform.Architecture,
-				OS:           manifest_i.Platform.OS,
-				OSVersion:    manifest_i.Platform.OSVersion,
+		for _, manifest := range indexOpts.manifest.Manifests {
+			img, err := emptyImage(imgutil.Platform{
+				Architecture: manifest.Platform.Architecture,
+				OS:           manifest.Platform.OS,
+				OSVersion:    manifest.Platform.OSVersion,
 			})
-			index = mutate.AppendManifests(index, mutate.IndexAddendum{Add: img, Descriptor: manifest_i})
+			if err != nil {
+				return nil, err
+			}
+
+			index = mutate.AppendManifests(index, mutate.IndexAddendum{Add: img, Descriptor: manifest})
 		}
 
 		idx := &ImageIndex{
@@ -85,7 +89,6 @@ func NewIndex(repoName string, keychain authn.Keychain, ops ...ImageIndexOption)
 	}
 
 	return ridx, nil
-
 }
 
 func emptyIndex(mediaType types.MediaType) (v1.ImageIndex, error) {

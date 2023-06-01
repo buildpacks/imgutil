@@ -102,7 +102,6 @@ func (i *ImageIndex) SaveAs(name string, additionalNames ...string) error {
 	}
 
 	return nil
-
 }
 
 func (i *ImageIndex) doSave(indexName string) error {
@@ -113,10 +112,13 @@ func (i *ImageIndex) doSave(indexName string) error {
 	}
 
 	iManifest, err := i.index.IndexManifest()
+	if err != nil {
+		return err
+	}
 
 	// This for loop will check if all the referenced manifests have the plaform information.
 	// This is OPTIONAL if the target is plaform independent.
-	// Current implementation does not allow to push an index without platform infromation.
+	// Current implementation does not allow to push an index without platform information.
 	for _, j := range iManifest.Manifests {
 		switch j.MediaType {
 		case types.OCIManifestSchema1, types.DockerManifestSchema2:
