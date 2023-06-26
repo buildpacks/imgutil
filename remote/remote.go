@@ -528,25 +528,35 @@ func (i *Image) ReuseLayerWithHistory(sha string, history v1.History) error {
 
 // extras
 
-func (i *Image) CheckReadAccess() bool {
-	_, err := i.found()
-	if err != nil {
-		if transportErr, ok := err.(*transport.Error); ok {
-			return transportErr.StatusCode != http.StatusUnauthorized &&
-				transportErr.StatusCode != http.StatusForbidden
-		}
-		return false
+func (i *Image) CheckReadAccess() (bool, error) {
+	var err error
+	if _, err = i.found(); err == nil {
+		return true, nil
 	}
-	return true
+	var canRead bool
+	if transportErr, ok := err.(*transport.Error); ok {
+		if canRead = transportErr.StatusCode != http.StatusUnauthorized &&
+			transportErr.StatusCode != http.StatusForbidden; canRead {
+			err = nil
+		}
+	}
+	return canRead, err
 }
 
-func (i *Image) CheckReadWriteAccess() bool {
+func (i *Image) CheckReadWriteAccess() (bool, error) {
+	if canRead, err := i.CheckReadAccess(); !canRead {
+		return false, err
+	}
 	reg := getRegistry(i.repoName, i.registrySettings)
 	ref, _, err := referenceForRepoName(i.keychain, i.repoName, reg.insecure)
 	if err != nil {
-		return false
+		return false, err
 	}
-	return i.CheckReadAccess() && remote.CheckPushPermission(ref, i.keychain, http.DefaultTransport) == nil
+	err = remote.CheckPushPermission(ref, i.keychain, http.DefaultTransport)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // UnderlyingImage exposes the underlying image for testing
