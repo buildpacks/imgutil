@@ -1993,7 +1993,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				it("returns false", func() {
 					image, err := remote.NewImage(customRegistry.RepoName(writeOnlyImage), authn.DefaultKeychain)
 					h.AssertNil(t, err)
-					canReadWrite, _ := image.CheckReadWriteAccess()
+					canReadWrite, _ := image.CheckReadAccess()
 					h.AssertEq(t, canReadWrite, false)
 				})
 			})
@@ -2002,7 +2002,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				it("returns false", func() {
 					image, err := remote.NewImage(customRegistry.RepoName(inaccessibleImage), authn.DefaultKeychain)
 					h.AssertNil(t, err)
-					canReadWrite, _ := image.CheckReadWriteAccess()
+					canReadWrite, _ := image.CheckReadAccess()
 					h.AssertEq(t, canReadWrite, false)
 				})
 			})
