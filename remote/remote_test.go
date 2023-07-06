@@ -92,9 +92,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
 
-				os, err := img.OS()
+				osName, err := img.OS()
 				h.AssertNil(t, err)
-				h.AssertEq(t, os, "linux")
+				h.AssertEq(t, osName, "linux")
 
 				osVersion, err := img.OSVersion()
 				h.AssertNil(t, err)
@@ -162,9 +162,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				h.AssertEq(t, arch, "arm")
 
-				os, err := img.OS()
+				osName, err := img.OS()
 				h.AssertNil(t, err)
-				h.AssertEq(t, os, "linux")
+				h.AssertEq(t, osName, "linux")
 
 				_, err = img.TopLayer()
 				h.AssertError(t, err, "has no layers")
@@ -185,9 +185,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						)
 						h.AssertNil(t, err)
 
-						os, err := img.OS()
+						osName, err := img.OS()
 						h.AssertNil(t, err)
-						h.AssertEq(t, os, "linux")
+						h.AssertEq(t, osName, "linux")
 
 						osVersion, err := img.OSVersion()
 						h.AssertNil(t, err)
@@ -213,9 +213,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						)
 						h.AssertNil(t, err)
 
-						os, err := img.OS()
+						osName, err := img.OS()
 						h.AssertNil(t, err)
-						h.AssertEq(t, os, "windows")
+						h.AssertEq(t, osName, "windows")
 
 						osVersion, err := img.OSVersion()
 						h.AssertNil(t, err)
@@ -243,9 +243,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						)
 						h.AssertNil(t, err)
 
-						os, err := img.OS()
+						osName, err := img.OS()
 						h.AssertNil(t, err)
-						h.AssertEq(t, os, "linux")
+						h.AssertEq(t, osName, "linux")
 
 						osVersion, err := img.OSVersion()
 						h.AssertNil(t, err)
@@ -300,9 +300,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							h.AssertNil(t, err)
 							h.AssertEq(t, arch, "amd64")
 
-							os, err := img.OS()
+							osName, err := img.OS()
 							h.AssertNil(t, err)
-							h.AssertEq(t, os, "windows")
+							h.AssertEq(t, osName, "windows")
 
 							osVersion, err := img.OSVersion()
 							h.AssertNil(t, err)
@@ -330,9 +330,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							h.AssertNil(t, err)
 							h.AssertEq(t, arch, "amd64")
 
-							os, err := img.OS()
+							osName, err := img.OS()
 							h.AssertNil(t, err)
-							h.AssertEq(t, os, "windows")
+							h.AssertEq(t, osName, "windows")
 
 							osVersion, err := img.OSVersion()
 							h.AssertNil(t, err)
@@ -361,9 +361,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							h.AssertNil(t, err)
 							h.AssertEq(t, arch, "amd64")
 
-							os, err := img.OS()
+							osName, err := img.OS()
 							h.AssertNil(t, err)
-							h.AssertEq(t, os, "linux")
+							h.AssertEq(t, osName, "linux")
 						})
 					})
 
@@ -387,9 +387,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							h.AssertNil(t, err)
 							h.AssertEq(t, arch, "arm")
 
-							os, err := img.OS()
+							osName, err := img.OS()
 							h.AssertNil(t, err)
-							h.AssertEq(t, os, "windows")
+							h.AssertEq(t, osName, "windows")
 
 							osVersion, err := img.OSVersion()
 							h.AssertNil(t, err)
@@ -422,9 +422,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 						h.AssertEq(t, arch, "arm")
 
-						os, err := img.OS()
+						osName, err := img.OS()
 						h.AssertNil(t, err)
-						h.AssertEq(t, os, "linux")
+						h.AssertEq(t, osName, "linux")
 
 						osVersion, err := img.OSVersion()
 						h.AssertNil(t, err)
@@ -452,9 +452,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 						h.AssertEq(t, arch, "arm")
 
-						os, err := img.OS()
+						osName, err := img.OS()
 						h.AssertNil(t, err)
-						h.AssertEq(t, os, "windows")
+						h.AssertEq(t, osName, "windows")
 
 						osVersion, err := img.OSVersion()
 						h.AssertNil(t, err)
