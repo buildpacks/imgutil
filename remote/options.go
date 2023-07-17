@@ -99,6 +99,7 @@ func WithPreviousImage(imageName string) ImageOption {
 // the image. The referenced images could include the base image, a previous image, or the image itself.
 func WithRegistrySetting(repository string, insecure, insecureSkipVerify bool) ImageOption {
 	return func(opts *options) error {
+		opts.registrySettings = make(map[string]registrySetting)
 		opts.registrySettings[repository] = registrySetting{
 			insecure:           insecure,
 			insecureSkipVerify: insecureSkipVerify,
