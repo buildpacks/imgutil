@@ -3,12 +3,14 @@ package fakes_test
 import (
 	"archive/tar"
 	"fmt"
-	"github.com/sclevine/spec"
-	"github.com/sclevine/spec/report"
+
 	"os"
 	"path/filepath"
 	"sort"
 	"testing"
+
+	"github.com/sclevine/spec"
+	"github.com/sclevine/spec/report"
 
 	"github.com/buildpacks/imgutil"
 	"github.com/buildpacks/imgutil/fakes"
