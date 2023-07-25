@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -264,7 +263,7 @@ func (i *Image) Save(additionalNames ...string) error {
 
 func (i *Image) SaveAs(name string, additionalNames ...string) error {
 	var err error
-	i.layerDir, err = ioutil.TempDir("", "fake-image")
+	i.layerDir, err = os.MkdirTemp("", "fake-image")
 	if err != nil {
 		return err
 	}

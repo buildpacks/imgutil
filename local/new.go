@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"sync"
 	"time"
 
@@ -214,7 +214,7 @@ func prepareNewWindowsImage(image *Image) error {
 		return err
 	}
 
-	layerFile, err := ioutil.TempFile("", "imgutil.local.image.windowsbaselayer")
+	layerFile, err := os.CreateTemp("", "imgutil.local.image.windowsbaselayer")
 	if err != nil {
 		return errors.Wrap(err, "creating temp file")
 	}

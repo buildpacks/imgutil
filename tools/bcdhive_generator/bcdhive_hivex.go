@@ -1,12 +1,12 @@
 package main
 
 import (
+	"github.com/gabriel-samfira/go-hivex"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/gabriel-samfira/go-hivex"
 	"github.com/pkg/errors"
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/tools/go/packages"
@@ -68,7 +68,7 @@ type entry struct {
 }
 
 func HiveBCD() ([]byte, error) {
-	hiveFile, err := ioutil.TempFile("", "")
+	hiveFile, err := os.CreateTemp("", "")
 	if err != nil {
 		return nil, err
 	}

@@ -3,18 +3,14 @@ package acceptance
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"math/rand"
-	"os"
-	"testing"
-	"time"
-
 	dockerclient "github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	ggcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
+	"os"
+	"testing"
 
 	"github.com/buildpacks/imgutil"
 	"github.com/buildpacks/imgutil/local"
@@ -29,9 +25,7 @@ func newTestImageName() string {
 }
 
 func TestAcceptance(t *testing.T) {
-	rand.Seed(time.Now().UTC().UnixNano())
-
-	dockerConfigDir, err := ioutil.TempDir("", "test.docker.config.dir")
+	dockerConfigDir, err := os.MkdirTemp("", "test.docker.config.dir")
 	h.AssertNil(t, err)
 	defer os.RemoveAll(dockerConfigDir)
 
