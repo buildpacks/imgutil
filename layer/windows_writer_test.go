@@ -3,7 +3,6 @@ package layer_test
 import (
 	"archive/tar"
 	"bytes"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -23,7 +22,7 @@ func testWindowsWriter(t *testing.T, when spec.G, it spec.S) {
 		it("writes required entries", func() {
 			var err error
 
-			f, err := ioutil.TempFile("", "windows-writer.tar")
+			f, err := os.CreateTemp("", "windows-writer.tar")
 			h.AssertNil(t, err)
 			defer func() { f.Close(); os.Remove(f.Name()) }()
 
@@ -69,7 +68,7 @@ func testWindowsWriter(t *testing.T, when spec.G, it spec.S) {
 			it("only writes parents once", func() {
 				var err error
 
-				f, err := ioutil.TempFile("", "windows-writer.tar")
+				f, err := os.CreateTemp("", "windows-writer.tar")
 				h.AssertNil(t, err)
 				defer func() { f.Close(); os.Remove(f.Name()) }()
 
@@ -145,7 +144,7 @@ func testWindowsWriter(t *testing.T, when spec.G, it spec.S) {
 				it("writes administrator-owned entries", func() {
 					var err error
 
-					f, err := ioutil.TempFile("", "windows-writer.tar")
+					f, err := os.CreateTemp("", "windows-writer.tar")
 					h.AssertNil(t, err)
 					defer func() { f.Close(); os.Remove(f.Name()) }()
 
@@ -183,7 +182,7 @@ func testWindowsWriter(t *testing.T, when spec.G, it spec.S) {
 				it("writes user-owned entries", func() {
 					var err error
 
-					f, err := ioutil.TempFile("", "windows-writer.tar")
+					f, err := os.CreateTemp("", "windows-writer.tar")
 					h.AssertNil(t, err)
 					defer func() { f.Close(); os.Remove(f.Name()) }()
 
@@ -216,7 +215,7 @@ func testWindowsWriter(t *testing.T, when spec.G, it spec.S) {
 				it("writes no new records", func() {
 					var err error
 
-					f, err := ioutil.TempFile("", "windows-writer.tar")
+					f, err := os.CreateTemp("", "windows-writer.tar")
 					h.AssertNil(t, err)
 					defer func() { f.Close(); os.Remove(f.Name()) }()
 
@@ -249,7 +248,7 @@ func testWindowsWriter(t *testing.T, when spec.G, it spec.S) {
 		it("writes required parent dirs on empty layer", func() {
 			var err error
 
-			f, err := ioutil.TempFile("", "windows-writer.tar")
+			f, err := os.CreateTemp("", "windows-writer.tar")
 			h.AssertNil(t, err)
 			defer func() { f.Close(); os.Remove(f.Name()) }()
 

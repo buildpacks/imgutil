@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -191,7 +190,7 @@ func (i *Image) downloadBaseLayers() error {
 	}
 	defer ensureReaderClosed(imageReader)
 
-	tmpDir, err := ioutil.TempDir("", "imgutil.local.image.")
+	tmpDir, err := os.MkdirTemp("", "imgutil.local.image.")
 	if err != nil {
 		return errors.Wrap(err, "failed to create temp dir")
 	}
@@ -265,7 +264,7 @@ func checkResponseError(r io.Reader) error {
 
 // ensureReaderClosed drains and closes and reader, returning the first error
 func ensureReaderClosed(r io.ReadCloser) error {
-	_, err := io.Copy(ioutil.Discard, r)
+	_, err := io.Copy(io.Discard, r)
 	if closeErr := r.Close(); closeErr != nil && err == nil {
 		err = closeErr
 	}

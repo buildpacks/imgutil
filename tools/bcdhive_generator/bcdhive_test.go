@@ -5,7 +5,6 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"testing"
@@ -51,7 +50,7 @@ func TestBaseLayerBCDActual(t *testing.T) {
 func assertIsBCDBaseLayer(t *testing.T, bcdBytes []byte) {
 	t.Helper()
 
-	hiveFile, err := ioutil.TempFile("", "")
+	hiveFile, err := os.CreateTemp("", "")
 	assert.NilError(t, err)
 	defer hiveFile.Close()
 	defer os.Remove(hiveFile.Name())
