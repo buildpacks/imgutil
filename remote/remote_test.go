@@ -2,9 +2,8 @@ package remote_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
-	"math/rand"
 	"os"
 	"strings"
 	"testing"
@@ -42,13 +41,11 @@ func newTestImageName(providedPrefix ...string) string {
 
 // FIXME: relevant tests in this file should be moved into new_test.go and save_test.go to mirror the implementation
 func TestRemote(t *testing.T) {
-	rand.Seed(time.Now().UTC().UnixNano())
-
-	dockerConfigDir, err := ioutil.TempDir("", "test.docker.config.dir")
+	dockerConfigDir, err := os.MkdirTemp("", "test.docker.config.dir")
 	h.AssertNil(t, err)
 	defer os.RemoveAll(dockerConfigDir)
 
-	sharedRegistryHandler := registry.New(registry.Logger(log.New(ioutil.Discard, "", log.Lshortfile)))
+	sharedRegistryHandler := registry.New(registry.Logger(log.New(io.Discard, "", log.Lshortfile)))
 	dockerRegistry = h.NewDockerRegistry(h.WithAuth(dockerConfigDir), h.WithSharedHandler(sharedRegistryHandler))
 	dockerRegistry.Start(t)
 	defer dockerRegistry.Stop(t)
@@ -57,7 +54,7 @@ func TestRemote(t *testing.T) {
 	readonlyDockerRegistry.Start(t)
 	defer readonlyDockerRegistry.Stop(t)
 
-	customDockerConfigDir, err := ioutil.TempDir("", "test.docker.config.custom.dir")
+	customDockerConfigDir, err := os.MkdirTemp("", "test.docker.config.custom.dir")
 	h.AssertNil(t, err)
 	defer os.RemoveAll(customDockerConfigDir)
 	customRegistry = h.NewDockerRegistry(h.WithAuth(customDockerConfigDir), h.WithSharedHandler(sharedRegistryHandler),

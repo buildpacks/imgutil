@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -185,7 +184,7 @@ func PullIfMissing(t *testing.T, docker dockercli.CommonAPIClient, ref string) {
 
 	AssertNil(t, checkResponseError(rc))
 
-	_, err = io.Copy(ioutil.Discard, rc)
+	_, err = io.Copy(io.Discard, rc)
 	AssertNil(t, err)
 }
 
@@ -224,7 +223,7 @@ func PushImage(t *testing.T, dockerCli dockercli.CommonAPIClient, refStr string)
 
 	AssertNil(t, checkResponseError(rc))
 
-	_, err = io.Copy(ioutil.Discard, rc)
+	_, err = io.Copy(io.Discard, rc)
 	AssertNil(t, err)
 }
 
@@ -298,7 +297,7 @@ func getLayerWriter(osType string, file *os.File) layerWriter {
 }
 
 func CreateSingleFileLayerTar(layerPath, txt, osType string) (string, error) {
-	tarFile, err := ioutil.TempFile("", "create-single-file-layer-tar-path")
+	tarFile, err := os.CreateTemp("", "create-single-file-layer-tar-path")
 	if err != nil {
 		return "", err
 	}
@@ -400,7 +399,7 @@ func StringElementAt(elements []string, offset int) string {
 }
 
 func checkResponseError(r io.Reader) error {
-	responseBytes, err := ioutil.ReadAll(r)
+	responseBytes, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}

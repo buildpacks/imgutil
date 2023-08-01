@@ -3,13 +3,11 @@ package fakes_test
 import (
 	"archive/tar"
 	"fmt"
-	"io/ioutil"
-	"math/rand"
+
 	"os"
 	"path/filepath"
 	"sort"
 	"testing"
-	"time"
 
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
@@ -26,8 +24,6 @@ func newRepoName() string {
 }
 
 func TestFake(t *testing.T) {
-	rand.Seed(time.Now().UTC().UnixNano())
-
 	localTestRegistry = h.NewDockerRegistry()
 	localTestRegistry.Start(t)
 	defer localTestRegistry.Stop(t)
@@ -154,7 +150,7 @@ Layers
 }
 
 func createLayerTar(contents map[string]string) (string, error) {
-	file, err := ioutil.TempFile("", "layer-*.tar")
+	file, err := os.CreateTemp("", "layer-*.tar")
 	if err != nil {
 		return "", nil
 	}

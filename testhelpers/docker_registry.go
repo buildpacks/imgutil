@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -135,7 +136,7 @@ func (r *DockerRegistry) Start(t *testing.T) {
 	// create registry handler, if not re-using a shared one
 	if r.regHandler == nil {
 		// change to os.Stderr for verbose output
-		logger := registry.Logger(log.New(ioutil.Discard, "registry ", log.Lshortfile))
+		logger := registry.Logger(log.New(io.Discard, "registry ", log.Lshortfile))
 		r.regHandler = registry.New(logger)
 	}
 
@@ -299,7 +300,7 @@ func (r *DockerRegistry) EncodedAuth() string {
 }
 
 func writeDockerConfig(t *testing.T, configDir, host, port, auth string) {
-	AssertNil(t, ioutil.WriteFile(
+	AssertNil(t, os.WriteFile(
 		filepath.Join(configDir, "config.json"),
 		[]byte(fmt.Sprintf(`{
 			  "auths": {

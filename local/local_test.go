@@ -5,8 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"math/rand"
 	"os"
 	"strings"
 	"testing"
@@ -30,8 +28,6 @@ var localTestRegistry *h.DockerRegistry
 
 // FIXME: relevant tests in this file should be moved into new_test.go and save_test.go to mirror the implementation
 func TestLocal(t *testing.T) {
-	rand.Seed(time.Now().UTC().UnixNano())
-
 	localTestRegistry = h.NewDockerRegistry()
 	localTestRegistry.Start(t)
 	defer localTestRegistry.Stop(t)
@@ -2004,7 +2000,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it("returns errors from daemon", func() {
 				repoName := newTestImageName()
 
-				invalidLayerTarFile, err := ioutil.TempFile("", "daemon-error-test")
+				invalidLayerTarFile, err := os.CreateTemp("", "daemon-error-test")
 				h.AssertNil(t, err)
 				defer func() { invalidLayerTarFile.Close(); os.Remove(invalidLayerTarFile.Name()) }()
 
