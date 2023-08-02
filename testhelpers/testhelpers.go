@@ -46,7 +46,7 @@ func RandString(n int) string {
 	return string(b)
 }
 
-// Assert deep equality (and provide useful difference as a test failure)
+// AssertEq asserts deep equality (and provides a useful difference as a test failure)
 func AssertEq(t *testing.T, actual, expected interface{}) {
 	t.Helper()
 	if diff := cmp.Diff(actual, expected); diff != "" {
@@ -191,10 +191,10 @@ func PullIfMissing(t *testing.T, docker dockercli.CommonAPIClient, ref string) {
 func DockerRmi(dockerCli dockercli.CommonAPIClient, repoNames ...string) error {
 	var err error
 	ctx := context.Background()
-	for _, name := range repoNames {
+	for _, repoName := range repoNames {
 		_, e := dockerCli.ImageRemove(
 			ctx,
-			name,
+			repoName,
 			dockertypes.ImageRemoveOptions{PruneChildren: true},
 		)
 		if e != nil && err == nil {
@@ -231,12 +231,12 @@ func PushImage(t *testing.T, dockerCli dockercli.CommonAPIClient, refStr string)
 func DeleteRegistryBlob(t *testing.T, repoName string, digest v1.Hash, encodedAuth string) {
 	ref, err := name.ParseReference(repoName, name.WeakValidation)
 	AssertNil(t, err)
-	url := url.URL{
+	urlFromRegistryInfo := url.URL{
 		Scheme: ref.Context().Registry.Scheme(),
 		Host:   ref.Context().RegistryStr(),
 		Path:   fmt.Sprintf("/v2/%s/blobs/%s", ref.Context().RepositoryStr(), digest),
 	}
-	req, err := http.NewRequest(http.MethodDelete, url.String(), nil)
+	req, err := http.NewRequest(http.MethodDelete, urlFromRegistryInfo.String(), nil)
 	AssertNil(t, err)
 	req.Header.Add("Authorization", "Basic "+encodedAuth)
 	client := &http.Client{}
@@ -526,8 +526,8 @@ func AssertOCIMediaTypes(t *testing.T, image v1.Image) {
 	AssertNotEq(t, manifest.MediaType, "")
 	AssertEq(t, manifest.Config.MediaType, types.OCIConfigJSON)
 
-	for _, layer := range manifest.Layers {
-		AssertEq(t, layer.MediaType, types.OCILayer)
+	for _, manifestLayer := range manifest.Layers {
+		AssertEq(t, manifestLayer.MediaType, types.OCILayer)
 	}
 }
 
@@ -543,8 +543,8 @@ func AssertDockerMediaTypes(t *testing.T, image v1.Image) {
 	AssertNotEq(t, manifest.MediaType, "")
 	AssertEq(t, manifest.Config.MediaType, types.DockerConfigJSON)
 
-	for _, layer := range manifest.Layers {
-		AssertEq(t, layer.MediaType, types.DockerLayer)
+	for _, manifestLayer := range manifest.Layers {
+		AssertEq(t, manifestLayer.MediaType, types.DockerLayer)
 	}
 }
 

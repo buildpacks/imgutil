@@ -58,15 +58,15 @@ func WithAuth(dockerConfigDir string) RegistryOption {
 }
 
 func NewDockerRegistry(ops ...RegistryOption) *DockerRegistry {
-	registry := &DockerRegistry{
+	dockerRegistry := &DockerRegistry{
 		Name: "test-registry-" + RandString(10),
 	}
 
 	for _, op := range ops {
-		op(registry)
+		op(dockerRegistry)
 	}
 
-	return registry
+	return dockerRegistry
 }
 
 // BasicAuth wraps a handler, allowing requests with matching username and password headers, otherwise rejecting with a 401
