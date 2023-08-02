@@ -46,7 +46,7 @@ func RandString(n int) string {
 	return string(b)
 }
 
-// AssertEq assert deep equality (and provide useful difference as a test failure)
+// AssertEq asserts deep equality (and provides a useful difference as a test failure)
 func AssertEq(t *testing.T, actual, expected interface{}) {
 	t.Helper()
 	if diff := cmp.Diff(actual, expected); diff != "" {
