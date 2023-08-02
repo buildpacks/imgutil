@@ -201,7 +201,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 						defer readCloser.Close()
 					})
-					it("try to pull the image from an insecure registry if WithRegistrySettings insecure has been set", func() {
+					it("tries to pull the image from an insecure registry if WithRegistrySettings insecure has been set", func() {
 						_, err := remote.NewImage(
 							repoName,
 							authn.DefaultKeychain,
