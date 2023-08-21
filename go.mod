@@ -33,4 +33,4 @@ require (
 	golang.org/x/tools v0.9.1 // indirect
 )
 
-go 1.19
+go 1.20
