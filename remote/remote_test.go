@@ -206,7 +206,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							repoName,
 							authn.DefaultKeychain,
 							remote.FromBaseImage("host.docker.internal/bar"),
-							remote.WithRegistrySetting("host.docker.internal", true, true))
+							remote.WithRegistrySetting("host.docker.internal", true))
 
 						h.AssertError(t, err, "http://")
 					})
