@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/gabriel-samfira/go-hivex"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/gabriel-samfira/go-hivex"
 
 	"github.com/pkg/errors"
 	"golang.org/x/text/encoding/unicode"

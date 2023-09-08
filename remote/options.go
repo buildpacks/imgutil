@@ -97,12 +97,12 @@ func WithPreviousImage(imageName string) ImageOption {
 
 // WithRegistrySetting (remote only) registers options to use when accessing images in a registry in order to construct
 // the image. The referenced images could include the base image, a previous image, or the image itself.
-func WithRegistrySetting(repository string, insecure, insecureSkipVerify bool) ImageOption {
+// insecure parameter allows image references to be fetched without TLS.
+func WithRegistrySetting(repository string, insecure bool) ImageOption {
 	return func(opts *options) error {
 		opts.registrySettings = make(map[string]registrySetting)
 		opts.registrySettings[repository] = registrySetting{
-			insecure:           insecure,
-			insecureSkipVerify: insecureSkipVerify,
+			insecure: insecure,
 		}
 		return nil
 	}
@@ -125,11 +125,10 @@ func WithV1DefaultPlatform(platform imgutil.Platform) V1ImageOption {
 }
 
 // WithV1RegistrySetting registers options to use when accessing images in a registry in order to construct a v1.Image.
-func WithV1RegistrySetting(insecure, insecureSkipVerify bool) V1ImageOption {
+func WithV1RegistrySetting(insecure bool) V1ImageOption {
 	return func(opts *v1Options) error {
 		opts.registrySetting = registrySetting{
-			insecure:           insecure,
-			insecureSkipVerify: insecureSkipVerify,
+			insecure: insecure,
 		}
 		return nil
 	}
