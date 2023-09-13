@@ -146,7 +146,7 @@ func prepareNewWindowsImage(ri *Image) error {
 func processPreviousImageOption(ri *Image, prevImageRepoName string, platform imgutil.Platform) error {
 	reg := getRegistry(prevImageRepoName, ri.registrySettings)
 
-	prevImage, err := NewV1Image(prevImageRepoName, ri.keychain, WithV1DefaultPlatform(platform), WithV1RegistrySetting(reg.insecure, reg.insecureSkipVerify))
+	prevImage, err := NewV1Image(prevImageRepoName, ri.keychain, WithV1DefaultPlatform(platform), WithV1RegistrySetting(reg.insecure))
 	if err != nil {
 		return err
 	}
@@ -220,7 +220,7 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 
 	opts := []remote.Option{remote.WithAuth(auth), remote.WithPlatform(v1Platform)}
 	// #nosec G402
-	if reg.insecureSkipVerify {
+	if reg.insecure {
 		opts = append(opts, remote.WithTransport(&http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
@@ -276,7 +276,7 @@ func referenceForRepoName(keychain authn.Keychain, ref string, insecure bool) (n
 func processBaseImageOption(ri *Image, baseImageRepoName string, platform imgutil.Platform) error {
 	reg := getRegistry(baseImageRepoName, ri.registrySettings)
 	var err error
-	ri.image, err = NewV1Image(baseImageRepoName, ri.keychain, WithV1DefaultPlatform(platform), WithV1RegistrySetting(reg.insecure, reg.insecureSkipVerify))
+	ri.image, err = NewV1Image(baseImageRepoName, ri.keychain, WithV1DefaultPlatform(platform), WithV1RegistrySetting(reg.insecure))
 	if err != nil {
 		return err
 	}

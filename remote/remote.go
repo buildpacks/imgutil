@@ -37,8 +37,7 @@ type Image struct {
 }
 
 type registrySetting struct {
-	insecure           bool
-	insecureSkipVerify bool
+	insecure bool
 }
 
 // getters

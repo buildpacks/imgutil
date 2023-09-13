@@ -3,14 +3,15 @@ package acceptance
 import (
 	"context"
 	"fmt"
+	"os"
+	"testing"
+
 	dockerclient "github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	ggcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
-	"os"
-	"testing"
 
 	"github.com/buildpacks/imgutil"
 	"github.com/buildpacks/imgutil/local"
