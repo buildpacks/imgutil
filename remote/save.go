@@ -92,10 +92,10 @@ func (i *Image) doSave(imageName string) error {
 		return err
 	}
 
-	return remote.Write(ref, i.image, []remote.Option{
+	return remote.Write(ref, i.image,
 		remote.WithAuth(auth),
 		remote.WithTransport(getTransport(reg.insecure)),
-	}...)
+	)
 }
 
 func getTransport(insecure bool) http.RoundTripper {
