@@ -20,6 +20,7 @@ import (
 
 func NewImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
 	return &Image{
+		buildConfigEnv:   map[string]string{},
 		labels:           nil,
 		env:              map[string]string{},
 		topLayerSha:      topLayerSha,
@@ -38,6 +39,7 @@ func NewImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
 }
 
 type Image struct {
+	buildConfigEnv   map[string]string
 	deleted          bool
 	layers           []string
 	history          []v1.History
@@ -136,6 +138,11 @@ func (i *Image) SetEnv(k string, v string) error {
 	return nil
 }
 
+func (i *Image) SetBuildConfigEnv(k string, v string) error {
+	i.buildConfigEnv[k] = v
+	return nil
+}
+
 func (i *Image) SetHistory(history []v1.History) error {
 	i.history = history
 	return nil
@@ -183,6 +190,10 @@ func (i *Image) SetCreatedAt(t time.Time) error {
 
 func (i *Image) Env(k string) (string, error) {
 	return i.env[k], nil
+}
+
+func (i *Image) BuildConfigEnv(k string) (string, error) {
+	return i.buildConfigEnv[k], nil
 }
 
 func (i *Image) TopLayer() (string, error) {
