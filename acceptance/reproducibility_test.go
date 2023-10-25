@@ -164,7 +164,7 @@ func compare(t *testing.T, img1, img2 string) {
 	cfg2, err := v1img2.ConfigFile()
 	h.AssertNil(t, err)
 
-	// images that were created locally may have `DockerVersion` equal to "dev" and missing `Config.Image`
+	// images that were created locally may have `DockerVersion` equal to "dev" and missing `Config.Image` if the daemon uses containerd storage
 	cfg1.DockerVersion = ""
 	cfg2.DockerVersion = ""
 	cfg1.Config.Image = ""
