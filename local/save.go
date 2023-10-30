@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -71,7 +70,14 @@ func usesContainerdStorage(docker DockerClient) bool {
 	if err != nil {
 		return false
 	}
-	return strings.Contains(info.Driver, "stargz")
+
+	for _, driverStatus := range info.DriverStatus {
+		if driverStatus[0] == "driver-type" && driverStatus[1] == "io.containerd.snapshotter.v1" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (i *Image) doSaveAs(name string) (types.ImageInspect, error) {
