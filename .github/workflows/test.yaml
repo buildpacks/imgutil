@@ -12,7 +12,7 @@ jobs:
   test-and-build-linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up go
         uses: actions/setup-go@v3
         with:
@@ -22,7 +22,7 @@ jobs:
   test-and-build-windows:
     runs-on: windows-2019
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up go
         uses: actions/setup-go@v3
         with:
