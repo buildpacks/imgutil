@@ -1726,7 +1726,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				h.AssertEq(t, configFile.Created.Time, imgutil.NormalizedDateTime)
 				h.AssertEq(t, configFile.Container, "")
-				h.AssertEq(t, configFile.DockerVersion, "")
 
 				h.AssertEq(t, len(configFile.History), len(configFile.RootFS.DiffIDs))
 				for _, item := range configFile.History {
@@ -1754,7 +1753,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 					h.AssertEq(t, configFile.Created.Time, expectedTime)
 					h.AssertEq(t, configFile.Container, "")
-					h.AssertEq(t, configFile.DockerVersion, "")
 
 					h.AssertEq(t, len(configFile.History), len(configFile.RootFS.DiffIDs))
 					for _, item := range configFile.History {

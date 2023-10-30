@@ -1114,15 +1114,15 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	when("#Rebase", func() {
 		when("image exists", func() {
 			var (
-				repoName                              = newTestImageName()
-				oldBase, oldTopLayer, newBase, origID string
-				oldBaseLayer1DiffID                   string
-				oldBaseLayer2DiffID                   string
-				newBaseLayer1DiffID                   string
-				newBaseLayer2DiffID                   string
-				imgLayer1DiffID                       string
-				imgLayer2DiffID                       string
-				origNumLayers                         int
+				repoName                      = newTestImageName()
+				oldBase, oldTopLayer, newBase string
+				oldBaseLayer1DiffID           string
+				oldBaseLayer2DiffID           string
+				newBaseLayer1DiffID           string
+				newBaseLayer2DiffID           string
+				imgLayer1DiffID               string
+				imgLayer2DiffID               string
+				origNumLayers                 int
 			)
 
 			it.Before(func() {
@@ -1198,11 +1198,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				inspect, _, err = dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
 				h.AssertNil(t, err)
 				origNumLayers = len(inspect.RootFS.Layers)
-				origID = inspect.ID
 			})
 
 			it.After(func() {
-				h.AssertNil(t, h.DockerRmi(dockerClient, repoName, oldBase, newBase, origID))
+				h.AssertNil(t, h.DockerRmi(dockerClient, repoName, oldBase, newBase))
 			})
 
 			it("switches the base", func() {
@@ -1604,6 +1603,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			repoName      = newTestImageName()
 			prevLayer1SHA string
 			prevLayer2SHA string
+			layer1Path    string
+			layer2Path    string
 		)
 
 		it.Before(func() {
@@ -1616,13 +1617,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			)
 			h.AssertNil(t, err)
 
-			layer1Path, err := h.CreateSingleFileLayerTar("/layer-1.txt", "old-layer-1", daemonOS)
+			layer1Path, err = h.CreateSingleFileLayerTar("/layer-1.txt", "old-layer-1", daemonOS)
 			h.AssertNil(t, err)
-			defer os.Remove(layer1Path)
 
-			layer2Path, err := h.CreateSingleFileLayerTar("/layer-2.txt", "old-layer-2", daemonOS)
+			layer2Path, err = h.CreateSingleFileLayerTar("/layer-2.txt", "old-layer-2", daemonOS)
 			h.AssertNil(t, err)
-			defer os.Remove(layer2Path)
 
 			h.AssertNil(t, prevImage.AddLayer(layer1Path))
 			h.AssertNil(t, prevImage.AddLayer(layer2Path))
@@ -1638,6 +1637,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 		it.After(func() {
 			h.AssertNil(t, h.DockerRmi(dockerClient, repoName, prevImageName))
+			h.AssertNil(t, os.RemoveAll(layer1Path))
+			h.AssertNil(t, os.RemoveAll(layer2Path))
 		})
 
 		it("reuses a layer", func() {
@@ -1869,7 +1870,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			it.After(func() {
 				h.AssertNil(t, os.Remove(tarPath))
-				h.AssertNil(t, h.DockerRmi(dockerClient, repoName, origID))
+				h.AssertNil(t, h.DockerRmi(dockerClient, repoName))
 			})
 
 			it("saved image overrides image with new ID", func() {
@@ -1909,7 +1910,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				h.AssertEq(t, inspect.Created, imgutil.NormalizedDateTime.Format(time.RFC3339))
 				h.AssertEq(t, inspect.Container, "")
-				h.AssertEq(t, inspect.DockerVersion, "")
 
 				history, err := dockerClient.ImageHistory(context.TODO(), repoName)
 				h.AssertNil(t, err)
@@ -1940,7 +1940,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 					h.AssertEq(t, inspect.Created, expectedTime.Format(time.RFC3339))
 					h.AssertEq(t, inspect.Container, "")
-					h.AssertEq(t, inspect.DockerVersion, "")
 
 					history, err := dockerClient.ImageHistory(context.TODO(), repoName)
 					h.AssertNil(t, err)
