@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -67,11 +66,7 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 }
 
 func usesContainerdStorage(docker DockerClient) bool {
-	info, err := docker.Info(context.Background())
-	if err != nil {
-		return false
-	}
-	return strings.Contains(info.Driver, "stargz")
+	return false
 }
 
 func (i *Image) doSaveAs(name string) (types.ImageInspect, error) {
