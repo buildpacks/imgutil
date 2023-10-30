@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -14,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -206,25 +206,28 @@ func DockerRmi(dockerCli dockercli.CommonAPIClient, repoNames ...string) error {
 
 // PushImage pushes an image to a registry, optionally using credentials from any set DOCKER_CONFIG
 func PushImage(t *testing.T, dockerCli dockercli.CommonAPIClient, refStr string) {
-	ref, err := name.ParseReference(refStr, name.WeakValidation)
-	AssertNil(t, err)
+	t.Helper()
+	Run(t, exec.Command("docker", "push", refStr)) // #nosec G204
+}
 
-	auth, err := authn.DefaultKeychain.Resolve(ref.Context().Registry)
+func Run(t *testing.T, cmd *exec.Cmd) string {
+	t.Helper()
+	txt, _, err := RunE(cmd)
 	AssertNil(t, err)
-	authConfig, err := auth.Authorization()
-	AssertNil(t, err)
+	return txt
+}
 
-	encodedJSON, err := json.Marshal(authConfig)
-	AssertNil(t, err)
+func RunE(cmd *exec.Cmd) (output string, exitCode int, err error) {
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
 
-	rc, err := dockerCli.ImagePush(context.Background(), refStr, dockertypes.ImagePushOptions{RegistryAuth: base64.URLEncoding.EncodeToString(encodedJSON)})
-	AssertNil(t, err)
-	defer rc.Close()
+	stdout, err := cmd.Output()
+	if err != nil {
+		formattedErr := fmt.Errorf("failed to execute command: %v, %s, %s, %s", cmd.Args, err, stderr.String(), stdout)
+		return "", -1, formattedErr
+	}
 
-	AssertNil(t, checkResponseError(rc))
-
-	_, err = io.Copy(io.Discard, rc)
-	AssertNil(t, err)
+	return string(stdout), 0, nil
 }
 
 // DeleteRegistryBlob deletes the blob with the given digest from the registry by issuing an HTTP DELETE request.
