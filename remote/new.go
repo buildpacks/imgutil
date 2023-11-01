@@ -3,6 +3,7 @@ package remote
 import (
 	"io"
 	"net/http"
+	"runtime"
 	"strings"
 	"time"
 
@@ -93,7 +94,7 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 func defaultPlatform() imgutil.Platform {
 	return imgutil.Platform{
 		OS:           "linux",
-		Architecture: "amd64",
+		Architecture: runtime.GOARCH,
 	}
 }
 

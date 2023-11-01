@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -102,7 +103,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				arch, err := img.Architecture()
 				h.AssertNil(t, err)
-				h.AssertEq(t, arch, "amd64")
+				h.AssertEq(t, arch, runtime.GOARCH)
 			})
 
 			it("fails to save to read-only registry", func() {
@@ -274,7 +275,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 						arch, err := img.Architecture()
 						h.AssertNil(t, err)
-						h.AssertEq(t, arch, "amd64")
+						h.AssertEq(t, arch, runtime.GOARCH)
 
 						readCloser, err := img.GetLayer(existingLayerSha)
 						h.AssertNil(t, err)
