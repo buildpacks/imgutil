@@ -43,6 +43,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	var (
 		dockerClient          client.CommonAPIClient
 		daemonOS              string
+		daemonArchitecture    string
 		runnableBaseImageName string
 	)
 
@@ -50,10 +51,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		var err error
 		dockerClient = h.DockerCli(t)
 
-		daemonInfo, err := dockerClient.Info(context.TODO())
+		versionInfo, err := dockerClient.ServerVersion(context.TODO())
 		h.AssertNil(t, err)
 
-		daemonOS = daemonInfo.OSType
+		daemonOS = versionInfo.Os
+		daemonArchitecture = versionInfo.Arch
 		runnableBaseImageName = h.RunnableBaseImage(daemonOS)
 
 		h.PullIfMissing(t, dockerClient, runnableBaseImageName)
@@ -79,11 +81,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
 				h.AssertNil(t, err)
 
-				daemonInfo, err := dockerClient.Info(context.TODO())
+				versionInfo, err := dockerClient.ServerVersion(context.TODO())
 				h.AssertNil(t, err)
 
-				h.AssertEq(t, inspect.Os, daemonInfo.OSType)
-				h.AssertEq(t, inspect.Architecture, "amd64")
+				h.AssertEq(t, inspect.Os, versionInfo.Os)
+				h.AssertEq(t, inspect.Architecture, versionInfo.Arch)
 				h.AssertEq(t, inspect.RootFS.Type, "layers")
 			})
 		})
@@ -210,7 +212,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
 						h.AssertNil(t, err)
 						h.AssertEq(t, inspect.Os, daemonOS)
-						h.AssertEq(t, inspect.Architecture, "amd64")
+						h.AssertEq(t, inspect.Architecture, daemonArchitecture)
 						h.AssertEq(t, inspect.RootFS.Type, "layers")
 
 						h.AssertEq(t, img.Found(), true)
