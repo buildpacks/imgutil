@@ -42,6 +42,7 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 		}
 	}
 
+	hasBaseImage := imageOpts.baseImagePath != "" || imageOpts.baseImage != nil
 	if imageOpts.baseImagePath != "" {
 		if err := processBaseImageOption(ri, imageOpts.baseImagePath, platform); err != nil {
 			return nil, err
@@ -58,7 +59,7 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 		ri.createdAt = imageOpts.createdAt
 	}
 
-	if imageOpts.mediaTypes == imgutil.MissingTypes {
+	if imageOpts.mediaTypes == imgutil.MissingTypes && !hasBaseImage {
 		ri.requestedMediaTypes = imgutil.OCITypes
 	} else {
 		ri.requestedMediaTypes = imageOpts.mediaTypes

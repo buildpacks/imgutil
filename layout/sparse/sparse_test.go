@@ -6,9 +6,11 @@ import (
 	"testing"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 
+	"github.com/buildpacks/imgutil"
 	"github.com/buildpacks/imgutil/layout"
 	"github.com/buildpacks/imgutil/layout/sparse"
 	h "github.com/buildpacks/imgutil/testhelpers"
@@ -105,6 +107,52 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertEq(t, len(index.Manifests), 1)
 				h.AssertEq(t, 1, len(index.Manifests[0].Annotations))
 				h.AssertEqAnnotation(t, index.Manifests[0], layout.ImageRefNameKey, "my-tag")
+			})
+		})
+
+		when("#MediaType", func() {
+			it("returns the base image media type when there are no requested media type changes", func() {
+				image, err := sparse.NewImage(imagePath, testImage)
+				h.AssertNil(t, err)
+
+				err = image.Save()
+				h.AssertNil(t, err)
+
+				expectedMediaType, err := testImage.MediaType()
+				h.AssertNil(t, err)
+
+				actualMediaType, err := image.MediaType()
+				h.AssertNil(t, err)
+				h.AssertEq(t, actualMediaType, expectedMediaType)
+			})
+
+			it("mutates the media type to the specified media type", func() {
+				image, err := sparse.NewImage(imagePath, testImage, layout.WithMediaTypes(imgutil.OCITypes))
+				h.AssertNil(t, err)
+
+				err = image.Save()
+				h.AssertNil(t, err)
+
+				actualMediaType, err := image.MediaType()
+				h.AssertNil(t, err)
+				h.AssertEq(t, actualMediaType, types.MediaType("application/vnd.oci.image.manifest.v1+json"))
+			})
+		})
+
+		when("#Digest", func() {
+			it("returns the original image digest when there are no modifications", func() {
+				image, err := sparse.NewImage(imagePath, testImage)
+				h.AssertNil(t, err)
+
+				err = image.Save()
+				h.AssertNil(t, err)
+
+				expectedDigest, err := testImage.Digest()
+				h.AssertNil(t, err)
+
+				actualDigest, err := image.Digest()
+				h.AssertNil(t, err)
+				h.AssertEq(t, actualDigest, expectedDigest)
 			})
 		})
 	})
