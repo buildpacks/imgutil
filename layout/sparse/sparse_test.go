@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 
@@ -133,9 +132,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				err = image.Save()
 				h.AssertNil(t, err)
 
-				actualMediaType, err := image.MediaType()
-				h.AssertNil(t, err)
-				h.AssertEq(t, actualMediaType, types.MediaType("application/vnd.oci.image.manifest.v1+json"))
+				h.AssertOCIMediaTypes(t, image)
 			})
 		})
 
