@@ -59,10 +59,10 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 		ri.createdAt = imageOpts.createdAt
 	}
 
-	if imageOpts.mediaTypes == imgutil.MissingTypes && !hasBaseImage {
-		ri.requestedMediaTypes = imgutil.OCITypes
-	} else {
+	if imageOpts.mediaTypes != imgutil.MissingTypes {
 		ri.requestedMediaTypes = imageOpts.mediaTypes
+	} else if !hasBaseImage {
+		ri.requestedMediaTypes = imgutil.OCITypes
 	}
 	if err = ri.setUnderlyingImage(ri.Image); err != nil { // update media types
 		return nil, err
