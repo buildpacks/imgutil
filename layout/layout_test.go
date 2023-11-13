@@ -157,7 +157,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					it("sets the initial state from a linux/arm base image", func() {
 						existingLayerSha := "sha256:5a0b973aa300cd2650869fd76d8546b361fcd6dfc77bd37b9d4f082cca9874e4"
 
-						img, err := layout.NewImage(imagePath, layout.FromBaseImage(testImage))
+						img, err := layout.NewImage(imagePath, layout.FromBaseImage(testImage), layout.WithMediaTypes(imgutil.OCITypes))
 						h.AssertNil(t, err)
 						h.AssertOCIMediaTypes(t, img)
 
@@ -199,7 +199,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 					img, err := layout.NewImage(imagePath, layout.FromBaseImagePath(fullBaseImagePath))
 					h.AssertNil(t, err)
-					h.AssertOCIMediaTypes(t, img)
+					h.AssertDockerMediaTypes(t, img)
 
 					os, err := img.OS()
 					h.AssertNil(t, err)
@@ -225,7 +225,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 					img, err := layout.NewImage(imagePath, layout.FromBaseImagePath(sparseBaseImagePath))
 					h.AssertNil(t, err)
-					h.AssertOCIMediaTypes(t, img)
+					h.AssertDockerMediaTypes(t, img)
 
 					os, err := img.OS()
 					h.AssertNil(t, err)
