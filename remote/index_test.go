@@ -2,7 +2,7 @@ package remote_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -29,11 +29,11 @@ func newTestIndexName(providedPrefix ...string) string {
 }
 
 func TestIndex(t *testing.T) {
-	dockerConfigDir, err := ioutil.TempDir("", "test.docker.config.dir")
+	dockerConfigDir, err := os.MkdirTemp("", "test.docker.config.dir")
 	h.AssertNil(t, err)
 	defer os.RemoveAll(dockerConfigDir)
 
-	sharedRegistryHandler := registry.New(registry.Logger(log.New(ioutil.Discard, "", log.Lshortfile)))
+	sharedRegistryHandler := registry.New(registry.Logger(log.New(io.Discard, "", log.Lshortfile)))
 	dockerRegistry = h.NewDockerRegistry(h.WithAuth(dockerConfigDir), h.WithSharedHandler(sharedRegistryHandler))
 
 	dockerRegistry.SetInaccessible("cnbs/no-image-in-this-name")
