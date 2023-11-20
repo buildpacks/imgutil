@@ -6,7 +6,7 @@ require (
 	github.com/google/go-containerregistry v0.16.1
 	github.com/pkg/errors v0.9.1
 	github.com/sclevine/spec v1.4.0
-	golang.org/x/sync v0.4.0
+	golang.org/x/sync v0.5.0
 )
 
 require (
