@@ -115,6 +115,10 @@ func (i *Image) Identifier() (imgutil.Identifier, error) {
 	}, nil
 }
 
+func (i *Image) Kind() string {
+	return fmt.Sprintf("%T", i)
+}
+
 func (i *Image) Label(key string) (string, error) {
 	labels := i.inspect.Config.Labels
 	return labels[key], nil
@@ -153,6 +157,10 @@ func (i *Image) TopLayer() (string, error) {
 
 	topLayer := all[len(all)-1]
 	return topLayer, nil
+}
+
+func (i *Image) UnderlyingImage() v1.Image {
+	return nil
 }
 
 func (i *Image) Variant() (string, error) {

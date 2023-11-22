@@ -113,6 +113,14 @@ func (i *Image) Identifier() (imgutil.Identifier, error) {
 	return i.identifier, nil
 }
 
+func (i *Image) Kind() string {
+	return ""
+}
+
+func (i *Image) UnderlyingImage() v1.Image {
+	return nil
+}
+
 func (i *Image) Rebase(baseTopLayer string, newBase imgutil.Image) error {
 	i.base = newBase.Name()
 	return nil
