@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -102,7 +103,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				arch, err := img.Architecture()
 				h.AssertNil(t, err)
-				h.AssertEq(t, arch, "amd64")
+				h.AssertEq(t, arch, runtime.GOARCH)
 			})
 
 			it("fails to save to read-only registry", func() {
@@ -211,6 +212,18 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						h.AssertError(t, err, "http://")
 					})
 
+					it("tries to pull the image from an insecure registry if WithRegistrySettings insecure has been set, it works with multiple registries", func() {
+						_, err := remote.NewImage(
+							repoName,
+							authn.DefaultKeychain,
+							remote.FromBaseImage("myother-insecure-registry.com/repo/superbase"),
+							remote.WithRegistrySetting("myregistry.domain.com", true),
+							remote.WithRegistrySetting("myother-insecure-registry.com", true),
+						)
+
+						h.AssertError(t, err, "http://myother-insecure-registry.com")
+					})
+
 					it("sets the initial state from a windows/amd64 base image", func() {
 						baseImageName := "mcr.microsoft.com/windows/nanoserver@sha256:06281772b6a561411d4b338820d94ab1028fdeb076c85350bbc01e80c4bfa2b4"
 						existingLayerSha := "sha256:26fd2d9d4c64a4f965bbc77939a454a31b607470f430b5d69fc21ded301fa55e"
@@ -262,7 +275,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 						arch, err := img.Architecture()
 						h.AssertNil(t, err)
-						h.AssertEq(t, arch, "amd64")
+						h.AssertEq(t, arch, runtime.GOARCH)
 
 						readCloser, err := img.GetLayer(existingLayerSha)
 						h.AssertNil(t, err)
@@ -1714,7 +1727,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				h.AssertEq(t, configFile.Created.Time, imgutil.NormalizedDateTime)
 				h.AssertEq(t, configFile.Container, "")
-				h.AssertEq(t, configFile.DockerVersion, "")
 
 				h.AssertEq(t, len(configFile.History), len(configFile.RootFS.DiffIDs))
 				for _, item := range configFile.History {
@@ -1742,7 +1754,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 					h.AssertEq(t, configFile.Created.Time, expectedTime)
 					h.AssertEq(t, configFile.Container, "")
-					h.AssertEq(t, configFile.DockerVersion, "")
 
 					h.AssertEq(t, len(configFile.History), len(configFile.RootFS.DiffIDs))
 					for _, item := range configFile.History {

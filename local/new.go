@@ -86,14 +86,14 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...ImageOption) (*
 }
 
 func defaultPlatform(dockerClient DockerClient) (imgutil.Platform, error) {
-	daemonInfo, err := dockerClient.Info(context.Background())
+	versionInfo, err := dockerClient.ServerVersion(context.Background())
 	if err != nil {
 		return imgutil.Platform{}, err
 	}
 
 	return imgutil.Platform{
-		OS:           daemonInfo.OSType,
-		Architecture: "amd64",
+		OS:           versionInfo.Os,
+		Architecture: versionInfo.Arch,
 	}, nil
 }
 

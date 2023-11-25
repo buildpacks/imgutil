@@ -100,10 +100,14 @@ func WithPreviousImage(imageName string) ImageOption {
 // insecure parameter allows image references to be fetched without TLS.
 func WithRegistrySetting(repository string, insecure bool) ImageOption {
 	return func(opts *options) error {
-		opts.registrySettings = make(map[string]registrySetting)
+		if len(opts.registrySettings) == 0 {
+			opts.registrySettings = make(map[string]registrySetting)
+		}
+
 		opts.registrySettings[repository] = registrySetting{
 			insecure: insecure,
 		}
+
 		return nil
 	}
 }

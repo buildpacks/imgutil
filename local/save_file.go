@@ -3,7 +3,6 @@ package local
 import (
 	"archive/tar"
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,9 +30,10 @@ func (i *Image) SaveFile() (string, error) {
 		}
 	}()
 
-	// All layers need to be present here. Missing layers are either due to utilization of: (1) WithPreviousImage(),
-	// or (2) FromBaseImage(). The former is only relevant if ReuseLayers() has been called which takes care of
-	// resolving them. The latter case needs to be handled explicitly.
+	// All layers need to be present here. Missing layers are either due to utilization of
+	// (1) WithPreviousImage(), or (2) FromBaseImage().
+	// The former is only relevant if ReuseLayers() has been called which takes care of resolving them.
+	// The latter case needs to be handled explicitly.
 	if err := i.downloadBaseLayersOnce(); err != nil {
 		return "", errors.Wrap(err, "failed to fetch base layers")
 	}
@@ -55,63 +55,16 @@ func (i *Image) SaveFile() (string, error) {
 		tw := tar.NewWriter(pw)
 		defer tw.Close()
 
-		config, err := i.newConfigFile()
-		if err != nil {
-			return errors.Wrap(err, "failed to generate config file")
-		}
-
-		configName := fmt.Sprintf("/%x.json", sha256.Sum256(config))
-		if err := addTextToTar(tw, configName, config); err != nil {
-			return errors.Wrap(err, "failed to add config file to tar archive")
-		}
-
-		for _, path := range i.layerPaths {
-			err := func() error {
-				f, err := os.Open(filepath.Clean(path))
-				if err != nil {
-					return errors.Wrapf(err, "failed to open layer path: %s", path)
-				}
-				defer f.Close()
-
-				layerName := fmt.Sprintf("/%x.tar", sha256.Sum256([]byte(path)))
-				if err := addFileToTar(tw, layerName, f); err != nil {
-					return errors.Wrapf(err, "failed to add layer to tar archive from path: %s", path)
-				}
-
-				return nil
-			}()
-
-			if err != nil {
-				return err
-			}
-		}
-
 		t, err := registryName.NewTag(i.repoName, registryName.WeakValidation)
 		if err != nil {
 			return errors.Wrap(err, "failed to create tag")
 		}
 
-		layers := make([]string, 0, len(i.layerPaths))
-		for _, path := range i.layerPaths {
-			layers = append(layers, fmt.Sprintf("/%x.tar", sha256.Sum256([]byte(path))))
-		}
+		// returns valid 'name:tag' appending 'latest', if missing tag
+		repoName := t.Name()
 
-		manifest, err := json.Marshal([]map[string]interface{}{
-			{
-				"Config":   configName,
-				"RepoTags": []string{t.Name()},
-				"Layers":   layers,
-			},
-		})
-		if err != nil {
-			return errors.Wrap(err, "failed to create manifest")
-		}
-
-		if err := addTextToTar(tw, "/manifest.json", manifest); err != nil {
-			return errors.Wrap(err, "failed to add manifest to tar archive")
-		}
-
-		return nil
+		_, err = i.addImageToTar(tw, repoName)
+		return err
 	})
 
 	err = errs.Wait()

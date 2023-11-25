@@ -41,6 +41,7 @@ type DockerClient interface {
 	ImageSave(ctx context.Context, images []string) (io.ReadCloser, error)
 	ImageTag(ctx context.Context, image, ref string) error
 	Info(ctx context.Context) (types.Info, error)
+	ServerVersion(ctx context.Context) (types.Version, error)
 }
 
 // getters
