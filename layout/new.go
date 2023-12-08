@@ -1,16 +1,65 @@
 package layout
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
 )
+
+func NewIndex(manifestOnly bool, ops ...imgutil.IndexOption) (index *imgutil.ImageIndex, err error) {
+	idxOps := &imgutil.IndexStruct{}
+	for _, op := range ops {
+		if err := op(idxOps); err != nil {
+			return index, err
+		}
+	}
+
+	idxRootPath := filepath.Join(idxOps.XdgRuntimePath(), idxOps.RepoName())
+	_, err = layout.FromPath(idxRootPath)
+	if err != nil {
+		return index, fmt.Errorf("imageIndex with the given name doesn't exists")
+	}
+
+	idxMapPath := filepath.Join(idxRootPath, "index.map.json")
+	if _, err = os.Stat(idxMapPath); err == nil {
+		file , err := os.Open(idxMapPath)
+		if err == nil {
+			var idxMap *imgutil.IndexMap = &imgutil.IndexMap{}
+			err = json.NewDecoder(file).Decode(idxMap)
+			if err != nil {
+				return index, err
+			}
+
+			idxOps.IndexMap(idxMap)
+		}
+	}
+
+	if manifestOnly {
+		index = &imgutil.ImageIndex{
+			Handler: &imgutil.ManifestHandler{
+				IndexStruct: *idxOps,
+			},
+		}
+	} else {
+		index = &imgutil.ImageIndex{
+			Handler: &imgutil.ImageIndexHandler{
+				IndexStruct: *idxOps,
+			},
+		}
+	}
+
+	return
+}
 
 func NewImage(path string, ops ...ImageOption) (*Image, error) {
 	imageOpts := &options{}
@@ -42,7 +91,6 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 		}
 	}
 
-	hasBaseImage := imageOpts.baseImagePath != "" || imageOpts.baseImage != nil
 	if imageOpts.baseImagePath != "" {
 		if err := processBaseImageOption(ri, imageOpts.baseImagePath, platform); err != nil {
 			return nil, err
@@ -59,10 +107,10 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 		ri.createdAt = imageOpts.createdAt
 	}
 
-	if imageOpts.mediaTypes != imgutil.MissingTypes {
-		ri.requestedMediaTypes = imageOpts.mediaTypes
-	} else if !hasBaseImage {
+	if imageOpts.mediaTypes == imgutil.MissingTypes {
 		ri.requestedMediaTypes = imgutil.OCITypes
+	} else {
+		ri.requestedMediaTypes = imageOpts.mediaTypes
 	}
 	if err = ri.setUnderlyingImage(ri.Image); err != nil { // update media types
 		return nil, err

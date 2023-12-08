@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -19,7 +21,53 @@ import (
 
 	"github.com/buildpacks/imgutil"
 	"github.com/buildpacks/imgutil/layer"
+	"github.com/buildpacks/imgutil/layout"
 )
+
+func NewIndex(manifestOnly bool, ops ...imgutil.IndexOption) (index *imgutil.ImageIndex, err error) {
+	idxOps := &imgutil.IndexStruct{}
+	for _, op := range ops {
+		if err := op(idxOps); err != nil {
+			return index, err
+		}
+	}
+
+	idxRootPath := filepath.Join(idxOps.XdgRuntimePath(), idxOps.RepoName())
+	_, err = layout.FromPath(idxRootPath)
+	if err != nil {
+		return index, fmt.Errorf("imageIndex with the given name doesn't exists")
+	}
+
+	idxMapPath := filepath.Join(idxRootPath, "index.map.json")
+	if _, err = os.Stat(idxMapPath); err == nil {
+		file , err := os.Open(idxMapPath)
+		if err == nil {
+			var idxMap *imgutil.IndexMap = &imgutil.IndexMap{}
+			err = json.NewDecoder(file).Decode(idxMap)
+			if err != nil {
+				return index, err
+			}
+
+			idxOps.IndexMap(idxMap)
+		}
+	}
+
+	if manifestOnly {
+		index = &imgutil.ImageIndex{
+			Handler: &imgutil.ManifestHandler{
+				IndexStruct: *idxOps,
+			},
+		}
+	} else {
+		index = &imgutil.ImageIndex{
+			Handler: &imgutil.ImageIndexHandler{
+				IndexStruct: *idxOps,
+			},
+		}
+	}
+
+	return
+}
 
 // NewImage returns a new Image that can be modified and saved to a registry.
 func NewImage(repoName string, dockerClient DockerClient, ops ...ImageOption) (*Image, error) {

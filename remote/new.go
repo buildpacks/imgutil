@@ -1,9 +1,10 @@
 package remote
 
 import (
+	"fmt"
 	"io"
 	"net/http"
-	"runtime"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
@@ -20,6 +22,37 @@ import (
 	"github.com/buildpacks/imgutil"
 	"github.com/buildpacks/imgutil/layer"
 )
+
+func NewIndex(manifestOnly bool, ops ...imgutil.IndexOption) (index *imgutil.ImageIndex, err error) {
+	idxOps := &imgutil.IndexStruct{}
+	for _, op := range ops {
+		if err := op(idxOps); err != nil {
+			return index, err
+		}
+	}
+
+	idxRootPath := filepath.Join(idxOps.XdgRuntimePath(), idxOps.RepoName())
+	_, err = layout.FromPath(idxRootPath)
+	if err == nil {
+		return index, fmt.Errorf("imageIndex with the given name already exists")
+	}
+
+	if manifestOnly {
+		index = &imgutil.ImageIndex{
+			Handler: &imgutil.ManifestHandler{
+				IndexStruct: *idxOps,
+			},
+		}
+	} else {
+		index = &imgutil.ImageIndex{
+			Handler: &imgutil.ImageIndexHandler{
+				IndexStruct: *idxOps,
+			},
+		}
+	}
+
+	return
+}
 
 // NewImage returns a new Image that can be modified and saved to a Docker daemon.
 func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Image, error) {
@@ -94,7 +127,7 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 func defaultPlatform() imgutil.Platform {
 	return imgutil.Platform{
 		OS:           "linux",
-		Architecture: runtime.GOARCH,
+		Architecture: "amd64",
 	}
 }
 

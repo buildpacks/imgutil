@@ -125,6 +125,15 @@ func (t MediaTypes) LayerType() types.MediaType {
 	}
 }
 
+func(t MediaTypes) IndexType() types.MediaType {
+	switch t {
+	case DockerTypes:
+		return types.DockerManifestList
+	default:
+		return types.OCIImageIndex
+	}
+}
+
 // OverrideMediaTypes mutates the provided v1.Image to use the desired media types
 // in the image manifest and config files (including the layers referenced in the manifest)
 func OverrideMediaTypes(image v1.Image, mediaTypes MediaTypes) (v1.Image, error) {
