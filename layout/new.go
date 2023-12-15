@@ -50,12 +50,6 @@ func NewIndex(manifestOnly bool, ops ...imgutil.IndexOption) (index *imgutil.Ima
 				IndexStruct: *idxOps,
 			},
 		}
-	} else {
-		index = &imgutil.ImageIndex{
-			Handler: &imgutil.ImageIndexHandler{
-				IndexStruct: *idxOps,
-			},
-		}
 	}
 
 	return index, err

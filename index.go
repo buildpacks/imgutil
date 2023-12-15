@@ -56,8 +56,6 @@ type ImageIndex struct {
 	Handler Index
 }
 
-const digestDelim = "@"
-
 type ManifestAction int
 type NewManifest map[v1.Hash][]byte
 type InstanceMap map[v1.Hash][]instance
@@ -80,7 +78,6 @@ type ManifestHandler struct {
 }
 
 var _ Index = (*ManifestHandler)(nil)
-var _ Index = (*ImageIndexHandler)(nil)
 
 type instance struct {
 	action     ManifestAction
@@ -196,24 +193,6 @@ func (m *IndexMap) AddIndex(index *v1.IndexManifest, hash v1.Hash, repoName stri
 			if err != nil {
 				return manifest, err
 			}
-
-			// idxHash := mfest.Subject.Digest
-			// digest := repoName + digestDelim + idxHash.String()
-			// ref, err := name.ParseReference(digest, name.WeakValidation)
-			// if err != nil {
-			// 	return manifest, err
-			// }
-
-			// index, err := remote.Index(ref, remote.WithAuthFromKeychain(keys))
-			// if err != nil {
-			// 	return manifest, err
-			// }
-
-			// mfest, err = index.IndexManifest()
-			// if err != nil {
-			// 	return manifest, err
-			// }
-
 			m.AddIndex(mfest, hash, repoName, keys)
 		}
 	}
@@ -503,38 +482,6 @@ func (i *ImageIndex) Architecture(digest name.Digest) (arch string, err error) {
 	return i.Handler.Architecture(digest)
 }
 
-func (i *ImageIndexHandler) Architecture(digest name.Digest) (arch string, err error) {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return arch, err
-	}
-
-	manifest, err := i.newManifest.IndexManifest(hash)
-	if err != nil {
-		manifest, err := i.newManifest.Manifest(hash)
-		if err != nil {
-			return arch, err
-		}
-
-		arch = manifest.Config.Platform.Architecture
-
-		if arch == "" {
-			return archFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-		}
-
-		return arch, err
-	}
-
-	arch = manifest.Subject.Platform.Architecture
-
-	if arch == "" {
-		return archFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-	}
-
-	return arch, err
-}
-
 func (i *ManifestHandler) Architecture(digest name.Digest) (arch string, err error) {
 	digestStr := digest.Identifier()
 	hash, err := v1.NewHash(digestStr)
@@ -576,38 +523,6 @@ func archFromPath(repoName, xdgRuntimePath, digestStr string) (arch string, err 
 
 func (i *ImageIndex) Variant(digest name.Digest) (osVariant string, err error) {
 	return i.Handler.Variant(digest)
-}
-
-func (i *ImageIndexHandler) Variant(digest name.Digest) (osVariant string, err error) {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return osVariant, err
-	}
-
-	manifest, err := i.newManifest.IndexManifest(hash)
-	if err != nil {
-		manifest, err := i.newManifest.Manifest(hash)
-		if err != nil {
-			return osVariant, err
-		}
-
-		osVariant = manifest.Config.Platform.Variant
-
-		if osVariant == "" {
-			return osVariantFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-		}
-
-		return osVariant, err
-	}
-
-	osVariant = manifest.Subject.Platform.Variant
-
-	if osVariant == "" {
-		return osVariantFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-	}
-
-	return osVariant, err
 }
 
 func (i *ManifestHandler) Variant(digest name.Digest) (osVariant string, err error) {
@@ -653,38 +568,6 @@ func (i *ImageIndex) OSVersion(digest name.Digest) (osVersion string, err error)
 	return i.Handler.OSVersion(digest)
 }
 
-func (i *ImageIndexHandler) OSVersion(digest name.Digest) (osVersion string, err error) {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return osVersion, err
-	}
-
-	manifest, err := i.newManifest.IndexManifest(hash)
-	if err != nil {
-		manifest, err := i.newManifest.Manifest(hash)
-		if err != nil {
-			return osVersion, err
-		}
-
-		osVersion = manifest.Config.Platform.OSVersion
-
-		if osVersion == "" {
-			return osVersionFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-		}
-
-		return osVersion, err
-	}
-
-	osVersion = manifest.Subject.Platform.OSVersion
-
-	if osVersion == "" {
-		return osVersionFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-	}
-
-	return osVersion, err
-}
-
 func (i *ManifestHandler) OSVersion(digest name.Digest) (osVersion string, err error) {
 	digestStr := digest.Identifier()
 	hash, err := v1.NewHash(digestStr)
@@ -726,38 +609,6 @@ func osVersionFromPath(repoName, xdgRuntimePath, digestStr string) (osVersion st
 
 func (i *ImageIndex) Features(digest name.Digest) (features []string, err error) {
 	return i.Handler.Features(digest)
-}
-
-func (i *ImageIndexHandler) Features(digest name.Digest) (features []string, err error) {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return features, err
-	}
-
-	manifest, err := i.newManifest.IndexManifest(hash)
-	if err != nil {
-		manifest, err := i.newManifest.Manifest(hash)
-		if err != nil {
-			return features, err
-		}
-
-		features = manifest.Config.Platform.Features
-
-		if features == nil {
-			return featuresFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-		}
-
-		return features, err
-	}
-
-	features = manifest.Subject.Platform.Features
-
-	if features == nil {
-		return featuresFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-	}
-
-	return features, err
 }
 
 func (i *ManifestHandler) Features(digest name.Digest) (features []string, err error) {
@@ -803,38 +654,6 @@ func (i *ImageIndex) OSFeatures(digest name.Digest) (osFeatures []string, err er
 	return i.Handler.OSFeatures(digest)
 }
 
-func (i *ImageIndexHandler) OSFeatures(digest name.Digest) (osFeatures []string, err error) {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return osFeatures, err
-	}
-
-	manifest, err := i.newManifest.IndexManifest(hash)
-	if err != nil {
-		manifest, err := i.newManifest.Manifest(hash)
-		if err != nil {
-			return osFeatures, err
-		}
-
-		osFeatures = manifest.Config.Platform.OSFeatures
-
-		if osFeatures == nil {
-			return osFeaturesFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-		}
-
-		return osFeatures, err
-	}
-
-	osFeatures = manifest.Subject.Platform.OSFeatures
-
-	if osFeatures == nil {
-		return osFeaturesFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-	}
-
-	return osFeatures, err
-}
-
 func (i *ManifestHandler) OSFeatures(digest name.Digest) (osFeatures []string, err error) {
 	digestStr := digest.Identifier()
 	hash, err := v1.NewHash(digestStr)
@@ -878,38 +697,6 @@ func (i *ImageIndex) Annotations(digest name.Digest) (annotations map[string]str
 	return i.Handler.Annotations(digest)
 }
 
-func (i *ImageIndexHandler) Annotations(digest name.Digest) (annotations map[string]string, err error) {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return annotations, err
-	}
-
-	manifest, err := i.newManifest.IndexManifest(hash)
-	if err != nil {
-		manifest, err := i.newManifest.Manifest(hash)
-		if err != nil {
-			return annotations, err
-		}
-
-		annotations = manifest.Config.Annotations
-
-		if annotations == nil {
-			return annotationsFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-		}
-
-		return annotations, err
-	}
-
-	annotations = manifest.Subject.Annotations
-
-	if annotations == nil {
-		return annotationsFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-	}
-
-	return annotations, err
-}
-
 func (i *ManifestHandler) Annotations(digest name.Digest) (annotations map[string]string, err error) {
 	digestStr := digest.Identifier()
 	hash, err := v1.NewHash(digestStr)
@@ -951,38 +738,6 @@ func annotationsFromPath(repoName, xdgRuntimePath, digestStr string) (annotation
 
 func (i *ImageIndex) URLs(digest name.Digest) (urls []string, err error) {
 	return i.Handler.URLs(digest)
-}
-
-func (i *ImageIndexHandler) URLs(digest name.Digest) (urls []string, err error) {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return urls, err
-	}
-
-	manifest, err := i.newManifest.IndexManifest(hash)
-	if err != nil {
-		manifest, err := i.newManifest.Manifest(hash)
-		if err != nil {
-			return urls, err
-		}
-
-		urls = manifest.Config.URLs
-
-		if urls == nil {
-			return urlsFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-		}
-
-		return urls, err
-	}
-
-	urls = manifest.Subject.URLs
-
-	if urls == nil {
-		return urlsFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-	}
-
-	return urls, err
 }
 
 func (i *ManifestHandler) URLs(digest name.Digest) (urls []string, err error) {
@@ -1076,86 +831,6 @@ func (i *ImageIndex) SetOS(digest name.Digest, os string) error {
 	return i.Handler.SetOS(digest, os)
 }
 
-func (i *ImageIndexHandler) SetOS(digest name.Digest, os string) error {
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return err
-	}
-
-	idx, err := path.ImageIndex()
-	if err != nil {
-		return err
-	}
-
-	imgIdx, err := idx.ImageIndex(hash)
-	if err != nil {
-		img, err := idx.Image(hash)
-		if err != nil {
-			return err
-		}
-
-		manifest, err := img.Manifest()
-		if err != nil {
-			return err
-		}
-
-		dupManifest := manifest.DeepCopy()
-
-		dupManifest.Config.Platform.OS = os
-		manifestBytes, err := json.Marshal(dupManifest)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(
-			hash,
-			false,
-			layout.WithPlatform(
-				v1.Platform{
-					OS: os,
-				},
-			),
-		)
-
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	manifest, err := imgIdx.IndexManifest()
-	if err != nil {
-		return err
-	}
-
-	dupManifest := manifest.DeepCopy()
-
-	dupManifest.Subject.Platform.OS = os
-	manifestBytes, err := json.Marshal(dupManifest)
-	if err != nil {
-		return err
-	}
-
-	i.instance.Replace(
-		hash,
-		true,
-		layout.WithPlatform(
-			v1.Platform{
-				OS: os,
-			},
-		),
-	)
-
-	i.newManifest.Set(hash, manifestBytes)
-
-	return nil
-}
-
 func (i *ManifestHandler) SetOS(digest name.Digest, os string) error {
 	digestStr := digest.Identifier()
 	hash, err := v1.NewHash(digestStr)
@@ -1218,86 +893,6 @@ func (i *ImageIndex) SetArchitecture(digest name.Digest, arch string) error {
 	return i.Handler.SetArchitecture(digest, arch)
 }
 
-func (i *ImageIndexHandler) SetArchitecture(digest name.Digest, arch string) error {
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return err
-	}
-
-	idx, err := path.ImageIndex()
-	if err != nil {
-		return err
-	}
-
-	imgIdx, err := idx.ImageIndex(hash)
-	if err != nil {
-		img, err := idx.Image(hash)
-		if err != nil {
-			return err
-		}
-
-		manifest, err := img.Manifest()
-		if err != nil {
-			return err
-		}
-
-		dupManifest := manifest.DeepCopy()
-
-		dupManifest.Config.Platform.Architecture = arch
-		manifestBytes, err := json.Marshal(dupManifest)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(
-			hash,
-			false,
-			layout.WithPlatform(
-				v1.Platform{
-					Architecture: arch,
-				},
-			),
-		)
-
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	manifest, err := imgIdx.IndexManifest()
-	if err != nil {
-		return err
-	}
-
-	dupManifest := manifest.DeepCopy()
-
-	dupManifest.Subject.Platform.Architecture = arch
-	manifestBytes, err := json.Marshal(dupManifest)
-	if err != nil {
-		return err
-	}
-
-	i.instance.Replace(
-		hash,
-		true,
-		layout.WithPlatform(
-			v1.Platform{
-				Architecture: arch,
-			},
-		),
-	)
-
-	i.newManifest.Set(hash, manifestBytes)
-
-	return nil
-}
-
 func (i *ManifestHandler) SetArchitecture(digest name.Digest, arch string) error {
 	digestStr := digest.Identifier()
 	hash, err := v1.NewHash(digestStr)
@@ -1358,86 +953,6 @@ func (i *ManifestHandler) SetArchitecture(digest name.Digest, arch string) error
 
 func (i *ImageIndex) SetVariant(digest name.Digest, osVariant string) error {
 	return i.Handler.SetVariant(digest, osVariant)
-}
-
-func (i *ImageIndexHandler) SetVariant(digest name.Digest, osVariant string) error {
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return err
-	}
-
-	idx, err := path.ImageIndex()
-	if err != nil {
-		return err
-	}
-
-	imgIdx, err := idx.ImageIndex(hash)
-	if err != nil {
-		img, err := idx.Image(hash)
-		if err != nil {
-			return err
-		}
-
-		manifest, err := img.Manifest()
-		if err != nil {
-			return err
-		}
-
-		dupManifest := manifest.DeepCopy()
-
-		dupManifest.Config.Platform.Variant = osVariant
-		manifestBytes, err := json.Marshal(dupManifest)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(
-			hash,
-			false,
-			layout.WithPlatform(
-				v1.Platform{
-					Variant: osVariant,
-				},
-			),
-		)
-
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	manifest, err := imgIdx.IndexManifest()
-	if err != nil {
-		return err
-	}
-
-	dupManifest := manifest.DeepCopy()
-
-	dupManifest.Subject.Platform.Variant = osVariant
-	manifestBytes, err := json.Marshal(dupManifest)
-	if err != nil {
-		return err
-	}
-
-	i.instance.Replace(
-		hash,
-		true,
-		layout.WithPlatform(
-			v1.Platform{
-				Variant: osVariant,
-			},
-		),
-	)
-
-	i.newManifest.Set(hash, manifestBytes)
-
-	return nil
 }
 
 func (i *ManifestHandler) SetVariant(digest name.Digest, osVariant string) error {
@@ -1512,86 +1027,6 @@ func (i *ImageIndex) SetOSVersion(digest name.Digest, osVersion string) error {
 	return i.Handler.SetOSVersion(digest, osVersion)
 }
 
-func (i *ImageIndexHandler) SetOSVersion(digest name.Digest, osVersion string) error {
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return err
-	}
-
-	idx, err := path.ImageIndex()
-	if err != nil {
-		return err
-	}
-
-	imgIdx, err := idx.ImageIndex(hash)
-	if err != nil {
-		img, err := idx.Image(hash)
-		if err != nil {
-			return err
-		}
-
-		manifest, err := img.Manifest()
-		if err != nil {
-			return err
-		}
-
-		dupManifest := manifest.DeepCopy()
-
-		dupManifest.Config.Platform.OSVersion = osVersion
-		manifestBytes, err := json.Marshal(dupManifest)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(
-			hash,
-			false,
-			layout.WithPlatform(
-				v1.Platform{
-					OSVersion: osVersion,
-				},
-			),
-		)
-
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	manifest, err := imgIdx.IndexManifest()
-	if err != nil {
-		return err
-	}
-
-	dupManifest := manifest.DeepCopy()
-
-	dupManifest.Subject.Platform.OSVersion = osVersion
-	manifestBytes, err := json.Marshal(dupManifest)
-	if err != nil {
-		return err
-	}
-
-	i.instance.Replace(
-		hash,
-		true,
-		layout.WithPlatform(
-			v1.Platform{
-				OSVersion: osVersion,
-			},
-		),
-	)
-
-	i.newManifest.Set(hash, manifestBytes)
-
-	return nil
-}
-
 func (i *ManifestHandler) SetOSVersion(digest name.Digest, osVersion string) error {
 	digestStr := digest.Identifier()
 	hash, err := v1.NewHash(digestStr)
@@ -1659,86 +1094,6 @@ func (i *ManifestHandler) SetOSVersion(digest name.Digest, osVersion string) err
 
 func (i *ImageIndex) SetFeatures(digest name.Digest, features []string) error {
 	return i.Handler.SetFeatures(digest, features)
-}
-
-func (i *ImageIndexHandler) SetFeatures(digest name.Digest, features []string) error {
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return err
-	}
-
-	idx, err := path.ImageIndex()
-	if err != nil {
-		return err
-	}
-
-	imgIdx, err := idx.ImageIndex(hash)
-	if err != nil {
-		img, err := idx.Image(hash)
-		if err != nil {
-			return err
-		}
-
-		manifest, err := img.Manifest()
-		if err != nil {
-			return err
-		}
-
-		dupManifest := manifest.DeepCopy()
-
-		dupManifest.Config.Platform.Features = features
-		manifestBytes, err := json.Marshal(dupManifest)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(
-			hash,
-			false,
-			layout.WithPlatform(
-				v1.Platform{
-					Features: features,
-				},
-			),
-		)
-
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	manifest, err := imgIdx.IndexManifest()
-	if err != nil {
-		return err
-	}
-
-	dupManifest := manifest.DeepCopy()
-
-	dupManifest.Subject.Platform.Features = features
-	manifestBytes, err := json.Marshal(dupManifest)
-	if err != nil {
-		return err
-	}
-
-	i.instance.Replace(
-		hash,
-		true,
-		layout.WithPlatform(
-			v1.Platform{
-				Features: features,
-			},
-		),
-	)
-
-	i.newManifest.Set(hash, manifestBytes)
-
-	return nil
 }
 
 func (i *ManifestHandler) SetFeatures(digest name.Digest, features []string) error {
@@ -1812,86 +1167,6 @@ func (i *ImageIndex) SetOSFeatures(digest name.Digest, osFeatures []string) erro
 	return i.Handler.SetOSFeatures(digest, osFeatures)
 }
 
-func (i *ImageIndexHandler) SetOSFeatures(digest name.Digest, osFeatures []string) error {
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return err
-	}
-
-	idx, err := path.ImageIndex()
-	if err != nil {
-		return err
-	}
-
-	imgIdx, err := idx.ImageIndex(hash)
-	if err != nil {
-		img, err := idx.Image(hash)
-		if err != nil {
-			return err
-		}
-
-		manifest, err := img.Manifest()
-		if err != nil {
-			return err
-		}
-
-		dupManifest := manifest.DeepCopy()
-
-		dupManifest.Config.Platform.OSFeatures = osFeatures
-		manifestBytes, err := json.Marshal(dupManifest)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(
-			hash,
-			false,
-			layout.WithPlatform(
-				v1.Platform{
-					OSFeatures: osFeatures,
-				},
-			),
-		)
-
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	manifest, err := imgIdx.IndexManifest()
-	if err != nil {
-		return err
-	}
-
-	dupManifest := manifest.DeepCopy()
-
-	dupManifest.Subject.Platform.OSFeatures = osFeatures
-	manifestBytes, err := json.Marshal(dupManifest)
-	if err != nil {
-		return err
-	}
-
-	i.instance.Replace(
-		hash,
-		true,
-		layout.WithPlatform(
-			v1.Platform{
-				OSFeatures: osFeatures,
-			},
-		),
-	)
-
-	i.newManifest.Set(hash, manifestBytes)
-
-	return nil
-}
-
 func (i *ManifestHandler) SetOSFeatures(digest name.Digest, osFeatures []string) error {
 	digestStr := digest.Identifier()
 	hash, err := v1.NewHash(digestStr)
@@ -1961,78 +1236,6 @@ func (i *ManifestHandler) SetOSFeatures(digest name.Digest, osFeatures []string)
 
 func (i *ImageIndex) SetAnnotations(digest name.Digest, annotations map[string]string) error {
 	return i.Handler.SetAnnotations(digest, annotations)
-}
-
-func (i *ImageIndexHandler) SetAnnotations(digest name.Digest, annotations map[string]string) error {
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return err
-	}
-
-	idx, err := path.ImageIndex()
-	if err != nil {
-		return err
-	}
-
-	imgIdx, err := idx.ImageIndex(hash)
-	if err != nil {
-		img, err := idx.Image(hash)
-		if err != nil {
-			return err
-		}
-
-		manifest, err := img.Manifest()
-		if err != nil {
-			return err
-		}
-
-		dupManifest := manifest.DeepCopy()
-
-		dupManifest.Config.Annotations = annotations
-		manifestBytes, err := json.Marshal(dupManifest)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(
-			hash,
-			false,
-			layout.WithAnnotations(annotations),
-		)
-
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	manifest, err := imgIdx.IndexManifest()
-	if err != nil {
-		return err
-	}
-
-	dupManifest := manifest.DeepCopy()
-
-	dupManifest.Subject.Annotations = annotations
-	manifestBytes, err := json.Marshal(dupManifest)
-	if err != nil {
-		return err
-	}
-
-	i.instance.Replace(
-		hash,
-		true,
-		layout.WithAnnotations(annotations),
-	)
-
-	i.newManifest.Set(hash, manifestBytes)
-
-	return nil
 }
 
 func (i *ManifestHandler) SetAnnotations(digest name.Digest, annotations map[string]string) error {
@@ -2176,78 +1379,6 @@ func (i *ImageIndex) SetURLs(digest name.Digest, urls []string) error {
 	return i.Handler.SetURLs(digest, urls)
 }
 
-func (i *ImageIndexHandler) SetURLs(digest name.Digest, urls []string) error {
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return err
-	}
-
-	idx, err := path.ImageIndex()
-	if err != nil {
-		return err
-	}
-
-	imgIdx, err := idx.ImageIndex(hash)
-	if err != nil {
-		img, err := idx.Image(hash)
-		if err != nil {
-			return err
-		}
-
-		manifest, err := img.Manifest()
-		if err != nil {
-			return err
-		}
-
-		dupManifest := manifest.DeepCopy()
-
-		dupManifest.Config.URLs = urls
-		manifestBytes, err := json.Marshal(dupManifest)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(
-			hash,
-			false,
-			layout.WithURLs(urls),
-		)
-
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	manifest, err := imgIdx.IndexManifest()
-	if err != nil {
-		return err
-	}
-
-	dupManifest := manifest.DeepCopy()
-
-	dupManifest.Subject.URLs = urls
-	manifestBytes, err := json.Marshal(dupManifest)
-	if err != nil {
-		return err
-	}
-
-	i.instance.Replace(
-		hash,
-		true,
-		layout.WithURLs(urls),
-	)
-
-	i.newManifest.Set(hash, manifestBytes)
-
-	return nil
-}
-
 func (i *ManifestHandler) SetURLs(digest name.Digest, urls []string) error {
 	digestStr := digest.Identifier()
 	hash, err := v1.NewHash(digestStr)
@@ -2386,89 +1517,6 @@ func (i *ImageIndex) Add(ref name.Reference, ops IndexAddOptions) error {
 	return i.Handler.Add(ref, ops)
 }
 
-func (i *ImageIndexHandler) Add(ref name.Reference, ops IndexAddOptions) error {
-	idx, err := remote.Index(ref, remote.WithAuthFromKeychain(i.keychain))
-	if err != nil {
-		return err
-	}
-
-	hash, err := idx.Digest()
-	if err != nil {
-		img, err := remote.Image(ref, remote.WithAuthFromKeychain(i.keychain))
-		if err != nil {
-			return err
-		}
-
-		manifestBytes, err := img.RawConfigFile()
-		if err != nil {
-			return err
-		}
-
-		i.instance.AddImage(&img, ops.LayoutOptions()...)
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	if ops.all {
-		idxManifest, err := idx.IndexManifest()
-		if err != nil {
-			return err
-		}
-
-		descriptors, err := addAllManifests(idxManifest, ref.Context().Name(), &i.IndexStruct, ops)
-		if err != nil {
-			return err
-		}
-
-		for _, descriptor := range descriptors {
-			descManifestBytes, err := json.MarshalIndent(descriptor, "", "   ")
-			if err != nil {
-				return err
-			}
-
-			switch {
-			case descriptor.MediaType.IsIndex():
-				descIdx, err := v1.ParseIndexManifest(bytes.NewReader(descManifestBytes))
-				if err != nil {
-					return err
-				}
-
-				hash := descIdx.Subject.Digest
-				manifestBytes, err := json.Marshal(descIdx)
-				if err != nil {
-					return err
-				}
-
-				i.newManifest.Set(hash, manifestBytes)
-			case descriptor.MediaType.IsImage():
-				descImg, _ := v1.ParseManifest(bytes.NewReader(descManifestBytes))
-				var emptyHash v1.Hash
-				hash := descImg.Config.Digest
-				if hash == emptyHash {
-					hash = descImg.Subject.Digest
-					if err != nil {
-						return err
-					}
-				}
-
-				i.newManifest.Set(hash, descManifestBytes)
-			}
-		}
-
-		return nil
-	}
-	manifestBytes, err := idx.RawManifest()
-	if err != nil {
-		return err
-	}
-
-	i.instance.AddIndex(&idx, ops.LayoutOptions()...)
-	i.newManifest.Set(hash, manifestBytes)
-
-	return nil
-}
-
 func (i *ManifestHandler) Add(ref name.Reference, ops IndexAddOptions) error {
 	desc, err := remote.Head(ref, remote.WithAuthFromKeychain(i.keychain))
 	if err != nil {
@@ -2589,78 +1637,8 @@ func (i *ManifestHandler) Add(ref name.Reference, ops IndexAddOptions) error {
 	return fmt.Errorf("unexpected error occurred")
 }
 
-func addAllManifests(idxManifest *v1.IndexManifest, repoName string, index *IndexStruct, ops IndexAddOptions) (manifests []*v1.Manifest, err error) {
-	manifests, err = index.indexMap.AddIndex(idxManifest, idxManifest.Subject.Digest, repoName, index.keychain)
-	if err != nil {
-		return
-	}
-
-	for _, mfest := range manifests {
-		digestStr := repoName + digestDelim + mfest.Config.Digest.String()
-		mfestRef, err := name.ParseReference(digestStr, name.WeakValidation)
-		if err != nil {
-			return manifests, err
-		}
-
-		img, err := remote.Image(mfestRef, remote.WithAuthFromKeychain(index.keychain))
-		if err != nil {
-			return manifests, err
-		}
-
-		index.instance.AddImage(&img, ops.LayoutOptions()...)
-	}
-
-	return
-}
-
 func (i *ImageIndex) Save() error {
 	return i.Handler.Save()
-}
-
-func (i *ImageIndexHandler) Save() error {
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	for h := range *i.instance {
-		for _, manifestActions := range i.instance.get(h) {
-			switch manifestActions.action {
-			case ADD:
-				switch manifestActions.isIndex {
-				case true:
-					err := path.AppendIndex(*manifestActions.index, manifestActions.options...)
-					if err != nil {
-						return err
-					}
-				case false:
-					err := path.AppendImage(*manifestActions.image, manifestActions.options...)
-					if err != nil {
-						return err
-					}
-				}
-			case REPLACE:
-				switch manifestActions.isIndex {
-				case true:
-					err := path.ReplaceIndex(*manifestActions.index, match.Digests(manifestActions.hash), manifestActions.options...)
-					if err != nil {
-						return err
-					}
-				case false:
-					err := path.ReplaceImage(*manifestActions.image, match.Digests(manifestActions.hash), manifestActions.options...)
-					if err != nil {
-						return err
-					}
-				}
-			case DELETE:
-				err := path.RemoveDescriptors(match.Digests(manifestActions.hash))
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
 }
 
 func (i *ManifestHandler) Save() error {
@@ -2730,29 +1708,6 @@ func (i *ImageIndex) Push() error {
 	return i.Handler.Push()
 }
 
-func (i *ImageIndexHandler) Push() error {
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	imgIdx, err := path.ImageIndex()
-	if err != nil {
-		return err
-	}
-
-	// idxManifest, err := imgIdx.IndexManifest()
-	// if err != nil {
-	// 	return err
-	// }
-
-	// for _, manifest := range idxManifest.Manifests {
-	// 	// TODO: check if any Image or ImageIndex is not Pushed to registry
-	// }
-
-	return remote.WriteIndex(i.ref, imgIdx, remote.WithAuthFromKeychain(i.keychain))
-}
-
 func (i *ManifestHandler) Push() error {
 	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
 	if err != nil {
@@ -2770,53 +1725,6 @@ func (i *ManifestHandler) Push() error {
 func (i *ImageIndex) Inspect() error {
 	return i.Handler.Inspect()
 }
-
-func (i *ImageIndexHandler) Inspect() error {
-	return nil
-}
-
-// func inspect(digest name.Digest, i IndexStruct) error {
-// 	hash, err := v1.NewHash(digest.Identifier())
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	if manifestBytes, ok := i.newManifest.GetRaw(hash); ok {
-// 		return fmt.Errorf(string(manifestBytes))
-// 	}
-
-// 	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	idx, err := path.ImageIndex()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	img, err := idx.Image(hash)
-// 	if err != nil {
-// 		idxManifest, err := idx.ImageIndex(hash)
-// 		if err != nil {
-// 			return err
-// 		}
-
-// 		manifestBytes, err := idxManifest.RawManifest()
-// 		if err != nil {
-// 			return err
-// 		}
-
-// 		return fmt.Errorf(string(manifestBytes))
-// 	}
-
-// 	manifestBytes, err := img.RawManifest()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return fmt.Errorf(string(manifestBytes))
-// }
 
 func (i *ManifestHandler) Inspect() error {
 	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
@@ -2838,41 +1746,6 @@ func (i *ManifestHandler) Inspect() error {
 
 func (i *ImageIndex) Remove(digest name.Digest) error {
 	return i.Handler.Remove(digest)
-}
-
-func (i *ImageIndexHandler) Remove(digest name.Digest) error {
-	hash, err := v1.NewHash(digest.Identifier())
-	if err != nil {
-		return err
-	}
-
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	imgIdx, err := path.ImageIndex()
-	if err != nil {
-		return err
-	}
-
-	_, err = imgIdx.ImageIndex(hash)
-	if err != nil {
-		_, err := imgIdx.Image(hash)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Remove(hash, false)
-		i.newManifest.Delete(hash)
-
-		return nil
-	}
-
-	i.instance.Remove(hash, true)
-	i.newManifest.Delete(hash)
-
-	return nil
 }
 
 func (i *ManifestHandler) Remove(digest name.Digest) error {
@@ -2908,10 +1781,6 @@ func (i *ManifestHandler) Remove(digest name.Digest) error {
 
 func (i *ImageIndex) Delete() error {
 	return i.Handler.Delete()
-}
-
-func (i *ImageIndexHandler) Delete() error {
-	return os.RemoveAll(filepath.Join(i.xdgRuntimePath, i.repoName))
 }
 
 func (i *ManifestHandler) Delete() error {

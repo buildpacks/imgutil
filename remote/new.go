@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -40,12 +41,6 @@ func NewIndex(manifestOnly bool, ops ...imgutil.IndexOption) (index *imgutil.Ima
 	if manifestOnly {
 		index = &imgutil.ImageIndex{
 			Handler: &imgutil.ManifestHandler{
-				IndexStruct: *idxOps,
-			},
-		}
-	} else {
-		index = &imgutil.ImageIndex{
-			Handler: &imgutil.ImageIndexHandler{
 				IndexStruct: *idxOps,
 			},
 		}
@@ -127,7 +122,7 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 func defaultPlatform() imgutil.Platform {
 	return imgutil.Platform{
 		OS:           "linux",
-		Architecture: "amd64",
+		Architecture: runtime.GOARCH,
 	}
 }
 
