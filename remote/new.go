@@ -45,6 +45,7 @@ func NewIndex(manifestOnly bool, ops ...imgutil.IndexOption) (index *imgutil.Ima
 			},
 		}
 	}
+	err = index.Save()
 
 	return
 }

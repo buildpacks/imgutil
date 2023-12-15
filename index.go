@@ -194,6 +194,7 @@ func (m *IndexMap) AddIndex(index *v1.IndexManifest, hash v1.Hash, repoName stri
 				return manifest, err
 			}
 			m.AddIndex(mfest, hash, repoName, keys)
+			m.AddIndex(mfest, mfest.Subject.Digest, repoName, keys)
 		}
 	}
 
@@ -1073,6 +1074,7 @@ func (i *ManifestHandler) SetOSVersion(digest name.Digest, osVersion string) err
 	}
 
 	dupMfest := mfest.DeepCopy()
+	dupMfest.Subject.Platform.OSVersion = osVersion
 	manifestBytes, err := json.Marshal(dupMfest)
 	if err != nil {
 		return err
