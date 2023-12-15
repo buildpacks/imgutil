@@ -125,7 +125,7 @@ func (t MediaTypes) LayerType() types.MediaType {
 	}
 }
 
-func(t MediaTypes) IndexType() types.MediaType {
+func (t MediaTypes) IndexType() types.MediaType {
 	switch t {
 	case DockerTypes:
 		return types.DockerManifestList

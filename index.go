@@ -218,11 +218,11 @@ func (m *IndexMap) AddIndex(index *v1.IndexManifest, hash v1.Hash, repoName stri
 		}
 	}
 
-	return
+	return manifest, err
 }
 
-func (m *InstanceMap) Get(hash v1.Hash) []instance {
-	return (*m)[hash]
+func (m InstanceMap) get(hash v1.Hash) []instance {
+	return m[hash]
 }
 
 func (m InstanceMap) Add(hash v1.Hash, instances []instance) {
@@ -235,7 +235,7 @@ func (m InstanceMap) Add(hash v1.Hash, instances []instance) {
 }
 
 func (m *InstanceMap) AddDescriptor(desc *v1.Descriptor, ops ...layout.Option) error {
-	hash := (*desc).Digest
+	hash := desc.Digest
 	m.Add(hash, []instance{
 		{
 			action:     ADD,
@@ -424,43 +424,43 @@ func WithXDGRuntimePath(path string) IndexOption {
 	}
 }
 
-func (i *ImageIndex) OS(digest name.Digest) (OS string, err error) {
+func (i *ImageIndex) OS(digest name.Digest) (os string, err error) {
 	return i.Handler.OS(digest)
 }
 
-func (i *ImageIndexHandler) OS(digest name.Digest) (OS string, err error) {
+func (i *ImageIndexHandler) OS(digest name.Digest) (os string, err error) {
 	digestStr := digest.Identifier()
 	hash, err := v1.NewHash(digestStr)
 	if err != nil {
-		return OS, err
+		return os, err
 	}
 
 	manifest, err := i.newManifest.IndexManifest(hash)
 	if err != nil {
 		manifest, err := i.newManifest.Manifest(hash)
 		if err != nil {
-			return OS, err
+			return os, err
 		}
 
-		OS = manifest.Config.Platform.OS
+		os = manifest.Config.Platform.OS
 
-		if OS == "" {
+		if os == "" {
 			return osFromPath(i.repoName, i.xdgRuntimePath, digestStr)
 		}
 
-		return OS, err
+		return os, err
 	}
 
-	OS = manifest.Subject.Platform.OS
+	os = manifest.Subject.Platform.OS
 
-	if OS == "" {
+	if os == "" {
 		return osFromPath(i.repoName, i.xdgRuntimePath, digestStr)
 	}
 
-	return OS, err
+	return os, err
 }
 
-func (i *ManifestHandler) OS(digest name.Digest) (OS string, err error) {
+func (i *ManifestHandler) OS(digest name.Digest) (os string, err error) {
 	digestStr := digest.Identifier()
 	hash, err := v1.NewHash(digestStr)
 	if err != nil {
@@ -480,17 +480,17 @@ func (i *ManifestHandler) OS(digest name.Digest) (OS string, err error) {
 	return osFromPath(i.repoName, i.xdgRuntimePath, digestStr)
 }
 
-func osFromPath(repoName, xdgRuntimePath, digestStr string) (OS string, err error) {
+func osFromPath(repoName, xdgRuntimePath, digestStr string) (os string, err error) {
 	idx, err := idxFromRepoName(repoName, xdgRuntimePath)
 	if err != nil {
 		img, err := imgFromRepoName(repoName, digestStr, xdgRuntimePath)
 		if err != nil {
-			return OS, err
+			return os, err
 		}
 
 		config, err := img.ConfigFile()
 		if err != nil || config == nil {
-			return OS, err
+			return os, err
 		}
 
 		return config.OS, nil
@@ -1029,8 +1029,8 @@ func urlsFromPath(repoName, xdgRuntimePath, digestStr string) (urls []string, er
 	return idx.Subject.URLs, nil
 }
 
-func imgFromRepoName(repoName, hashString, XDGRuntimePath string) (image v1.Image, err error) {
-	idxPath, err := layoutPath(XDGRuntimePath, repoName)
+func imgFromRepoName(repoName, hashString, xdgRuntimePath string) (image v1.Image, err error) {
+	idxPath, err := layoutPath(xdgRuntimePath, repoName)
 	if err != nil {
 		return
 	}
@@ -1047,8 +1047,8 @@ func imgFromRepoName(repoName, hashString, XDGRuntimePath string) (image v1.Imag
 	return
 }
 
-func idxFromRepoName(repoName, XDGRuntimePath string) (index *v1.IndexManifest, err error) {
-	idxPath, err := layoutPath(XDGRuntimePath, repoName)
+func idxFromRepoName(repoName, xdgRuntimePath string) (index *v1.IndexManifest, err error) {
+	idxPath, err := layoutPath(xdgRuntimePath, repoName)
 	if err != nil {
 		return
 	}
@@ -2427,41 +2427,36 @@ func (i *ImageIndexHandler) Add(ref name.Reference, ops IndexAddOptions) error {
 				return err
 			}
 
-			switch true {
+			switch {
 			case descriptor.MediaType.IsIndex():
-				{
-					descIdx, err := v1.ParseIndexManifest(bytes.NewReader(descManifestBytes))
-					if err != nil {
-						return err
-					}
-
-					hash := descIdx.Subject.Digest
-					manifestBytes, err := json.Marshal(descIdx)
-					if err != nil {
-						return err
-					}
-
-					i.newManifest.Set(hash, manifestBytes)
+				descIdx, err := v1.ParseIndexManifest(bytes.NewReader(descManifestBytes))
+				if err != nil {
+					return err
 				}
+
+				hash := descIdx.Subject.Digest
+				manifestBytes, err := json.Marshal(descIdx)
+				if err != nil {
+					return err
+				}
+
+				i.newManifest.Set(hash, manifestBytes)
 			case descriptor.MediaType.IsImage():
-				{
-					descImg, _ := v1.ParseManifest(bytes.NewReader(descManifestBytes))
-					var emptyHash v1.Hash
-					hash := descImg.Config.Digest
-					if hash == emptyHash {
-						hash = descImg.Subject.Digest
-						if err != nil {
-							return err
-						}
+				descImg, _ := v1.ParseManifest(bytes.NewReader(descManifestBytes))
+				var emptyHash v1.Hash
+				hash := descImg.Config.Digest
+				if hash == emptyHash {
+					hash = descImg.Subject.Digest
+					if err != nil {
+						return err
 					}
-
-					i.newManifest.Set(hash, descManifestBytes)
 				}
+
+				i.newManifest.Set(hash, descManifestBytes)
 			}
 		}
 
 		return nil
-
 	}
 	manifestBytes, err := idx.RawManifest()
 	if err != nil {
@@ -2485,7 +2480,7 @@ func (i *ManifestHandler) Add(ref name.Reference, ops IndexAddOptions) error {
 		return err
 	}
 
-	switch true {
+	switch {
 	case desc.MediaType.IsImage():
 		if ops.all {
 			fmt.Printf("ignoring `-all`, ref: %s is Image", ref.Name())
@@ -2504,19 +2499,19 @@ func (i *ManifestHandler) Add(ref name.Reference, ops IndexAddOptions) error {
 		}
 
 		if ops.all {
-			for _, descManifest := range mfestIdx.Manifests {
-				if descManifest.MediaType.IsImage() {
-					descManifestImgBytes, err := json.MarshalIndent(descManifest, "", "   ")
+			for idx := range mfestIdx.Manifests {
+				if mfestIdx.Manifests[idx].MediaType.IsImage() {
+					descManifestImgBytes, err := json.MarshalIndent(mfestIdx.Manifests[idx], "", "   ")
 					if err != nil {
 						return err
 					}
 
-					err = i.instance.AddDescriptor(&descManifest, ops.LayoutOptions()...)
+					err = i.instance.AddDescriptor(&mfestIdx.Manifests[idx], ops.LayoutOptions()...)
 					if err != nil {
 						return err
 					}
 
-					i.newManifest.Set(descManifest.Digest, descManifestImgBytes)
+					i.newManifest.Set(mfestIdx.Manifests[idx].Digest, descManifestImgBytes)
 				}
 			}
 
@@ -2591,7 +2586,7 @@ func (i *ManifestHandler) Add(ref name.Reference, ops IndexAddOptions) error {
 
 		return addSingleImage(matchingDescriptor)
 	}
-	return fmt.Errorf("unexpected error occured")
+	return fmt.Errorf("unexpected error occurred")
 }
 
 func addAllManifests(idxManifest *v1.IndexManifest, repoName string, index *IndexStruct, ops IndexAddOptions) (manifests []*v1.Manifest, err error) {
@@ -2629,7 +2624,7 @@ func (i *ImageIndexHandler) Save() error {
 	}
 
 	for h := range *i.instance {
-		for _, manifestActions := range i.instance.Get(h) {
+		for _, manifestActions := range i.instance.get(h) {
 			switch manifestActions.action {
 			case ADD:
 				switch manifestActions.isIndex {
@@ -2686,7 +2681,7 @@ func (i *ManifestHandler) Save() error {
 	}
 
 	for h := range *i.instance {
-		for _, manifestActions := range i.instance.Get(h) {
+		for _, manifestActions := range i.instance.get(h) {
 			switch manifestActions.action {
 			case ADD:
 				if manifestActions.descriptor.MediaType == types.DockerManifestList {

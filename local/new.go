@@ -40,9 +40,9 @@ func NewIndex(manifestOnly bool, ops ...imgutil.IndexOption) (index *imgutil.Ima
 
 	idxMapPath := filepath.Join(idxRootPath, "index.map.json")
 	if _, err = os.Stat(idxMapPath); err == nil {
-		file , err := os.Open(idxMapPath)
+		file, err := os.Open(idxMapPath)
 		if err == nil {
-			var idxMap *imgutil.IndexMap = &imgutil.IndexMap{}
+			var idxMap = &imgutil.IndexMap{}
 			err = json.NewDecoder(file).Decode(idxMap)
 			if err != nil {
 				return index, err
@@ -66,7 +66,7 @@ func NewIndex(manifestOnly bool, ops ...imgutil.IndexOption) (index *imgutil.Ima
 		}
 	}
 
-	return
+	return index, err
 }
 
 // NewImage returns a new Image that can be modified and saved to a registry.
