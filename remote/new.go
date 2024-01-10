@@ -24,7 +24,7 @@ import (
 	"github.com/buildpacks/imgutil/layer"
 )
 
-func NewIndex(manifestOnly bool, ops ...imgutil.IndexOption) (index *imgutil.ImageIndex, err error) {
+func NewIndex(name string, manifestOnly bool, ops ...imgutil.IndexOption) (index *imgutil.ImageIndex, err error) {
 	idxOps := &imgutil.IndexStruct{}
 	for _, op := range ops {
 		if err := op(idxOps); err != nil {
@@ -32,7 +32,7 @@ func NewIndex(manifestOnly bool, ops ...imgutil.IndexOption) (index *imgutil.Ima
 		}
 	}
 
-	idxRootPath := filepath.Join(idxOps.XdgRuntimePath(), idxOps.RepoName())
+	idxRootPath := filepath.Join(idxOps.XdgRuntimePath(), name)
 	_, err = layout.FromPath(idxRootPath)
 	if err == nil {
 		return index, fmt.Errorf("imageIndex with the given name already exists")

@@ -44,9 +44,9 @@ type Index interface {
 
 	// misc
 
-	Add(ref name.Reference, ops IndexAddOptions) error
+	Add(ref name.Reference, ops ...IndexAddOption) error
 	Save() error
-	Push() error
+	Push(ops ...IndexAddOption) error
 	Inspect() error
 	Remove(digest name.Digest) error
 	Delete() error
@@ -90,10 +90,11 @@ type instance struct {
 }
 
 type IndexAddOptions struct {
-	all                          bool
+	all, insecure, purge         bool
 	os, arch, variant, osVersion string
 	features, osFeatures         []string
 	annotations                  map[string]string
+	format                       MediaTypes
 }
 
 func (o *IndexAddOptions) LayoutOptions() (ops []layout.Option) {
@@ -121,9 +122,21 @@ func (o *IndexAddOptions) LayoutOptions() (ops []layout.Option) {
 	return ops
 }
 
-func WithAll() IndexAddOption {
+func WithFormat(format MediaTypes) IndexAddOption {
 	return func(o *IndexAddOptions) {
-		o.all = true
+		o.format = format
+	}
+}
+
+func WithInsecure(insecure bool) IndexAddOption {
+	return func(o *IndexAddOptions) {
+		o.insecure = insecure
+	}
+}
+
+func WithAll(all bool) IndexAddOption {
+	return func(o *IndexAddOptions) {
+		o.all = all
 	}
 }
 
@@ -1515,11 +1528,16 @@ func (i *ManifestHandler) SetURLs(digest name.Digest, urls []string) error {
 	return nil
 }
 
-func (i *ImageIndex) Add(ref name.Reference, ops IndexAddOptions) error {
-	return i.Handler.Add(ref, ops)
+func (i *ImageIndex) Add(ref name.Reference, ops ...IndexAddOption) error {
+	return i.Handler.Add(ref, ops...)
 }
 
-func (i *ManifestHandler) Add(ref name.Reference, ops IndexAddOptions) error {
+func (i *ManifestHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
+	var opts = IndexAddOptions{}
+	for _, op := range ops {
+		op(&opts)
+	}
+
 	desc, err := remote.Head(ref, remote.WithAuthFromKeychain(i.keychain))
 	if err != nil {
 		return err
@@ -1532,11 +1550,11 @@ func (i *ManifestHandler) Add(ref name.Reference, ops IndexAddOptions) error {
 
 	switch {
 	case desc.MediaType.IsImage():
-		if ops.all {
+		if opts.all {
 			fmt.Printf("ignoring `-all`, ref: %s is Image", ref.Name())
 		}
 
-		err := i.instance.AddDescriptor(desc, ops.LayoutOptions()...)
+		err := i.instance.AddDescriptor(desc, opts.LayoutOptions()...)
 		if err != nil {
 			return err
 		}
@@ -1548,7 +1566,7 @@ func (i *ManifestHandler) Add(ref name.Reference, ops IndexAddOptions) error {
 			return err
 		}
 
-		if ops.all {
+		if opts.all {
 			for idx := range mfestIdx.Manifests {
 				if mfestIdx.Manifests[idx].MediaType.IsImage() {
 					descManifestImgBytes, err := json.MarshalIndent(mfestIdx.Manifests[idx], "", "   ")
@@ -1556,7 +1574,7 @@ func (i *ManifestHandler) Add(ref name.Reference, ops IndexAddOptions) error {
 						return err
 					}
 
-					err = i.instance.AddDescriptor(&mfestIdx.Manifests[idx], ops.LayoutOptions()...)
+					err = i.instance.AddDescriptor(&mfestIdx.Manifests[idx], opts.LayoutOptions()...)
 					if err != nil {
 						return err
 					}
@@ -1574,7 +1592,7 @@ func (i *ManifestHandler) Add(ref name.Reference, ops IndexAddOptions) error {
 				return err
 			}
 
-			err = i.instance.AddDescriptor(&descManifest, ops.LayoutOptions()...)
+			err = i.instance.AddDescriptor(&descManifest, opts.LayoutOptions()...)
 			if err != nil {
 				return err
 			}
@@ -1583,9 +1601,9 @@ func (i *ManifestHandler) Add(ref name.Reference, ops IndexAddOptions) error {
 			return nil
 		}
 
-		if ops.os == "" || ops.arch == "" {
+		if opts.os == "" || opts.arch == "" {
 			for _, descManifest := range mfestIdx.Manifests {
-				if (descManifest.Platform.OS == ops.os || descManifest.Platform.OS == runtime.GOOS) && (descManifest.Platform.Architecture == ops.arch || descManifest.Platform.Architecture == runtime.GOARCH) {
+				if (descManifest.Platform.OS == opts.os || descManifest.Platform.OS == runtime.GOOS) && (descManifest.Platform.Architecture == opts.arch || descManifest.Platform.Architecture == runtime.GOARCH) {
 					return addSingleImage(descManifest)
 				}
 
@@ -1608,19 +1626,19 @@ func (i *ManifestHandler) Add(ref name.Reference, ops IndexAddOptions) error {
 			currentCountMatch := 0
 
 			switch {
-			case ops.os != "" && descManifest.Platform.OS == ops.os:
+			case opts.os != "" && descManifest.Platform.OS == opts.os:
 				currentCountMatch++
 				fallthrough
-			case ops.arch != "" && descManifest.Platform.Architecture == ops.arch:
+			case opts.arch != "" && descManifest.Platform.Architecture == opts.arch:
 				currentCountMatch++
 				fallthrough
-			case ops.variant != "" && descManifest.Platform.Variant == ops.variant:
+			case opts.variant != "" && descManifest.Platform.Variant == opts.variant:
 				currentCountMatch++
 				fallthrough
-			case len(ops.features) != 0 && stringSlicesEqual(descManifest.Platform.Features, ops.features):
+			case len(opts.features) != 0 && stringSlicesEqual(descManifest.Platform.Features, opts.features):
 				currentCountMatch++
 				fallthrough
-			case len(ops.annotations) != 0 && reflect.DeepEqual(descManifest.Annotations, ops.annotations):
+			case len(opts.annotations) != 0 && reflect.DeepEqual(descManifest.Annotations, opts.annotations):
 				currentCountMatch++
 			}
 
@@ -1706,11 +1724,16 @@ func (i *ManifestHandler) Save() error {
 	return encoder.Encode(i.indexMap)
 }
 
-func (i *ImageIndex) Push() error {
-	return i.Handler.Push()
+func (i *ImageIndex) Push(ops ...IndexAddOption) error {
+	return i.Handler.Push(ops...)
 }
 
-func (i *ManifestHandler) Push() error {
+func (i *ManifestHandler) Push(ops ...IndexAddOption) error {
+	var pushOpts = IndexAddOptions{}
+	for _, op := range ops {
+		op(&pushOpts)
+	}
+
 	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
 	if err != nil {
 		return err
@@ -1721,7 +1744,27 @@ func (i *ManifestHandler) Push() error {
 		return err
 	}
 
-	return remote.WriteIndex(i.ref, imgIdx, remote.WithAuthFromKeychain(i.keychain))
+	mfest, err := imgIdx.IndexManifest()
+	if err != nil {
+		return err
+	}
+
+	if reqMediaType := pushOpts.format; mfest.MediaType != reqMediaType.IndexType() {
+		i.requestedMediaTypes = reqMediaType
+		if err = i.Save(); err != nil {
+			return err
+		}
+	}
+
+	if err = remote.WriteIndex(i.ref, imgIdx, remote.WithAuthFromKeychain(i.keychain)); err != nil {
+		return err
+	}
+
+	if pushOpts.purge {
+		return i.Delete()
+	}
+
+	return nil
 }
 
 func (i *ImageIndex) Inspect() error {
