@@ -90,11 +90,51 @@ type instance struct {
 }
 
 type IndexAddOptions struct {
-	all, insecure, purge         bool
+	all, purge                   bool
 	os, arch, variant, osVersion string
 	features, osFeatures         []string
 	annotations                  map[string]string
 	format                       MediaTypes
+}
+
+func NewIndex(name string, manifestOnly bool, ops ...IndexOption) (index *ImageIndex, err error) {
+	idxOps := &IndexStruct{}
+	for _, op := range ops {
+		if err := op(idxOps); err != nil {
+			return index, err
+		}
+	}
+
+	idxRootPath := filepath.Join(idxOps.XdgRuntimePath(), name)
+
+	_, err = layout.FromPath(idxRootPath)
+	if err != nil {
+		return index, fmt.Errorf("imageIndex with the given name doesn't exists")
+	}
+
+	idxMapPath := filepath.Join(idxRootPath, "index.map.json")
+	if _, err = os.Stat(idxMapPath); err == nil {
+		file, err := os.Open(idxMapPath)
+		if err == nil {
+			var idxMap = &IndexMap{}
+			err = json.NewDecoder(file).Decode(idxMap)
+			if err != nil {
+				return index, err
+			}
+
+			idxOps.IndexMap(idxMap)
+		}
+	}
+
+	if manifestOnly {
+		index = &ImageIndex{
+			Handler: &ManifestHandler{
+				IndexStruct: *idxOps,
+			},
+		}
+	}
+
+	return index, nil
 }
 
 func (o *IndexAddOptions) LayoutOptions() (ops []layout.Option) {
@@ -125,12 +165,6 @@ func (o *IndexAddOptions) LayoutOptions() (ops []layout.Option) {
 func WithFormat(format MediaTypes) IndexAddOption {
 	return func(o *IndexAddOptions) {
 		o.format = format
-	}
-}
-
-func WithInsecure(insecure bool) IndexAddOption {
-	return func(o *IndexAddOptions) {
-		o.insecure = insecure
 	}
 }
 
@@ -358,6 +392,7 @@ type IndexStruct struct {
 	indexMap            *IndexMap
 	xdgRuntimePath      string
 	ref                 name.Reference
+	insecure            bool
 }
 
 func (i *IndexStruct) KeyChain() authn.Keychain {
@@ -370,6 +405,10 @@ func (i *IndexStruct) RepoName() string {
 
 func (i *IndexStruct) XdgRuntimePath() string {
 	return i.xdgRuntimePath
+}
+
+func (i *IndexStruct) Insecure() bool {
+	return i.insecure
 }
 
 func (i *IndexStruct) IndexMap(indexMap *IndexMap) {
@@ -413,6 +452,13 @@ func WithMediaTypes(mediaType MediaTypes) IndexOption {
 func WithXDGRuntimePath(path string) IndexOption {
 	return func(i *IndexStruct) error {
 		i.xdgRuntimePath = path
+		return nil
+	}
+}
+
+func WithInsecure(insecure bool) IndexOption {
+	return func(i *IndexStruct) error {
+		i.insecure = insecure
 		return nil
 	}
 }

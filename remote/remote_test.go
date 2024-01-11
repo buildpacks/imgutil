@@ -80,6 +80,17 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		repoName = newTestImageName()
 	})
 
+	when("#NewIndex", func() {
+		it("should pull given index", func() {
+			_, err := remote.NewIndex("cnbs/sample-stack-build", true, imgutil.WithXDGRuntimePath("/xdgpath"))
+			h.AssertNil(t, err)
+		})
+		it("should return an error", func() {
+			_, err := remote.NewIndex("cnbs/unknown-image$", true)
+			h.AssertNotEq(t, err, nil)
+		})
+	})
+
 	when("#NewImage", func() {
 		when("no base image or platform is given", func() {
 			it("returns an empty image", func() {

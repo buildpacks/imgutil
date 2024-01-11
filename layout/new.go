@@ -1,9 +1,7 @@
 package layout
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -25,34 +23,10 @@ func NewIndex(name string, manifestOnly bool, ops ...imgutil.IndexOption) (index
 	}
 
 	idxRootPath := filepath.Join(idxOps.XdgRuntimePath(), name)
-	_, err = layout.FromPath(idxRootPath)
-	if err != nil {
-		return index, fmt.Errorf("imageIndex with the given name doesn't exists")
-	}
+	var imgIdx v1.ImageIndex
+	_, err = layout.Write(idxRootPath, imgIdx)
 
-	idxMapPath := filepath.Join(idxRootPath, "index.map.json")
-	if _, err = os.Stat(idxMapPath); err == nil {
-		file, err := os.Open(idxMapPath)
-		if err == nil {
-			var idxMap = &imgutil.IndexMap{}
-			err = json.NewDecoder(file).Decode(idxMap)
-			if err != nil {
-				return index, err
-			}
-
-			idxOps.IndexMap(idxMap)
-		}
-	}
-
-	if manifestOnly {
-		index = &imgutil.ImageIndex{
-			Handler: &imgutil.ManifestHandler{
-				IndexStruct: *idxOps,
-			},
-		}
-	}
-
-	return index, err
+	return
 }
 
 func NewImage(path string, ops ...ImageOption) (*Image, error) {

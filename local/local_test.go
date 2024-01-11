@@ -61,6 +61,17 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		h.PullIfMissing(t, dockerClient, runnableBaseImageName)
 	})
 
+	when("#NewIndex", func() {
+		it("should create a new docker manifest list", func() {
+			_, err := local.NewIndex("cnbs/sample-stack-build", true, imgutil.WithXDGRuntimePath("/xdgPath"))
+			h.AssertNil(t, err)
+		})
+		it("should return an error", func() {
+			_, err := local.NewIndex("cnbs/unknown-image$", true)
+			h.AssertNotEq(t, err, nil)
+		})
+	})
+
 	when("#NewImage", func() {
 		when("no base image or platform is given", func() {
 			it("returns an empty image", func() {

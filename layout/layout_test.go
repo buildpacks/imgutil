@@ -59,6 +59,17 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		os.RemoveAll(tmpDir)
 	})
 
+	when("#NewIndex", func() {
+		it("should create a new oci index", func() {
+			_, err := layout.NewIndex("cnbs/sample-stack-build", true, imgutil.WithXDGRuntimePath("/xdgPath"))
+			h.AssertNil(t, err)
+		})
+		it("should return an error", func() {
+			_, err := layout.NewIndex("cnbs/unknown-image$", true)
+			h.AssertNotEq(t, err, nil)
+		})
+	})
+
 	when("#NewImage", func() {
 		it.Before(func() {
 			imagePath = filepath.Join(tmpDir, "new-image")

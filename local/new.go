@@ -17,12 +17,55 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/partial"
+	ggcrTypes "github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
 	"github.com/buildpacks/imgutil/layer"
 	"github.com/buildpacks/imgutil/layout"
 )
+
+// Index is a singleton empty index, think: FROM scratch.
+var Index = dockerIndex{}
+
+type dockerIndex struct{}
+
+func (i dockerIndex) MediaType() (ggcrTypes.MediaType, error) {
+	return ggcrTypes.OCIImageIndex, nil
+}
+
+func (i dockerIndex) Digest() (v1.Hash, error) {
+	return partial.Digest(i)
+}
+
+func (i dockerIndex) Size() (int64, error) {
+	return partial.Size(i)
+}
+
+func (i dockerIndex) IndexManifest() (*v1.IndexManifest, error) {
+	return base(), nil
+}
+
+func (i dockerIndex) RawManifest() ([]byte, error) {
+	return json.Marshal(base())
+}
+
+func (i dockerIndex) Image(v1.Hash) (v1.Image, error) {
+	return nil, errors.New("empty index")
+}
+
+func (i dockerIndex) ImageIndex(v1.Hash) (v1.ImageIndex, error) {
+	return nil, errors.New("empty index")
+}
+
+func base() *v1.IndexManifest {
+	return &v1.IndexManifest{
+		SchemaVersion: 2,
+		MediaType:     ggcrTypes.DockerManifestList,
+		Manifests:     []v1.Descriptor{},
+	}
+}
 
 func NewIndex(name string, manifestOnly bool, ops ...imgutil.IndexOption) (index *imgutil.ImageIndex, err error) {
 	idxOps := &imgutil.IndexStruct{}
@@ -33,34 +76,10 @@ func NewIndex(name string, manifestOnly bool, ops ...imgutil.IndexOption) (index
 	}
 
 	idxRootPath := filepath.Join(idxOps.XdgRuntimePath(), name)
-	_, err = layout.FromPath(idxRootPath)
-	if err != nil {
-		return index, fmt.Errorf("imageIndex with the given name doesn't exists")
-	}
+	var imgIdx v1.ImageIndex
+	_, err = layout.Write(idxRootPath, imgIdx)
 
-	idxMapPath := filepath.Join(idxRootPath, "index.map.json")
-	if _, err = os.Stat(idxMapPath); err == nil {
-		file, err := os.Open(idxMapPath)
-		if err == nil {
-			var idxMap = &imgutil.IndexMap{}
-			err = json.NewDecoder(file).Decode(idxMap)
-			if err != nil {
-				return index, err
-			}
-
-			idxOps.IndexMap(idxMap)
-		}
-	}
-
-	if manifestOnly {
-		index = &imgutil.ImageIndex{
-			Handler: &imgutil.ManifestHandler{
-				IndexStruct: *idxOps,
-			},
-		}
-	}
-
-	return index, err
+	return
 }
 
 // NewImage returns a new Image that can be modified and saved to a registry.

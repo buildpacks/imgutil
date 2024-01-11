@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/name"
+	ggcrName "github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
@@ -22,6 +22,8 @@ import (
 
 	"github.com/buildpacks/imgutil"
 	"github.com/buildpacks/imgutil/layer"
+	packLayout "github.com/buildpacks/imgutil/layout"
+	"github.com/buildpacks/imgutil/local"
 )
 
 func NewIndex(name string, manifestOnly bool, ops ...imgutil.IndexOption) (index *imgutil.ImageIndex, err error) {
@@ -38,6 +40,35 @@ func NewIndex(name string, manifestOnly bool, ops ...imgutil.IndexOption) (index
 		return index, fmt.Errorf("imageIndex with the given name already exists")
 	}
 
+	index, err = local.NewIndex(name, manifestOnly, ops...)
+	if err == nil {
+		return
+	}
+
+	index, err = packLayout.NewIndex(name, manifestOnly, ops...)
+	if err == nil {
+		return
+	}
+
+	var idxRef ggcrName.Reference
+	if idxOps.Insecure() {
+		idxRef, err = ggcrName.ParseReference(name, ggcrName.WeakValidation, ggcrName.Insecure)
+		if err != nil {
+			return index, err
+		}
+	} else {
+		idxRef, err = ggcrName.ParseReference(name, ggcrName.WeakValidation)
+		if err != nil {
+			return index, err
+		}
+	}
+
+	imgIdx, err := remote.Index(idxRef, remote.WithAuthFromKeychain(idxOps.KeyChain()))
+	if err != nil {
+		return index, err
+	}
+
+	_, err = layout.Write(idxRootPath, imgIdx)
 	if manifestOnly {
 		index = &imgutil.ImageIndex{
 			Handler: &imgutil.ManifestHandler{
@@ -45,9 +76,8 @@ func NewIndex(name string, manifestOnly bool, ops ...imgutil.IndexOption) (index
 			},
 		}
 	}
-	err = index.Save()
 
-	return
+	return index, err
 }
 
 // NewImage returns a new Image that can be modified and saved to a Docker daemon.
@@ -276,13 +306,13 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 	return image, nil
 }
 
-func referenceForRepoName(keychain authn.Keychain, ref string, insecure bool) (name.Reference, authn.Authenticator, error) {
+func referenceForRepoName(keychain authn.Keychain, ref string, insecure bool) (ggcrName.Reference, authn.Authenticator, error) {
 	var auth authn.Authenticator
-	opts := []name.Option{name.WeakValidation}
+	opts := []ggcrName.Option{ggcrName.WeakValidation}
 	if insecure {
-		opts = append(opts, name.Insecure)
+		opts = append(opts, ggcrName.Insecure)
 	}
-	r, err := name.ParseReference(ref, opts...)
+	r, err := ggcrName.ParseReference(ref, opts...)
 	if err != nil {
 		return nil, nil, err
 	}
