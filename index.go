@@ -758,6 +758,10 @@ func (i *ImageIndex) Annotations(digest name.Digest) (annotations map[string]str
 }
 
 func (i *ManifestHandler) Annotations(digest name.Digest) (annotations map[string]string, err error) {
+	if i.requestedMediaTypes == DockerTypes {
+		return
+	}
+
 	digestStr := digest.Identifier()
 	hash, err := v1.NewHash(digestStr)
 	if err != nil {

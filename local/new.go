@@ -79,7 +79,17 @@ func NewIndex(name string, manifestOnly bool, ops ...imgutil.IndexOption) (index
 	var imgIdx v1.ImageIndex
 	_, err = layout.Write(idxRootPath, imgIdx)
 
-	return
+	if manifestOnly {
+		index = &imgutil.ImageIndex{
+			Handler: &imgutil.ManifestHandler{
+				IndexStruct: *idxOps,
+			},
+		}
+	} else {
+		panic("implementation needed")
+	}
+
+	return index, err
 }
 
 // NewImage returns a new Image that can be modified and saved to a registry.

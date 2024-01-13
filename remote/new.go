@@ -22,8 +22,6 @@ import (
 
 	"github.com/buildpacks/imgutil"
 	"github.com/buildpacks/imgutil/layer"
-	packLayout "github.com/buildpacks/imgutil/layout"
-	"github.com/buildpacks/imgutil/local"
 )
 
 func NewIndex(name string, manifestOnly bool, ops ...imgutil.IndexOption) (index *imgutil.ImageIndex, err error) {
@@ -38,16 +36,6 @@ func NewIndex(name string, manifestOnly bool, ops ...imgutil.IndexOption) (index
 	_, err = layout.FromPath(idxRootPath)
 	if err == nil {
 		return index, fmt.Errorf("imageIndex with the given name already exists")
-	}
-
-	index, err = local.NewIndex(name, manifestOnly, ops...)
-	if err == nil {
-		return
-	}
-
-	index, err = packLayout.NewIndex(name, manifestOnly, ops...)
-	if err == nil {
-		return
 	}
 
 	var idxRef ggcrName.Reference
@@ -75,6 +63,8 @@ func NewIndex(name string, manifestOnly bool, ops ...imgutil.IndexOption) (index
 				IndexStruct: *idxOps,
 			},
 		}
+	} else {
+		panic("implementation needed")
 	}
 
 	return index, err
