@@ -13,7 +13,7 @@ import (
 )
 
 // NewImage returns a new image that can be modified and saved to a docker daemon
-// via a tarball in OCI layout format.
+// via a tarball in legacy format.
 func NewImage(repoName string, dockerClient DockerClient, ops ...func(*imgutil.ImageOptions)) (imgutil.Image, error) {
 	options := &imgutil.ImageOptions{}
 	for _, op := range ops {

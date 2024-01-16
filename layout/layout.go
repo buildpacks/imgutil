@@ -152,7 +152,7 @@ func (i *Image) Identifier() (imgutil.Identifier, error) {
 }
 
 func (i *Image) Kind() string {
-	return fmt.Sprintf("%T", i)
+	return `layout`
 }
 
 func (i *Image) Label(key string) (string, error) {

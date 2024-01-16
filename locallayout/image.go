@@ -41,16 +41,25 @@ func (i idStringer) String() string {
 }
 
 // GetLayer returns an io.ReadCloser with uncompressed layer data.
-// The layer will always have data, even if that means downloading all of the image layers from the daemon.
+// The layer will always have data, even if that means downloading ALL the image layers from the daemon.
 func (i *Image) GetLayer(diffID string) (io.ReadCloser, error) {
 	layerHash, err := v1.NewHash(diffID)
 	if err != nil {
 		return nil, err
 	}
+	layer, err := i.LayerByDiffID(layerHash)
+	if err == nil {
+		// this avoids downloading ALL the image layers from the daemon
+		// if the layer is available locally
+		// (e.g., it was added using AddLayer).
+		if size, err := layer.Size(); err != nil && size != -1 {
+			return layer.Uncompressed()
+		}
+	}
 	if err = i.ensureLayers(); err != nil {
 		return nil, err
 	}
-	layer, err := i.LayerByDiffID(layerHash)
+	layer, err = i.LayerByDiffID(layerHash)
 	if err != nil {
 		return nil, fmt.Errorf("image %q does not contain layer with diff ID %q", i.Name(), layerHash.String())
 	}

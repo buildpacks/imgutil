@@ -105,8 +105,6 @@ func (i *CNBImageCore) History() ([]v1.History, error) {
 	return configFile.History, nil
 }
 
-// Kind exposes the type of image (via the Store) that backs the imgutil.Image implementation.
-// It could be `locallayout`, `remote`, or `layout`.
 func (i *CNBImageCore) Kind() string {
 	storeType := fmt.Sprintf("%T", i.Store)
 	parts := strings.Split(storeType, ".")
@@ -351,7 +349,7 @@ func (i *CNBImageCore) Rebase(baseTopLayerDiffID string, withNewBase Image) erro
 	if i.Kind() != withNewBase.Kind() {
 		return fmt.Errorf("expected new base to be a %s image; got %s", i.Kind(), withNewBase.Kind())
 	}
-	newBase := withNewBase.UnderlyingImage()
+	newBase := withNewBase.UnderlyingImage() // FIXME: when all imgutil.Images are v1.Images, we can remove this part
 	var err error
 	i.Image, err = mutate.Rebase(i.Image, i.newV1ImageFacade(baseTopLayerDiffID), newBase)
 	if err != nil {

@@ -26,6 +26,8 @@ type Image interface {
 	GetLayer(diffID string) (io.ReadCloser, error)
 	History() ([]v1.History, error)
 	Identifier() (Identifier, error)
+	// Kind exposes the type of image that backs the imgutil.Image implementation.
+	// It could be `local`, `locallayout`, `remote`, or `layout`.
 	Kind() string
 	Label(string) (string, error)
 	Labels() (map[string]string, error)

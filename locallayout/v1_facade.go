@@ -31,7 +31,7 @@ type v1ImageFacade struct {
 
 	// for downloading layers from the daemon as needed
 	store                  imgutil.ImageStore
-	downloadLayersOnAccess bool // set to true to download ALL image layers when LayerByDiffID is called
+	downloadLayersOnAccess bool // set to true to downloading ALL the image layers from the daemon when LayerByDiffID is called
 	downloadOnce           *sync.Once
 	identifier             string
 }

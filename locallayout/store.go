@@ -144,7 +144,7 @@ func (s *Store) doSave(image v1.Image, withName string) (types.ImageInspect, err
 	tw := tar.NewWriter(pw)
 	defer tw.Close()
 
-	if err = s.addImageToTar(tw, image, withName, false); err != nil {
+	if err = s.addImageToTar(tw, image, withName); err != nil {
 		return types.ImageInspect{}, err
 	}
 	tw.Close()
@@ -164,7 +164,7 @@ func (s *Store) doSave(image v1.Image, withName string) (types.ImageInspect, err
 	return inspect, nil
 }
 
-func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string, populateEmptyLayers bool) error {
+func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string) error {
 	rawConfigFile, err := image.RawConfigFile()
 	if err != nil {
 		return err
@@ -187,7 +187,7 @@ func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string, p
 		if err != nil {
 			return err
 		}
-		if size == -1 && !populateEmptyLayers { // layer facade fronting empty layer
+		if size == -1 { // layer facade fronting empty layer
 			layerName = fmt.Sprintf("blank_%d", blankIdx)
 			blankIdx++
 			hdr := &tar.Header{Name: layerName, Mode: 0644, Size: 0}
@@ -221,24 +221,9 @@ func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	var layerToUse v1.Layer
-	compressedSize, err := layer.Size()
-	if err != nil {
-		return "", err
-	}
-	if compressedSize == -1 {
-		onDiskLayer := findLayer(layerDiffID, s.Layers())
-		if onDiskLayer == nil {
-			return "", fmt.Errorf("failed to find layer with diff ID %q", layerDiffID.String())
-		}
-		layerToUse = onDiskLayer
-	} else {
-		layerToUse = layer
-	}
-
 	withName := fmt.Sprintf("/%s.tar", layerDiffID.String())
-	uncompressedSize, err := getLayerSize(layerToUse)
+
+	uncompressedSize, err := getLayerSize(layer)
 	if err != nil {
 		return "", err
 	}
@@ -247,7 +232,7 @@ func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer) (string, error) {
 		return "", err
 	}
 
-	layerReader, err := layerToUse.Uncompressed()
+	layerReader, err := layer.Uncompressed()
 	if err != nil {
 		return "", err
 	}
@@ -350,7 +335,7 @@ func (s *Store) SaveFile(image imgutil.IdentifiableV1Image, withName string) (st
 		tw := tar.NewWriter(pw)
 		defer tw.Close()
 
-		return s.addImageToTar(tw, image, withName, true)
+		return s.addImageToTar(tw, image, withName)
 	})
 
 	err = errs.Wait()
