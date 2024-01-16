@@ -184,6 +184,10 @@ func (i *Image) Identifier() (imgutil.Identifier, error) {
 	}, nil
 }
 
+func (i *Image) Kind() string {
+	return `remote`
+}
+
 func (i *Image) Label(key string) (string, error) {
 	cfg, err := i.image.ConfigFile()
 	if err != nil {

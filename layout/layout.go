@@ -151,6 +151,10 @@ func (i *Image) Identifier() (imgutil.Identifier, error) {
 	return newLayoutIdentifier(i.path, hash)
 }
 
+func (i *Image) Kind() string {
+	return `layout`
+}
+
 func (i *Image) Label(key string) (string, error) {
 	cfg, err := i.Image.ConfigFile()
 	if err != nil {
@@ -269,6 +273,10 @@ func (i *Image) TopLayer() (string, error) {
 		return "", err
 	}
 	return hex.String(), nil
+}
+
+func (i *Image) UnderlyingImage() v1.Image {
+	return i.Image
 }
 
 func (i *Image) Variant() (string, error) {

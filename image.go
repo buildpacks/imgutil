@@ -21,13 +21,14 @@ type Image interface {
 	Env(key string) (string, error)
 	// Found tells whether the image exists in the repository by `Name()`.
 	Found() bool
-	// Valid returns true if the image is well-formed (e.g. all manifest layers exist on the registry).
-	Valid() bool
 	GetAnnotateRefName() (string, error)
 	// GetLayer retrieves layer by diff id. Returns a reader of the uncompressed contents of the layer.
 	GetLayer(diffID string) (io.ReadCloser, error)
 	History() ([]v1.History, error)
 	Identifier() (Identifier, error)
+	// Kind exposes the type of image that backs the imgutil.Image implementation.
+	// It could be `local`, `locallayout`, `remote`, or `layout`.
+	Kind() string
 	Label(string) (string, error)
 	Labels() (map[string]string, error)
 	// ManifestSize returns the size of the manifest. If a manifest doesn't exist, it returns 0.
@@ -37,6 +38,9 @@ type Image interface {
 	OSVersion() (string, error)
 	// TopLayer returns the diff id for the top layer
 	TopLayer() (string, error)
+	UnderlyingImage() v1.Image
+	// Valid returns true if the image is well-formed (e.g. all manifest layers exist on the registry).
+	Valid() bool
 	Variant() (string, error)
 	WorkingDir() (string, error)
 
