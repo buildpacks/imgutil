@@ -116,7 +116,7 @@ func (i *Image) doSaveAs(name string) (types.ImageInspect, error) {
 	}()
 
 	tw := tar.NewWriter(pw)
-	configHash, err := i.addImageToTar(tw, repoName)
+	_, err = i.addImageToTar(tw, repoName)
 	if err != nil {
 		return types.ImageInspect{}, err
 	}
