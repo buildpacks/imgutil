@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -17,79 +16,46 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/partial"
+	"github.com/google/go-containerregistry/pkg/v1/layout"
 	ggcrTypes "github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
 	"github.com/buildpacks/imgutil/layer"
-	"github.com/buildpacks/imgutil/layout"
 )
 
-// Index is a singleton empty index, think: FROM scratch.
-var Index = dockerIndex{}
+// NewIndex will return a new local Docker ImageIndex that can be modified and saved to a registry
+func NewIndex(repoName string, ops ...imgutil.IndexOption) (index v1.ImageIndex, err error) {
+	var idxOps = &imgutil.IndexOptions{}
+	ops = append(ops, imgutil.WithRepoName(repoName))
 
-type dockerIndex struct{}
-
-func (i dockerIndex) MediaType() (ggcrTypes.MediaType, error) {
-	return ggcrTypes.OCIImageIndex, nil
-}
-
-func (i dockerIndex) Digest() (v1.Hash, error) {
-	return partial.Digest(i)
-}
-
-func (i dockerIndex) Size() (int64, error) {
-	return partial.Size(i)
-}
-
-func (i dockerIndex) IndexManifest() (*v1.IndexManifest, error) {
-	return base(), nil
-}
-
-func (i dockerIndex) RawManifest() ([]byte, error) {
-	return json.Marshal(base())
-}
-
-func (i dockerIndex) Image(v1.Hash) (v1.Image, error) {
-	return nil, errors.New("empty index")
-}
-
-func (i dockerIndex) ImageIndex(v1.Hash) (v1.ImageIndex, error) {
-	return nil, errors.New("empty index")
-}
-
-func base() *v1.IndexManifest {
-	return &v1.IndexManifest{
-		SchemaVersion: 2,
-		MediaType:     ggcrTypes.DockerManifestList,
-		Manifests:     []v1.Descriptor{},
-	}
-}
-
-func NewIndex(name string, manifestOnly bool, ops ...imgutil.IndexOption) (index *imgutil.ImageIndex, err error) {
-	idxOps := &imgutil.IndexStruct{}
 	for _, op := range ops {
-		if err := op(idxOps); err != nil {
-			return index, err
+		err = op(idxOps)
+		if err != nil {
+			return
 		}
 	}
 
-	idxRootPath := filepath.Join(idxOps.XdgRuntimePath(), name)
-	var imgIdx v1.ImageIndex
-	_, err = layout.Write(idxRootPath, imgIdx)
-
-	if manifestOnly {
-		index = &imgutil.ImageIndex{
-			Handler: &imgutil.ManifestHandler{
-				IndexStruct: *idxOps,
-			},
-		}
-	} else {
-		panic("implementation needed")
+	path, err := layout.FromPath(filepath.Join(idxOps.XDGRuntimePath(), idxOps.RepoName()))
+	if err != nil {
+		return
 	}
 
-	return index, err
+	index, err = path.ImageIndex()
+	if err != nil {
+		return
+	}
+
+	mediaType, err := index.MediaType()
+	if err != nil {
+		return
+	}
+
+	if mediaType != ggcrTypes.DockerManifestList {
+		return nil, errors.New("no docker image index found")
+	}
+
+	return
 }
 
 // NewImage returns a new Image that can be modified and saved to a registry.

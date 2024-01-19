@@ -1,19 +1,16 @@
 package remote
 
 import (
-	"fmt"
 	"io"
 	"net/http"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
-	ggcrName "github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
-	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
@@ -24,50 +21,34 @@ import (
 	"github.com/buildpacks/imgutil/layer"
 )
 
-func NewIndex(name string, manifestOnly bool, ops ...imgutil.IndexOption) (index *imgutil.ImageIndex, err error) {
-	idxOps := &imgutil.IndexStruct{}
+// NewIndex returns a new ImageIndex from the registry that can be modified and saved to local file system
+func NewIndex(repoName string, ops ...imgutil.IndexOption) (index v1.ImageIndex, err error) {
+	var idxOps = &imgutil.IndexOptions{}
+	ops = append(ops, imgutil.WithRepoName(repoName))
+
 	for _, op := range ops {
-		if err := op(idxOps); err != nil {
-			return index, err
-		}
-	}
-
-	idxRootPath := filepath.Join(idxOps.XdgRuntimePath(), name)
-	_, err = layout.FromPath(idxRootPath)
-	if err == nil {
-		return index, fmt.Errorf("imageIndex with the given name already exists")
-	}
-
-	var idxRef ggcrName.Reference
-	if idxOps.Insecure() {
-		idxRef, err = ggcrName.ParseReference(name, ggcrName.WeakValidation, ggcrName.Insecure)
+		err = op(idxOps)
 		if err != nil {
-			return index, err
-		}
-	} else {
-		idxRef, err = ggcrName.ParseReference(name, ggcrName.WeakValidation)
-		if err != nil {
-			return index, err
+			return
 		}
 	}
 
-	imgIdx, err := remote.Index(idxRef, remote.WithAuthFromKeychain(idxOps.KeyChain()))
+	ref, err := name.ParseReference(idxOps.RepoName(), name.WeakValidation, name.Insecure)
 	if err != nil {
-		return index, err
+		return
 	}
 
-	_, err = layout.Write(idxRootPath, imgIdx)
-	if manifestOnly {
-		index = &imgutil.ImageIndex{
-			Handler: &imgutil.ManifestHandler{
-				IndexStruct: *idxOps,
-			},
-		}
-	} else {
-		panic("implementation needed")
+	desc, err := remote.Get(
+		ref, 
+		remote.WithAuthFromKeychain(idxOps.Keychain()), 
+		remote.WithTransport(getTransport(idxOps.Insecure())),
+	)
+	if err != nil {
+		return
 	}
 
-	return index, err
+	index, err = desc.ImageIndex()
+	return
 }
 
 // NewImage returns a new Image that can be modified and saved to a Docker daemon.
@@ -296,13 +277,13 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 	return image, nil
 }
 
-func referenceForRepoName(keychain authn.Keychain, ref string, insecure bool) (ggcrName.Reference, authn.Authenticator, error) {
+func referenceForRepoName(keychain authn.Keychain, ref string, insecure bool) (name.Reference, authn.Authenticator, error) {
 	var auth authn.Authenticator
-	opts := []ggcrName.Option{ggcrName.WeakValidation}
+	opts := []name.Option{name.WeakValidation}
 	if insecure {
-		opts = append(opts, ggcrName.Insecure)
+		opts = append(opts, name.Insecure)
 	}
-	r, err := ggcrName.ParseReference(ref, opts...)
+	r, err := name.ParseReference(ref, opts...)
 	if err != nil {
 		return nil, nil, err
 	}

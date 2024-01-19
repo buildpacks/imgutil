@@ -1,25 +1,25 @@
 package imgutil
 
 import (
-	"bytes"
-	"encoding/json"
-	"reflect"
-	"runtime"
-
-	"fmt"
+	"crypto/tls"
+	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 
-	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/match"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
-type Index interface {
+const digestDelim = "@"
+
+type ImageIndex interface {
 	// getters
 
 	OS(digest name.Digest) (os string, err error)
@@ -46,1860 +46,1163 @@ type Index interface {
 
 	Add(ref name.Reference, ops ...IndexAddOption) error
 	Save() error
-	Push(ops ...IndexAddOption) error
+	Push(ops ...IndexPushOption) error
 	Inspect() error
 	Remove(digest name.Digest) error
 	Delete() error
 }
 
-type ImageIndex struct {
-	Handler Index
+type Index struct {
+	v1.ImageIndex
+	annotate Annotate
+	Options IndexOptions
+	removedManifests []v1.Hash
 }
 
-type ManifestAction int
-type NewManifest map[v1.Hash][]byte
-type InstanceMap map[v1.Hash][]instance
-type IndexMap map[v1.Hash][]v1.Manifest
-type IndexOption func(*IndexStruct) error
-type IndexAddOption func(*IndexAddOptions)
-
-const (
-	ADD ManifestAction = iota
-	REPLACE
-	DELETE
-)
-
-type ImageIndexHandler struct {
-	IndexStruct
+type Annotate struct {
+	instance map[v1.Hash]v1.Descriptor
 }
 
-type ManifestHandler struct {
-	IndexStruct
+func(a *Annotate) OS(hash v1.Hash) (os string, err error) {
+	desc := a.instance[hash]
+	if desc.Platform == nil || desc.Platform.OS == "" {
+		return os, errors.New("os is undefined")
+	}
+
+	return desc.Platform.OS, nil
 }
 
-var _ Index = (*ManifestHandler)(nil)
+func(a *Annotate) SetOS(hash v1.Hash, os string) {
+	desc := a.instance[hash]
+	if desc.Platform == nil {
+		desc.Platform = &v1.Platform{}
+	}
 
-type instance struct {
-	action     ManifestAction
-	options    []layout.Option
-	hash       v1.Hash
-	isIndex    bool
-	image      *v1.Image
-	index      *v1.ImageIndex
-	descriptor *v1.Descriptor
+	desc.Platform.OS = os
+	a.instance[hash] = desc
 }
 
-type IndexAddOptions struct {
-	all, purge                   bool
-	os, arch, variant, osVersion string
-	features, osFeatures         []string
-	annotations                  map[string]string
-	format                       MediaTypes
+func(a *Annotate) Architecture(hash v1.Hash) (arch string, err error) {
+	desc := a.instance[hash]
+	if desc.Platform == nil || desc.Platform.Architecture == "" {
+		return arch, errors.New("architecture is undefined")
+	}
+
+	return desc.Platform.Architecture, nil
 }
 
-func NewIndex(name string, manifestOnly bool, ops ...IndexOption) (index *ImageIndex, err error) {
-	idxOps := &IndexStruct{}
+func(a *Annotate) SetArchitecture(hash v1.Hash, arch string) {
+	desc := a.instance[hash]
+	if desc.Platform == nil {
+		desc.Platform = &v1.Platform{}
+	}
+
+	desc.Platform.Architecture = arch
+	a.instance[hash] = desc
+}
+
+func(a *Annotate) Variant(hash v1.Hash) (variant string, err error) {
+	desc := a.instance[hash]
+	if desc.Platform == nil || desc.Platform.Variant == "" {
+		return variant, errors.New("variant is undefined")
+	}
+
+	return desc.Platform.Variant, nil
+}
+
+func(a *Annotate) SetVariant(hash v1.Hash, variant string) {
+	desc := a.instance[hash]
+	if desc.Platform == nil {
+		desc.Platform = &v1.Platform{}
+	}
+
+	desc.Platform.Variant = variant
+	a.instance[hash] = desc
+}
+
+func(a *Annotate) OSVersion(hash v1.Hash) (osVersion string, err error) {
+	desc := a.instance[hash]
+	if desc.Platform == nil || desc.Platform.OSVersion == "" {
+		return osVersion, errors.New("osVersion is undefined")
+	}
+
+	return desc.Platform.OSVersion, nil
+}
+
+func(a *Annotate) SetOSVersion(hash v1.Hash, osVersion string) {
+	desc := a.instance[hash]
+	if desc.Platform == nil {
+		desc.Platform = &v1.Platform{}
+	}
+
+	desc.Platform.OSVersion = osVersion
+	a.instance[hash] = desc
+}
+
+func(a *Annotate) Features(hash v1.Hash) (features []string, err error) {
+	desc := a.instance[hash]
+	if desc.Platform == nil || len(desc.Platform.Features) == 0 {
+		return features, errors.New("features is undefined")
+	}
+
+	return desc.Platform.Features, nil
+}
+
+func(a *Annotate) SetFeatures(hash v1.Hash, features []string) {
+	desc := a.instance[hash]
+	if desc.Platform == nil {
+		desc.Platform = &v1.Platform{}
+	}
+
+	desc.Platform.Features = features
+	a.instance[hash] = desc
+}
+
+func(a *Annotate) OSFeatures(hash v1.Hash) (osFeatures []string, err error) {
+	desc := a.instance[hash]
+	if desc.Platform == nil || len(desc.Platform.OSFeatures) == 0 {
+		return osFeatures, errors.New("osFeatures is undefined")
+	}
+
+	return desc.Platform.OSFeatures, nil
+}
+
+func(a *Annotate) SetOSFeatures(hash v1.Hash, osFeatures []string) {
+	desc := a.instance[hash]
+	if desc.Platform == nil {
+		desc.Platform = &v1.Platform{}
+	}
+
+	desc.Platform.OSFeatures = osFeatures
+	a.instance[hash] = desc
+}
+
+func(a *Annotate) Annotations(hash v1.Hash) (annotations map[string]string, err error) {
+	desc := a.instance[hash]
+	if len(desc.Annotations) == 0 {
+		return annotations, errors.New("annotations is undefined")
+	}
+
+	return desc.Annotations, nil
+}
+
+func(a *Annotate) SetAnnotations(hash v1.Hash, annotations map[string]string) {
+	desc := a.instance[hash]
+	if desc.Platform == nil {
+		desc.Platform = &v1.Platform{}
+	}
+
+	desc.Annotations = annotations
+	a.instance[hash] = desc
+}
+
+func(a *Annotate) URLs(hash v1.Hash) (urls []string, err error) {
+	desc := a.instance[hash]
+	if len(desc.URLs) == 0 {
+		return urls, errors.New("urls are undefined")
+	}
+
+	return desc.URLs, nil
+}
+
+func(a *Annotate) SetURLs(hash v1.Hash, urls []string) {
+	desc := a.instance[hash]
+	if desc.Platform == nil {
+		desc.Platform = &v1.Platform{}
+	}
+
+	desc.URLs = urls
+	a.instance[hash] = desc
+}
+
+func (i *Index) OS(digest name.Digest) (os string, err error) {
+	hash, err := v1.NewHash(digest.Identifier())
+	if err != nil {
+		return
+	}
+
+	for _, h := range i.removedManifests {
+		if h == hash {
+			return os, errors.New("image/index with the given digest doesn't exists")
+		}
+	}
+
+	if os, err = i.annotate.OS(hash); err == nil {
+		return
+	}
+
+	img, err := i.Image(hash)
+	if err != nil {
+		return
+	}
+
+	config, err := getConfigFile(img)
+	if err != nil {
+		return
+	}
+
+	if config.OS == "" {
+		return os, errors.New("os is undefined")
+	}
+
+	return config.OS, nil
+}
+
+func(i *Index) SetOS(digest name.Digest, os string) error {
+	hash, err := v1.NewHash(digest.Identifier())
+	if err != nil {
+		return err
+	}
+
+	for _, h := range i.removedManifests {
+		if h == hash {
+			return errors.New("image/index with the given digest doesn't exists")
+		}
+	}
+
+	i.annotate.SetOS(hash, os)
+
+	return nil
+}
+
+func (i *Index) Architecture(digest name.Digest) (arch string, err error) {
+	hash, err := v1.NewHash(digest.Identifier())
+	if err != nil {
+		return
+	}
+
+	for _, h := range i.removedManifests {
+		if h == hash {
+			return arch, errors.New("image/index with the given digest doesn't exists")
+		}
+	}
+
+	if arch, err = i.annotate.Architecture(hash); err == nil {
+		return
+	}
+
+	img, err := i.Image(hash)
+	if err != nil {
+		return
+	}
+
+	config, err := getConfigFile(img)
+	if err != nil {
+		return
+	}
+
+	if config.Architecture == "" {
+		return arch, errors.New("architecture is undefined")
+	}
+
+	return config.Architecture, nil
+}
+
+func(i *Index) SetArchitecture(digest name.Digest, arch string) error {
+	hash, err := v1.NewHash(digest.Identifier())
+	if err != nil {
+		return err
+	}
+
+	for _, h := range i.removedManifests {
+		if h == hash {
+			return errors.New("image/index with the given digest doesn't exists")
+		}
+	}
+
+	i.annotate.SetArchitecture(hash, arch)
+
+	return nil
+}
+
+func (i *Index) Variant(digest name.Digest) (osVariant string, err error) {
+	hash, err := v1.NewHash(digest.Identifier())
+	if err != nil {
+		return
+	}
+
+	for _, h := range i.removedManifests {
+		if h == hash {
+			return osVariant, errors.New("image/index with the given digest doesn't exists")
+		}
+	}
+
+	if osVariant, err = i.annotate.Variant(hash); err == nil {
+		return
+	}
+
+	img, err := i.Image(hash)
+	if err != nil {
+		return
+	}
+
+	config, err := getConfigFile(img)
+	if err != nil {
+		return
+	}
+
+	if config.Variant == "" {
+		return osVariant, errors.New("variant is undefined")
+	}
+
+	return config.Variant, nil
+}
+
+func(i *Index) SetVariant(digest name.Digest, osVariant string) error {
+	hash, err := v1.NewHash(digest.Identifier())
+	if err != nil {
+		return err
+	}
+
+	for _, h := range i.removedManifests {
+		if h == hash {
+			return errors.New("image/index with the given digest doesn't exists")
+		}
+	}
+
+	i.annotate.SetVariant(hash, osVariant)
+
+	return nil
+}
+
+func (i *Index) OSVersion(digest name.Digest) (osVersion string, err error) {
+	hash, err := v1.NewHash(digest.Identifier())
+	if err != nil {
+		return
+	}
+
+	for _, h := range i.removedManifests {
+		if h == hash {
+			return osVersion, errors.New("image/index with the given digest doesn't exists")
+		}
+	}
+
+	if osVersion, err = i.annotate.OSVersion(hash); err == nil {
+		return
+	}
+
+	img, err := i.Image(hash)
+	if err != nil {
+		return
+	}
+
+	config, err := getConfigFile(img)
+	if err != nil {
+		return
+	}
+
+	if config.OSVersion == "" {
+		return osVersion, errors.New("osVersion is undefined")
+	}
+
+	return config.OSVersion, nil
+}
+
+func(i *Index) SetOSVersion(digest name.Digest, osVersion string) error {
+	hash, err := v1.NewHash(digest.Identifier())
+	if err != nil {
+		return err
+	}
+
+	for _, h := range i.removedManifests {
+		if h == hash {
+			return errors.New("image/index with the given digest doesn't exists")
+		}
+	}
+
+	i.annotate.SetOSVersion(hash, osVersion)
+
+	return nil
+}
+
+func (i *Index) Features(digest name.Digest) (features []string, err error) {
+	var indexFeatures = func (i *Index, digest name.Digest) (features []string, err error)  {
+		mfest, err := getIndexManifest(*i, digest)
+		if err != nil {
+			return
+		}
+
+		if mfest.Subject == nil {
+			mfest.Subject = &v1.Descriptor{}
+		}
+
+		if mfest.Subject.Platform == nil {
+			mfest.Subject.Platform = &v1.Platform{}
+		}
+
+		if len(mfest.Subject.Platform.Features) == 0 {
+			return features, errors.New("features is undefined")
+		}
+
+		return mfest.Subject.Platform.Features, nil
+	}
+
+	hash, err := v1.NewHash(digest.Identifier())
+	if err != nil {
+		return
+	}
+
+	for _, h := range i.removedManifests {
+		if h == hash {
+			return features, errors.New("image/index with the given digest doesn't exists")
+		}
+	}
+
+	if features, err = i.annotate.Features(hash); err == nil {
+		return
+	}
+
+	features, err = indexFeatures(i, digest)
+	if err == nil {
+		return
+	}
+
+	img, err := i.Image(hash)
+	if err != nil {
+		return
+	}
+
+	config, err := getConfigFile(img)
+	if err != nil {
+		return
+	}
+
+	platform := config.Platform()
+
+	if platform == nil {
+		return features, errors.New("config platform is undefined")
+	}
+
+	if len(platform.Features) == 0 {
+		return features, errors.New("features undefined")
+	}
+
+	return platform.Features, nil
+}
+
+func(i *Index) SetFeatures(digest name.Digest, features []string) error {
+	hash, err := v1.NewHash(digest.Identifier())
+	if err != nil {
+		return err
+	}
+
+	for _, h := range i.removedManifests {
+		if h == hash {
+			return errors.New("image/index with the given digest doesn't exists")
+		}
+	}
+
+	i.annotate.SetFeatures(hash, features)
+
+	return nil
+}
+
+func(i *Index) OSFeatures(digest name.Digest) (osFeatures []string, err error) {
+	var indexOSFeatures = func(i *Index, digest name.Digest) (osFeatures []string, err error) {
+		mfest, err := getIndexManifest(*i, digest)
+		if err != nil {
+			return
+		}
+
+		if mfest.Subject == nil {
+			mfest.Subject = &v1.Descriptor{}
+		}
+
+		if mfest.Subject.Platform == nil {
+			mfest.Subject.Platform = &v1.Platform{}
+		}
+
+		if len(mfest.Subject.Platform.OSFeatures) == 0 {
+			return osFeatures, errors.New("os features is undefined")
+		}
+
+		return mfest.Subject.Platform.OSFeatures, nil
+	}
+
+	hash, err := v1.NewHash(digest.Identifier())
+	if err != nil {
+		return
+	}
+
+	for _, h := range i.removedManifests {
+		if h == hash {
+			return osFeatures, errors.New("image/index with the given digest doesn't exists")
+		}
+	}
+
+	if osFeatures, err = i.annotate.OSFeatures(hash); err == nil {
+		return
+	}
+
+	osFeatures, err = indexOSFeatures(i, digest)
+	if err == nil {
+		return
+	}
+
+	img, err := i.Image(hash)
+	if err != nil {
+		return
+	}
+	
+	config, err := getConfigFile(img)
+	if err != nil {
+		return
+	}
+
+	if len(config.OSFeatures) == 0 {
+		return osFeatures, errors.New("osFeatures are undefined")
+	}
+
+	return config.OSFeatures, nil
+}
+
+func(i *Index) SetOSFeatures(digest name.Digest, osFeatures []string) error {
+	hash, err := v1.NewHash(digest.Identifier())
+	if err != nil {
+		return err
+	}
+
+	for _, h := range i.removedManifests {
+		if h == hash {
+			return errors.New("image/index with the given digest doesn't exists")
+		}
+	}
+
+	i.annotate.SetOSFeatures(hash, osFeatures)
+
+	return nil
+}
+
+func(i *Index) Annotations(digest name.Digest) (annotations map[string]string, err error) {
+	var indexAnnotations = func(i *Index, digest name.Digest) (annotations map[string]string, err error) {
+		mfest, err := getIndexManifest(*i, digest)
+		if err != nil {
+			return
+		}
+
+		if len(mfest.Annotations) == 0 {
+			return annotations, errors.New("annotations are undefined")
+		}
+
+		if mfest.MediaType == types.DockerManifestList {
+			return nil, nil
+		}
+
+		return mfest.Annotations, nil
+	}
+
+	hash, err := v1.NewHash(digest.Identifier())
+	if err != nil {
+		return
+	}
+
+	for _, h := range i.removedManifests {
+		if h == hash {
+			return annotations, errors.New("image/index with the given digest doesn't exists")
+		}
+	}
+
+	if annotations, err = i.annotate.Annotations(hash); err == nil {
+		return
+	}
+
+	annotations, err = indexAnnotations(i, digest)
+	if err == nil {
+		return
+	}
+
+	img, err := i.Image(hash)
+	if err != nil {
+		return
+	}
+
+	mfest, err := img.Manifest()
+	if err != nil {
+		return
+	}
+
+	if mfest == nil || len(mfest.Annotations) == 0 {
+		return annotations, errors.New("manifest is undefined")
+	}
+
+	if mfest.MediaType == types.DockerManifestSchema2 {
+		return nil, nil
+	}
+
+	return mfest.Annotations, nil
+}
+
+func(i *Index) SetAnnotations(digest name.Digest, annotations map[string]string) error {
+	hash, err := v1.NewHash(digest.Identifier())
+	if err != nil {
+		return err
+	}
+
+	for _, h := range i.removedManifests {
+		if h == hash {
+			return errors.New("image/index with the given digest doesn't exists")
+		}
+	}
+
+	i.annotate.SetAnnotations(hash, annotations)
+
+	return nil
+}
+
+func(i *Index) URLs(digest name.Digest) (urls []string, err error) {
+	hash, err := v1.NewHash(digest.Identifier())
+	if err != nil {
+		return
+	}
+
+	for _, h := range i.removedManifests {
+		if h == hash {
+			return urls, errors.New("image/index with the given digest doesn't exists")
+		}
+	}
+
+	if urls, err = i.annotate.URLs(hash); err == nil {
+		return
+	}
+
+	urls, err = getIndexURLs(i, hash)
+	if err == nil {
+		return
+	}
+
+	urls, err = getImageURLs(i, hash)
+	if err == nil {
+		return
+	}
+
+	return urls, errors.New("no image or image index found with the given digest")
+}
+
+func(i *Index) SetURLs(digest name.Digest, urls []string) error {
+	hash, err := v1.NewHash(digest.Identifier())
+	if err != nil {
+		return err
+	}
+
+	for _, h := range i.removedManifests {
+		if h == hash {
+			return errors.New("image/index with the given digest doesn't exists")
+		}
+	}
+
+	i.annotate.SetURLs(hash, urls)
+
+	return nil
+}
+
+func(i *Index) Add(ref name.Reference, ops ...IndexAddOption) error {
+	var addOps = &AddOptions{}
 	for _, op := range ops {
-		if err := op(idxOps); err != nil {
-			return index, err
-		}
-	}
-
-	idxRootPath := filepath.Join(idxOps.XdgRuntimePath(), name)
-
-	_, err = layout.FromPath(idxRootPath)
-	if err != nil {
-		return index, fmt.Errorf("imageIndex with the given name doesn't exists")
-	}
-
-	idxMapPath := filepath.Join(idxRootPath, "index.map.json")
-	if _, err = os.Stat(idxMapPath); err == nil {
-		file, err := os.Open(idxMapPath)
-		if err == nil {
-			var idxMap = &IndexMap{}
-			err = json.NewDecoder(file).Decode(idxMap)
-			if err != nil {
-				return index, err
-			}
-
-			idxOps.IndexMap(idxMap)
-		}
-	}
-
-	if manifestOnly {
-		index = &ImageIndex{
-			Handler: &ManifestHandler{
-				IndexStruct: *idxOps,
-			},
-		}
-	}
-
-	return index, nil
-}
-
-func (o *IndexAddOptions) LayoutOptions() (ops []layout.Option) {
-	platform := v1.Platform{
-		Architecture: o.arch,
-		OS:           o.os,
-		OSVersion:    o.osVersion,
-		Features:     o.features,
-		Variant:      o.variant,
-		OSFeatures:   o.osFeatures,
-	}
-
-	switch {
-	case len(o.annotations) != 0:
-		ops = append(ops, layout.WithAnnotations(o.annotations))
-	case o.arch != "":
-	case len(o.features) != 0:
-	case o.os != "":
-	case len(o.osFeatures) != 0:
-	case o.osVersion != "":
-	case o.variant != "":
-		ops = append(ops, layout.WithPlatform(platform))
-	}
-
-	return ops
-}
-
-func WithFormat(format MediaTypes) IndexAddOption {
-	return func(o *IndexAddOptions) {
-		o.format = format
-	}
-}
-
-func WithAll(all bool) IndexAddOption {
-	return func(o *IndexAddOptions) {
-		o.all = all
-	}
-}
-
-func WithOS(os string) IndexAddOption {
-	return func(o *IndexAddOptions) {
-		o.os = os
-	}
-}
-
-func WithArch(arch string) IndexAddOption {
-	return func(o *IndexAddOptions) {
-		o.arch = arch
-	}
-}
-
-func WithVariant(variant string) IndexAddOption {
-	return func(o *IndexAddOptions) {
-		o.variant = variant
-	}
-}
-
-func WithOSVersion(version string) IndexAddOption {
-	return func(o *IndexAddOptions) {
-		o.osVersion = version
-	}
-}
-
-func WithFeatures(features []string) IndexAddOption {
-	return func(o *IndexAddOptions) {
-		o.features = features
-	}
-}
-
-func WithAnnotaions(annotations map[string]string) IndexAddOption {
-	return func(o *IndexAddOptions) {
-		o.annotations = annotations
-	}
-}
-
-func (m *IndexMap) AddIndex(index *v1.IndexManifest, hash v1.Hash, repoName string, keys authn.Keychain) (manifest []*v1.Manifest, err error) {
-	manifests, ok := (*m)[hash]
-
-	for _, descManifest := range index.Manifests {
-		manifestBytes, err := json.MarshalIndent(descManifest, "", "   ")
-		if err != nil {
-			return manifest, err
-		}
-
-		if descManifest.MediaType.IsImage() {
-			mfest, err := v1.ParseManifest(bytes.NewReader(manifestBytes))
-			if err != nil {
-				return manifest, err
-			}
-
-			manifest = append(manifest, mfest)
-
-			switch ok {
-			case true:
-				manifests = append(manifests, *mfest)
-			case false:
-				manifests = []v1.Manifest{*mfest}
-			}
-		}
-
-		if descManifest.MediaType.IsIndex() {
-			mfest, err := v1.ParseIndexManifest(bytes.NewReader(manifestBytes))
-			if err != nil {
-				return manifest, err
-			}
-			m.AddIndex(mfest, hash, repoName, keys)
-			m.AddIndex(mfest, mfest.Subject.Digest, repoName, keys)
-		}
-	}
-
-	return manifest, err
-}
-
-func (m InstanceMap) get(hash v1.Hash) []instance {
-	return m[hash]
-}
-
-func (m InstanceMap) Add(hash v1.Hash, instances []instance) {
-	i, ok := m[hash]
-	if !ok {
-		m[hash] = instances
-	} else {
-		m[hash] = append(i, instances...)
-	}
-}
-
-func (m *InstanceMap) AddDescriptor(desc *v1.Descriptor, ops ...layout.Option) error {
-	hash := desc.Digest
-	m.Add(hash, []instance{
-		{
-			action:     ADD,
-			options:    ops,
-			isIndex:    desc.MediaType.IsIndex(),
-			hash:       hash,
-			descriptor: desc,
-		},
-	})
-
-	return nil
-}
-
-func (m *InstanceMap) AddImage(image *v1.Image, ops ...layout.Option) error {
-	hash, err := (*image).Digest()
-	if err != nil {
-		return err
-	}
-
-	m.Add(hash, []instance{
-		{
-			action:  ADD,
-			options: ops,
-			image:   image,
-			isIndex: false,
-			hash:    hash,
-		},
-	})
-
-	return err
-}
-
-func (m *InstanceMap) AddIndex(index *v1.ImageIndex, ops ...layout.Option) error {
-	hash, err := (*index).Digest()
-	if err != nil {
-		return err
-	}
-
-	m.Add(hash, []instance{
-		{
-			action:  ADD,
-			options: ops,
-			index:   index,
-			isIndex: true,
-			hash:    hash,
-		},
-	})
-
-	return nil
-}
-
-func (m *InstanceMap) Replace(hash v1.Hash, isIndex bool, ops ...layout.Option) {
-	m.Add(hash, []instance{
-		{
-			action:  REPLACE,
-			options: ops,
-			isIndex: isIndex,
-			hash:    hash,
-		},
-	})
-}
-
-func (m *InstanceMap) Remove(hash v1.Hash, isIndex bool, ops ...layout.Option) {
-	m.Add(hash, []instance{
-		{
-			action:  DELETE,
-			options: ops,
-			isIndex: isIndex,
-			hash:    hash,
-		},
-	})
-}
-
-func (m *NewManifest) GetRaw(hash v1.Hash) (bytes []byte, ok bool) {
-	bytes, ok = (*m)[hash]
-	return
-}
-
-func (m *NewManifest) Manifest(hash v1.Hash) (manifest *v1.Manifest, err error) {
-	instance, ok := (*m)[hash]
-	if !ok {
-		return manifest, fmt.Errorf("no Image found with the given Hash: %s", hash.String())
-	}
-
-	err = json.Unmarshal(instance, manifest)
-	if !manifest.MediaType.IsImage() {
-		return manifest, fmt.Errorf("error validating Image Manifest")
-	}
-
-	return
-}
-
-func (m *NewManifest) IndexManifest(hash v1.Hash) (manifest *v1.IndexManifest, err error) {
-	instance, ok := (*m)[hash]
-	if !ok {
-		return manifest, fmt.Errorf("no Image found with the given Hash: %s", hash.String())
-	}
-
-	err = json.Unmarshal(instance, manifest)
-	if !manifest.MediaType.IsIndex() {
-		return manifest, fmt.Errorf("error validating Index Manifest")
-	}
-
-	return
-}
-
-func (m *NewManifest) Set(hash v1.Hash, manifestBytes []byte) {
-	(*m)[hash] = manifestBytes
-}
-
-func (m *NewManifest) Delete(hash v1.Hash) {
-	_, ok := (*m)[hash]
-	if !ok {
-		return
-	}
-
-	delete(*m, hash)
-}
-
-type IndexStruct struct {
-	keychain            authn.Keychain
-	repoName            string
-	index               *v1.ImageIndex
-	requestedMediaTypes MediaTypes
-	instance            *InstanceMap
-	newManifest         *NewManifest
-	indexMap            *IndexMap
-	xdgRuntimePath      string
-	ref                 name.Reference
-	insecure            bool
-}
-
-func (i *IndexStruct) KeyChain() authn.Keychain {
-	return i.keychain
-}
-
-func (i *IndexStruct) RepoName() string {
-	return i.repoName
-}
-
-func (i *IndexStruct) XdgRuntimePath() string {
-	return i.xdgRuntimePath
-}
-
-func (i *IndexStruct) Insecure() bool {
-	return i.insecure
-}
-
-func (i *IndexStruct) IndexMap(indexMap *IndexMap) {
-	i.indexMap = indexMap
-}
-
-func WithIndex(idx *v1.ImageIndex) IndexOption {
-	return func(i *IndexStruct) error {
-		i.index = idx
-		return nil
-	}
-}
-
-func WithKeyChain(keychain authn.Keychain) IndexOption {
-	return func(i *IndexStruct) error {
-		i.keychain = keychain
-		return nil
-	}
-}
-
-func WithRepoName(repoName string) IndexOption {
-	return func(i *IndexStruct) error {
-		i.repoName = repoName
-		ref, err := name.ParseReference(repoName, name.WeakValidation)
-		if err != nil {
+		if err := op(addOps); err != nil {
 			return err
 		}
-
-		i.ref = ref
-		return nil
-	}
-}
-
-func WithMediaTypes(mediaType MediaTypes) IndexOption {
-	return func(i *IndexStruct) error {
-		i.requestedMediaTypes = mediaType
-		return nil
-	}
-}
-
-func WithXDGRuntimePath(path string) IndexOption {
-	return func(i *IndexStruct) error {
-		i.xdgRuntimePath = path
-		return nil
-	}
-}
-
-func WithInsecure(insecure bool) IndexOption {
-	return func(i *IndexStruct) error {
-		i.insecure = insecure
-		return nil
-	}
-}
-
-func (i *ImageIndex) OS(digest name.Digest) (os string, err error) {
-	return i.Handler.OS(digest)
-}
-
-func (i *ImageIndexHandler) OS(digest name.Digest) (os string, err error) {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return os, err
-	}
-
-	manifest, err := i.newManifest.IndexManifest(hash)
-	if err != nil {
-		manifest, err := i.newManifest.Manifest(hash)
-		if err != nil {
-			return os, err
-		}
-
-		os = manifest.Config.Platform.OS
-
-		if os == "" {
-			return osFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-		}
-
-		return os, err
-	}
-
-	os = manifest.Subject.Platform.OS
-
-	if os == "" {
-		return osFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-	}
-
-	return os, err
-}
-
-func (i *ManifestHandler) OS(digest name.Digest) (os string, err error) {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return
-	}
-
-	imgIdx, err := i.newManifest.IndexManifest(hash)
-	if err == nil {
-		return imgIdx.Subject.Platform.OS, err
-	}
-
-	manifest, err := i.newManifest.Manifest(hash)
-	if err == nil {
-		return manifest.Subject.Platform.OS, err
-	}
-
-	return osFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-}
-
-func osFromPath(repoName, xdgRuntimePath, digestStr string) (os string, err error) {
-	idx, err := idxFromRepoName(repoName, xdgRuntimePath)
-	if err != nil {
-		img, err := imgFromRepoName(repoName, digestStr, xdgRuntimePath)
-		if err != nil {
-			return os, err
-		}
-
-		config, err := img.ConfigFile()
-		if err != nil || config == nil {
-			return os, err
-		}
-
-		return config.OS, nil
-	}
-
-	return idx.Subject.Platform.OS, nil
-}
-
-func (i *ImageIndex) Architecture(digest name.Digest) (arch string, err error) {
-	return i.Handler.Architecture(digest)
-}
-
-func (i *ManifestHandler) Architecture(digest name.Digest) (arch string, err error) {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return
-	}
-
-	imgIdx, err := i.newManifest.IndexManifest(hash)
-	if err == nil {
-		return imgIdx.Subject.Platform.Architecture, err
-	}
-
-	manifest, err := i.newManifest.Manifest(hash)
-	if err == nil {
-		return manifest.Subject.Platform.Architecture, err
-	}
-
-	return archFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-}
-
-func archFromPath(repoName, xdgRuntimePath, digestStr string) (arch string, err error) {
-	idx, err := idxFromRepoName(repoName, xdgRuntimePath)
-	if err != nil {
-		img, err := imgFromRepoName(repoName, digestStr, xdgRuntimePath)
-		if err != nil {
-			return arch, err
-		}
-
-		config, err := img.ConfigFile()
-		if err != nil || config == nil {
-			return arch, err
-		}
-
-		return config.Architecture, nil
-	}
-
-	return idx.Subject.Platform.Architecture, nil
-}
-
-func (i *ImageIndex) Variant(digest name.Digest) (osVariant string, err error) {
-	return i.Handler.Variant(digest)
-}
-
-func (i *ManifestHandler) Variant(digest name.Digest) (osVariant string, err error) {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return
-	}
-
-	imgIdx, err := i.newManifest.IndexManifest(hash)
-	if err == nil {
-		return imgIdx.Subject.Platform.Variant, err
-	}
-
-	manifest, err := i.newManifest.Manifest(hash)
-	if err == nil {
-		return manifest.Subject.Platform.Variant, err
-	}
-
-	return osVariantFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-}
-
-func osVariantFromPath(repoName, xdgRuntimePath, digestStr string) (osVariant string, err error) {
-	idx, err := idxFromRepoName(repoName, xdgRuntimePath)
-	if err != nil {
-		img, err := imgFromRepoName(repoName, digestStr, xdgRuntimePath)
-		if err != nil {
-			return osVariant, err
-		}
-
-		config, err := img.ConfigFile()
-		if err != nil || config == nil {
-			return osVariant, err
-		}
-
-		return config.Variant, nil
-	}
-
-	return idx.Subject.Platform.Variant, nil
-}
-
-func (i *ImageIndex) OSVersion(digest name.Digest) (osVersion string, err error) {
-	return i.Handler.OSVersion(digest)
-}
-
-func (i *ManifestHandler) OSVersion(digest name.Digest) (osVersion string, err error) {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return
-	}
-
-	imgIdx, err := i.newManifest.IndexManifest(hash)
-	if err == nil {
-		return imgIdx.Subject.Platform.OSVersion, err
-	}
-
-	manifest, err := i.newManifest.Manifest(hash)
-	if err == nil {
-		return manifest.Subject.Platform.OSVersion, err
-	}
-
-	return osVersionFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-}
-
-func osVersionFromPath(repoName, xdgRuntimePath, digestStr string) (osVersion string, err error) {
-	idx, err := idxFromRepoName(repoName, xdgRuntimePath)
-	if err != nil {
-		img, err := imgFromRepoName(repoName, digestStr, xdgRuntimePath)
-		if err != nil {
-			return osVersion, err
-		}
-
-		config, err := img.ConfigFile()
-		if err != nil || config == nil {
-			return osVersion, err
-		}
-
-		return config.OSVersion, nil
-	}
-
-	return idx.Subject.Platform.OSVersion, nil
-}
-
-func (i *ImageIndex) Features(digest name.Digest) (features []string, err error) {
-	return i.Handler.Features(digest)
-}
-
-func (i *ManifestHandler) Features(digest name.Digest) (features []string, err error) {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return
-	}
-
-	imgIdx, err := i.newManifest.IndexManifest(hash)
-	if err == nil {
-		return imgIdx.Subject.Platform.Features, err
-	}
-
-	manifest, err := i.newManifest.Manifest(hash)
-	if err == nil {
-		return manifest.Subject.Platform.Features, err
-	}
-
-	return featuresFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-}
-
-func featuresFromPath(repoName, xdgRuntimePath, digestStr string) (features []string, err error) {
-	idx, err := idxFromRepoName(repoName, xdgRuntimePath)
-	if err != nil {
-		img, err := imgFromRepoName(repoName, digestStr, xdgRuntimePath)
-		if err != nil {
-			return features, err
-		}
-
-		config, err := img.ConfigFile()
-		if err != nil || config == nil {
-			return features, err
-		}
-
-		return config.Platform().Features, nil
-	}
-
-	return idx.Subject.Platform.Features, nil
-}
-
-func (i *ImageIndex) OSFeatures(digest name.Digest) (osFeatures []string, err error) {
-	return i.Handler.OSFeatures(digest)
-}
-
-func (i *ManifestHandler) OSFeatures(digest name.Digest) (osFeatures []string, err error) {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return
-	}
-
-	imgIdx, err := i.newManifest.IndexManifest(hash)
-	if err == nil {
-		return imgIdx.Subject.Platform.OSFeatures, err
-	}
-
-	manifest, err := i.newManifest.Manifest(hash)
-	if err == nil {
-		return manifest.Subject.Platform.OSFeatures, err
-	}
-
-	return osFeaturesFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-}
-
-func osFeaturesFromPath(repoName, xdgRuntimePath, digestStr string) (osFeatures []string, err error) {
-	idx, err := idxFromRepoName(repoName, xdgRuntimePath)
-	if err != nil {
-		img, err := imgFromRepoName(repoName, digestStr, xdgRuntimePath)
-		if err != nil {
-			return osFeatures, err
-		}
-
-		config, err := img.ConfigFile()
-		if err != nil || config == nil {
-			return osFeatures, err
-		}
-
-		return config.Platform().OSFeatures, nil
-	}
-
-	return idx.Subject.Platform.OSFeatures, nil
-}
-
-func (i *ImageIndex) Annotations(digest name.Digest) (annotations map[string]string, err error) {
-	return i.Handler.Annotations(digest)
-}
-
-func (i *ManifestHandler) Annotations(digest name.Digest) (annotations map[string]string, err error) {
-	if i.requestedMediaTypes == DockerTypes {
-		return
-	}
-
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return
-	}
-
-	imgIdx, err := i.newManifest.IndexManifest(hash)
-	if err == nil {
-		return imgIdx.Subject.Annotations, err
-	}
-
-	manifest, err := i.newManifest.Manifest(hash)
-	if err == nil {
-		return manifest.Subject.Annotations, err
-	}
-
-	return annotationsFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-}
-
-func annotationsFromPath(repoName, xdgRuntimePath, digestStr string) (annotations map[string]string, err error) {
-	idx, err := idxFromRepoName(repoName, xdgRuntimePath)
-	if err != nil {
-		img, err := imgFromRepoName(repoName, digestStr, xdgRuntimePath)
-		if err != nil {
-			return annotations, err
-		}
-
-		manifest, err := img.Manifest()
-		if err != nil || manifest == nil {
-			return annotations, err
-		}
-
-		return manifest.Annotations, nil
-	}
-
-	return idx.Annotations, nil
-}
-
-func (i *ImageIndex) URLs(digest name.Digest) (urls []string, err error) {
-	return i.Handler.URLs(digest)
-}
-
-func (i *ManifestHandler) URLs(digest name.Digest) (urls []string, err error) {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return
-	}
-
-	imgIdx, err := i.newManifest.IndexManifest(hash)
-	if err == nil {
-		return imgIdx.Subject.URLs, err
-	}
-
-	manifest, err := i.newManifest.Manifest(hash)
-	if err == nil {
-		return manifest.Subject.URLs, err
-	}
-
-	return urlsFromPath(i.repoName, i.xdgRuntimePath, digestStr)
-}
-
-func urlsFromPath(repoName, xdgRuntimePath, digestStr string) (urls []string, err error) {
-	idx, err := idxFromRepoName(repoName, xdgRuntimePath)
-	if err != nil {
-		img, err := imgFromRepoName(repoName, digestStr, xdgRuntimePath)
-		if err != nil {
-			return urls, err
-		}
-
-		manifest, err := img.Manifest()
-		if err != nil || manifest == nil {
-			return urls, err
-		}
-
-		urls = manifest.Config.URLs
-		if len(urls) == 0 {
-			urls = manifest.Subject.URLs
-		}
-
-		return urls, nil
-	}
-
-	return idx.Subject.URLs, nil
-}
-
-func imgFromRepoName(repoName, hashString, xdgRuntimePath string) (image v1.Image, err error) {
-	idxPath, err := layoutPath(xdgRuntimePath, repoName)
-	if err != nil {
-		return
-	}
-
-	hash, err := v1.NewHash(hashString)
-	if err != nil {
-		return
-	}
-
-	image, err = idxPath.Image(hash)
-	if err != nil {
-		return
 	}
-	return
-}
 
-func idxFromRepoName(repoName, xdgRuntimePath string) (index *v1.IndexManifest, err error) {
-	idxPath, err := layoutPath(xdgRuntimePath, repoName)
-	if err != nil {
-		return
-	}
-
-	idx, err := idxPath.ImageIndex()
-	if err != nil {
-		return
-	}
-
-	index, err = idx.IndexManifest()
-
-	return
-}
-
-func layoutPath(repoName ...string) (idxPath layout.Path, err error) {
-	path := filepath.Join(repoName...)
-	if _, err = os.Stat(path); err != nil {
-		return
-	}
-
-	return layout.Path(path), err
-}
-
-func (i *ImageIndex) SetOS(digest name.Digest, os string) error {
-	return i.Handler.SetOS(digest, os)
-}
-
-func (i *ManifestHandler) SetOS(digest name.Digest, os string) error {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return err
-	}
-
-	mfest, err := i.newManifest.Manifest(hash)
-	if err == nil {
-		dupIdxMfest := mfest.DeepCopy()
-		dupIdxMfest.Subject.Platform.OS = os
-		manifestBytes, err := json.Marshal(dupIdxMfest)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(hash, false, layout.WithPlatform(
-			v1.Platform{
-				OS: os,
-			},
-		))
-
-		i.newManifest.Set(hash, manifestBytes)
-		return nil
-	}
-
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	img, err := path.Image(hash)
-	if err != nil {
-		return err
-	}
-
-	manifest, err := img.Manifest()
-	if err != nil {
-		return err
-	}
-
-	mfest = manifest.DeepCopy()
-	mfest.Subject.Platform.OS = os
-	manifestBytes, err := json.Marshal(mfest)
-	if err != nil {
-		return err
-	}
-
-	i.instance.Replace(hash, false, layout.WithPlatform(
-		v1.Platform{
-			OS: os,
-		},
-	))
-
-	i.newManifest.Set(hash, manifestBytes)
-	return nil
-}
-
-func (i *ImageIndex) SetArchitecture(digest name.Digest, arch string) error {
-	return i.Handler.SetArchitecture(digest, arch)
-}
-
-func (i *ManifestHandler) SetArchitecture(digest name.Digest, arch string) error {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return err
-	}
-
-	mfest, err := i.newManifest.Manifest(hash)
-	if err == nil {
-		dupMfest := mfest.DeepCopy()
-		dupMfest.Subject.Platform.Architecture = arch
-		manifestBytes, err := json.Marshal(dupMfest)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(hash, false, layout.WithPlatform(
-			v1.Platform{
-				Architecture: arch,
-			},
-		))
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	img, err := path.Image(hash)
-	if err != nil {
-		return err
-	}
-
-	mfest, err = img.Manifest()
-	if err != nil {
-		return err
-	}
+	var fetchPlatformSpecificImage bool = false
 
-	dupMfest := mfest.DeepCopy()
-	dupMfest.Subject.Platform.Architecture = arch
-	manifestBytes, err := json.Marshal(dupMfest)
-	if err != nil {
-		return err
+	platform := v1.Platform{}
+		
+	if addOps.os != "" {
+		platform.OS = addOps.os
+		fetchPlatformSpecificImage = true
 	}
 
-	i.instance.Replace(hash, false, layout.WithPlatform(
-		v1.Platform{
-			Architecture: arch,
-		},
-	))
-	i.newManifest.Set(hash, manifestBytes)
-
-	return nil
-}
-
-func (i *ImageIndex) SetVariant(digest name.Digest, osVariant string) error {
-	return i.Handler.SetVariant(digest, osVariant)
-}
-
-func (i *ManifestHandler) SetVariant(digest name.Digest, osVariant string) error {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return err
+	if addOps.arch != "" {
+		platform.Architecture = addOps.arch
+		fetchPlatformSpecificImage = true
 	}
-
-	mfest, err := i.newManifest.Manifest(hash)
-	if err == nil {
-		dupMfest := mfest.DeepCopy()
-		dupMfest.Subject.Platform.Variant = osVariant
-		manifestBytes, err := json.Marshal(dupMfest)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(
-			hash,
-			false,
-			layout.WithPlatform(
-				v1.Platform{
-					Variant: osVariant,
-				},
-			),
-		)
-
-		i.newManifest.Set(hash, manifestBytes)
 
-		return nil
+	if addOps.variant != "" {
+		platform.Variant = addOps.variant
+		fetchPlatformSpecificImage = true
 	}
 
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
+	if addOps.osVersion != "" {
+		platform.OSVersion = addOps.osVersion
+		fetchPlatformSpecificImage = true
 	}
 
-	img, err := path.Image(hash)
-	if err != nil {
-		return err
+	if len(addOps.features) != 0 {
+		platform.Features = addOps.features
+		fetchPlatformSpecificImage = true
 	}
 
-	mfest, err = img.Manifest()
-	if err != nil {
-		return err
+	if len(addOps.osFeatures) != 0 {
+		platform.OSFeatures = addOps.osFeatures
+		fetchPlatformSpecificImage = true
 	}
 
-	dupMfest := mfest.DeepCopy()
-	dupMfest.Subject.Platform.Variant = osVariant
-	manifestBytes, err := json.Marshal(dupMfest)
-	if err != nil {
-		return err
+	if fetchPlatformSpecificImage {
+		return addPlatformSpecificImages(i, ref, platform, addOps.annotations)
 	}
 
-	i.instance.Replace(
-		hash,
-		false,
-		layout.WithPlatform(
-			v1.Platform{
-				Variant: osVariant,
-			},
-		),
+	desc, err := remote.Get(
+		ref, 
+		remote.WithAuthFromKeychain(i.Options.KeyChain), 
+		remote.WithTransport(getTransport(true)),
 	)
-
-	i.newManifest.Set(hash, manifestBytes)
-
-	return nil
-}
-
-func (i *ImageIndex) SetOSVersion(digest name.Digest, osVersion string) error {
-	return i.Handler.SetOSVersion(digest, osVersion)
-}
-
-func (i *ManifestHandler) SetOSVersion(digest name.Digest, osVersion string) error {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
 	if err != nil {
 		return err
 	}
 
-	mfest, err := i.newManifest.Manifest(hash)
-	if err == nil {
-		dupMfest := mfest.DeepCopy()
-		dupMfest.Subject.Platform.OSVersion = osVersion
-		manifestBytes, err := json.Marshal(dupMfest)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(
-			hash,
-			false,
-			layout.WithPlatform(
-				v1.Platform{
-					OSVersion: osVersion,
-				},
-			),
-		)
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	img, err := path.Image(hash)
-	if err != nil {
-		return err
-	}
-
-	mfest, err = img.Manifest()
-	if err != nil {
-		return err
-	}
-
-	dupMfest := mfest.DeepCopy()
-	dupMfest.Subject.Platform.OSVersion = osVersion
-	manifestBytes, err := json.Marshal(dupMfest)
-	if err != nil {
-		return err
-	}
-
-	i.instance.Replace(
-		hash,
-		false,
-		layout.WithPlatform(
-			v1.Platform{
-				OSVersion: osVersion,
-			},
-		),
-	)
-	i.newManifest.Set(hash, manifestBytes)
-
-	return nil
-}
-
-func (i *ImageIndex) SetFeatures(digest name.Digest, features []string) error {
-	return i.Handler.SetFeatures(digest, features)
-}
-
-func (i *ManifestHandler) SetFeatures(digest name.Digest, features []string) error {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return err
-	}
-
-	mfest, err := i.newManifest.Manifest(hash)
-	if err == nil {
-		dupMfest := mfest.DeepCopy()
-		dupMfest.Subject.Platform.Features = features
-		manifestBytes, err := json.Marshal(dupMfest)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(
-			hash,
-			false,
-			layout.WithPlatform(
-				v1.Platform{
-					Features: features,
-				},
-			),
-		)
-
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	img, err := path.Image(hash)
-	if err != nil {
-		return err
-	}
-
-	mfest, err = img.Manifest()
-	if err != nil {
-		return err
-	}
-
-	dupMfest := mfest.DeepCopy()
-	dupMfest.Subject.Platform.Features = features
-	manifestBytes, err := json.Marshal(dupMfest)
-	if err != nil {
-		return err
-	}
-
-	i.instance.Replace(
-		hash,
-		false,
-		layout.WithPlatform(
-			v1.Platform{
-				Features: features,
-			},
-		),
-	)
-
-	i.newManifest.Set(hash, manifestBytes)
-	return nil
-}
-
-func (i *ImageIndex) SetOSFeatures(digest name.Digest, osFeatures []string) error {
-	return i.Handler.SetOSFeatures(digest, osFeatures)
-}
-
-func (i *ManifestHandler) SetOSFeatures(digest name.Digest, osFeatures []string) error {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return err
-	}
-
-	mfest, err := i.newManifest.Manifest(hash)
-	if err == nil {
-		dupMfest := mfest.DeepCopy()
-		dupMfest.Subject.Platform.OSFeatures = osFeatures
-		manifestBytes, err := json.Marshal(dupMfest)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(
-			hash,
-			false,
-			layout.WithPlatform(
-				v1.Platform{
-					OSFeatures: osFeatures,
-				},
-			),
-		)
-
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	img, err := path.Image(hash)
-	if err != nil {
-		return err
-	}
-
-	mfest, err = img.Manifest()
-	if err != nil {
-		return err
-	}
-
-	dupMfest := mfest.DeepCopy()
-	dupMfest.Subject.Platform.OSFeatures = osFeatures
-	manifestBytes, err := json.Marshal(dupMfest)
-	if err != nil {
-		return err
-	}
-
-	i.instance.Replace(
-		hash,
-		false,
-		layout.WithPlatform(
-			v1.Platform{
-				OSFeatures: osFeatures,
-			},
-		),
-	)
-
-	i.newManifest.Set(hash, manifestBytes)
-	return nil
-}
-
-func (i *ImageIndex) SetAnnotations(digest name.Digest, annotations map[string]string) error {
-	return i.Handler.SetAnnotations(digest, annotations)
-}
-
-func (i *ManifestHandler) SetAnnotations(digest name.Digest, annotations map[string]string) error {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return err
-	}
-
-	mfestIdx, err := i.newManifest.IndexManifest(hash)
-	if err == nil {
-		dupMfestIdx := mfestIdx.DeepCopy()
-		dupMfestIdx.Subject.Annotations = annotations
-		dupMfestIdx.Annotations = annotations
-		manifestBytes, err := json.Marshal(dupMfestIdx)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(
-			hash,
-			true,
-			layout.WithAnnotations(annotations),
-		)
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	mfest, err := i.newManifest.Manifest(hash)
-	if err == nil {
-		dupMfest := mfest.DeepCopy()
-		dupMfest.Subject.Annotations = annotations
-		dupMfest.Annotations = annotations
-		manifestBytes, err := json.Marshal(dupMfest)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(
-			hash,
-			false,
-			layout.WithAnnotations(annotations),
-		)
-
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	idx, err := path.ImageIndex()
-	if err == nil {
-		if h, _ := idx.Digest(); h == hash {
-			idxMfest, err := idx.IndexManifest()
-			if err != nil {
-				return err
-			}
-
-			dupIdxMfest := idxMfest.DeepCopy()
-			dupIdxMfest.Subject.Annotations = annotations
-			dupIdxMfest.Annotations = annotations
-			manifestBytes, err := json.Marshal(dupIdxMfest)
-			if err != nil {
-				return err
-			}
-
-			i.instance.Replace(
-				hash,
-				false,
-				layout.WithAnnotations(annotations),
-			)
-
-			i.newManifest.Set(hash, manifestBytes)
-
-			return nil
-		}
-
-		imgImg, err := idx.ImageIndex(hash)
-		if err != nil {
-			return err
-		}
-
-		idxMfest, err := imgImg.IndexManifest()
-		if err != nil {
-			return err
-		}
-
-		dupIdxMfest := idxMfest.DeepCopy()
-		dupIdxMfest.Annotations = annotations
-		dupIdxMfest.Subject.Annotations = annotations
-		manifestBytes, err := json.Marshal(dupIdxMfest)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(
-			hash,
-			true,
-			layout.WithAnnotations(annotations),
-		)
-
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	img, err := path.Image(hash)
-	if err != nil {
-		return err
-	}
-
-	mfest, err = img.Manifest()
-	if err != nil {
-		return err
-	}
-
-	dupMfest := mfest.DeepCopy()
-	dupMfest.Subject.Annotations = annotations
-	dupMfest.Annotations = annotations
-	manifestBytes, err := json.Marshal(dupMfest)
-	if err != nil {
-		return err
-	}
-
-	i.instance.Replace(
-		hash,
-		false,
-		layout.WithAnnotations(annotations),
-	)
-	i.newManifest.Set(hash, manifestBytes)
-
-	return nil
-}
-
-func (i *ImageIndex) SetURLs(digest name.Digest, urls []string) error {
-	return i.Handler.SetURLs(digest, urls)
-}
-
-func (i *ManifestHandler) SetURLs(digest name.Digest, urls []string) error {
-	digestStr := digest.Identifier()
-	hash, err := v1.NewHash(digestStr)
-	if err != nil {
-		return err
-	}
-
-	mfestIdx, err := i.newManifest.IndexManifest(hash)
-	if err == nil {
-		dupMfestIdx := mfestIdx.DeepCopy()
-		dupMfestIdx.Subject.URLs = urls
-		manifestBytes, err := json.Marshal(dupMfestIdx)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(
-			hash,
-			true,
-			layout.WithURLs(urls),
-		)
-
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	mfest, err := i.newManifest.Manifest(hash)
-	if err == nil {
-		dupMfest := mfest.DeepCopy()
-		dupMfest.Subject.URLs = urls
-		manifestBytes, err := json.Marshal(dupMfest)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(
-			hash,
-			false,
-			layout.WithURLs(urls),
-		)
-
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	imgIdx, err := path.ImageIndex()
-	if err == nil {
-		if h, _ := imgIdx.Digest(); h == hash {
-			mfest, err := imgIdx.IndexManifest()
-			if err != nil {
-				return err
-			}
-
-			dupMfest := mfest.DeepCopy()
-			dupMfest.Subject.URLs = urls
-			manifestBytes, err := json.Marshal(dupMfest)
-			if err != nil {
-				return err
-			}
-
-			i.instance.Replace(
-				hash,
-				true,
-				layout.WithURLs(urls),
-			)
-
-			i.newManifest.Set(hash, manifestBytes)
-
-			return nil
-		}
-
-		idx, err := imgIdx.ImageIndex(hash)
-		if err != nil {
-			return err
-		}
-
-		mfest, err := idx.IndexManifest()
-		if err != nil {
-			return err
-		}
-
-		dupMfest := mfest.DeepCopy()
-		dupMfest.Subject.URLs = urls
-		manifestBytes, err := json.Marshal(dupMfest)
-		if err != nil {
-			return err
-		}
-
-		i.instance.Replace(
-			hash,
-			true,
-			layout.WithURLs(urls),
-		)
-
-		i.newManifest.Set(hash, manifestBytes)
-
-		return nil
-	}
-
-	img, err := path.Image(hash)
-	if err != nil {
-		return err
-	}
-
-	mfest, err = img.Manifest()
-	if err != nil {
-		return err
-	}
-
-	dupMfest := mfest.DeepCopy()
-	dupMfest.Subject.URLs = urls
-	manifestBytes, err := json.Marshal(dupMfest)
-	if err != nil {
-		return err
-	}
-
-	i.instance.Replace(
-		hash,
-		false,
-		layout.WithURLs(urls),
-	)
-
-	i.newManifest.Set(hash, manifestBytes)
-
-	return nil
-}
-
-func (i *ImageIndex) Add(ref name.Reference, ops ...IndexAddOption) error {
-	return i.Handler.Add(ref, ops...)
-}
-
-func (i *ManifestHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
-	var opts = IndexAddOptions{}
-	for _, op := range ops {
-		op(&opts)
-	}
-
-	desc, err := remote.Head(ref, remote.WithAuthFromKeychain(i.keychain))
-	if err != nil {
-		return err
-	}
-
-	descManifestBytes, err := json.MarshalIndent(desc, "", "   ")
-	if err != nil {
-		return err
-	}
-
-	switch {
+	switch{
 	case desc.MediaType.IsImage():
-		if opts.all {
-			fmt.Printf("ignoring `-all`, ref: %s is Image", ref.Name())
-		}
-
-		err := i.instance.AddDescriptor(desc, opts.LayoutOptions()...)
+		img, err := desc.Image()
 		if err != nil {
 			return err
 		}
 
-		i.newManifest.Set(desc.Digest, descManifestBytes)
+		var desc v1.Descriptor
+		mfest, err := img.Manifest()
+		if err != nil {
+			return err
+		}
+
+		if mfest == nil {
+			return errors.New("image manifest doesn't exists")
+		}
+
+		if mfest.Subject != nil && mfest.Subject.Platform != nil {
+			desc = *mfest.Subject
+		} else if mfest.Config.Platform != nil {
+			desc = mfest.Config
+		} else {
+			desc = mfest.Config
+		}
+
+		i.ImageIndex = mutate.AppendManifests(i.ImageIndex, mutate.IndexAddendum{
+			Add: img,
+			Descriptor: desc,
+		})
+
+		return nil
 	case desc.MediaType.IsIndex():
-		mfestIdx, err := v1.ParseIndexManifest(bytes.NewReader(descManifestBytes))
+		idx, err := desc.ImageIndex()
 		if err != nil {
 			return err
 		}
 
-		if opts.all {
-			for idx := range mfestIdx.Manifests {
-				if mfestIdx.Manifests[idx].MediaType.IsImage() {
-					descManifestImgBytes, err := json.MarshalIndent(mfestIdx.Manifests[idx], "", "   ")
-					if err != nil {
-						return err
-					}
-
-					err = i.instance.AddDescriptor(&mfestIdx.Manifests[idx], opts.LayoutOptions()...)
-					if err != nil {
-						return err
-					}
-
-					i.newManifest.Set(mfestIdx.Manifests[idx].Digest, descManifestImgBytes)
-				}
-			}
-
-			return nil
+		if addOps.all {
+			return addAllImages(i, idx, ref, addOps.annotations)
 		}
 
-		addSingleImage := func(descManifest v1.Descriptor) error {
-			descManifestImgBytes, err := json.MarshalIndent(descManifest, "", "   ")
-			if err != nil {
-				return err
-			}
-
-			err = i.instance.AddDescriptor(&descManifest, opts.LayoutOptions()...)
-			if err != nil {
-				return err
-			}
-
-			i.newManifest.Set(descManifest.Digest, descManifestImgBytes)
-			return nil
+		platform := v1.Platform{
+			OS: runtime.GOOS,
+			Architecture: runtime.GOARCH,
 		}
 
-		if opts.os == "" || opts.arch == "" {
-			for _, descManifest := range mfestIdx.Manifests {
-				if (descManifest.Platform.OS == opts.os || descManifest.Platform.OS == runtime.GOOS) && (descManifest.Platform.Architecture == opts.arch || descManifest.Platform.Architecture == runtime.GOARCH) {
-					return addSingleImage(descManifest)
-				}
-
-				if descManifest.Platform.OS == runtime.GOOS {
-					return addSingleImage(descManifest)
-				}
-			}
-
-			return fmt.Errorf("no image found in the ImageIndex with the current Platform")
-		}
-
-		var matchingDescriptor v1.Descriptor
-		var bestMatchCount int
-
-		for _, descManifest := range mfestIdx.Manifests {
-			if descManifest.Platform != nil {
-				continue
-			}
-
-			currentCountMatch := 0
-
-			switch {
-			case opts.os != "" && descManifest.Platform.OS == opts.os:
-				currentCountMatch++
-				fallthrough
-			case opts.arch != "" && descManifest.Platform.Architecture == opts.arch:
-				currentCountMatch++
-				fallthrough
-			case opts.variant != "" && descManifest.Platform.Variant == opts.variant:
-				currentCountMatch++
-				fallthrough
-			case len(opts.features) != 0 && stringSlicesEqual(descManifest.Platform.Features, opts.features):
-				currentCountMatch++
-				fallthrough
-			case len(opts.annotations) != 0 && reflect.DeepEqual(descManifest.Annotations, opts.annotations):
-				currentCountMatch++
-			}
-
-			if currentCountMatch > bestMatchCount {
-				matchingDescriptor = descManifest
-				bestMatchCount = currentCountMatch
-			}
-		}
-
-		if bestMatchCount == 0 {
-			return fmt.Errorf("no image found with the provided options")
-		}
-
-		return addSingleImage(matchingDescriptor)
+		return addPlatformSpecificImages(i, ref, platform, addOps.annotations)
+	default:
+		return errors.New("cannot find image/image index with the given reference")
 	}
-	return fmt.Errorf("unexpected error occurred")
 }
 
-func (i *ImageIndex) Save() error {
-	return i.Handler.Save()
+func addAllImages(i *Index, idx v1.ImageIndex, ref name.Reference, annotations map[string]string) error {
+	mfest, err := idx.IndexManifest()
+	if err != nil {
+		return err
+	}
+	
+	if mfest == nil {
+		return errors.New("index manifest is undefined")
+	}
+
+	errs := SaveError{}
+
+	for _, desc := range mfest.Manifests {
+		if desc.MediaType.IsIndex() {
+			err := addImagesFromDigest(i, desc.Digest, ref, annotations)
+			if err != nil {
+				errs.Errors = append(errs.Errors, SaveDiagnostic{
+					ImageName: desc.Digest.String(),
+					Cause: err,
+				})
+			}
+		}
+	}
+
+	if len(errs.Errors) == 0 {
+		return nil
+	}
+
+	return errors.New(errs.Error())
 }
 
-func (i *ManifestHandler) Save() error {
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
+func addImagesFromDigest(i *Index, hash v1.Hash, ref name.Reference, annotations map[string]string) error {
+	imgRef, err := name.ParseReference(ref.Context().Name() + digestDelim + hash.String())
 	if err != nil {
 		return err
 	}
 
-	if m, err := path.ImageIndex(); err == nil && i.requestedMediaTypes.IndexType() == DockerTypes.IndexType() {
-		idx, err := m.IndexManifest()
+	desc, err := remote.Get(imgRef, remote.WithAuthFromKeychain(i.Options.KeyChain), remote.WithTransport(getTransport(true)))
+	if err != nil {
+		return err
+	}
+
+	switch{
+	case desc.MediaType.IsImage():
+		return appendImage(i, desc, annotations)
+	case desc.MediaType.IsIndex():
+		idx, err := desc.ImageIndex()
+		if err != nil {
+			return  err
+		}
+
+		return addAllImages(i, idx, ref, annotations)
+	default:
+		return errors.New("no image/image index found with the given hash: "+ hash.String())
+	}
+}
+
+func addPlatformSpecificImages(i *Index, ref name.Reference, platform v1.Platform, annotations map[string]string) error {
+	if platform.OS == "" {
+		return errors.New("error fetching image from index with unknown platform")
+	}
+
+	desc, err := remote.Get(
+		ref, 
+		remote.WithAuthFromKeychain(i.Options.KeyChain), 
+		remote.WithTransport(getTransport(true)),
+		remote.WithPlatform(platform),
+	)
+	if err != nil {
+		return err
+	}
+
+	return appendImage(i, desc, annotations)
+}
+
+func appendImage(i *Index, desc *remote.Descriptor, annotations map[string]string) error {
+	img, err := desc.Image()
+	if err != nil {
+		return err
+	}
+
+	return addImage(i, img, annotations)
+}
+
+func addImage(i *Index, img v1.Image, annotations map[string]string) error {
+	var v1Desc v1.Descriptor
+	mfest, err := img.Manifest()
+	if err != nil {
+		return err
+	}
+
+	if mfest == nil {
+		return errors.New("image manifest doesn't exists")
+	}
+
+	if mfest.Subject != nil && mfest.Subject.Platform != nil {
+		v1Desc = *mfest.Subject
+	} else if mfest.Config.Platform != nil {
+		v1Desc = mfest.Config
+	} else {
+		v1Desc = mfest.Config
+	}
+
+	if len(annotations) != 0 {
+		v1Desc.Annotations = annotations
+	}
+
+	i.ImageIndex = mutate.AppendManifests(i.ImageIndex, mutate.IndexAddendum{
+		Add: img,
+		Descriptor: v1Desc,
+	})
+
+	return nil
+}
+
+func(i *Index) Save() error {
+	for hash, desc := range i.annotate.instance {
+		img, err := i.Image(hash)
+		if err != nil {
+			return err
+		}
+	
+		config, _ := getConfigFile(img)
+		if config == nil {
+			config = &v1.ConfigFile{}
+		}
+
+		platform, _ := getConfigFilePlatform(*config)
+		mfest, err := img.Manifest()
 		if err != nil {
 			return err
 		}
 
-		// Docker's ManifestList doesn't have Annotations field
-		idx.Annotations = nil
-		idx.Subject.Annotations = nil
-	}
+		var imgDesc v1.Descriptor
+		if mfest.Config.Platform != nil {
+			imgDesc = mfest.Config
+		} else if mfest.Subject != nil && mfest.Subject.Platform != nil {
+			imgDesc = *mfest.Subject
+		} else if mfest.Subject != nil && mfest.Subject.Platform == nil {
+			mfest.Subject.Platform = platform
+			imgDesc = *mfest.Subject
+		} else if mfest.Config.Platform == nil {
+			mfest.Config.Platform = platform
+			imgDesc = mfest.Config
+		} else {
+			imgDesc.Platform = &v1.Platform{}
+		}
 
-	for h := range *i.instance {
-		for _, manifestActions := range i.instance.get(h) {
-			switch manifestActions.action {
-			case ADD:
-				if manifestActions.descriptor.MediaType == types.DockerManifestList {
-					manifestActions.descriptor.Annotations = nil
-				}
+		upsertDesc := desc.DeepCopy()
+		if upsertDesc.Platform != nil {
+			if upsertDesc.Platform.OS != "" {
+				imgDesc.Platform.OS = upsertDesc.Platform.OS
+			}
 
-				err := path.AppendDescriptor(*manifestActions.descriptor)
-				if err != nil {
-					return err
-				}
-			case REPLACE:
-				err := path.RemoveDescriptors(match.Digests(manifestActions.hash))
-				if err != nil {
-					return err
-				}
+			if upsertDesc.Platform.Architecture != "" {
+				imgDesc.Platform.Architecture = upsertDesc.Platform.Architecture
+			}
 
-				if manifestActions.descriptor.MediaType == types.DockerManifestList {
-					manifestActions.descriptor.Annotations = nil
-				}
+			if upsertDesc.Platform.Variant != "" {
+				imgDesc.Platform.Variant = upsertDesc.Platform.Variant
+			}
 
-				err = path.AppendDescriptor(*manifestActions.descriptor)
-				if err != nil {
-					return err
-				}
-			case DELETE:
-				err := path.RemoveDescriptors(match.Digests(manifestActions.hash))
-				if err != nil {
-					return err
-				}
+			if upsertDesc.Platform.OSVersion != "" {
+				imgDesc.Platform.OSVersion = upsertDesc.Platform.OSVersion
+			}
+
+			if len(upsertDesc.Platform.Features) != 0 {
+				imgDesc.Platform.Features = upsertDesc.Platform.Features
+			}
+
+			if len(upsertDesc.Platform.OSFeatures) != 0 {
+				imgDesc.Platform.OSFeatures = upsertDesc.Platform.OSFeatures
 			}
 		}
+
+		if len(upsertDesc.Annotations) != 0 {
+			imgDesc.Annotations = upsertDesc.Annotations
+		}
+
+		if len(upsertDesc.URLs) != 0 {
+			imgDesc.URLs = upsertDesc.URLs
+		}
+
+		i.ImageIndex = mutate.AppendManifests(
+			mutate.RemoveManifests(
+				i.ImageIndex, 
+				match.Digests(hash),
+			), mutate.IndexAddendum{
+				Add: img,
+				Descriptor: imgDesc,
+			},
+		)
 	}
 
-	file, err := os.Create(filepath.Join(i.xdgRuntimePath, i.repoName, "index.map.json"))
+	i.annotate = Annotate{}
+	for _, h := range i.removedManifests {
+		i.ImageIndex = mutate.RemoveManifests(i.ImageIndex, match.Digests(h))
+	}
+	i.removedManifests = []v1.Hash{}
+
+	layoutPath := filepath.Join(i.Options.XdgPath, i.Options.Reponame)
+	if _, err := os.Stat(filepath.Join(layoutPath, "index.json")); err != nil {
+		path := layout.Path(layoutPath)
+		return path.WriteIndex(i.ImageIndex)
+	}
+
+	path, err := layout.FromPath(layoutPath)
 	if err != nil {
 		return err
 	}
 
-	defer file.Close()
-
-	encoder := json.NewEncoder(file)
-	return encoder.Encode(i.indexMap)
+	return path.WriteIndex(i.ImageIndex)
 }
 
-func (i *ImageIndex) Push(ops ...IndexAddOption) error {
-	return i.Handler.Push(ops...)
-}
+func(i *Index) Push(ops ...IndexPushOption) error {
+	var imageIndex v1.ImageIndex = i.ImageIndex
+	var pushOps = &PushOptions{}
 
-func (i *ManifestHandler) Push(ops ...IndexAddOption) error {
-	var pushOpts = IndexAddOptions{}
+	if len(i.removedManifests) != 0 || len(i.annotate.instance) != 0 {
+		return errors.New("index must need to be saved before pushing")
+	}
+
 	for _, op := range ops {
-		op(&pushOpts)
-	}
-
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
-	}
-
-	imgIdx, err := path.ImageIndex()
-	if err != nil {
-		return err
-	}
-
-	mfest, err := imgIdx.IndexManifest()
-	if err != nil {
-		return err
-	}
-
-	if reqMediaType := pushOpts.format; mfest.MediaType != reqMediaType.IndexType() {
-		i.requestedMediaTypes = reqMediaType
-		if err = i.Save(); err != nil {
+		err := op(pushOps)
+		if err != nil {
 			return err
 		}
 	}
 
-	if err = remote.WriteIndex(i.ref, imgIdx, remote.WithAuthFromKeychain(i.keychain)); err != nil {
+	ref, err := name.ParseReference(i.Options.Reponame, name.WeakValidation, name.Insecure)
+	if err != nil {
 		return err
 	}
 
-	if pushOpts.purge {
+	if pushOps.format != "" {
+		mfest, err := i.IndexManifest()
+		if err != nil {
+			return err
+		}
+
+		if mfest == nil {
+			return errors.New("index manifest is undefined")
+		}
+
+		if pushOps.format != mfest.MediaType {
+			imageIndex = mutate.IndexMediaType(imageIndex, pushOps.format)
+		}
+	}
+
+	err = remote.WriteIndex(ref, imageIndex, remote.WithAuthFromKeychain(i.Options.KeyChain), remote.WithTransport(getTransport(pushOps.insecure)))
+	if err != nil {
+		return err
+	}
+
+	if pushOps.purge {
 		return i.Delete()
 	}
 
 	return nil
 }
 
-func (i *ImageIndex) Inspect() error {
-	return i.Handler.Inspect()
-}
-
-func (i *ManifestHandler) Inspect() error {
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
+func(i *Index) Inspect() error {
+	bytes, err := i.RawManifest()
 	if err != nil {
 		return err
 	}
 
-	idx, err := path.ImageIndex()
-	if err != nil {
-		return err
+	if len(i.removedManifests) != 0 || len(i.annotate.instance) != 0 {
+		return errors.New("index must need to be saved before inspecting")
 	}
 
-	manifestBytes, err := idx.RawManifest()
-	if err == nil {
-		err = fmt.Errorf(string(manifestBytes))
-	}
-	return err
+	return errors.New(string(bytes))
 }
 
-func (i *ImageIndex) Remove(digest name.Digest) error {
-	return i.Handler.Remove(digest)
-}
-
-func (i *ManifestHandler) Remove(digest name.Digest) error {
+func(i *Index) Remove(digest name.Digest) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
 		return err
 	}
 
-	path, err := layoutPath(i.xdgRuntimePath, i.repoName)
-	if err != nil {
-		return err
+	if _, err = i.ImageIndex.ImageIndex(hash); err != nil {
+		_, err = i.Image(hash)
+		if err != nil {
+			return err
+		}
 	}
 
-	imgIdx, err := path.ImageIndex()
-	if err != nil {
-		return err
-	}
-
-	_, err = imgIdx.ImageIndex(hash)
-	if err == nil {
-		i.instance.Remove(hash, true)
-		i.newManifest.Delete(hash)
-	}
-
-	_, err = imgIdx.Image(hash)
-	if err == nil {
-		i.instance.Remove(hash, false)
-		i.newManifest.Delete(hash)
-	}
-
-	return err
-}
-
-func (i *ImageIndex) Delete() error {
-	return i.Handler.Delete()
-}
-
-func (i *ManifestHandler) Delete() error {
-	err := os.Remove(filepath.Join(i.xdgRuntimePath, i.repoName, "index.json"))
-	if err != nil {
-		return err
-	}
-
-	err = os.Remove(filepath.Join(i.xdgRuntimePath, i.repoName, "index.map.json"))
-	if err != nil {
-		return err
-	}
+	i.removedManifests = append(i.removedManifests, hash)
 
 	return nil
 }
 
-func stringSlicesEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
+func(i *Index) Delete() error {
+	return os.RemoveAll(filepath.Join(i.Options.XdgPath, i.Options.Reponame))
+}
+
+func getIndexURLs(i *Index, hash v1.Hash) (urls []string, err error) {
+	idx, err := i.ImageIndex.ImageIndex(hash)
+	if err != nil {
+		return
 	}
-	for i, v := range a {
-		if v != b[i] {
-			return false
+
+	mfest, err := idx.IndexManifest()
+	if err != nil {
+		return
+	}
+
+	if mfest == nil {
+		return urls, errors.New("index manifest is undefined")
+	}
+
+	if mfest.Subject == nil {
+		mfest.Subject = &v1.Descriptor{}
+	}
+
+	if len(mfest.Subject.URLs) == 0 {
+		return urls, errors.New("urls is undefined")
+	}
+
+	return mfest.Subject.URLs, nil
+}
+
+func getImageURLs(i *Index, hash v1.Hash) (urls []string, err error) {
+	img, err := i.Image(hash)
+	if err != nil {
+		return
+	}
+
+	mfest, err := img.Manifest()
+	if err != nil {
+		return
+	}
+
+	if len(mfest.Config.URLs) != 0 {
+		return mfest.Config.URLs, nil
+	}
+
+	if mfest.Subject == nil {
+		mfest.Subject = &v1.Descriptor{}
+	}
+
+	if len(mfest.Subject.URLs) == 0 {
+		return urls, errors.New("urls is undefined")
+	}
+
+	return mfest.Subject.URLs, nil
+}
+
+func getConfigFile(img v1.Image) (config *v1.ConfigFile, err error) {
+	config, err = img.ConfigFile()
+	if err != nil {
+		return
+	}
+
+	if config == nil {
+		return config, errors.New("image config file is nil")
+	}
+
+	return config, nil
+}
+
+func getIndexManifest(i Index, digest name.Digest) (mfest *v1.IndexManifest, err error) {
+	hash, err := v1.NewHash(digest.Identifier())
+	if err != nil {
+		return
+	}
+
+	idx, err := i.ImageIndex.ImageIndex(hash)
+	if err != nil {
+		return
+	}
+
+	mfest, err = idx.IndexManifest()
+	if err != nil {
+		return
+	}
+
+	if mfest == nil {
+		return mfest, errors.New("index manifest is undefined")
+	}
+
+	return mfest, err
+}
+
+func getConfigFilePlatform(config v1.ConfigFile) (platform *v1.Platform, err error) {
+	platform = config.Platform()
+	if platform == nil {
+		return platform, errors.New("platform is undefined")
+	}
+	return 
+}
+
+func getTransport(insecure bool) http.RoundTripper {
+	// #nosec G402
+	if insecure {
+		return &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
 		}
 	}
-	return true
+
+	return http.DefaultTransport
 }

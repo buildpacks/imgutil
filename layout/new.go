@@ -14,26 +14,35 @@ import (
 	"github.com/buildpacks/imgutil"
 )
 
-func NewIndex(name string, manifestOnly bool, ops ...imgutil.IndexOption) (index *imgutil.ImageIndex, err error) {
-	idxOps := &imgutil.IndexStruct{}
+// NewIndex will return a local OCI ImageIndex that can be modified and saved to a registry
+func NewIndex(repoName string, ops ...imgutil.IndexOption) (index v1.ImageIndex, err error) {
+	var idxOps = &imgutil.IndexOptions{}
+	ops = append(ops, imgutil.WithRepoName(repoName))
+
 	for _, op := range ops {
-		if err := op(idxOps); err != nil {
-			return index, err
+		err = op(idxOps)
+		if err != nil {
+			return
 		}
 	}
 
-	idxRootPath := filepath.Join(idxOps.XdgRuntimePath(), name)
-	var imgIdx v1.ImageIndex
-	_, err = layout.Write(idxRootPath, imgIdx)
+	path, err := layout.FromPath(filepath.Join(idxOps.XDGRuntimePath(), idxOps.RepoName()))
+	if err != nil {
+		return
+	}
 
-	if manifestOnly {
-		index = &imgutil.ImageIndex{
-			Handler: &imgutil.ManifestHandler{
-				IndexStruct: *idxOps,
-			},
-		}
-	} else {
-		panic("implementation needed")
+	index, err = path.ImageIndex()
+	if err != nil {
+		return
+	}
+
+	mediaType, err := index.MediaType()
+	if err != nil {
+		return
+	}
+
+	if mediaType != types.OCIImageIndex {
+		return nil, errors.New("no oci image index found")
 	}
 
 	return
