@@ -10,22 +10,153 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
+
+	"github.com/buildpacks/imgutil"
 )
 
 func NewIndex(format types.MediaType, byteSize, layers, count int64, ops ...Option) (*Index, error) {
+	var (
+		os          = make(map[v1.Hash]string, count)
+		arch        = make(map[v1.Hash]string, count)
+		variant     = make(map[v1.Hash]string, count)
+		osVersion   = make(map[v1.Hash]string, count)
+		features    = make(map[v1.Hash][]string, count)
+		osFeatures  = make(map[v1.Hash][]string, count)
+		urls        = make(map[v1.Hash][]string, count)
+		annotations = make(map[v1.Hash]map[string]string, count)
+	)
 	idx, err := ImageIndex(byteSize, layers, count, ops...)
 	if err != nil {
 		return nil, err
 	}
 
+	mfest, err := idx.IndexManifest()
+	if err != nil {
+		return nil, err
+	}
+
+	if mfest == nil {
+		mfest = &v1.IndexManifest{}
+	}
+
+	for _, m := range mfest.Manifests {
+		img, err := idx.Image(m.Digest)
+		if err != nil {
+			return nil, err
+		}
+
+		config, err := img.ConfigFile()
+		if err != nil {
+			return nil, err
+		}
+
+		if config == nil {
+			config = &v1.ConfigFile{}
+		}
+
+		os[m.Digest] = config.OS
+		arch[m.Digest] = config.Architecture
+		variant[m.Digest] = config.Variant
+		osVersion[m.Digest] = config.OSVersion
+		osFeatures[m.Digest] = config.OSFeatures
+
+		imgMfest, err := img.Manifest()
+		if err != nil {
+			return nil, err
+		}
+
+		if imgMfest == nil {
+			imgMfest = &v1.Manifest{}
+		}
+
+		platform := imgMfest.Config.Platform
+
+		if platform == nil && imgMfest.Subject != nil && imgMfest.Subject.Platform != nil {
+			platform = imgMfest.Subject.Platform
+		}
+
+		if platform == nil {
+			platform = &v1.Platform{}
+		}
+
+		features[m.Digest] = platform.Features
+		annotations[m.Digest] = imgMfest.Annotations
+		urls[m.Digest] = imgMfest.Config.URLs
+	}
+
 	return &Index{
-		ImageIndex: idx,
-		format:     format,
-		byteSize:   byteSize,
-		layers:     layers,
-		count:      count,
-		ops:        ops,
+		ImageIndex:  idx,
+		format:      format,
+		byteSize:    byteSize,
+		layers:      layers,
+		count:       count,
+		ops:         ops,
+		os:          os,
+		arch:        arch,
+		variant:     variant,
+		osVersion:   osVersion,
+		features:    features,
+		osFeatures:  osFeatures,
+		urls:        urls,
+		annotations: annotations,
 	}, nil
+}
+
+func computeIndex(idx *Index) error {
+	mfest, err := idx.IndexManifest()
+	if err != nil {
+		return err
+	}
+
+	if mfest == nil {
+		mfest = &v1.IndexManifest{}
+	}
+
+	for _, m := range mfest.Manifests {
+		img, err := idx.Image(m.Digest)
+		if err != nil {
+			return err
+		}
+
+		config, err := img.ConfigFile()
+		if err != nil {
+			return err
+		}
+
+		if config == nil {
+			config = &v1.ConfigFile{}
+		}
+
+		idx.os[m.Digest] = config.OS
+		idx.arch[m.Digest] = config.Architecture
+		idx.variant[m.Digest] = config.Variant
+		idx.osVersion[m.Digest] = config.OSVersion
+		idx.osFeatures[m.Digest] = config.OSFeatures
+
+		imgMfest, err := img.Manifest()
+		if err != nil {
+			return err
+		}
+
+		if imgMfest == nil {
+			imgMfest = &v1.Manifest{}
+		}
+
+		platform := imgMfest.Config.Platform
+
+		if platform == nil && imgMfest.Subject != nil && imgMfest.Subject.Platform != nil {
+			platform = imgMfest.Subject.Platform
+		}
+
+		if platform == nil {
+			platform = &v1.Platform{}
+		}
+
+		idx.features[m.Digest] = platform.Features
+		idx.annotations[m.Digest] = imgMfest.Annotations
+		idx.urls[m.Digest] = imgMfest.Config.URLs
+	}
+	return nil
 }
 
 type Index struct {
@@ -291,7 +422,7 @@ func (i *Index) SetURLs(digest name.Digest, urls []string) error {
 	return nil
 }
 
-func (i *Index) Add(ref name.Reference, ops ...IndexAddOption) error {
+func (i *Index) Add(ref name.Reference, ops ...imgutil.IndexAddOption) error {
 	if i.isDeleted {
 		return errors.New("index doesn't exists")
 	}
@@ -301,7 +432,7 @@ func (i *Index) Add(ref name.Reference, ops ...IndexAddOption) error {
 		return err
 	}
 
-	addOps := &IndexAddOptions{}
+	addOps := &imgutil.AddOptions{}
 	for _, op := range ops {
 		err := op(addOps)
 		if err != nil {
@@ -316,14 +447,14 @@ func (i *Index) Add(ref name.Reference, ops ...IndexAddOption) error {
 				return err
 			}
 			i.ImageIndex = index
-			return nil
+			return computeIndex(i)
 		}
 		index, err := idx.AddImage(hash, types.OCIManifestSchema1, i.byteSize, i.layers, i.count, i.ops...)
 		if err != nil {
 			return err
 		}
 		i.ImageIndex = index
-		return nil
+		return computeIndex(i)
 	}
 
 	return errors.New("index is not random index")
@@ -337,7 +468,7 @@ func (i *Index) Save() error {
 	return nil
 }
 
-func (i *Index) Push(ops ...IndexPushOption) error {
+func (i *Index) Push(ops ...imgutil.IndexPushOption) error {
 	if i.isDeleted {
 		return errors.New("index doesn't exists")
 	}
