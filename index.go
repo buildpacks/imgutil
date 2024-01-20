@@ -53,6 +53,24 @@ type ImageIndex interface {
 	Delete() error
 }
 
+var (
+	ErrOSUndefined                        = errors.New("os is undefined")
+	ErrArchUndefined                      = errors.New("architecture is undefined")
+	ErrVariantUndefined                   = errors.New("variant is undefined")
+	ErrOSVersionUndefined                 = errors.New("osVersion is undefined")
+	ErrFeaturesUndefined                  = errors.New("features are undefined")
+	ErrOSFeaturesUndefined                = errors.New("os-features are undefined")
+	ErrURLsUndefined                      = errors.New("urls are undefined")
+	ErrAnnotationsUndefined               = errors.New("annotations are undefined")
+	ErrNoImageOrIndexFoundWithGivenDigest = errors.New("no image/index found with the given digest")
+	ErrConfigFilePlatformUndefined        = errors.New("platform is undefined in config file")
+	ErrManifestUndefined                  = errors.New("manifest is undefined")
+	ErrPlatformUndefined                  = errors.New("platform is undefined")
+	ErrInvalidPlatform                    = errors.New("invalid platform is provided")
+	ErrConfigFileUndefined                = errors.New("config file is undefined")
+	ErrIndexNeedToBeSaved                 = errors.New("image index should need to be saved to perform this operation")
+)
+
 type Index struct {
 	v1.ImageIndex
 	annotate         Annotate
@@ -67,7 +85,7 @@ type Annotate struct {
 func (a *Annotate) OS(hash v1.Hash) (os string, err error) {
 	desc := a.instance[hash]
 	if desc.Platform == nil || desc.Platform.OS == "" {
-		return os, errors.New("os is undefined")
+		return os, ErrOSUndefined
 	}
 
 	return desc.Platform.OS, nil
@@ -86,7 +104,7 @@ func (a *Annotate) SetOS(hash v1.Hash, os string) {
 func (a *Annotate) Architecture(hash v1.Hash) (arch string, err error) {
 	desc := a.instance[hash]
 	if desc.Platform == nil || desc.Platform.Architecture == "" {
-		return arch, errors.New("architecture is undefined")
+		return arch, ErrArchUndefined
 	}
 
 	return desc.Platform.Architecture, nil
@@ -105,7 +123,7 @@ func (a *Annotate) SetArchitecture(hash v1.Hash, arch string) {
 func (a *Annotate) Variant(hash v1.Hash) (variant string, err error) {
 	desc := a.instance[hash]
 	if desc.Platform == nil || desc.Platform.Variant == "" {
-		return variant, errors.New("variant is undefined")
+		return variant, ErrVariantUndefined
 	}
 
 	return desc.Platform.Variant, nil
@@ -124,7 +142,7 @@ func (a *Annotate) SetVariant(hash v1.Hash, variant string) {
 func (a *Annotate) OSVersion(hash v1.Hash) (osVersion string, err error) {
 	desc := a.instance[hash]
 	if desc.Platform == nil || desc.Platform.OSVersion == "" {
-		return osVersion, errors.New("osVersion is undefined")
+		return osVersion, ErrOSVersionUndefined
 	}
 
 	return desc.Platform.OSVersion, nil
@@ -143,7 +161,7 @@ func (a *Annotate) SetOSVersion(hash v1.Hash, osVersion string) {
 func (a *Annotate) Features(hash v1.Hash) (features []string, err error) {
 	desc := a.instance[hash]
 	if desc.Platform == nil || len(desc.Platform.Features) == 0 {
-		return features, errors.New("features is undefined")
+		return features, ErrFeaturesUndefined
 	}
 
 	return desc.Platform.Features, nil
@@ -162,7 +180,7 @@ func (a *Annotate) SetFeatures(hash v1.Hash, features []string) {
 func (a *Annotate) OSFeatures(hash v1.Hash) (osFeatures []string, err error) {
 	desc := a.instance[hash]
 	if desc.Platform == nil || len(desc.Platform.OSFeatures) == 0 {
-		return osFeatures, errors.New("osFeatures is undefined")
+		return osFeatures, ErrOSFeaturesUndefined
 	}
 
 	return desc.Platform.OSFeatures, nil
@@ -181,7 +199,7 @@ func (a *Annotate) SetOSFeatures(hash v1.Hash, osFeatures []string) {
 func (a *Annotate) Annotations(hash v1.Hash) (annotations map[string]string, err error) {
 	desc := a.instance[hash]
 	if len(desc.Annotations) == 0 {
-		return annotations, errors.New("annotations is undefined")
+		return annotations, ErrAnnotationsUndefined
 	}
 
 	return desc.Annotations, nil
@@ -200,7 +218,7 @@ func (a *Annotate) SetAnnotations(hash v1.Hash, annotations map[string]string) {
 func (a *Annotate) URLs(hash v1.Hash) (urls []string, err error) {
 	desc := a.instance[hash]
 	if len(desc.URLs) == 0 {
-		return urls, errors.New("urls are undefined")
+		return urls, ErrURLsUndefined
 	}
 
 	return desc.URLs, nil
@@ -224,7 +242,7 @@ func (i *Index) OS(digest name.Digest) (os string, err error) {
 
 	for _, h := range i.removedManifests {
 		if h == hash {
-			return os, errors.New("image/index with the given digest doesn't exists")
+			return os, ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
@@ -243,7 +261,7 @@ func (i *Index) OS(digest name.Digest) (os string, err error) {
 	}
 
 	if config.OS == "" {
-		return os, errors.New("os is undefined")
+		return os, ErrOSUndefined
 	}
 
 	return config.OS, nil
@@ -257,7 +275,13 @@ func (i *Index) SetOS(digest name.Digest, os string) error {
 
 	for _, h := range i.removedManifests {
 		if h == hash {
-			return errors.New("image/index with the given digest doesn't exists")
+			return ErrNoImageOrIndexFoundWithGivenDigest
+		}
+	}
+
+	if _, err = i.Image(hash); err != nil {
+		if _, err = i.ImageIndex.ImageIndex(hash); err != nil {
+			return ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
@@ -274,7 +298,7 @@ func (i *Index) Architecture(digest name.Digest) (arch string, err error) {
 
 	for _, h := range i.removedManifests {
 		if h == hash {
-			return arch, errors.New("image/index with the given digest doesn't exists")
+			return arch, ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
@@ -293,7 +317,7 @@ func (i *Index) Architecture(digest name.Digest) (arch string, err error) {
 	}
 
 	if config.Architecture == "" {
-		return arch, errors.New("architecture is undefined")
+		return arch, ErrArchUndefined
 	}
 
 	return config.Architecture, nil
@@ -307,7 +331,13 @@ func (i *Index) SetArchitecture(digest name.Digest, arch string) error {
 
 	for _, h := range i.removedManifests {
 		if h == hash {
-			return errors.New("image/index with the given digest doesn't exists")
+			return ErrNoImageOrIndexFoundWithGivenDigest
+		}
+	}
+
+	if _, err = i.Image(hash); err != nil {
+		if _, err = i.ImageIndex.ImageIndex(hash); err != nil {
+			return ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
@@ -324,7 +354,7 @@ func (i *Index) Variant(digest name.Digest) (osVariant string, err error) {
 
 	for _, h := range i.removedManifests {
 		if h == hash {
-			return osVariant, errors.New("image/index with the given digest doesn't exists")
+			return osVariant, ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
@@ -343,7 +373,7 @@ func (i *Index) Variant(digest name.Digest) (osVariant string, err error) {
 	}
 
 	if config.Variant == "" {
-		return osVariant, errors.New("variant is undefined")
+		return osVariant, ErrVariantUndefined
 	}
 
 	return config.Variant, nil
@@ -357,7 +387,13 @@ func (i *Index) SetVariant(digest name.Digest, osVariant string) error {
 
 	for _, h := range i.removedManifests {
 		if h == hash {
-			return errors.New("image/index with the given digest doesn't exists")
+			return ErrNoImageOrIndexFoundWithGivenDigest
+		}
+	}
+
+	if _, err = i.Image(hash); err != nil {
+		if _, err = i.ImageIndex.ImageIndex(hash); err != nil {
+			return ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
@@ -374,7 +410,7 @@ func (i *Index) OSVersion(digest name.Digest) (osVersion string, err error) {
 
 	for _, h := range i.removedManifests {
 		if h == hash {
-			return osVersion, errors.New("image/index with the given digest doesn't exists")
+			return osVersion, ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
@@ -393,7 +429,7 @@ func (i *Index) OSVersion(digest name.Digest) (osVersion string, err error) {
 	}
 
 	if config.OSVersion == "" {
-		return osVersion, errors.New("osVersion is undefined")
+		return osVersion, ErrOSVersionUndefined
 	}
 
 	return config.OSVersion, nil
@@ -407,7 +443,13 @@ func (i *Index) SetOSVersion(digest name.Digest, osVersion string) error {
 
 	for _, h := range i.removedManifests {
 		if h == hash {
-			return errors.New("image/index with the given digest doesn't exists")
+			return ErrNoImageOrIndexFoundWithGivenDigest
+		}
+	}
+
+	if _, err = i.Image(hash); err != nil {
+		if _, err = i.ImageIndex.ImageIndex(hash); err != nil {
+			return ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
@@ -432,7 +474,7 @@ func (i *Index) Features(digest name.Digest) (features []string, err error) {
 		}
 
 		if len(mfest.Subject.Platform.Features) == 0 {
-			return features, errors.New("features is undefined")
+			return features, ErrFeaturesUndefined
 		}
 
 		return mfest.Subject.Platform.Features, nil
@@ -445,7 +487,7 @@ func (i *Index) Features(digest name.Digest) (features []string, err error) {
 
 	for _, h := range i.removedManifests {
 		if h == hash {
-			return features, errors.New("image/index with the given digest doesn't exists")
+			return features, ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
@@ -471,11 +513,11 @@ func (i *Index) Features(digest name.Digest) (features []string, err error) {
 	platform := config.Platform()
 
 	if platform == nil {
-		return features, errors.New("config platform is undefined")
+		return features, ErrConfigFilePlatformUndefined
 	}
 
 	if len(platform.Features) == 0 {
-		return features, errors.New("features undefined")
+		return features, ErrFeaturesUndefined
 	}
 
 	return platform.Features, nil
@@ -489,7 +531,13 @@ func (i *Index) SetFeatures(digest name.Digest, features []string) error {
 
 	for _, h := range i.removedManifests {
 		if h == hash {
-			return errors.New("image/index with the given digest doesn't exists")
+			return ErrNoImageOrIndexFoundWithGivenDigest
+		}
+	}
+
+	if _, err = i.Image(hash); err != nil {
+		if _, err = i.ImageIndex.ImageIndex(hash); err != nil {
+			return ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
@@ -514,7 +562,7 @@ func (i *Index) OSFeatures(digest name.Digest) (osFeatures []string, err error) 
 		}
 
 		if len(mfest.Subject.Platform.OSFeatures) == 0 {
-			return osFeatures, errors.New("os features is undefined")
+			return osFeatures, ErrOSFeaturesUndefined
 		}
 
 		return mfest.Subject.Platform.OSFeatures, nil
@@ -527,7 +575,7 @@ func (i *Index) OSFeatures(digest name.Digest) (osFeatures []string, err error) 
 
 	for _, h := range i.removedManifests {
 		if h == hash {
-			return osFeatures, errors.New("image/index with the given digest doesn't exists")
+			return osFeatures, ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
@@ -551,7 +599,7 @@ func (i *Index) OSFeatures(digest name.Digest) (osFeatures []string, err error) 
 	}
 
 	if len(config.OSFeatures) == 0 {
-		return osFeatures, errors.New("osFeatures are undefined")
+		return osFeatures, ErrOSFeaturesUndefined
 	}
 
 	return config.OSFeatures, nil
@@ -565,7 +613,13 @@ func (i *Index) SetOSFeatures(digest name.Digest, osFeatures []string) error {
 
 	for _, h := range i.removedManifests {
 		if h == hash {
-			return errors.New("image/index with the given digest doesn't exists")
+			return ErrNoImageOrIndexFoundWithGivenDigest
+		}
+	}
+
+	if _, err = i.Image(hash); err != nil {
+		if _, err = i.ImageIndex.ImageIndex(hash); err != nil {
+			return ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
@@ -582,7 +636,7 @@ func (i *Index) Annotations(digest name.Digest) (annotations map[string]string, 
 		}
 
 		if len(mfest.Annotations) == 0 {
-			return annotations, errors.New("annotations are undefined")
+			return annotations, ErrAnnotationsUndefined
 		}
 
 		if mfest.MediaType == types.DockerManifestList {
@@ -599,7 +653,7 @@ func (i *Index) Annotations(digest name.Digest) (annotations map[string]string, 
 
 	for _, h := range i.removedManifests {
 		if h == hash {
-			return annotations, errors.New("image/index with the given digest doesn't exists")
+			return annotations, ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
@@ -622,8 +676,12 @@ func (i *Index) Annotations(digest name.Digest) (annotations map[string]string, 
 		return
 	}
 
-	if mfest == nil || len(mfest.Annotations) == 0 {
-		return annotations, errors.New("manifest is undefined")
+	if mfest == nil {
+		return annotations, ErrManifestUndefined
+	}
+
+	if len(mfest.Annotations) == 0 {
+		return annotations, ErrAnnotationsUndefined
 	}
 
 	if mfest.MediaType == types.DockerManifestSchema2 {
@@ -641,7 +699,13 @@ func (i *Index) SetAnnotations(digest name.Digest, annotations map[string]string
 
 	for _, h := range i.removedManifests {
 		if h == hash {
-			return errors.New("image/index with the given digest doesn't exists")
+			return ErrNoImageOrIndexFoundWithGivenDigest
+		}
+	}
+
+	if _, err = i.Image(hash); err != nil {
+		if _, err = i.ImageIndex.ImageIndex(hash); err != nil {
+			return ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
@@ -658,7 +722,7 @@ func (i *Index) URLs(digest name.Digest) (urls []string, err error) {
 
 	for _, h := range i.removedManifests {
 		if h == hash {
-			return urls, errors.New("image/index with the given digest doesn't exists")
+			return urls, ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
@@ -676,7 +740,11 @@ func (i *Index) URLs(digest name.Digest) (urls []string, err error) {
 		return
 	}
 
-	return urls, errors.New("no image or image index found with the given digest")
+	if err == ErrURLsUndefined {
+		return urls, ErrURLsUndefined
+	}
+
+	return urls, ErrNoImageOrIndexFoundWithGivenDigest
 }
 
 func (i *Index) SetURLs(digest name.Digest, urls []string) error {
@@ -687,7 +755,13 @@ func (i *Index) SetURLs(digest name.Digest, urls []string) error {
 
 	for _, h := range i.removedManifests {
 		if h == hash {
-			return errors.New("image/index with the given digest doesn't exists")
+			return ErrNoImageOrIndexFoundWithGivenDigest
+		}
+	}
+
+	if _, err = i.Image(hash); err != nil {
+		if _, err = i.ImageIndex.ImageIndex(hash); err != nil {
+			return ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
@@ -765,7 +839,7 @@ func (i *Index) Add(ref name.Reference, ops ...IndexAddOption) error {
 		}
 
 		if mfest == nil {
-			return errors.New("image manifest doesn't exists")
+			return ErrManifestUndefined
 		}
 
 		if mfest.Subject != nil && mfest.Subject.Platform != nil {
@@ -803,7 +877,7 @@ func (i *Index) Add(ref name.Reference, ops ...IndexAddOption) error {
 
 		return addPlatformSpecificImages(i, ref, platform, addOps.annotations)
 	default:
-		return errors.New("cannot find image/image index with the given reference")
+		return ErrNoImageOrIndexFoundWithGivenDigest
 	}
 }
 
@@ -814,7 +888,7 @@ func addAllImages(i *Index, idx v1.ImageIndex, ref name.Reference, annotations m
 	}
 
 	if mfest == nil {
-		return errors.New("index manifest is undefined")
+		return ErrManifestUndefined
 	}
 
 	errs := SaveError{}
@@ -860,13 +934,13 @@ func addImagesFromDigest(i *Index, hash v1.Hash, ref name.Reference, annotations
 
 		return addAllImages(i, idx, ref, annotations)
 	default:
-		return errors.New("no image/image index found with the given hash: " + hash.String())
+		return ErrNoImageOrIndexFoundWithGivenDigest
 	}
 }
 
 func addPlatformSpecificImages(i *Index, ref name.Reference, platform v1.Platform, annotations map[string]string) error {
 	if platform.OS == "" {
-		return errors.New("error fetching image from index with unknown platform")
+		return ErrInvalidPlatform
 	}
 
 	desc, err := remote.Get(
@@ -899,7 +973,7 @@ func addImage(i *Index, img v1.Image, annotations map[string]string) error {
 	}
 
 	if mfest == nil {
-		return errors.New("image manifest doesn't exists")
+		return ErrManifestUndefined
 	}
 
 	if mfest.Subject != nil && mfest.Subject.Platform != nil {
@@ -1031,7 +1105,7 @@ func (i *Index) Push(ops ...IndexPushOption) error {
 	var pushOps = &PushOptions{}
 
 	if len(i.removedManifests) != 0 || len(i.annotate.instance) != 0 {
-		return errors.New("index must need to be saved before pushing")
+		return ErrIndexNeedToBeSaved
 	}
 
 	for _, op := range ops {
@@ -1041,7 +1115,11 @@ func (i *Index) Push(ops ...IndexPushOption) error {
 		}
 	}
 
-	ref, err := name.ParseReference(i.Options.Reponame, name.WeakValidation, name.Insecure)
+	ref, err := name.ParseReference(
+		i.Options.Reponame,
+		name.WeakValidation,
+		name.Insecure,
+	)
 	if err != nil {
 		return err
 	}
@@ -1053,7 +1131,7 @@ func (i *Index) Push(ops ...IndexPushOption) error {
 		}
 
 		if mfest == nil {
-			return errors.New("index manifest is undefined")
+			return ErrManifestUndefined
 		}
 
 		if pushOps.format != mfest.MediaType {
@@ -1061,7 +1139,12 @@ func (i *Index) Push(ops ...IndexPushOption) error {
 		}
 	}
 
-	err = remote.WriteIndex(ref, imageIndex, remote.WithAuthFromKeychain(i.Options.KeyChain), remote.WithTransport(getTransport(pushOps.insecure)))
+	err = remote.WriteIndex(
+		ref,
+		imageIndex,
+		remote.WithAuthFromKeychain(i.Options.KeyChain),
+		remote.WithTransport(getTransport(pushOps.insecure)),
+	)
 	if err != nil {
 		return err
 	}
@@ -1080,7 +1163,7 @@ func (i *Index) Inspect() error {
 	}
 
 	if len(i.removedManifests) != 0 || len(i.annotate.instance) != 0 {
-		return errors.New("index must need to be saved before inspecting")
+		return ErrIndexNeedToBeSaved
 	}
 
 	return errors.New(string(bytes))
@@ -1120,7 +1203,7 @@ func getIndexURLs(i *Index, hash v1.Hash) (urls []string, err error) {
 	}
 
 	if mfest == nil {
-		return urls, errors.New("index manifest is undefined")
+		return urls, ErrManifestUndefined
 	}
 
 	if mfest.Subject == nil {
@@ -1128,7 +1211,7 @@ func getIndexURLs(i *Index, hash v1.Hash) (urls []string, err error) {
 	}
 
 	if len(mfest.Subject.URLs) == 0 {
-		return urls, errors.New("urls is undefined")
+		return urls, ErrURLsUndefined
 	}
 
 	return mfest.Subject.URLs, nil
@@ -1154,7 +1237,7 @@ func getImageURLs(i *Index, hash v1.Hash) (urls []string, err error) {
 	}
 
 	if len(mfest.Subject.URLs) == 0 {
-		return urls, errors.New("urls is undefined")
+		return urls, ErrURLsUndefined
 	}
 
 	return mfest.Subject.URLs, nil
@@ -1167,7 +1250,7 @@ func getConfigFile(img v1.Image) (config *v1.ConfigFile, err error) {
 	}
 
 	if config == nil {
-		return config, errors.New("image config file is nil")
+		return config, ErrConfigFileUndefined
 	}
 
 	return config, nil
@@ -1190,7 +1273,7 @@ func getIndexManifest(i Index, digest name.Digest) (mfest *v1.IndexManifest, err
 	}
 
 	if mfest == nil {
-		return mfest, errors.New("index manifest is undefined")
+		return mfest, ErrManifestUndefined
 	}
 
 	return mfest, err
@@ -1199,7 +1282,7 @@ func getIndexManifest(i Index, digest name.Digest) (mfest *v1.IndexManifest, err
 func getConfigFilePlatform(config v1.ConfigFile) (platform *v1.Platform, err error) {
 	platform = config.Platform()
 	if platform == nil {
-		return platform, errors.New("platform is undefined")
+		return platform, ErrPlatformUndefined
 	}
 	return
 }

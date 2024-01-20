@@ -18,6 +18,7 @@ import (
 	"github.com/sclevine/spec/report"
 
 	"github.com/buildpacks/imgutil"
+	"github.com/buildpacks/imgutil/index"
 	"github.com/buildpacks/imgutil/remote"
 	h "github.com/buildpacks/imgutil/testhelpers"
 )
@@ -29,6 +30,8 @@ const (
 	readOnlyImage     = "image-readable"
 	writeOnlyImage    = "image-writable"
 	inaccessibleImage = "image-inaccessible"
+	indexName         = "alpine:3.19.0"
+	xdgPath           = "xdgPath"
 )
 
 func newTestImageName(providedPrefix ...string) string {
@@ -81,48 +84,104 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#NewIndex", func() {
+		it.After(func() {
+			err := os.RemoveAll(xdgPath)
+			h.AssertNil(t, err)
+		})
 		it("should return new Index", func() {
-
+			idx, err := remote.NewIndex(indexName, index.WithKeychain(authn.DefaultKeychain), index.WithXDGRuntimePath(xdgPath))
+			h.AssertNil(t, err)
+			h.AssertNotEq(t, idx, imgutil.Index{})
 		})
 		it("should return an error", func() {
-
+			_, err := remote.NewIndex(indexName+"$invalid", index.WithKeychain(authn.DefaultKeychain), index.WithXDGRuntimePath(xdgPath))
+			h.AssertNotEq(t, err, nil)
 		})
 		when("#NewIndex options", func() {
+			var (
+				idx                  imgutil.ImageIndex
+				err                  error
+				alpineImageDigest    name.Reference
+				alpineImageDigestStr = "sha256:a70bcfbd89c9620d4085f6bc2a3e2eef32e8f3cdf5a90e35a1f95dcbd7f71548"
+				aplineImageOS        = "linux"
+				alpineImageArch      = "arm64"
+				alpineImageVariant   = "v8"
+			)
+			it.Before(func() {
+				idx, err = remote.NewIndex(indexName, index.WithKeychain(authn.DefaultKeychain), index.WithXDGRuntimePath(xdgPath))
+				h.AssertNil(t, err)
+				h.AssertNotEq(t, idx, imgutil.Index{})
+
+				alpineImageDigest, err = name.ParseReference(alpineImageDigestStr, name.Insecure, name.WeakValidation)
+				h.AssertNil(t, err)
+			})
+			it.After(func() {
+				err = os.RemoveAll(xdgPath)
+				h.AssertNil(t, err)
+			})
 			when("#OS", func() {
-				it("should return expected os", func() {})
+				it("should return expected os", func() {
+					os, err := idx.OS(alpineImageDigest.Context().Digest(alpineImageDigestStr))
+					h.AssertNil(t, err)
+					h.AssertEq(t, os, aplineImageOS)
+				})
 				it("should return an error", func() {})
 			})
 			when("#Architecture", func() {
-				it("should return expected architecture", func() {})
+				it("should return expected architecture", func() {
+					arch, err := idx.Architecture(alpineImageDigest.Context().Digest(alpineImageDigestStr))
+					h.AssertNil(t, err)
+					h.AssertEq(t, arch, alpineImageArch)
+				})
 				it("should return an error", func() {})
 			})
 			when("#Variant", func() {
-				it("should return expected variant", func() {})
+				it("should return expected variant", func() {
+					variant, err := idx.Variant(alpineImageDigest.Context().Digest(alpineImageDigestStr))
+					h.AssertNil(t, err)
+					h.AssertEq(t, variant, alpineImageVariant)
+				})
 				it("should return an error", func() {})
 			})
 			when("#OSVersion", func() {
-				it("should return expected os version", func() {})
+				it("should return expected os version", func() {
+					osVersion, err := idx.OSVersion(alpineImageDigest.Context().Digest(alpineImageDigestStr))
+					h.AssertEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+					h.AssertEq(t, osVersion, "")
+				})
 				it("should return an error", func() {})
 			})
 			when("#Features", func() {
-				it("should return expected features for image", func() {})
-				it("should return expected features for index", func() {})
+				it("should return expected features", func() {
+					features, err := idx.Features(alpineImageDigest.Context().Digest(alpineImageDigestStr))
+					h.AssertEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+					h.AssertEq(t, features, []string(nil))
+				})
 				it("should return an error", func() {})
 			})
 			when("#OSFeatures", func() {
-				it("should return expected os features for image", func() {})
-				it("should return expected os features for index", func() {})
+				it("should return expected os features for image", func() {
+					osFeatures, err := idx.OSFeatures(alpineImageDigest.Context().Digest(alpineImageDigestStr))
+					h.AssertEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+					h.AssertEq(t, osFeatures, []string(nil))
+				})
 				it("should return an error", func() {})
 			})
 			when("#Annotations", func() {
-				it("should return expected annotations for oci index", func() {})
-				it("should return expected annotations for oci image", func() {})
-				it("should not return annotations for docker index", func() {})
-				it("should not return annotations for docker image", func() {})
+				it("should return expected annotations for oci", func() {})
+				it("should not return annotations for docker image", func() {
+					annotations, err := idx.Annotations(alpineImageDigest.Context().Digest(alpineImageDigestStr))
+					h.AssertEq(t, err.Error(), imgutil.ErrAnnotationsUndefined.Error())
+					h.AssertEq(t, annotations, map[string]string(nil))
+				})
 				it("should return an error", func() {})
 			})
 			when("#URLs", func() {
-				it("should return expected urls for index", func() {})
+				it("should return expected urls for index", func() {
+					urls, err := idx.URLs(alpineImageDigest.Context().Digest(alpineImageDigestStr))
+					h.AssertEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+					h.AssertEq(t, urls, []string(nil))
+				})
 				it("should return expected urls for image", func() {})
 				it("should return an error", func() {})
 			})
