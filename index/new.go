@@ -3,6 +3,7 @@ package index
 import (
 	"errors"
 
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
@@ -34,6 +35,10 @@ func NewIndex(repoName string, ops ...Option) (index imgutil.Index, err error) {
 	case types.OCIImageIndex:
 		return imgutil.Index{
 			ImageIndex: empty.Index,
+			Annotate: imgutil.Annotate{
+				Instance: make(map[v1.Hash]v1.Descriptor),
+			},
+			RemovedManifests: make([]v1.Hash, 10),
 			Options: imgutil.IndexOptions{
 				KeyChain:         idxOps.keychain,
 				XdgPath:          idxOps.xdgPath,

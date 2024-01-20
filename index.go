@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/match"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
@@ -73,18 +74,18 @@ var (
 
 type Index struct {
 	v1.ImageIndex
-	annotate         Annotate
+	Annotate         Annotate
 	Options          IndexOptions
-	removedManifests []v1.Hash
+	RemovedManifests []v1.Hash
 }
 
 type Annotate struct {
-	instance map[v1.Hash]v1.Descriptor
+	Instance map[v1.Hash]v1.Descriptor
 }
 
 func (a *Annotate) OS(hash v1.Hash) (os string, err error) {
-	desc := a.instance[hash]
-	if desc.Platform == nil || desc.Platform.OS == "" {
+	desc, ok := a.Instance[hash]
+	if !ok || desc.Platform == nil || desc.Platform.OS == "" {
 		return os, ErrOSUndefined
 	}
 
@@ -92,17 +93,17 @@ func (a *Annotate) OS(hash v1.Hash) (os string, err error) {
 }
 
 func (a *Annotate) SetOS(hash v1.Hash, os string) {
-	desc := a.instance[hash]
+	desc := a.Instance[hash]
 	if desc.Platform == nil {
 		desc.Platform = &v1.Platform{}
 	}
 
 	desc.Platform.OS = os
-	a.instance[hash] = desc
+	a.Instance[hash] = desc
 }
 
 func (a *Annotate) Architecture(hash v1.Hash) (arch string, err error) {
-	desc := a.instance[hash]
+	desc := a.Instance[hash]
 	if desc.Platform == nil || desc.Platform.Architecture == "" {
 		return arch, ErrArchUndefined
 	}
@@ -111,17 +112,17 @@ func (a *Annotate) Architecture(hash v1.Hash) (arch string, err error) {
 }
 
 func (a *Annotate) SetArchitecture(hash v1.Hash, arch string) {
-	desc := a.instance[hash]
+	desc := a.Instance[hash]
 	if desc.Platform == nil {
 		desc.Platform = &v1.Platform{}
 	}
 
 	desc.Platform.Architecture = arch
-	a.instance[hash] = desc
+	a.Instance[hash] = desc
 }
 
 func (a *Annotate) Variant(hash v1.Hash) (variant string, err error) {
-	desc := a.instance[hash]
+	desc := a.Instance[hash]
 	if desc.Platform == nil || desc.Platform.Variant == "" {
 		return variant, ErrVariantUndefined
 	}
@@ -130,17 +131,17 @@ func (a *Annotate) Variant(hash v1.Hash) (variant string, err error) {
 }
 
 func (a *Annotate) SetVariant(hash v1.Hash, variant string) {
-	desc := a.instance[hash]
+	desc := a.Instance[hash]
 	if desc.Platform == nil {
 		desc.Platform = &v1.Platform{}
 	}
 
 	desc.Platform.Variant = variant
-	a.instance[hash] = desc
+	a.Instance[hash] = desc
 }
 
 func (a *Annotate) OSVersion(hash v1.Hash) (osVersion string, err error) {
-	desc := a.instance[hash]
+	desc := a.Instance[hash]
 	if desc.Platform == nil || desc.Platform.OSVersion == "" {
 		return osVersion, ErrOSVersionUndefined
 	}
@@ -149,17 +150,17 @@ func (a *Annotate) OSVersion(hash v1.Hash) (osVersion string, err error) {
 }
 
 func (a *Annotate) SetOSVersion(hash v1.Hash, osVersion string) {
-	desc := a.instance[hash]
+	desc := a.Instance[hash]
 	if desc.Platform == nil {
 		desc.Platform = &v1.Platform{}
 	}
 
 	desc.Platform.OSVersion = osVersion
-	a.instance[hash] = desc
+	a.Instance[hash] = desc
 }
 
 func (a *Annotate) Features(hash v1.Hash) (features []string, err error) {
-	desc := a.instance[hash]
+	desc := a.Instance[hash]
 	if desc.Platform == nil || len(desc.Platform.Features) == 0 {
 		return features, ErrFeaturesUndefined
 	}
@@ -168,17 +169,17 @@ func (a *Annotate) Features(hash v1.Hash) (features []string, err error) {
 }
 
 func (a *Annotate) SetFeatures(hash v1.Hash, features []string) {
-	desc := a.instance[hash]
+	desc := a.Instance[hash]
 	if desc.Platform == nil {
 		desc.Platform = &v1.Platform{}
 	}
 
 	desc.Platform.Features = features
-	a.instance[hash] = desc
+	a.Instance[hash] = desc
 }
 
 func (a *Annotate) OSFeatures(hash v1.Hash) (osFeatures []string, err error) {
-	desc := a.instance[hash]
+	desc := a.Instance[hash]
 	if desc.Platform == nil || len(desc.Platform.OSFeatures) == 0 {
 		return osFeatures, ErrOSFeaturesUndefined
 	}
@@ -187,17 +188,17 @@ func (a *Annotate) OSFeatures(hash v1.Hash) (osFeatures []string, err error) {
 }
 
 func (a *Annotate) SetOSFeatures(hash v1.Hash, osFeatures []string) {
-	desc := a.instance[hash]
+	desc := a.Instance[hash]
 	if desc.Platform == nil {
 		desc.Platform = &v1.Platform{}
 	}
 
 	desc.Platform.OSFeatures = osFeatures
-	a.instance[hash] = desc
+	a.Instance[hash] = desc
 }
 
 func (a *Annotate) Annotations(hash v1.Hash) (annotations map[string]string, err error) {
-	desc := a.instance[hash]
+	desc := a.Instance[hash]
 	if len(desc.Annotations) == 0 {
 		return annotations, ErrAnnotationsUndefined
 	}
@@ -206,17 +207,17 @@ func (a *Annotate) Annotations(hash v1.Hash) (annotations map[string]string, err
 }
 
 func (a *Annotate) SetAnnotations(hash v1.Hash, annotations map[string]string) {
-	desc := a.instance[hash]
+	desc := a.Instance[hash]
 	if desc.Platform == nil {
 		desc.Platform = &v1.Platform{}
 	}
 
 	desc.Annotations = annotations
-	a.instance[hash] = desc
+	a.Instance[hash] = desc
 }
 
 func (a *Annotate) URLs(hash v1.Hash) (urls []string, err error) {
-	desc := a.instance[hash]
+	desc := a.Instance[hash]
 	if len(desc.URLs) == 0 {
 		return urls, ErrURLsUndefined
 	}
@@ -225,13 +226,13 @@ func (a *Annotate) URLs(hash v1.Hash) (urls []string, err error) {
 }
 
 func (a *Annotate) SetURLs(hash v1.Hash, urls []string) {
-	desc := a.instance[hash]
+	desc := a.Instance[hash]
 	if desc.Platform == nil {
 		desc.Platform = &v1.Platform{}
 	}
 
 	desc.URLs = urls
-	a.instance[hash] = desc
+	a.Instance[hash] = desc
 }
 
 func (i *Index) OS(digest name.Digest) (os string, err error) {
@@ -240,13 +241,13 @@ func (i *Index) OS(digest name.Digest) (os string, err error) {
 		return
 	}
 
-	for _, h := range i.removedManifests {
+	for _, h := range i.RemovedManifests {
 		if h == hash {
 			return os, ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
-	if os, err = i.annotate.OS(hash); err == nil {
+	if os, err = i.Annotate.OS(hash); err == nil {
 		return
 	}
 
@@ -273,7 +274,7 @@ func (i *Index) SetOS(digest name.Digest, os string) error {
 		return err
 	}
 
-	for _, h := range i.removedManifests {
+	for _, h := range i.RemovedManifests {
 		if h == hash {
 			return ErrNoImageOrIndexFoundWithGivenDigest
 		}
@@ -285,7 +286,7 @@ func (i *Index) SetOS(digest name.Digest, os string) error {
 		}
 	}
 
-	i.annotate.SetOS(hash, os)
+	i.Annotate.SetOS(hash, os)
 
 	return nil
 }
@@ -296,13 +297,13 @@ func (i *Index) Architecture(digest name.Digest) (arch string, err error) {
 		return
 	}
 
-	for _, h := range i.removedManifests {
+	for _, h := range i.RemovedManifests {
 		if h == hash {
 			return arch, ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
-	if arch, err = i.annotate.Architecture(hash); err == nil {
+	if arch, err = i.Annotate.Architecture(hash); err == nil {
 		return
 	}
 
@@ -329,7 +330,7 @@ func (i *Index) SetArchitecture(digest name.Digest, arch string) error {
 		return err
 	}
 
-	for _, h := range i.removedManifests {
+	for _, h := range i.RemovedManifests {
 		if h == hash {
 			return ErrNoImageOrIndexFoundWithGivenDigest
 		}
@@ -341,7 +342,7 @@ func (i *Index) SetArchitecture(digest name.Digest, arch string) error {
 		}
 	}
 
-	i.annotate.SetArchitecture(hash, arch)
+	i.Annotate.SetArchitecture(hash, arch)
 
 	return nil
 }
@@ -352,13 +353,13 @@ func (i *Index) Variant(digest name.Digest) (osVariant string, err error) {
 		return
 	}
 
-	for _, h := range i.removedManifests {
+	for _, h := range i.RemovedManifests {
 		if h == hash {
 			return osVariant, ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
-	if osVariant, err = i.annotate.Variant(hash); err == nil {
+	if osVariant, err = i.Annotate.Variant(hash); err == nil {
 		return
 	}
 
@@ -385,7 +386,7 @@ func (i *Index) SetVariant(digest name.Digest, osVariant string) error {
 		return err
 	}
 
-	for _, h := range i.removedManifests {
+	for _, h := range i.RemovedManifests {
 		if h == hash {
 			return ErrNoImageOrIndexFoundWithGivenDigest
 		}
@@ -397,7 +398,7 @@ func (i *Index) SetVariant(digest name.Digest, osVariant string) error {
 		}
 	}
 
-	i.annotate.SetVariant(hash, osVariant)
+	i.Annotate.SetVariant(hash, osVariant)
 
 	return nil
 }
@@ -408,13 +409,13 @@ func (i *Index) OSVersion(digest name.Digest) (osVersion string, err error) {
 		return
 	}
 
-	for _, h := range i.removedManifests {
+	for _, h := range i.RemovedManifests {
 		if h == hash {
 			return osVersion, ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
-	if osVersion, err = i.annotate.OSVersion(hash); err == nil {
+	if osVersion, err = i.Annotate.OSVersion(hash); err == nil {
 		return
 	}
 
@@ -441,7 +442,7 @@ func (i *Index) SetOSVersion(digest name.Digest, osVersion string) error {
 		return err
 	}
 
-	for _, h := range i.removedManifests {
+	for _, h := range i.RemovedManifests {
 		if h == hash {
 			return ErrNoImageOrIndexFoundWithGivenDigest
 		}
@@ -453,7 +454,7 @@ func (i *Index) SetOSVersion(digest name.Digest, osVersion string) error {
 		}
 	}
 
-	i.annotate.SetOSVersion(hash, osVersion)
+	i.Annotate.SetOSVersion(hash, osVersion)
 
 	return nil
 }
@@ -485,13 +486,13 @@ func (i *Index) Features(digest name.Digest) (features []string, err error) {
 		return
 	}
 
-	for _, h := range i.removedManifests {
+	for _, h := range i.RemovedManifests {
 		if h == hash {
 			return features, ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
-	if features, err = i.annotate.Features(hash); err == nil {
+	if features, err = i.Annotate.Features(hash); err == nil {
 		return
 	}
 
@@ -529,7 +530,7 @@ func (i *Index) SetFeatures(digest name.Digest, features []string) error {
 		return err
 	}
 
-	for _, h := range i.removedManifests {
+	for _, h := range i.RemovedManifests {
 		if h == hash {
 			return ErrNoImageOrIndexFoundWithGivenDigest
 		}
@@ -541,7 +542,7 @@ func (i *Index) SetFeatures(digest name.Digest, features []string) error {
 		}
 	}
 
-	i.annotate.SetFeatures(hash, features)
+	i.Annotate.SetFeatures(hash, features)
 
 	return nil
 }
@@ -573,13 +574,13 @@ func (i *Index) OSFeatures(digest name.Digest) (osFeatures []string, err error) 
 		return
 	}
 
-	for _, h := range i.removedManifests {
+	for _, h := range i.RemovedManifests {
 		if h == hash {
 			return osFeatures, ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
-	if osFeatures, err = i.annotate.OSFeatures(hash); err == nil {
+	if osFeatures, err = i.Annotate.OSFeatures(hash); err == nil {
 		return
 	}
 
@@ -611,7 +612,7 @@ func (i *Index) SetOSFeatures(digest name.Digest, osFeatures []string) error {
 		return err
 	}
 
-	for _, h := range i.removedManifests {
+	for _, h := range i.RemovedManifests {
 		if h == hash {
 			return ErrNoImageOrIndexFoundWithGivenDigest
 		}
@@ -623,7 +624,7 @@ func (i *Index) SetOSFeatures(digest name.Digest, osFeatures []string) error {
 		}
 	}
 
-	i.annotate.SetOSFeatures(hash, osFeatures)
+	i.Annotate.SetOSFeatures(hash, osFeatures)
 
 	return nil
 }
@@ -651,13 +652,13 @@ func (i *Index) Annotations(digest name.Digest) (annotations map[string]string, 
 		return
 	}
 
-	for _, h := range i.removedManifests {
+	for _, h := range i.RemovedManifests {
 		if h == hash {
 			return annotations, ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
-	if annotations, err = i.annotate.Annotations(hash); err == nil {
+	if annotations, err = i.Annotate.Annotations(hash); err == nil {
 		return
 	}
 
@@ -697,7 +698,7 @@ func (i *Index) SetAnnotations(digest name.Digest, annotations map[string]string
 		return err
 	}
 
-	for _, h := range i.removedManifests {
+	for _, h := range i.RemovedManifests {
 		if h == hash {
 			return ErrNoImageOrIndexFoundWithGivenDigest
 		}
@@ -709,7 +710,7 @@ func (i *Index) SetAnnotations(digest name.Digest, annotations map[string]string
 		}
 	}
 
-	i.annotate.SetAnnotations(hash, annotations)
+	i.Annotate.SetAnnotations(hash, annotations)
 
 	return nil
 }
@@ -720,13 +721,13 @@ func (i *Index) URLs(digest name.Digest) (urls []string, err error) {
 		return
 	}
 
-	for _, h := range i.removedManifests {
+	for _, h := range i.RemovedManifests {
 		if h == hash {
 			return urls, ErrNoImageOrIndexFoundWithGivenDigest
 		}
 	}
 
-	if urls, err = i.annotate.URLs(hash); err == nil {
+	if urls, err = i.Annotate.URLs(hash); err == nil {
 		return
 	}
 
@@ -753,7 +754,7 @@ func (i *Index) SetURLs(digest name.Digest, urls []string) error {
 		return err
 	}
 
-	for _, h := range i.removedManifests {
+	for _, h := range i.RemovedManifests {
 		if h == hash {
 			return ErrNoImageOrIndexFoundWithGivenDigest
 		}
@@ -765,7 +766,7 @@ func (i *Index) SetURLs(digest name.Digest, urls []string) error {
 		}
 	}
 
-	i.annotate.SetURLs(hash, urls)
+	i.Annotate.SetURLs(hash, urls)
 
 	return nil
 }
@@ -918,7 +919,11 @@ func addImagesFromDigest(i *Index, hash v1.Hash, ref name.Reference, annotations
 		return err
 	}
 
-	desc, err := remote.Get(imgRef, remote.WithAuthFromKeychain(i.Options.KeyChain), remote.WithTransport(getTransport(true)))
+	desc, err := remote.Get(
+		imgRef, 
+		remote.WithAuthFromKeychain(i.Options.KeyChain), 
+		remote.WithTransport(getTransport(true)),
+	)
 	if err != nil {
 		return err
 	}
@@ -962,12 +967,12 @@ func appendImage(i *Index, desc *remote.Descriptor, annotations map[string]strin
 		return err
 	}
 
-	return addImage(i, img, annotations)
+	return addImage(i, &img, annotations)
 }
 
-func addImage(i *Index, img v1.Image, annotations map[string]string) error {
-	var v1Desc v1.Descriptor
-	mfest, err := img.Manifest()
+func addImage(i *Index, img *v1.Image, annotations map[string]string) error {
+	var v1Desc = v1.Descriptor{}
+	mfest, err := (*img).Manifest()
 	if err != nil {
 		return err
 	}
@@ -988,12 +993,16 @@ func addImage(i *Index, img v1.Image, annotations map[string]string) error {
 		v1Desc = mfest.Config
 	}
 
+	if reflect.DeepEqual(v1Desc, v1.Descriptor{}) {
+		return ErrConfigFileUndefined
+	}
+
 	if len(annotations) != 0 {
 		v1Desc.Annotations = annotations
 	}
 
 	i.ImageIndex = mutate.AppendManifests(i.ImageIndex, mutate.IndexAddendum{
-		Add:        img,
+		Add:        *img,
 		Descriptor: v1Desc,
 	})
 
@@ -1001,10 +1010,10 @@ func addImage(i *Index, img v1.Image, annotations map[string]string) error {
 }
 
 func (i *Index) Save() error {
-	for hash, desc := range i.annotate.instance {
+	for hash, desc := range i.Annotate.Instance {
 		img, err := i.Image(hash)
 		if err != nil {
-			return err
+			return errors.New("line 1015" + err.Error())
 		}
 
 		config, _ := getConfigFile(img)
@@ -1015,7 +1024,7 @@ func (i *Index) Save() error {
 		platform, _ := getConfigFilePlatform(*config)
 		mfest, err := img.Manifest()
 		if err != nil {
-			return err
+			return errors.New("line 1026" + err.Error())
 		}
 
 		var imgDesc v1.Descriptor
@@ -1080,31 +1089,39 @@ func (i *Index) Save() error {
 		)
 	}
 
-	i.annotate = Annotate{}
-	for _, h := range i.removedManifests {
+	i.Annotate = Annotate{}
+	for _, h := range i.RemovedManifests {
 		i.ImageIndex = mutate.RemoveManifests(i.ImageIndex, match.Digests(h))
 	}
-	i.removedManifests = []v1.Hash{}
+	i.RemovedManifests = []v1.Hash{}
 
 	layoutPath := filepath.Join(i.Options.XdgPath, i.Options.Reponame)
 	if _, err := os.Stat(filepath.Join(layoutPath, "index.json")); err != nil {
-		path := layout.Path(layoutPath)
-		return path.WriteIndex(i.ImageIndex)
+		layout.Write(layoutPath, empty.Index)
+		_, err := layout.Write(layoutPath, i.ImageIndex)
+		return err
 	}
 
 	path, err := layout.FromPath(layoutPath)
 	if err != nil {
-		return err
+		return errors.New("line 1107" + err.Error())
 	}
 
-	return path.WriteIndex(i.ImageIndex)
+	// return path.WriteIndex(i.ImageIndex)
+	// start
+	err = path.WriteIndex(i.ImageIndex)
+	if err != nil {
+		return errors.New("line 1114: "+ err.Error())
+	}
+	return nil
+	// end
 }
 
 func (i *Index) Push(ops ...IndexPushOption) error {
 	var imageIndex = i.ImageIndex
 	var pushOps = &PushOptions{}
 
-	if len(i.removedManifests) != 0 || len(i.annotate.instance) != 0 {
+	if len(i.RemovedManifests) != 0 || len(i.Annotate.Instance) != 0 {
 		return ErrIndexNeedToBeSaved
 	}
 
@@ -1162,7 +1179,7 @@ func (i *Index) Inspect() error {
 		return err
 	}
 
-	if len(i.removedManifests) != 0 || len(i.annotate.instance) != 0 {
+	if len(i.RemovedManifests) != 0 || len(i.Annotate.Instance) != 0 {
 		return ErrIndexNeedToBeSaved
 	}
 
@@ -1182,8 +1199,7 @@ func (i *Index) Remove(digest name.Digest) error {
 		}
 	}
 
-	i.removedManifests = append(i.removedManifests, hash)
-
+	i.RemovedManifests = append(i.RemovedManifests, hash)
 	return nil
 }
 
