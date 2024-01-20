@@ -18,13 +18,14 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
+	"github.com/buildpacks/imgutil/index"
 	"github.com/buildpacks/imgutil/layer"
 )
 
 // NewIndex returns a new ImageIndex from the registry that can be modified and saved to local file system
-func NewIndex(repoName string, ops ...imgutil.IndexOption) (index v1.ImageIndex, err error) {
-	var idxOps = &imgutil.IndexOptions{}
-	ops = append(ops, imgutil.WithRepoName(repoName))
+func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err error) {
+	var idxOps = &index.Options{}
+	ops = append(ops, index.WithRepoName(repoName))
 
 	for _, op := range ops {
 		err = op(idxOps)
@@ -39,16 +40,28 @@ func NewIndex(repoName string, ops ...imgutil.IndexOption) (index v1.ImageIndex,
 	}
 
 	desc, err := remote.Get(
-		ref, 
-		remote.WithAuthFromKeychain(idxOps.Keychain()), 
+		ref,
+		remote.WithAuthFromKeychain(idxOps.Keychain()),
 		remote.WithTransport(getTransport(idxOps.Insecure())),
 	)
 	if err != nil {
 		return
 	}
 
-	index, err = desc.ImageIndex()
-	return
+	imgIdx, err := desc.ImageIndex()
+	if err != nil {
+		return idx, err
+	}
+
+	return &imgutil.Index{
+		ImageIndex: imgIdx,
+		Options: imgutil.IndexOptions{
+			KeyChain:         idxOps.Keychain(),
+			XdgPath:          idxOps.XDGRuntimePath(),
+			Reponame:         idxOps.RepoName(),
+			InsecureRegistry: idxOps.Insecure(),
+		},
+	}, nil
 }
 
 // NewImage returns a new Image that can be modified and saved to a Docker daemon.

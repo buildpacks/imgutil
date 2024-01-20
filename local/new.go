@@ -21,41 +21,50 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
+	"github.com/buildpacks/imgutil/index"
 	"github.com/buildpacks/imgutil/layer"
 )
 
 // NewIndex will return a new local Docker ImageIndex that can be modified and saved to a registry
-func NewIndex(repoName string, ops ...imgutil.IndexOption) (index v1.ImageIndex, err error) {
-	var idxOps = &imgutil.IndexOptions{}
-	ops = append(ops, imgutil.WithRepoName(repoName))
+func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err error) {
+	var idxOps = &index.Options{}
+	ops = append(ops, index.WithRepoName(repoName))
 
 	for _, op := range ops {
 		err = op(idxOps)
 		if err != nil {
-			return
+			return idx, err
 		}
 	}
 
 	path, err := layout.FromPath(filepath.Join(idxOps.XDGRuntimePath(), idxOps.RepoName()))
 	if err != nil {
-		return
+		return idx, err
 	}
 
-	index, err = path.ImageIndex()
+	imgIdx, err := path.ImageIndex()
 	if err != nil {
-		return
+		return idx, err
 	}
 
-	mediaType, err := index.MediaType()
+	mediaType, err := imgIdx.MediaType()
 	if err != nil {
-		return
+		return idx, err
 	}
 
 	if mediaType != ggcrTypes.DockerManifestList {
 		return nil, errors.New("no docker image index found")
 	}
 
-	return
+	return &imgutil.Index{
+		ImageIndex: imgIdx,
+		Options: imgutil.IndexOptions{
+			KeyChain:         idxOps.Keychain(),
+			XdgPath:          idxOps.XDGRuntimePath(),
+			Reponame:         idxOps.RepoName(),
+			InsecureRegistry: idxOps.Insecure(),
+		},
+	}, nil
 }
 
 // NewImage returns a new Image that can be modified and saved to a registry.

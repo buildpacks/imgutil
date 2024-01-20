@@ -3,14 +3,15 @@ package index
 import (
 	"errors"
 
-	"github.com/buildpacks/imgutil"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+
+	"github.com/buildpacks/imgutil"
 )
 
 // NewIndex will return a New Empty ImageIndex that can be modified and saved to a registry
-func NewIndex(repoName string, ops ...IndexOption) (index imgutil.Index, err error) {
-	var idxOps = &IndexOptions{}
+func NewIndex(repoName string, ops ...Option) (index imgutil.Index, err error) {
+	var idxOps = &Options{}
 	ops = append(ops, WithRepoName(repoName))
 	for _, op := range ops {
 		err = op(idxOps)
@@ -24,9 +25,9 @@ func NewIndex(repoName string, ops ...IndexOption) (index imgutil.Index, err err
 		return imgutil.Index{
 			ImageIndex: &DockerIndex,
 			Options: imgutil.IndexOptions{
-				KeyChain: idxOps.keychain,
-				XdgPath: idxOps.xdgPath,
-				Reponame: idxOps.repoName,
+				KeyChain:         idxOps.keychain,
+				XdgPath:          idxOps.xdgPath,
+				Reponame:         idxOps.repoName,
 				InsecureRegistry: idxOps.insecure,
 			},
 		}, nil
@@ -34,9 +35,9 @@ func NewIndex(repoName string, ops ...IndexOption) (index imgutil.Index, err err
 		return imgutil.Index{
 			ImageIndex: empty.Index,
 			Options: imgutil.IndexOptions{
-				KeyChain: idxOps.keychain,
-				XdgPath: idxOps.xdgPath,
-				Reponame: idxOps.repoName,
+				KeyChain:         idxOps.keychain,
+				XdgPath:          idxOps.xdgPath,
+				Reponame:         idxOps.repoName,
 				InsecureRegistry: idxOps.insecure,
 			},
 		}, nil
