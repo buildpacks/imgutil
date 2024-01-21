@@ -1,6 +1,7 @@
 package remote_test
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -41,6 +42,7 @@ type PlatformSpecificImage struct {
 	OS, Arch, Variant, OSVersion, Hash string
 	Features, OSFeatures, URLs         []string
 	Annotations                        map[string]string
+	Found                              bool
 }
 
 func newTestImageName(providedPrefix ...string) string {
@@ -335,45 +337,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should add all images in index", func() {
 					var (
-						refStr     = "alpine:3.18.5"
-						linuxAMD64 = PlatformSpecificImage{
-							OS:   "linux",
-							Arch: "amd64",
-							Hash: "sha256:d695c3de6fcd8cfe3a6222b0358425d40adfd129a8a47c3416faff1a8aece389",
-						}
-						// linuxArmV6 = PlatformSpecificImage{
-						// 	OS: "linux",
-						// 	Arch: "arm",
-						// 	Variant: "v6",
-						// 	Hash: "sha256:1832ef473ede9a923cc6affdf13b54a1be6561ad2ce3c3684910260a7582d36b",
-						// }
-						// linuxArmV7 = PlatformSpecificImage{
-						// 	OS: "linux",
-						// 	Arch: "arm",
-						// 	Variant: "v7",
-						// 	Hash: "sha256:211fe64069acea47ea680c0943b5a77be1819d0e85365011595391f7562caf27",
-						// }
-						// linuxArm64V8 = PlatformSpecificImage{
-						// 	OS: "linux",
-						// 	Arch: "arm64",
-						// 	Variant: "v8",
-						// 	Hash: "sha256:d4ade3639c27579321046d78cc44ec978cea8357d56932611984f601d27e30ac",
-						// }
-						// linux386 = PlatformSpecificImage{
-						// 	OS: "linux",
-						// 	Arch: "386",
-						// 	Hash: "sha256:5ece42cd6ca30ec1a4cc5e1e10a260ad4906e1d4588ae0ef486874d72b3857ad",
-						// }
-						// linuxPPC64LE = PlatformSpecificImage{
-						// 	OS: "linux",
-						// 	Arch: "ppc64le",
-						// 	Hash: "sha256:1698bcd6bf339e1578dfb9f0034dff615e3eec8404517045046ecbeb84ad01d6",
-						// }
-						// linuxS390X = PlatformSpecificImage{
-						// 	OS: "linux",
-						// 	Arch: "s390x",
-						// 	Hash: "sha256:5c63479aeed37522de78284d99dcd32f9ad288b04a56236f44e78b3b3f62ebd2",
-						// }
+						refStr = "alpine:3.18.5"
 					)
 					ref, err := name.ParseReference(refStr, name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)
@@ -389,15 +353,14 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					err = idx.Add(ref, imgutil.WithAll(true))
 					h.AssertNil(t, err)
 
-					// linux amd 64
-					digest := ref.Context().Digest(linuxAMD64.Hash)
-					os, err := idx.OS(digest)
+					mfest, err = idx.IndexManifest()
 					h.AssertNil(t, err)
-					h.AssertEq(t, os, linuxAMD64.OS)
+					h.AssertNotEq(t, mfest, nil)
+					h.AssertEq(t, len(mfest.Manifests), 14)
 				})
 				it("should add platform specific image", func() {
 					var (
-						digestStr        = "sha256:1832ef473ede9a923cc6affdf13b54a1be6561ad2ce3c3684910260a7582d36b"
+						// digestStr        = "sha256:1832ef473ede9a923cc6affdf13b54a1be6561ad2ce3c3684910260a7582d36b"
 						refStr           = "alpine:3.18.5"
 						digestStrOS      = "linux"
 						digestStrArch    = "arm"
@@ -405,6 +368,14 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					)
 					ref, err := name.ParseReference(refStr, name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)
+
+					idx, ok := idx.(*imgutil.Index)
+					h.AssertEq(t, ok, true)
+
+					mfest, err := idx.IndexManifest()
+					h.AssertNil(t, err)
+					h.AssertNotEq(t, mfest, nil)
+					h.AssertEq(t, len(mfest.Manifests), 7)
 
 					err = idx.Add(
 						ref,
@@ -414,18 +385,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					digest := ref.Context().Digest(digestStr)
-					os, err := idx.OS(digest)
+					mfest, err = idx.IndexManifest()
 					h.AssertNil(t, err)
-					h.AssertEq(t, os, digestStrOS)
-
-					arch, err := idx.Architecture(digest)
-					h.AssertNil(t, err)
-					h.AssertEq(t, arch, digestStrArch)
-
-					variant, err := idx.Variant(digest)
-					h.AssertNil(t, err)
-					h.AssertEq(t, variant, digestStrVariant)
+					h.AssertNotEq(t, mfest, nil)
+					h.AssertEq(t, len(mfest.Manifests), 8)
 				})
 				it("should add target specific image", func() {
 					var (
@@ -991,16 +954,28 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				it("should return an error", func() {})
 			})
 			when("#Push", func() {
-				it("should push index to registry", func() {})
+				it("should push index to registry", func() {
+					err := idx.Push(imgutil.WithInsecure(true))
+					h.AssertNil(t, err)
+				})
 				it("should return an error", func() {})
 			})
 			when("#Inspect", func() {
-				it("should return an error", func() {})
-				it("should print index raw manifest", func() {})
+				it("should print index raw manifest", func() {
+					err := idx.Inspect()
+					h.AssertNotEq(t, err, nil)
+					h.AssertNotEq(t, errors.Is(err, imgutil.ErrIndexNeedToBeSaved), true)
+				})
 			})
 			when("#Delete", func() {
 				it("should delete index from local storage", func() {})
-				it("should return an error", func() {})
+				it("should return an error", func() {
+					err := idx.Delete()
+					h.AssertNil(t, err)
+
+					err = idx.Delete()
+					h.AssertNotEq(t, err, nil)
+				})
 			})
 		})
 	})

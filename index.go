@@ -851,7 +851,6 @@ func (i *Index) Add(ref name.Reference, ops ...IndexAddOption) error {
 	}
 
 	var fetchPlatformSpecificImage = false
-
 	platform := v1.Platform{}
 
 	if addOps.os != "" {
@@ -926,10 +925,13 @@ func (i *Index) Add(ref name.Reference, ops ...IndexAddOption) error {
 			desc = mfest.Config
 		}
 
-		i.ImageIndex = mutate.AppendManifests(i.ImageIndex, mutate.IndexAddendum{
-			Add:        img,
-			Descriptor: desc,
-		})
+		i.ImageIndex = mutate.AppendManifests(
+			i.ImageIndex,
+			mutate.IndexAddendum{
+				Add:        img,
+				Descriptor: desc,
+			},
+		)
 
 		return nil
 	case desc.MediaType.IsIndex():
@@ -964,9 +966,9 @@ func addAllImages(i *Index, idx v1.ImageIndex, ref name.Reference, annotations m
 	}
 
 	errs := SaveError{}
-
 	for _, desc := range mfest.Manifests {
-		if desc.MediaType.IsIndex() {
+		switch {
+		case desc.MediaType.IsIndex():
 			err := addImagesFromDigest(i, desc.Digest, ref, annotations)
 			if err != nil {
 				errs.Errors = append(errs.Errors, SaveDiagnostic{
@@ -974,14 +976,27 @@ func addAllImages(i *Index, idx v1.ImageIndex, ref name.Reference, annotations m
 					Cause:     err,
 				})
 			}
+		case desc.MediaType.IsImage():
+			err := addImageFromDigest(i, desc.Digest, ref, annotations)
+			if err != nil {
+				errs.Errors = append(errs.Errors, SaveDiagnostic{
+					ImageName: desc.Digest.String(),
+					Cause:     err,
+				})
+			}
+		default:
+			errs.Errors = append(errs.Errors, SaveDiagnostic{
+				ImageName: desc.Digest.String(),
+				Cause:     ErrUnknownMediaType,
+			})
 		}
 	}
 
-	if len(errs.Errors) == 0 {
-		return nil
+	if len(errs.Errors) != 0 {
+		return errors.New(errs.Error())
 	}
 
-	return errors.New(errs.Error())
+	return nil
 }
 
 func addImagesFromDigest(i *Index, hash v1.Hash, ref name.Reference, annotations map[string]string) error {
@@ -1014,6 +1029,24 @@ func addImagesFromDigest(i *Index, hash v1.Hash, ref name.Reference, annotations
 	}
 }
 
+func addImageFromDigest(i *Index, hash v1.Hash, ref name.Reference, annotations map[string]string) error {
+	imgRef, err := name.ParseReference(ref.Context().Name() + digestDelim + hash.String())
+	if err != nil {
+		return err
+	}
+
+	desc, err := remote.Get(
+		imgRef,
+		remote.WithAuthFromKeychain(i.Options.KeyChain),
+		remote.WithTransport(getTransport(true)),
+	)
+	if err != nil {
+		return err
+	}
+
+	return appendImage(i, desc, annotations)
+}
+
 func addPlatformSpecificImages(i *Index, ref name.Reference, platform v1.Platform, annotations map[string]string) error {
 	if platform.OS == "" {
 		return ErrInvalidPlatform
@@ -1038,12 +1071,12 @@ func appendImage(i *Index, desc *remote.Descriptor, annotations map[string]strin
 		return err
 	}
 
-	return addImage(i, &img, annotations)
+	return addImage(i, img, annotations)
 }
 
-func addImage(i *Index, img *v1.Image, annotations map[string]string) error {
+func addImage(i *Index, img v1.Image, annotations map[string]string) error {
 	var v1Desc = v1.Descriptor{}
-	mfest, err := (*img).Manifest()
+	mfest, err := img.Manifest()
 	if err != nil {
 		return err
 	}
@@ -1072,8 +1105,16 @@ func addImage(i *Index, img *v1.Image, annotations map[string]string) error {
 		v1Desc.Annotations = annotations
 	}
 
+	if mfest.Config.Digest != (v1.Hash{}) {
+		v1Desc.Digest = mfest.Config.Digest
+	}
+
+	if mfest.Subject != nil && mfest.Subject.Digest != (v1.Hash{}) {
+		v1Desc.Digest = mfest.Subject.Digest
+	}
+
 	i.ImageIndex = mutate.AppendManifests(i.ImageIndex, mutate.IndexAddendum{
-		Add:        *img,
+		Add:        img,
 		Descriptor: v1Desc,
 	})
 
