@@ -37,12 +37,16 @@ func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err
 		return idx, err
 	}
 
-	mediaType, err := imgIdx.MediaType()
+	mfest, err := imgIdx.IndexManifest()
 	if err != nil {
 		return idx, err
 	}
 
-	if mediaType != types.OCIImageIndex {
+	if mfest == nil {
+		return idx, imgutil.ErrManifestUndefined
+	}
+
+	if mfest.MediaType != types.OCIImageIndex {
 		return nil, errors.New("no oci image index found")
 	}
 

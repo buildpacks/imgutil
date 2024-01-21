@@ -1,4 +1,4 @@
-package index
+package docker
 
 import (
 	"encoding/json"
@@ -13,31 +13,31 @@ var DockerIndex = dockerIndex{}
 
 type dockerIndex struct{}
 
-func (i *dockerIndex) MediaType() (types.MediaType, error) {
+func (i dockerIndex) MediaType() (types.MediaType, error) {
 	return types.DockerManifestList, nil
 }
 
-func (i *dockerIndex) Digest() (v1.Hash, error) {
+func (i dockerIndex) Digest() (v1.Hash, error) {
 	return partial.Digest(i)
 }
 
-func (i *dockerIndex) Size() (int64, error) {
+func (i dockerIndex) Size() (int64, error) {
 	return partial.Size(i)
 }
 
-func (i *dockerIndex) IndexManifest() (*v1.IndexManifest, error) {
+func (i dockerIndex) IndexManifest() (*v1.IndexManifest, error) {
 	return base(), nil
 }
 
-func (i *dockerIndex) RawManifest() ([]byte, error) {
+func (i dockerIndex) RawManifest() ([]byte, error) {
 	return json.Marshal(base())
 }
 
-func (i *dockerIndex) Image(v1.Hash) (v1.Image, error) {
+func (i dockerIndex) Image(v1.Hash) (v1.Image, error) {
 	return nil, errors.New("empty index")
 }
 
-func (i *dockerIndex) ImageIndex(v1.Hash) (v1.ImageIndex, error) {
+func (i dockerIndex) ImageIndex(v1.Hash) (v1.ImageIndex, error) {
 	return nil, errors.New("empty index")
 }
 

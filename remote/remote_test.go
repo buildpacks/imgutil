@@ -39,8 +39,8 @@ const (
 
 type PlatformSpecificImage struct {
 	OS, Arch, Variant, OSVersion, Hash string
-	Features, OSFeatures, URLs []string
-	Annotations map[string]string
+	Features, OSFeatures, URLs         []string
+	Annotations                        map[string]string
 }
 
 func newTestImageName(providedPrefix ...string) string {
@@ -115,14 +115,14 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				aplineImageOS        = "linux"
 				alpineImageArch      = "arm64"
 				alpineImageVariant   = "v8"
-				digestDelim = "@"
+				digestDelim          = "@"
 			)
 			it.Before(func() {
 				idx, err = remote.NewIndex(indexName, index.WithKeychain(authn.DefaultKeychain), index.WithXDGRuntimePath(xdgPath))
 				h.AssertNil(t, err)
 				h.AssertNotEq(t, idx, imgutil.Index{})
 
-				alpineImageDigest, err = name.NewDigest("alpine" + digestDelim + alpineImageDigestStr, name.Insecure, name.WeakValidation)
+				alpineImageDigest, err = name.NewDigest("alpine"+digestDelim+alpineImageDigestStr, name.Insecure, name.WeakValidation)
 				h.AssertNil(t, err)
 			})
 			it.After(func() {
@@ -198,7 +198,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			when("#SetOS", func() {
 				it("should annotate the image os", func() {
 					var (
-						digest = alpineImageDigest.Context().Digest(alpineImageDigestStr)
+						digest     = alpineImageDigest.Context().Digest(alpineImageDigestStr)
 						modifiedOS = "some-os"
 					)
 					err = idx.SetOS(digest, modifiedOS)
@@ -213,7 +213,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			when("#SetArchitecture", func() {
 				it("should annotate the image architecture", func() {
 					var (
-						digest = alpineImageDigest.Context().Digest(alpineImageDigestStr)
+						digest       = alpineImageDigest.Context().Digest(alpineImageDigestStr)
 						modifiedArch = "some-arch"
 					)
 					err = idx.SetArchitecture(digest, modifiedArch)
@@ -228,7 +228,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			when("#SetVariant", func() {
 				it("should annotate the image variant", func() {
 					var (
-						digest = alpineImageDigest.Context().Digest(alpineImageDigestStr)
+						digest          = alpineImageDigest.Context().Digest(alpineImageDigestStr)
 						modifiedVariant = "some-variant"
 					)
 					err = idx.SetVariant(digest, modifiedVariant)
@@ -243,7 +243,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			when("#SetOSVersion", func() {
 				it("should annotate the image os version", func() {
 					var (
-						digest = alpineImageDigest.Context().Digest(alpineImageDigestStr)
+						digest            = alpineImageDigest.Context().Digest(alpineImageDigestStr)
 						modifiedOSVersion = "some-osVersion"
 					)
 					err = idx.SetOSVersion(digest, modifiedOSVersion)
@@ -258,7 +258,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			when("#SetFeatures", func() {
 				it("should annotate the image features", func() {
 					var (
-						digest = alpineImageDigest.Context().Digest(alpineImageDigestStr)
+						digest           = alpineImageDigest.Context().Digest(alpineImageDigestStr)
 						modifiedFeatures = []string{"some-feature"}
 					)
 					err = idx.SetFeatures(digest, modifiedFeatures)
@@ -274,7 +274,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			when("#SetOSFeatures", func() {
 				it("should annotate the image os features", func() {
 					var (
-						digest = alpineImageDigest.Context().Digest(alpineImageDigestStr)
+						digest             = alpineImageDigest.Context().Digest(alpineImageDigestStr)
 						modifiedOSFeatures = []string{"some-osFeatures"}
 					)
 					err = idx.SetOSFeatures(digest, modifiedOSFeatures)
@@ -290,8 +290,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			when("#SetAnnotations", func() {
 				it("should annotate the image annotations", func() {
 					var (
-						digest = alpineImageDigest.Context().Digest(alpineImageDigestStr)
-						modifiedAnnotations = map[string]string{"some-key":"some-value"}
+						digest              = alpineImageDigest.Context().Digest(alpineImageDigestStr)
+						modifiedAnnotations = map[string]string{"some-key": "some-value"}
 					)
 					err = idx.SetAnnotations(digest, modifiedAnnotations)
 					h.AssertNil(t, err)
@@ -306,7 +306,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			when("#SetURLs", func() {
 				it("should annotate the image urls", func() {
 					var (
-						digest = alpineImageDigest.Context().Digest(alpineImageDigestStr)
+						digest       = alpineImageDigest.Context().Digest(alpineImageDigestStr)
 						modifiedURLs = []string{"some-urls"}
 					)
 					err = idx.SetURLs(digest, modifiedURLs)
@@ -322,8 +322,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			when("#Add", func() {
 				it("should add an image", func() {
 					var (
-						digestStr = "sha256:b31dd6ba7d28a1559be39a88c292a1a8948491b118dafd3e8139065afe55690a"
-						digest = alpineImageDigest.Context().Digest(digestStr)
+						digestStr   = "sha256:b31dd6ba7d28a1559be39a88c292a1a8948491b118dafd3e8139065afe55690a"
+						digest      = alpineImageDigest.Context().Digest(digestStr)
 						digestStrOS = "linux"
 					)
 					err = idx.Add(digest)
@@ -335,9 +335,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should add all images in index", func() {
 					var (
-						refStr = "alpine:3.18.5"
+						refStr     = "alpine:3.18.5"
 						linuxAMD64 = PlatformSpecificImage{
-							OS: "linux",
+							OS:   "linux",
 							Arch: "amd64",
 							Hash: "sha256:d695c3de6fcd8cfe3a6222b0358425d40adfd129a8a47c3416faff1a8aece389",
 						}
@@ -397,18 +397,18 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should add platform specific image", func() {
 					var (
-						digestStr = "sha256:1832ef473ede9a923cc6affdf13b54a1be6561ad2ce3c3684910260a7582d36b"
-						refStr = "alpine:3.18.5"
-						digestStrOS = "linux"
-						digestStrArch = "arm"
+						digestStr        = "sha256:1832ef473ede9a923cc6affdf13b54a1be6561ad2ce3c3684910260a7582d36b"
+						refStr           = "alpine:3.18.5"
+						digestStrOS      = "linux"
+						digestStrArch    = "arm"
 						digestStrVariant = "v6"
 					)
 					ref, err := name.ParseReference(refStr, name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)
 
 					err = idx.Add(
-						ref, 
-						imgutil.WithOS(digestStrOS), 
+						ref,
+						imgutil.WithOS(digestStrOS),
 						imgutil.WithArchitecture(digestStrArch),
 						imgutil.WithVariant(digestStrVariant),
 					)
@@ -485,11 +485,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#Save", func() {
 				it("should save image with expected annotated os", func() {
-					var(
+					var (
 						modifiedOS = "some-os"
 					)
-					err = idx.SetOS(alpineImageDigest, modifiedOS)
-					h.AssertNil(t, err)
 
 					idx, ok := idx.(*imgutil.Index)
 					h.AssertEq(t, ok, true)
@@ -497,6 +495,21 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					mfest, err := idx.IndexManifest()
 					h.AssertNil(t, err)
 					h.AssertNotEq(t, mfest, nil)
+
+					for _, m := range mfest.Manifests {
+						hash, err := v1.NewHash(alpineImageDigestStr)
+						h.AssertNil(t, err)
+
+						if hash == m.Digest {
+							continue
+						}
+
+						err = idx.Remove(alpineImageDigest.Digest(m.Digest.String()))
+						h.AssertNil(t, err)
+					}
+
+					err = idx.SetOS(alpineImageDigest, modifiedOS)
+					h.AssertNil(t, err)
 
 					err = idx.Save()
 					h.AssertNil(t, err)
@@ -508,26 +521,473 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						idx, err := local.NewIndex(indexName, index.WithXDGRuntimePath(xdgPath))
 						h.AssertNil(t, err)
 
-						os, err := idx.OS(alpineImageDigest)
+						imgIdx, ok := idx.(*imgutil.Index)
+						h.AssertEq(t, ok, true)
+
+						mfest, err := imgIdx.IndexManifest()
 						h.AssertNil(t, err)
-						h.AssertEq(t, os, modifiedOS)
+						h.AssertNotEq(t, mfest, nil)
+
+						for _, m := range mfest.Manifests {
+							h.AssertEq(t, m.Platform.OS, modifiedOS)
+						}
 					} else {
 						idx, err := layout.NewIndex(indexName, index.WithXDGRuntimePath(xdgPath))
 						h.AssertNil(t, err)
 
-						os, err := idx.OS(alpineImageDigest)
+						imgIdx, ok := idx.(*imgutil.Index)
+						h.AssertEq(t, ok, true)
+
+						mfest, err := imgIdx.IndexManifest()
 						h.AssertNil(t, err)
-						h.AssertEq(t, os, modifiedOS)
+						h.AssertNotEq(t, mfest, nil)
+
+						for _, m := range mfest.Manifests {
+							h.AssertEq(t, m.Platform.OS, modifiedOS)
+						}
 					}
 				})
-				it("should save image with expected annotated architecture", func() {})
-				it("should save image with expected annotated variant", func() {})
-				it("should save image with expected annotated os version", func() {})
-				it("should save image with expected annotated features", func() {})
-				it("should save image with expected annotated os features", func() {})
-				it("should save image with expected annotated annotations for oci", func() {})
-				it("should save image without annotations for docker", func() {})
-				it("should save image with expected annotated urls", func() {})
+				it("should save image with expected annotated architecture", func() {
+					var (
+						modifiedArch = "some-arch"
+					)
+
+					idx, ok := idx.(*imgutil.Index)
+					h.AssertEq(t, ok, true)
+
+					mfest, err := idx.IndexManifest()
+					h.AssertNil(t, err)
+					h.AssertNotEq(t, mfest, nil)
+
+					for _, m := range mfest.Manifests {
+						hash, err := v1.NewHash(alpineImageDigestStr)
+						h.AssertNil(t, err)
+
+						if hash == m.Digest {
+							continue
+						}
+
+						err = idx.Remove(alpineImageDigest.Digest(m.Digest.String()))
+						h.AssertNil(t, err)
+					}
+
+					err = idx.SetArchitecture(alpineImageDigest, modifiedArch)
+					h.AssertNil(t, err)
+
+					err = idx.Save()
+					h.AssertNil(t, err)
+
+					format, err := idx.MediaType()
+					h.AssertNil(t, err)
+
+					if format == types.DockerManifestList {
+						idx, err := local.NewIndex(indexName, index.WithXDGRuntimePath(xdgPath))
+						h.AssertNil(t, err)
+
+						imgIdx, ok := idx.(*imgutil.Index)
+						h.AssertEq(t, ok, true)
+
+						mfest, err := imgIdx.IndexManifest()
+						h.AssertNil(t, err)
+						h.AssertNotEq(t, mfest, nil)
+
+						for _, m := range mfest.Manifests {
+							h.AssertEq(t, m.Platform.Architecture, modifiedArch)
+						}
+					} else {
+						idx, err := layout.NewIndex(indexName, index.WithXDGRuntimePath(xdgPath))
+						h.AssertNil(t, err)
+
+						imgIdx, ok := idx.(*imgutil.Index)
+						h.AssertEq(t, ok, true)
+
+						mfest, err := imgIdx.IndexManifest()
+						h.AssertNil(t, err)
+						h.AssertNotEq(t, mfest, nil)
+
+						for _, m := range mfest.Manifests {
+							h.AssertEq(t, m.Platform.Architecture, modifiedArch)
+						}
+					}
+				})
+				it("should save image with expected annotated variant", func() {
+					var (
+						modifiedVariant = "some-variant"
+					)
+
+					idx, ok := idx.(*imgutil.Index)
+					h.AssertEq(t, ok, true)
+
+					mfest, err := idx.IndexManifest()
+					h.AssertNil(t, err)
+					h.AssertNotEq(t, mfest, nil)
+
+					for _, m := range mfest.Manifests {
+						hash, err := v1.NewHash(alpineImageDigestStr)
+						h.AssertNil(t, err)
+
+						if hash == m.Digest {
+							continue
+						}
+
+						err = idx.Remove(alpineImageDigest.Digest(m.Digest.String()))
+						h.AssertNil(t, err)
+					}
+
+					err = idx.SetVariant(alpineImageDigest, modifiedVariant)
+					h.AssertNil(t, err)
+
+					err = idx.Save()
+					h.AssertNil(t, err)
+
+					format, err := idx.MediaType()
+					h.AssertNil(t, err)
+
+					if format == types.DockerManifestList {
+						idx, err := local.NewIndex(indexName, index.WithXDGRuntimePath(xdgPath))
+						h.AssertNil(t, err)
+
+						imgIdx, ok := idx.(*imgutil.Index)
+						h.AssertEq(t, ok, true)
+
+						mfest, err := imgIdx.IndexManifest()
+						h.AssertNil(t, err)
+						h.AssertNotEq(t, mfest, nil)
+
+						for _, m := range mfest.Manifests {
+							h.AssertEq(t, m.Platform.Variant, modifiedVariant)
+						}
+					} else {
+						idx, err := layout.NewIndex(indexName, index.WithXDGRuntimePath(xdgPath))
+						h.AssertNil(t, err)
+
+						imgIdx, ok := idx.(*imgutil.Index)
+						h.AssertEq(t, ok, true)
+
+						mfest, err := imgIdx.IndexManifest()
+						h.AssertNil(t, err)
+						h.AssertNotEq(t, mfest, nil)
+
+						for _, m := range mfest.Manifests {
+							h.AssertEq(t, m.Platform.Variant, modifiedVariant)
+						}
+					}
+				})
+				it("should save image with expected annotated os version", func() {
+					var (
+						modifiedOSVersion = "some-osVersion"
+					)
+
+					idx, ok := idx.(*imgutil.Index)
+					h.AssertEq(t, ok, true)
+
+					mfest, err := idx.IndexManifest()
+					h.AssertNil(t, err)
+					h.AssertNotEq(t, mfest, nil)
+
+					for _, m := range mfest.Manifests {
+						hash, err := v1.NewHash(alpineImageDigestStr)
+						h.AssertNil(t, err)
+
+						if hash == m.Digest {
+							continue
+						}
+
+						err = idx.Remove(alpineImageDigest.Digest(m.Digest.String()))
+						h.AssertNil(t, err)
+					}
+
+					err = idx.SetOSVersion(alpineImageDigest, modifiedOSVersion)
+					h.AssertNil(t, err)
+
+					err = idx.Save()
+					h.AssertNil(t, err)
+
+					format, err := idx.MediaType()
+					h.AssertNil(t, err)
+
+					if format == types.DockerManifestList {
+						idx, err := local.NewIndex(indexName, index.WithXDGRuntimePath(xdgPath))
+						h.AssertNil(t, err)
+
+						imgIdx, ok := idx.(*imgutil.Index)
+						h.AssertEq(t, ok, true)
+
+						mfest, err := imgIdx.IndexManifest()
+						h.AssertNil(t, err)
+						h.AssertNotEq(t, mfest, nil)
+
+						for _, m := range mfest.Manifests {
+							h.AssertEq(t, m.Platform.OSVersion, modifiedOSVersion)
+						}
+					} else {
+						idx, err := layout.NewIndex(indexName, index.WithXDGRuntimePath(xdgPath))
+						h.AssertNil(t, err)
+
+						imgIdx, ok := idx.(*imgutil.Index)
+						h.AssertEq(t, ok, true)
+
+						mfest, err := imgIdx.IndexManifest()
+						h.AssertNil(t, err)
+						h.AssertNotEq(t, mfest, nil)
+
+						for _, m := range mfest.Manifests {
+							h.AssertEq(t, m.Platform.OSVersion, modifiedOSVersion)
+						}
+					}
+				})
+				it("should save image with expected annotated features", func() {
+					var (
+						modifiedFeatures = []string{"some-features"}
+					)
+
+					idx, ok := idx.(*imgutil.Index)
+					h.AssertEq(t, ok, true)
+
+					mfest, err := idx.IndexManifest()
+					h.AssertNil(t, err)
+					h.AssertNotEq(t, mfest, nil)
+
+					for _, m := range mfest.Manifests {
+						hash, err := v1.NewHash(alpineImageDigestStr)
+						h.AssertNil(t, err)
+
+						if hash == m.Digest {
+							continue
+						}
+
+						err = idx.Remove(alpineImageDigest.Digest(m.Digest.String()))
+						h.AssertNil(t, err)
+					}
+
+					err = idx.SetFeatures(alpineImageDigest, modifiedFeatures)
+					h.AssertNil(t, err)
+
+					err = idx.Save()
+					h.AssertNil(t, err)
+
+					format, err := idx.MediaType()
+					h.AssertNil(t, err)
+
+					if format == types.DockerManifestList {
+						idx, err := local.NewIndex(indexName, index.WithXDGRuntimePath(xdgPath))
+						h.AssertNil(t, err)
+
+						imgIdx, ok := idx.(*imgutil.Index)
+						h.AssertEq(t, ok, true)
+
+						mfest, err := imgIdx.IndexManifest()
+						h.AssertNil(t, err)
+						h.AssertNotEq(t, mfest, nil)
+
+						for _, m := range mfest.Manifests {
+							h.AssertEq(t, m.Platform.Features, modifiedFeatures)
+						}
+					} else {
+						idx, err := layout.NewIndex(indexName, index.WithXDGRuntimePath(xdgPath))
+						h.AssertNil(t, err)
+
+						imgIdx, ok := idx.(*imgutil.Index)
+						h.AssertEq(t, ok, true)
+
+						mfest, err := imgIdx.IndexManifest()
+						h.AssertNil(t, err)
+						h.AssertNotEq(t, mfest, nil)
+
+						for _, m := range mfest.Manifests {
+							h.AssertEq(t, m.Platform.Features, modifiedFeatures)
+						}
+					}
+				})
+				it("should save image with expected annotated os features", func() {
+					var (
+						modifiedOSFeatures = []string{"some-osFeatures"}
+					)
+
+					idx, ok := idx.(*imgutil.Index)
+					h.AssertEq(t, ok, true)
+
+					mfest, err := idx.IndexManifest()
+					h.AssertNil(t, err)
+					h.AssertNotEq(t, mfest, nil)
+
+					for _, m := range mfest.Manifests {
+						hash, err := v1.NewHash(alpineImageDigestStr)
+						h.AssertNil(t, err)
+
+						if hash == m.Digest {
+							continue
+						}
+
+						err = idx.Remove(alpineImageDigest.Digest(m.Digest.String()))
+						h.AssertNil(t, err)
+					}
+
+					err = idx.SetOSFeatures(alpineImageDigest, modifiedOSFeatures)
+					h.AssertNil(t, err)
+
+					err = idx.Save()
+					h.AssertNil(t, err)
+
+					format, err := idx.MediaType()
+					h.AssertNil(t, err)
+
+					if format == types.DockerManifestList {
+						idx, err := local.NewIndex(indexName, index.WithXDGRuntimePath(xdgPath))
+						h.AssertNil(t, err)
+
+						imgIdx, ok := idx.(*imgutil.Index)
+						h.AssertEq(t, ok, true)
+
+						mfest, err := imgIdx.IndexManifest()
+						h.AssertNil(t, err)
+						h.AssertNotEq(t, mfest, nil)
+
+						for _, m := range mfest.Manifests {
+							h.AssertEq(t, m.Platform.OSFeatures, modifiedOSFeatures)
+						}
+					} else {
+						idx, err := layout.NewIndex(indexName, index.WithXDGRuntimePath(xdgPath))
+						h.AssertNil(t, err)
+
+						imgIdx, ok := idx.(*imgutil.Index)
+						h.AssertEq(t, ok, true)
+
+						mfest, err := imgIdx.IndexManifest()
+						h.AssertNil(t, err)
+						h.AssertNotEq(t, mfest, nil)
+
+						for _, m := range mfest.Manifests {
+							h.AssertEq(t, m.Platform.OSFeatures, modifiedOSFeatures)
+						}
+					}
+				})
+				it("should save image without annotations", func() {
+					var (
+						modifiedAnnotations = map[string]string{"some-key": "some-value"}
+					)
+
+					idx, ok := idx.(*imgutil.Index)
+					h.AssertEq(t, ok, true)
+
+					mfest, err := idx.IndexManifest()
+					h.AssertNil(t, err)
+					h.AssertNotEq(t, mfest, nil)
+
+					for _, m := range mfest.Manifests {
+						hash, err := v1.NewHash(alpineImageDigestStr)
+						h.AssertNil(t, err)
+
+						if hash == m.Digest {
+							continue
+						}
+
+						err = idx.Remove(alpineImageDigest.Digest(m.Digest.String()))
+						h.AssertNil(t, err)
+					}
+
+					err = idx.SetAnnotations(alpineImageDigest, modifiedAnnotations)
+					h.AssertNil(t, err)
+
+					err = idx.Save()
+					h.AssertNil(t, err)
+
+					format, err := idx.MediaType()
+					h.AssertNil(t, err)
+
+					if format == types.DockerManifestList {
+						idx, err := local.NewIndex(indexName, index.WithXDGRuntimePath(xdgPath))
+						h.AssertNil(t, err)
+
+						imgIdx, ok := idx.(*imgutil.Index)
+						h.AssertEq(t, ok, true)
+
+						mfest, err := imgIdx.IndexManifest()
+						h.AssertNil(t, err)
+						h.AssertNotEq(t, mfest, nil)
+
+						for _, m := range mfest.Manifests {
+							h.AssertEq(t, m.Annotations, map[string]string(nil))
+						}
+					} else {
+						idx, err := layout.NewIndex(indexName, index.WithXDGRuntimePath(xdgPath))
+						h.AssertNil(t, err)
+
+						imgIdx, ok := idx.(*imgutil.Index)
+						h.AssertEq(t, ok, true)
+
+						mfest, err := imgIdx.IndexManifest()
+						h.AssertNil(t, err)
+						h.AssertNotEq(t, mfest, nil)
+
+						for _, m := range mfest.Manifests {
+							h.AssertEq(t, m.Annotations, modifiedAnnotations)
+						}
+					}
+				})
+				it("should save image with expected annotated urls", func() {
+					var (
+						modifiedURLs = []string{"some-urls"}
+					)
+
+					idx, ok := idx.(*imgutil.Index)
+					h.AssertEq(t, ok, true)
+
+					mfest, err := idx.IndexManifest()
+					h.AssertNil(t, err)
+					h.AssertNotEq(t, mfest, nil)
+
+					for _, m := range mfest.Manifests {
+						hash, err := v1.NewHash(alpineImageDigestStr)
+						h.AssertNil(t, err)
+
+						if hash == m.Digest {
+							continue
+						}
+
+						err = idx.Remove(alpineImageDigest.Digest(m.Digest.String()))
+						h.AssertNil(t, err)
+					}
+
+					err = idx.SetURLs(alpineImageDigest, modifiedURLs)
+					h.AssertNil(t, err)
+
+					err = idx.Save()
+					h.AssertNil(t, err)
+
+					format, err := idx.MediaType()
+					h.AssertNil(t, err)
+
+					if format == types.DockerManifestList {
+						idx, err := local.NewIndex(indexName, index.WithXDGRuntimePath(xdgPath))
+						h.AssertNil(t, err)
+
+						imgIdx, ok := idx.(*imgutil.Index)
+						h.AssertEq(t, ok, true)
+
+						mfest, err := imgIdx.IndexManifest()
+						h.AssertNil(t, err)
+						h.AssertNotEq(t, mfest, nil)
+
+						for _, m := range mfest.Manifests {
+							h.AssertEq(t, m.URLs, modifiedURLs)
+						}
+					} else {
+						idx, err := layout.NewIndex(indexName, index.WithXDGRuntimePath(xdgPath))
+						h.AssertNil(t, err)
+
+						imgIdx, ok := idx.(*imgutil.Index)
+						h.AssertEq(t, ok, true)
+
+						mfest, err := imgIdx.IndexManifest()
+						h.AssertNil(t, err)
+						h.AssertNotEq(t, mfest, nil)
+
+						for _, m := range mfest.Manifests {
+							h.AssertEq(t, m.URLs, modifiedURLs)
+						}
+					}
+				})
 				it("should return an error", func() {})
 			})
 			when("#Push", func() {

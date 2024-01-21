@@ -8,6 +8,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	"github.com/buildpacks/imgutil"
+	"github.com/buildpacks/imgutil/docker"
 )
 
 // NewIndex will return a New Empty ImageIndex that can be modified and saved to a registry
@@ -24,7 +25,7 @@ func NewIndex(repoName string, ops ...Option) (index imgutil.Index, err error) {
 	switch idxOps.format {
 	case types.DockerManifestList:
 		return imgutil.Index{
-			ImageIndex: &DockerIndex,
+			ImageIndex: &docker.DockerIndex,
 			Options: imgutil.IndexOptions{
 				KeyChain:         idxOps.keychain,
 				XdgPath:          idxOps.xdgPath,
