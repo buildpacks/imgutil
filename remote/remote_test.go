@@ -392,7 +392,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should add target specific image", func() {
 					var (
-						refStr = "alpine:3.18.5"
+						refStr = "busybox:1.35.0-musl"
 					)
 					ref, err := name.ParseReference(refStr, name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)

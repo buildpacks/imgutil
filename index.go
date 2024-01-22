@@ -12,14 +12,11 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/match"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
-
-	"github.com/buildpacks/imgutil/docker"
 )
 
 const digestDelim = "@"
@@ -74,6 +71,7 @@ var (
 	ErrConfigFileUndefined                = errors.New("config file is undefined")
 	ErrIndexNeedToBeSaved                 = errors.New("image index should need to be saved to perform this operation")
 	ErrUnknownMediaType                   = errors.New("media type not supported")
+	ErrNoImageFoundWithGivenPlatform      = errors.New("no image found with the given platform")
 )
 
 type Index struct {
@@ -913,12 +911,12 @@ func (i *Index) Add(ref name.Reference, ops ...IndexAddOption) error {
 			return ErrManifestUndefined
 		}
 
-		if mfest.Subject != nil && mfest.Subject.Platform != nil {
-			desc = *mfest.Subject
-		}
-
 		if mfest.Config.Platform != nil {
 			desc = mfest.Config
+		}
+
+		if mfest.Subject != nil && mfest.Subject.Platform != nil {
+			desc = *mfest.Subject.DeepCopy()
 		}
 
 		if reflect.DeepEqual(desc, v1.Descriptor{}) {
@@ -1048,7 +1046,7 @@ func addImageFromDigest(i *Index, hash v1.Hash, ref name.Reference, annotations 
 }
 
 func addPlatformSpecificImages(i *Index, ref name.Reference, platform v1.Platform, annotations map[string]string) error {
-	if platform.OS == "" {
+	if platform.OS == "" || platform.Architecture == "" {
 		return ErrInvalidPlatform
 	}
 
@@ -1075,42 +1073,8 @@ func appendImage(i *Index, desc *remote.Descriptor, annotations map[string]strin
 }
 
 func addImage(i *Index, img v1.Image, annotations map[string]string) error {
-	var v1Desc = v1.Descriptor{}
-	mfest, err := img.Manifest()
-	if err != nil {
-		return err
-	}
-
-	if mfest == nil {
-		return ErrManifestUndefined
-	}
-
-	if mfest.Subject != nil && mfest.Subject.Platform != nil {
-		v1Desc = *mfest.Subject
-	}
-
-	if mfest.Config.Platform != nil {
-		v1Desc = mfest.Config
-	}
-
-	if reflect.DeepEqual(v1Desc, v1.Descriptor{}) {
-		v1Desc = mfest.Config
-	}
-
-	if reflect.DeepEqual(v1Desc, v1.Descriptor{}) {
-		return ErrConfigFileUndefined
-	}
-
-	if len(annotations) != 0 {
-		v1Desc.Annotations = annotations
-	}
-
-	if mfest.Config.Digest != (v1.Hash{}) {
-		v1Desc.Digest = mfest.Config.Digest
-	}
-
-	if mfest.Subject != nil && mfest.Subject.Digest != (v1.Hash{}) {
-		v1Desc.Digest = mfest.Subject.Digest
+	var v1Desc = v1.Descriptor{
+		Annotations: annotations,
 	}
 
 	i.ImageIndex = mutate.AppendManifests(i.ImageIndex, mutate.IndexAddendum{
@@ -1124,24 +1088,9 @@ func addImage(i *Index, img v1.Image, annotations map[string]string) error {
 func (i *Index) Save() error {
 	layoutPath := filepath.Join(i.Options.XdgPath, i.Options.Reponame)
 	if _, err := os.Stat(filepath.Join(layoutPath, "index.json")); err != nil {
-		format, err := i.MediaType()
+		_, err = layout.Write(layoutPath, i.ImageIndex)
 		if err != nil {
-			return err
-		}
-
-		switch format {
-		case types.DockerManifestList:
-			_, err = layout.Write(layoutPath, docker.DockerIndex)
-			if err != nil {
-				return err
-			}
-		case types.OCIImageIndex:
-			_, err = layout.Write(layoutPath, empty.Index)
-			if err != nil {
-				return err
-			}
-		default:
-			return errors.New(ErrUnknownMediaType.Error() + fmt.Sprintf("; found %s", format))
+			return errors.New("error writting index: " + err.Error())
 		}
 	}
 
@@ -1179,7 +1128,7 @@ func (i *Index) Save() error {
 			}
 
 			var ops = []layout.Option{}
-			if desc.Platform != nil {
+			if desc.Platform != nil && !reflect.DeepEqual(desc.Platform, v1.Platform{}) {
 				if desc.Platform.OS != "" {
 					upsertDesc.Platform.OS = desc.Platform.OS
 				}
@@ -1252,7 +1201,7 @@ func (i *Index) Save() error {
 			}
 
 			var ops = []layout.Option{}
-			if desc.Platform != nil {
+			if desc.Platform != nil && !reflect.DeepEqual(desc.Platform, v1.Platform{}) {
 				if desc.Platform.OS != "" {
 					upsertDesc.Platform.OS = desc.Platform.OS
 				}
