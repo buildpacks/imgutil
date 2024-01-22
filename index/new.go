@@ -1,8 +1,6 @@
 package index
 
 import (
-	"errors"
-
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/types"
@@ -12,7 +10,7 @@ import (
 )
 
 // NewIndex will return a New Empty ImageIndex that can be modified and saved to a registry
-func NewIndex(repoName string, ops ...Option) (index imgutil.Index, err error) {
+func NewIndex(repoName string, ops ...Option) (idx imgutil.ImageIndex, err error) {
 	var idxOps = &Options{}
 	ops = append(ops, WithRepoName(repoName))
 	for _, op := range ops {
@@ -24,7 +22,7 @@ func NewIndex(repoName string, ops ...Option) (index imgutil.Index, err error) {
 
 	switch idxOps.format {
 	case types.DockerManifestList:
-		return imgutil.Index{
+		return &imgutil.Index{
 			ImageIndex: &docker.DockerIndex,
 			Options: imgutil.IndexOptions{
 				KeyChain:         idxOps.keychain,
@@ -34,7 +32,7 @@ func NewIndex(repoName string, ops ...Option) (index imgutil.Index, err error) {
 			},
 		}, nil
 	case types.OCIImageIndex:
-		return imgutil.Index{
+		return &imgutil.Index{
 			ImageIndex: empty.Index,
 			Annotate: imgutil.Annotate{
 				Instance: make(map[v1.Hash]v1.Descriptor),
@@ -48,6 +46,6 @@ func NewIndex(repoName string, ops ...Option) (index imgutil.Index, err error) {
 			},
 		}, nil
 	default:
-		return index, errors.New("unsupported index format")
+		return idx, imgutil.ErrUnknownMediaType
 	}
 }

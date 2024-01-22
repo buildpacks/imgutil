@@ -51,13 +51,13 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 			err := os.RemoveAll(xdgPath)
 			h.AssertNil(t, err)
 		})
-		it("should return new Index", func() {
-			idx, err := local.NewIndex(indexName, index.WithKeychain(authn.DefaultKeychain), index.WithXDGRuntimePath(xdgPath))
+		it("should create new Index", func() {
+			idx, err := index.NewIndex(indexName, index.WithKeychain(authn.DefaultKeychain), index.WithXDGRuntimePath(xdgPath))
 			h.AssertNil(t, err)
 			h.AssertNotEq(t, idx, imgutil.Index{})
 		})
 		it("should return an error", func() {
-			_, err := local.NewIndex(indexName+"$invalid", index.WithKeychain(authn.DefaultKeychain), index.WithXDGRuntimePath(xdgPath))
+			_, err := index.NewIndex(indexName+"$invalid", index.WithKeychain(authn.DefaultKeychain), index.WithXDGRuntimePath(xdgPath))
 			h.AssertNotEq(t, err, nil)
 		})
 		when("#NewIndex options", func() {
@@ -82,7 +82,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				alpineImageDigest, err = name.NewDigest("alpine"+digestDelim+alpineImageDigestStr, name.Insecure, name.WeakValidation)
 				h.AssertNil(t, err)
 
-				idx, err = local.NewIndex(indexName, index.WithKeychain(authn.DefaultKeychain), index.WithXDGRuntimePath(xdgPath))
+				idx, err = index.NewIndex(indexName, index.WithKeychain(authn.DefaultKeychain), index.WithXDGRuntimePath(xdgPath))
 				h.AssertNil(t, err)
 				h.AssertNotEq(t, idx, imgutil.Index{})
 			})
@@ -938,5 +938,4 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 	})
-
 }

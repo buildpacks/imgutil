@@ -74,6 +74,8 @@ var (
 	ErrNoImageFoundWithGivenPlatform      = errors.New("no image found with the given platform")
 )
 
+var _ ImageIndex = (*Index)(nil)
+
 type Index struct {
 	v1.ImageIndex
 	Annotate         Annotate
@@ -965,27 +967,11 @@ func addAllImages(i *Index, idx v1.ImageIndex, ref name.Reference, annotations m
 
 	errs := SaveError{}
 	for _, desc := range mfest.Manifests {
-		switch {
-		case desc.MediaType.IsIndex():
-			err := addImagesFromDigest(i, desc.Digest, ref, annotations)
-			if err != nil {
-				errs.Errors = append(errs.Errors, SaveDiagnostic{
-					ImageName: desc.Digest.String(),
-					Cause:     err,
-				})
-			}
-		case desc.MediaType.IsImage():
-			err := addImageFromDigest(i, desc.Digest, ref, annotations)
-			if err != nil {
-				errs.Errors = append(errs.Errors, SaveDiagnostic{
-					ImageName: desc.Digest.String(),
-					Cause:     err,
-				})
-			}
-		default:
+		err := addImagesFromDigest(i, desc.Digest, ref, annotations)
+		if err != nil {
 			errs.Errors = append(errs.Errors, SaveDiagnostic{
 				ImageName: desc.Digest.String(),
-				Cause:     ErrUnknownMediaType,
+				Cause:     err,
 			})
 		}
 	}
@@ -1025,24 +1011,6 @@ func addImagesFromDigest(i *Index, hash v1.Hash, ref name.Reference, annotations
 	default:
 		return ErrNoImageOrIndexFoundWithGivenDigest
 	}
-}
-
-func addImageFromDigest(i *Index, hash v1.Hash, ref name.Reference, annotations map[string]string) error {
-	imgRef, err := name.ParseReference(ref.Context().Name() + digestDelim + hash.String())
-	if err != nil {
-		return err
-	}
-
-	desc, err := remote.Get(
-		imgRef,
-		remote.WithAuthFromKeychain(i.Options.KeyChain),
-		remote.WithTransport(getTransport(true)),
-	)
-	if err != nil {
-		return err
-	}
-
-	return appendImage(i, desc, annotations)
 }
 
 func addPlatformSpecificImages(i *Index, ref name.Reference, platform v1.Platform, annotations map[string]string) error {
@@ -1090,7 +1058,7 @@ func (i *Index) Save() error {
 	if _, err := os.Stat(filepath.Join(layoutPath, "index.json")); err != nil {
 		_, err = layout.Write(layoutPath, i.ImageIndex)
 		if err != nil {
-			return errors.New("error writting index: " + err.Error())
+			return err
 		}
 	}
 
@@ -1129,30 +1097,7 @@ func (i *Index) Save() error {
 
 			var ops = []layout.Option{}
 			if desc.Platform != nil && !reflect.DeepEqual(desc.Platform, v1.Platform{}) {
-				if desc.Platform.OS != "" {
-					upsertDesc.Platform.OS = desc.Platform.OS
-				}
-
-				if desc.Platform.Architecture != "" {
-					upsertDesc.Platform.Architecture = desc.Platform.Architecture
-				}
-
-				if desc.Platform.Variant != "" {
-					upsertDesc.Platform.Variant = desc.Platform.Variant
-				}
-
-				if desc.Platform.OSVersion != "" {
-					upsertDesc.Platform.OSVersion = desc.Platform.OSVersion
-				}
-
-				if len(desc.Platform.Features) != 0 {
-					upsertDesc.Platform.Features = desc.Platform.Features
-				}
-
-				if len(desc.Platform.OSFeatures) != 0 {
-					upsertDesc.Platform.OSFeatures = desc.Platform.OSFeatures
-				}
-
+				updatePlatformFromDesc(upsertDesc.Platform, desc)
 				ops = append(ops, layout.WithPlatform(*upsertDesc.Platform))
 			}
 
@@ -1202,30 +1147,7 @@ func (i *Index) Save() error {
 
 			var ops = []layout.Option{}
 			if desc.Platform != nil && !reflect.DeepEqual(desc.Platform, v1.Platform{}) {
-				if desc.Platform.OS != "" {
-					upsertDesc.Platform.OS = desc.Platform.OS
-				}
-
-				if desc.Platform.Architecture != "" {
-					upsertDesc.Platform.Architecture = desc.Platform.Architecture
-				}
-
-				if desc.Platform.Variant != "" {
-					upsertDesc.Platform.Variant = desc.Platform.Variant
-				}
-
-				if desc.Platform.OSVersion != "" {
-					upsertDesc.Platform.OSVersion = desc.Platform.OSVersion
-				}
-
-				if len(desc.Platform.Features) != 0 {
-					upsertDesc.Platform.Features = desc.Platform.Features
-				}
-
-				if len(desc.Platform.OSFeatures) != 0 {
-					upsertDesc.Platform.OSFeatures = desc.Platform.OSFeatures
-				}
-
+				updatePlatformFromDesc(upsertDesc.Platform, desc)
 				ops = append(ops, layout.WithPlatform(*upsertDesc.Platform))
 			}
 
@@ -1266,6 +1188,32 @@ func (i *Index) Save() error {
 	}
 
 	return nil
+}
+
+func updatePlatformFromDesc(actual *v1.Platform, want v1.Descriptor) {
+	if want.Platform.OS != "" {
+		actual.OS = want.Platform.OS
+	}
+
+	if want.Platform.Architecture != "" {
+		actual.Architecture = want.Platform.Architecture
+	}
+
+	if want.Platform.Variant != "" {
+		actual.Variant = want.Platform.Variant
+	}
+
+	if want.Platform.OSVersion != "" {
+		actual.OSVersion = want.Platform.OSVersion
+	}
+
+	if len(want.Platform.Features) != 0 {
+		actual.Features = want.Platform.Features
+	}
+
+	if len(want.Platform.OSFeatures) != 0 {
+		actual.OSFeatures = want.Platform.OSFeatures
+	}
 }
 
 func (i *Index) Push(ops ...IndexPushOption) error {
