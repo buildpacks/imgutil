@@ -52,7 +52,7 @@ func (i *Image) GetLayer(diffID string) (io.ReadCloser, error) {
 		// this avoids downloading ALL the image layers from the daemon
 		// if the layer is available locally
 		// (e.g., it was added using AddLayer).
-		if size, err := layer.Size(); err != nil && size != -1 {
+		if size, err := layer.Size(); err != nil && size != -1 { // TODO: investigate
 			return layer.Uncompressed()
 		}
 	}

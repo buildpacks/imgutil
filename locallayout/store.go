@@ -3,7 +3,6 @@ package locallayout
 import (
 	"archive/tar"
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,9 +16,12 @@ import (
 	"github.com/docker/docker/pkg/jsonmessage"
 	registryName "github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/buildpacks/imgutil"
+	"github.com/buildpacks/imgutil/layout"
 )
 
 // Store provides methods for interacting with a docker daemon
@@ -67,14 +69,14 @@ func (s *Store) Delete(identifier string) error {
 
 func (s *Store) Save(image imgutil.IdentifiableV1Image, withName string, withAdditionalNames ...string) (string, error) {
 	withName = tryNormalizing(withName)
+	identifier, err := image.Identifier()
+	if err != nil {
+		return "", err
+	}
 
 	// save
 	inspect, err := s.doSave(image, withName)
 	if err != nil {
-		identifier, err := image.Identifier()
-		if err != nil {
-			return "", err
-		}
 		if err = s.DownloadLayersFor(identifier.String()); err != nil {
 			return "", err
 		}
@@ -165,55 +167,70 @@ func (s *Store) doSave(image v1.Image, withName string) (types.ImageInspect, err
 }
 
 func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string) error {
-	rawConfigFile, err := image.RawConfigFile()
+	path, err := os.MkdirTemp("", "") // TODO: remove?
 	if err != nil {
 		return err
 	}
-	configHash := fmt.Sprintf("%x", sha256.Sum256(rawConfigFile))
-	if err = addTextToTar(tw, rawConfigFile, configHash+".json"); err != nil {
-		return err
-	}
-	layers, err := image.Layers()
+	layoutPath, err := layout.Write(path, empty.Index)
 	if err != nil {
 		return err
 	}
-	var (
-		layerPaths []string
-		blankIdx   int
-	)
-	for _, layer := range layers {
-		var layerName string
-		size, err := layer.Size()
+	if err = layoutPath.AppendImage(image, layout.WithAnnotations(map[string]string{"io.containerd.image.name": withName})); err != nil {
+		return err
+	}
+	return AddDirToArchive(tw, path)
+}
+
+// FIXME: find a place for these
+
+// AddDirToArchive walks dir writes entries describing dir and all of its children files to the provided *tar.Writer
+func AddDirToArchive(tw *tar.Writer, dir string) error {
+	dir = filepath.Clean(dir)
+
+	return filepath.Walk(dir, func(file string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if size == -1 { // layer facade fronting empty layer
-			layerName = fmt.Sprintf("blank_%d", blankIdx)
-			blankIdx++
-			hdr := &tar.Header{Name: layerName, Mode: 0644, Size: 0}
-			if err := tw.WriteHeader(hdr); err != nil {
-				return err
-			}
-		} else {
-			layerName, err = s.addLayerToTar(tw, layer)
-			if err != nil {
-				return err
-			}
-		}
-		layerPaths = append(layerPaths, layerName)
-	}
-
-	manifestJSON, err := json.Marshal([]map[string]interface{}{
-		{
-			"Config":   configHash + ".json",
-			"RepoTags": []string{withName},
-			"Layers":   layerPaths,
-		},
+		return AddFileToArchive(tw, file, dir, fi)
 	})
+}
+
+// AddFileToArchive writes an entry describing the file at path with the given os.FileInfo to the provided TarWriter
+func AddFileToArchive(tw *tar.Writer, path, parentDir string, fi os.FileInfo) error {
+	if fi.Mode()&os.ModeSocket != 0 {
+		return nil
+	}
+	header, err := tar.FileInfoHeader(fi, "")
 	if err != nil {
 		return err
 	}
-	return addTextToTar(tw, manifestJSON, "manifest.json")
+	header.Name, err = filepath.Rel(parentDir, path)
+	if err != nil {
+		return err
+	}
+
+	if fi.Mode()&os.ModeSymlink != 0 {
+		var err error
+		target, err := os.Readlink(path)
+		if err != nil {
+			return err
+		}
+		header.Linkname = target
+	}
+	if err := tw.WriteHeader(header); err != nil {
+		return err
+	}
+	if fi.Mode().IsRegular() {
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		if _, err := io.Copy(tw, f); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer) (string, error) {
@@ -362,6 +379,11 @@ func downloadLayersFor(identifier string, dockerClient DockerClient) ([]v1.Layer
 	}
 	ctx := context.Background()
 
+	// TODO: there must be a better way to do this
+	if len(identifier) > 12 {
+		identifier = identifier[:12]
+	}
+
 	imageReader, err := dockerClient.ImageSave(ctx, []string{identifier})
 	if err != nil {
 		return nil, fmt.Errorf("saving base image with ID %q from the docker daemon: %w", identifier, err)
@@ -416,9 +438,13 @@ func downloadLayersFor(identifier string, dockerClient DockerClient) ([]v1.Layer
 		if err != nil {
 			return nil, err
 		}
+		layer, err := tarball.LayerFromFile(filepath.Join(tmpDir, manifest[0].Layers[idx]))
+		if err != nil {
+			return nil, err
+		}
 		layers[idx] = &v1LayerFacade{
-			diffID:            h,
-			optionalLayerPath: filepath.Join(tmpDir, manifest[0].Layers[idx]),
+			diffID:                  h,
+			optionalUnderlyingLayer: layer,
 		}
 	}
 	return layers, nil

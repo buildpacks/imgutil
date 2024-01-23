@@ -203,19 +203,28 @@ func (i *CNBImageCore) WorkingDir() (string, error) {
 	return configFile.Config.WorkingDir, nil
 }
 
+// TODO: this annotates the manifest, but maybe we need to annotate the __index__
 func (i *CNBImageCore) AnnotateRefName(refName string) error {
-	manifest, err := getManifest(i.Image)
+	var err error
+	i.Image, err = Annotate(i.Image, "org.opencontainers.image.ref.name", refName)
+	return err
+}
+
+func Annotate(image v1.Image, key, val string) (v1.Image, error) {
+	manifest, err := getManifest(image)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	manifest.Annotations["org.opencontainers.image.ref.name"] = refName
-	mutated := mutate.Annotations(i.Image, manifest.Annotations)
+	if manifest.Annotations == nil {
+		manifest.Annotations = make(map[string]string)
+	}
+	manifest.Annotations[key] = val
+	mutated := mutate.Annotations(image, manifest.Annotations)
 	image, ok := mutated.(v1.Image)
 	if !ok {
-		return fmt.Errorf("failed to add annotation")
+		return nil, fmt.Errorf("failed to add annotation")
 	}
-	i.Image = image
-	return nil
+	return image, nil
 }
 
 func (i *CNBImageCore) Rename(name string) {

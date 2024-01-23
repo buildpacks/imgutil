@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"sync"
 	"time"
 
@@ -98,13 +97,26 @@ func newV1ImageFacadeFromInspect(dockerInspect types.ImageInspect, history []ima
 		OSVersion:     dockerInspect.OsVersion,
 		Variant:       dockerInspect.Variant,
 	}
-	img, err := mutate.ConfigFile(empty.Image, configFile)
+	layers := newEmptyLayerListFrom(configFile)
+	// first, append each layer to the image to update the layers in the underlying manifest
+	img, err := mutate.ConfigFile(empty.Image, &v1.ConfigFile{})
+	for _, layer := range layers {
+		img, err = mutate.Append(img, mutate.Addendum{
+			Layer:     layer,
+			MediaType: v1types.OCILayer,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	// then, set the config file
+	img, err = mutate.ConfigFile(img, configFile)
 	if err != nil {
 		return nil, err
 	}
 	return &v1ImageFacade{
 		Image:                  img,
-		emptyLayers:            newEmptyLayerListFrom(configFile),
+		emptyLayers:            layers,
 		store:                  &Store{dockerClient: dockerClient},
 		downloadLayersOnAccess: downloadLayersOnAccess,
 		downloadOnce:           &sync.Once{},
@@ -197,8 +209,8 @@ func toV1Config(dockerCfg *container.Config) v1.Config {
 var _ v1.Layer = &v1LayerFacade{}
 
 type v1LayerFacade struct {
-	diffID            v1.Hash
-	optionalLayerPath string
+	diffID                  v1.Hash
+	optionalUnderlyingLayer v1.Layer
 }
 
 func newEmptyLayerListFrom(configFile *v1.ConfigFile) []v1.Layer {
@@ -212,7 +224,10 @@ func newEmptyLayerListFrom(configFile *v1.ConfigFile) []v1.Layer {
 }
 
 func (l v1LayerFacade) Digest() (v1.Hash, error) {
-	return l.diffID, nil
+	if l.optionalUnderlyingLayer != nil {
+		return l.optionalUnderlyingLayer.Digest()
+	}
+	return v1.Hash{}, fmt.Errorf("failed to get digest for layer with diff ID %s", l.diffID.String())
 }
 
 func (l v1LayerFacade) DiffID() (v1.Hash, error) {
@@ -220,35 +235,29 @@ func (l v1LayerFacade) DiffID() (v1.Hash, error) {
 }
 
 func (l v1LayerFacade) Compressed() (io.ReadCloser, error) {
-	if l.optionalLayerPath != "" {
-		f, err := os.Open(l.optionalLayerPath)
-		if err != nil {
-			return nil, err
-		}
-		return f, nil
+	if l.optionalUnderlyingLayer != nil {
+		return l.optionalUnderlyingLayer.Compressed()
 	}
 	return io.NopCloser(bytes.NewReader([]byte{})), nil
 }
 
 func (l v1LayerFacade) Uncompressed() (io.ReadCloser, error) {
-	if l.optionalLayerPath != "" {
-		f, err := os.Open(l.optionalLayerPath)
-		if err != nil {
-			return nil, err
-		}
-		return f, nil
+	if l.optionalUnderlyingLayer != nil {
+		return l.optionalUnderlyingLayer.Uncompressed()
 	}
 	return io.NopCloser(bytes.NewReader([]byte{})), nil
 }
 
-// Size returns a sentinel value indicating if the layer has data.
 func (l v1LayerFacade) Size() (int64, error) {
-	if l.optionalLayerPath != "" {
-		return 1, nil
+	if l.optionalUnderlyingLayer != nil {
+		return l.optionalUnderlyingLayer.Size()
 	}
 	return -1, nil
 }
 
 func (l v1LayerFacade) MediaType() (v1types.MediaType, error) {
+	if l.optionalUnderlyingLayer != nil {
+		return l.optionalUnderlyingLayer.MediaType()
+	}
 	return v1types.OCILayer, nil
 }

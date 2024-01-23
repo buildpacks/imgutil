@@ -1137,20 +1137,20 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			it.Before(func() {
 				// new base image
-				newBase = "pack-newbase-test-" + h.RandString(10)
+				newBase = newTestImageName()
+				// TODO: this test consistently fails when the below line is commented in
+				//newBase = "pack-newbase-test-" + h.RandString(10)
 				newBaseImage, err := local.NewImage(newBase, dockerClient, local.FromBaseImage(runnableBaseImageName))
 				h.AssertNil(t, err)
 
 				newBaseLayer1Path, err := h.CreateSingleFileLayerTar("/new-base.txt", "new-base", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayer1Path)
-
 				newBaseLayer1DiffID = h.FileDiffID(t, newBaseLayer1Path)
 
 				newBaseLayer2Path, err := h.CreateSingleFileLayerTar("/otherfile.txt", "text-new-base", daemonOS)
 				h.AssertNil(t, err)
 				defer os.Remove(newBaseLayer2Path)
-
 				newBaseLayer2DiffID = h.FileDiffID(t, newBaseLayer2Path)
 
 				h.AssertNil(t, newBaseImage.AddLayer(newBaseLayer1Path))
@@ -1159,7 +1159,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, newBaseImage.Save())
 
 				// old base image
-				oldBase = "pack-oldbase-test-" + h.RandString(10)
+				oldBase = newTestImageName()
+				// TODO: this test consistently fails when the below line is commented in
+				//oldBase = "pack-oldbase-test-" + h.RandString(10)
 				oldBaseImage, err := local.NewImage(oldBase, dockerClient, local.FromBaseImage(runnableBaseImageName))
 				h.AssertNil(t, err)
 
@@ -1742,6 +1744,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					local.WithHistory(),
 				)
 				h.AssertNil(t, err)
+				// TODO: investigate flake:
+				// Error response from daemon: snapshot sha256:<sha256> does not exist: not found
 
 				newBaseLayerPath, err := h.CreateSingleFileLayerTar("/new-base.txt", "base-content", daemonOS)
 				h.AssertNil(t, err)
