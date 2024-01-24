@@ -178,7 +178,36 @@ func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string) e
 	if err = layoutPath.AppendImage(image, layout.WithAnnotations(map[string]string{"io.containerd.image.name": withName})); err != nil {
 		return err
 	}
-	return AddDirToArchive(tw, path)
+	if err = AddDirToArchive(tw, path); err != nil {
+		return err
+	}
+	manifestJSON, err := manifestJSONFor(image, withName)
+	if err != nil {
+		return err
+	}
+	return addTextToTar(tw, manifestJSON, "manifest.json")
+}
+
+func manifestJSONFor(image v1.Image, withName string) ([]byte, error) {
+	manifest, err := image.Manifest()
+	if err != nil {
+		return nil, err
+	}
+	var layerPaths []string
+	for _, layer := range manifest.Layers {
+		layerPaths = append(layerPaths, filepath.Join("blobs", layer.Digest.Algorithm, layer.Digest.Hex))
+	}
+	manifestJSON, err := json.Marshal([]map[string]interface{}{
+		{
+			"Config":   filepath.Join("blobs", manifest.Config.Digest.Algorithm, manifest.Config.Digest.Hex),
+			"RepoTags": []string{withName},
+			"Layers":   layerPaths,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return manifestJSON, nil
 }
 
 // FIXME: find a place for these
