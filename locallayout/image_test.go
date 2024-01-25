@@ -1139,7 +1139,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				// new base image
 				newBase = newTestImageName()
 				// TODO: this test consistently fails when the below line is commented in
-				//newBase = "pack-newbase-test-" + h.RandString(10)
+				// newBase = "pack-newbase-test-" + h.RandString(10)
 				newBaseImage, err := local.NewImage(newBase, dockerClient, local.FromBaseImage(runnableBaseImageName))
 				h.AssertNil(t, err)
 
@@ -1161,7 +1161,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				// old base image
 				oldBase = newTestImageName()
 				// TODO: this test consistently fails when the below line is commented in
-				//oldBase = "pack-oldbase-test-" + h.RandString(10)
+				// oldBase = "pack-oldbase-test-" + h.RandString(10)
 				oldBaseImage, err := local.NewImage(oldBase, dockerClient, local.FromBaseImage(runnableBaseImageName))
 				h.AssertNil(t, err)
 

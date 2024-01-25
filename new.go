@@ -14,10 +14,9 @@ import (
 	"github.com/buildpacks/imgutil/layer"
 )
 
-func NewCNBImage(repoName string, store ImageStore, options ImageOptions) (*CNBImageCore, error) {
+func NewCNBImage(repoName string, options ImageOptions) (*CNBImageCore, error) {
 	image := &CNBImageCore{
 		Image: options.BaseImage,
-		Store: store,
 		// required
 		repoName: repoName,
 		// optional

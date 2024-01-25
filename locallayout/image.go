@@ -15,12 +15,17 @@ import (
 // Image wraps an imgutil.CNBImageCore and implements the methods needed to complete the imgutil.Image interface.
 type Image struct {
 	*imgutil.CNBImageCore
+	store          *Store
 	lastIdentifier string
 	daemonOS       string
 	downloadOnce   *sync.Once
 }
 
 var _ imgutil.Image = &Image{}
+
+func (i *Image) Kind() string {
+	return "locallayout"
+}
 
 func (i *Image) Found() bool {
 	return i.lastIdentifier != ""
@@ -52,7 +57,7 @@ func (i *Image) GetLayer(diffID string) (io.ReadCloser, error) {
 		// this avoids downloading ALL the image layers from the daemon
 		// if the layer is available locally
 		// (e.g., it was added using AddLayer).
-		if size, err := layer.Size(); err != nil && size != -1 { // TODO: investigate
+		if size, err := layer.Size(); err != nil && size != -1 {
 			return layer.Uncompressed()
 		}
 	}
@@ -69,7 +74,7 @@ func (i *Image) GetLayer(diffID string) (io.ReadCloser, error) {
 func (i *Image) ensureLayers() error {
 	var err error
 	i.downloadOnce.Do(func() {
-		err = i.Store.DownloadLayersFor(i.lastIdentifier)
+		err = i.store.DownloadLayersFor(i.lastIdentifier)
 	})
 	if err != nil {
 		return fmt.Errorf("fetching base layers: %w", err)
@@ -93,20 +98,20 @@ func (i *Image) Rebase(baseTopLayerDiffID string, withNewBase imgutil.Image) err
 
 func (i *Image) Save(additionalNames ...string) error {
 	var err error
-	i.lastIdentifier, err = i.Store.Save(i, i.Name(), additionalNames...)
+	i.lastIdentifier, err = i.store.Save(i, i.Name(), additionalNames...)
 	return err
 }
 
 func (i *Image) SaveAs(name string, additionalNames ...string) error {
 	var err error
-	i.lastIdentifier, err = i.Store.Save(i, name, additionalNames...)
+	i.lastIdentifier, err = i.store.Save(i, name, additionalNames...)
 	return err
 }
 
 func (i *Image) SaveFile() (string, error) {
-	return i.Store.SaveFile(i, i.Name())
+	return i.store.SaveFile(i, i.Name())
 }
 
 func (i *Image) Delete() error {
-	return i.Store.Delete(i.lastIdentifier)
+	return i.store.Delete(i.lastIdentifier)
 }

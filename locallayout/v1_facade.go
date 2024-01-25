@@ -2,8 +2,11 @@ package locallayout
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -13,6 +16,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	v1types "github.com/google/go-containerregistry/pkg/v1/types"
 
 	"github.com/buildpacks/imgutil"
@@ -29,7 +33,7 @@ type v1ImageFacade struct {
 	emptyLayers []v1.Layer
 
 	// for downloading layers from the daemon as needed
-	store                  imgutil.ImageStore
+	store                  *Store
 	downloadLayersOnAccess bool // set to true to downloading ALL the image layers from the daemon when LayerByDiffID is called
 	downloadOnce           *sync.Once
 	identifier             string
@@ -79,7 +83,7 @@ func findLayer(withHash v1.Hash, inLayers []v1.Layer) v1.Layer {
 	return nil
 }
 
-func newV1ImageFacadeFromInspect(dockerInspect types.ImageInspect, history []image.HistoryResponseItem, dockerClient DockerClient, downloadLayersOnAccess bool) (*v1ImageFacade, error) {
+func newV1ImageFacadeFromInspect(dockerInspect types.ImageInspect, history []image.HistoryResponseItem, store *Store, downloadLayersOnAccess bool) (*v1ImageFacade, error) {
 	rootFS, err := toV1RootFS(dockerInspect.RootFS)
 	if err != nil {
 		return nil, err
@@ -97,9 +101,12 @@ func newV1ImageFacadeFromInspect(dockerInspect types.ImageInspect, history []ima
 		OSVersion:     dockerInspect.OsVersion,
 		Variant:       dockerInspect.Variant,
 	}
-	layers := newEmptyLayerListFrom(configFile)
+	layers := newEmptyLayerListFrom(configFile, store)
 	// first, append each layer to the image to update the layers in the underlying manifest
 	img, err := mutate.ConfigFile(empty.Image, &v1.ConfigFile{})
+	if err != nil {
+		return nil, err
+	}
 	for _, layer := range layers {
 		img, err = mutate.Append(img, mutate.Addendum{
 			Layer:     layer,
@@ -117,7 +124,7 @@ func newV1ImageFacadeFromInspect(dockerInspect types.ImageInspect, history []ima
 	return &v1ImageFacade{
 		Image:                  img,
 		emptyLayers:            layers,
-		store:                  &Store{dockerClient: dockerClient},
+		store:                  store,
 		downloadLayersOnAccess: downloadLayersOnAccess,
 		downloadOnce:           &sync.Once{},
 		identifier:             dockerInspect.ID,
@@ -209,26 +216,82 @@ func toV1Config(dockerCfg *container.Config) v1.Config {
 var _ v1.Layer = &v1LayerFacade{}
 
 type v1LayerFacade struct {
-	diffID                  v1.Hash
-	optionalUnderlyingLayer v1.Layer
+	diffID v1.Hash
+	store  *Store
 }
 
-func newEmptyLayerListFrom(configFile *v1.ConfigFile) []v1.Layer {
+func newEmptyLayerListFrom(configFile *v1.ConfigFile, withStore *Store) []v1.Layer {
 	layers := make([]v1.Layer, len(configFile.RootFS.DiffIDs))
 	for idx, diffID := range configFile.RootFS.DiffIDs {
 		layers[idx] = &v1LayerFacade{
 			diffID: diffID,
+			store:  withStore,
 		}
 	}
 	return layers
 }
 
+func newLayerListFrom(dockerSaveOutput string, withStore *Store) ([]v1.Layer, error) {
+	manifestFile, err := os.Open(filepath.Clean(filepath.Join(dockerSaveOutput, "manifest.json")))
+	if err != nil {
+		return nil, err
+	}
+	defer manifestFile.Close()
+
+	var manifestContents []struct {
+		Config string
+		Layers []string
+	}
+	if err := json.NewDecoder(manifestFile).Decode(&manifestContents); err != nil {
+		return nil, err
+	}
+	if len(manifestContents) != 1 {
+		return nil, fmt.Errorf("manifest.json had unexpected number of entries: %d", len(manifestContents))
+	}
+
+	configFile, err := os.Open(filepath.Clean(filepath.Join(dockerSaveOutput, manifestContents[0].Config)))
+	if err != nil {
+		return nil, err
+	}
+	defer configFile.Close()
+	var configContents struct {
+		RootFS struct {
+			DiffIDs []string `json:"diff_ids"`
+		} `json:"rootfs"`
+	}
+	if err = json.NewDecoder(configFile).Decode(&configContents); err != nil {
+		return nil, err
+	}
+
+	layers := make([]v1.Layer, len(configContents.RootFS.DiffIDs))
+	for idx, diffID := range configContents.RootFS.DiffIDs {
+		var h v1.Hash
+		h, err = v1.NewHash(diffID)
+		if err != nil {
+			return nil, err
+		}
+		layer, err := tarball.LayerFromFile(filepath.Join(dockerSaveOutput, manifestContents[0].Layers[idx]))
+		if err != nil {
+			return nil, err
+		}
+		withStore.onDiskLayers = append(withStore.onDiskLayers, layer)
+		layers[idx] = &v1LayerFacade{
+			diffID: h,
+			store:  withStore,
+		}
+	}
+	return layers, nil
+}
+
+func (l v1LayerFacade) optionalUnderlyingLayer() v1.Layer {
+	return findLayer(l.diffID, l.store.Layers())
+}
+
 func (l v1LayerFacade) Digest() (v1.Hash, error) {
-	if l.optionalUnderlyingLayer != nil {
-		return l.optionalUnderlyingLayer.Digest()
+	if layer := l.optionalUnderlyingLayer(); layer != nil {
+		return layer.Digest()
 	}
 	return v1.NewHash("sha256:90e01955edcd85dac7985b72a8374545eac617ccdddcc992b732e43cd42534af")
-	//return v1.Hash{}, fmt.Errorf("failed to get digest for layer with diff ID %s", l.diffID.String())
 }
 
 func (l v1LayerFacade) DiffID() (v1.Hash, error) {
@@ -236,29 +299,29 @@ func (l v1LayerFacade) DiffID() (v1.Hash, error) {
 }
 
 func (l v1LayerFacade) Compressed() (io.ReadCloser, error) {
-	if l.optionalUnderlyingLayer != nil {
-		return l.optionalUnderlyingLayer.Compressed()
+	if layer := l.optionalUnderlyingLayer(); layer != nil {
+		return layer.Compressed()
 	}
 	return io.NopCloser(bytes.NewReader([]byte{})), nil
 }
 
 func (l v1LayerFacade) Uncompressed() (io.ReadCloser, error) {
-	if l.optionalUnderlyingLayer != nil {
-		return l.optionalUnderlyingLayer.Uncompressed()
+	if layer := l.optionalUnderlyingLayer(); layer != nil {
+		return layer.Uncompressed()
 	}
 	return io.NopCloser(bytes.NewReader([]byte{})), nil
 }
 
 func (l v1LayerFacade) Size() (int64, error) {
-	if l.optionalUnderlyingLayer != nil {
-		return l.optionalUnderlyingLayer.Size()
+	if layer := l.optionalUnderlyingLayer(); layer != nil {
+		return layer.Size()
 	}
-	return 727978, nil // TODO: check
+	return 727978, nil
 }
 
 func (l v1LayerFacade) MediaType() (v1types.MediaType, error) {
-	if l.optionalUnderlyingLayer != nil {
-		return l.optionalUnderlyingLayer.MediaType()
+	if layer := l.optionalUnderlyingLayer(); layer != nil {
+		return layer.MediaType()
 	}
 	return v1types.OCILayer, nil
 }

@@ -13,7 +13,9 @@ import (
 )
 
 // NewImage returns a new image that can be modified and saved to a docker daemon
-// via a tarball in legacy format.
+// via a tarball in:
+// * OCI layout format if the daemon uses containerd as the image store
+// * legacy format if the daemon uses graph drivers.
 func NewImage(repoName string, dockerClient DockerClient, ops ...func(*imgutil.ImageOptions)) (imgutil.Image, error) {
 	options := &imgutil.ImageOptions{}
 	for _, op := range ops {
@@ -31,27 +33,25 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...func(*imgutil.I
 		return nil, err
 	}
 
-	var (
-		baseIdentifier string
-		store          imgutil.ImageStore = &Store{dockerClient: dockerClient}
-	)
-	baseImage, err := processBaseImageOption(options.BaseImageRepoName, dockerClient)
+	store := &Store{dockerClient: dockerClient}
+	baseImage, err := processBaseImageOption(options.BaseImageRepoName, dockerClient, store)
 	if err != nil {
 		return nil, err
 	}
+	var baseIdentifier string
 	if baseImage != nil {
 		options.BaseImage = baseImage
 		baseIdentifier = baseImage.identifier
-		store = baseImage.store
 	}
 
-	cnbImage, err := imgutil.NewCNBImage(repoName, store, *options)
+	cnbImage, err := imgutil.NewCNBImage(repoName, *options)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Image{
 		CNBImageCore:   cnbImage,
+		store:          store,
 		lastIdentifier: baseIdentifier,
 		daemonOS:       options.Platform.OS,
 		downloadOnce:   &sync.Once{},
@@ -95,10 +95,10 @@ func processPreviousImageOption(repoName string, dockerClient DockerClient) (*v1
 	if inspect == nil {
 		return nil, nil
 	}
-	return newV1ImageFacadeFromInspect(*inspect, history, dockerClient, true)
+	return newV1ImageFacadeFromInspect(*inspect, history, &Store{dockerClient: dockerClient}, true)
 }
 
-func processBaseImageOption(repoName string, dockerClient DockerClient) (*v1ImageFacade, error) {
+func processBaseImageOption(repoName string, dockerClient DockerClient, store *Store) (*v1ImageFacade, error) {
 	if repoName == "" {
 		return nil, nil
 	}
@@ -109,7 +109,11 @@ func processBaseImageOption(repoName string, dockerClient DockerClient) (*v1Imag
 	if inspect == nil {
 		return nil, nil
 	}
-	return newV1ImageFacadeFromInspect(*inspect, history, dockerClient, false)
+	var downloadLayersOnAccess bool
+	if usesContainerdStorage(dockerClient) {
+		downloadLayersOnAccess = true
+	}
+	return newV1ImageFacadeFromInspect(*inspect, history, store, downloadLayersOnAccess)
 }
 
 func getInspectAndHistory(repoName string, dockerClient DockerClient) (*types.ImageInspect, []image.HistoryResponseItem, error) {
