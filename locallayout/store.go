@@ -44,8 +44,6 @@ type DockerClient interface {
 	ServerVersion(ctx context.Context) (types.Version, error)
 }
 
-var _ imgutil.ImageStore = &Store{}
-
 // images
 
 func (s *Store) Contains(identifier string) bool {

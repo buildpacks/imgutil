@@ -33,7 +33,7 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...func(*imgutil.I
 
 	var (
 		baseIdentifier string
-		store          imgutil.ImageStore = &Store{dockerClient: dockerClient}
+		store          = &Store{dockerClient: dockerClient}
 	)
 	baseImage, err := processBaseImageOption(options.BaseImageRepoName, dockerClient)
 	if err != nil {
@@ -45,13 +45,14 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...func(*imgutil.I
 		store = baseImage.store
 	}
 
-	cnbImage, err := imgutil.NewCNBImage(repoName, store, *options)
+	cnbImage, err := imgutil.NewCNBImage(repoName, *options)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Image{
 		CNBImageCore:   cnbImage,
+		store:          store,
 		lastIdentifier: baseIdentifier,
 		daemonOS:       options.Platform.OS,
 		downloadOnce:   &sync.Once{},

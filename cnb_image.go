@@ -19,23 +19,12 @@ import (
 // but in practice will start off as a pointer to a locallayout.v1ImageFacade (or similar).
 type CNBImageCore struct {
 	v1.Image // the working image
-	Store    ImageStore
 	// required
 	repoName string
 	// optional
 	preferredMediaTypes MediaTypes
 	preserveHistory     bool
 	previousImage       v1.Image
-}
-
-type ImageStore interface {
-	Contains(identifier string) bool
-	Delete(identifier string) error
-	Save(image IdentifiableV1Image, withName string, withAdditionalNames ...string) (string, error)
-	SaveFile(image IdentifiableV1Image, withName string) (string, error)
-
-	DownloadLayersFor(identifier string) error
-	Layers() []v1.Layer
 }
 
 type IdentifiableV1Image interface {
@@ -103,15 +92,6 @@ func (i *CNBImageCore) History() ([]v1.History, error) {
 		return nil, err
 	}
 	return configFile.History, nil
-}
-
-func (i *CNBImageCore) Kind() string {
-	storeType := fmt.Sprintf("%T", i.Store)
-	parts := strings.Split(storeType, ".")
-	if len(parts) < 2 {
-		return storeType
-	}
-	return strings.TrimPrefix(parts[0], "*")
 }
 
 // Deprecated: Label
@@ -207,6 +187,9 @@ func (i *CNBImageCore) AnnotateRefName(refName string) error {
 	manifest, err := getManifest(i.Image)
 	if err != nil {
 		return err
+	}
+	if manifest.Annotations == nil {
+		manifest.Annotations = make(map[string]string)
 	}
 	manifest.Annotations["org.opencontainers.image.ref.name"] = refName
 	mutated := mutate.Annotations(i.Image, manifest.Annotations)
@@ -346,9 +329,6 @@ func (i *CNBImageCore) AddLayerWithDiffIDAndHistory(path, _ string, history v1.H
 }
 
 func (i *CNBImageCore) Rebase(baseTopLayerDiffID string, withNewBase Image) error {
-	if i.Kind() != withNewBase.Kind() {
-		return fmt.Errorf("expected new base to be a %s image; got %s", i.Kind(), withNewBase.Kind())
-	}
 	newBase := withNewBase.UnderlyingImage() // FIXME: when all imgutil.Images are v1.Images, we can remove this part
 	var err error
 	i.Image, err = mutate.Rebase(i.Image, i.newV1ImageFacade(baseTopLayerDiffID), newBase)
