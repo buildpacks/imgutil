@@ -24,7 +24,7 @@ func TestFakeIndex(t *testing.T) {
 func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 	when("#NewIndex", func() {
 		it("implements imgutil.ImageIndex", func() {
-			idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+			idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 			h.AssertNil(t, err)
 
 			var _ imgutil.ImageIndex = idx
@@ -32,7 +32,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 		when("#NewIndex options", func() {
 			when("#OS", func() {
 				it("should return expected os", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					idxMfest, err := idx.IndexManifest()
@@ -56,7 +56,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					}
 				})
 				it("should return an error", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					os, err := idx.OS(name.Digest{})
@@ -66,7 +66,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#Architecture", func() {
 				it("should return expected architecture", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					idxMfest, err := idx.IndexManifest()
@@ -93,7 +93,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#Variant", func() {
 				it("should return expected variant", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					idxMfest, err := idx.IndexManifest()
@@ -120,7 +120,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#OSVersion", func() {
 				it("should return expected os version", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					idxMfest, err := idx.IndexManifest()
@@ -147,7 +147,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#Features", func() {
 				it("should return expected features", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					idxMfest, err := idx.IndexManifest()
@@ -179,7 +179,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#OSFeatures", func() {
 				it("should return expected os features", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					idxMfest, err := idx.IndexManifest()
@@ -206,7 +206,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#Annotations", func() {
 				it("should return expected annotations for oci", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					idxMfest, err := idx.IndexManifest()
@@ -232,7 +232,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					}
 				})
 				it("should not return annotations for docker", func() {
-					idx, err := fakes.NewIndex(types.DockerManifestList, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.DockerManifestList, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					idxMfest, err := idx.IndexManifest()
@@ -251,7 +251,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#URLs", func() {
 				it("should return expected urls", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					idxMfest, err := idx.IndexManifest()
@@ -281,7 +281,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#SetOS", func() {
 				it("should annotate the image os", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					idxMfest, err := idx.IndexManifest()
@@ -304,7 +304,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#SetArchitecture", func() {
 				it("should annotate the image architecture", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					idxMfest, err := idx.IndexManifest()
@@ -327,7 +327,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#SetVariant", func() {
 				it("should annotate the image variant", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					idxMfest, err := idx.IndexManifest()
@@ -350,7 +350,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#SetOSVersion", func() {
 				it("should annotate the image os version", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					idxMfest, err := idx.IndexManifest()
@@ -373,7 +373,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#SetFeatures", func() {
 				it("should annotate the features", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					idxMfest, err := idx.IndexManifest()
@@ -396,7 +396,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#SetOSFeatures", func() {
 				it("should annotate the os features", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					idxMfest, err := idx.IndexManifest()
@@ -419,7 +419,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#SetAnnotations", func() {
 				it("should annotate the annotations", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					idxMfest, err := idx.IndexManifest()
@@ -442,7 +442,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#SetURLs", func() {
 				it("should annotate the urls", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					idxMfest, err := idx.IndexManifest()
@@ -465,7 +465,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#Add", func() {
 				it("should add an image", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					digest, err := name.NewDigest("cnbs/sample-image" + digestDelim + "sha256:6d5a11994be8ca5e4cfaf4d370219f6eb6ef8fb41d57f9ed1568a93ffd5471ef")
@@ -480,7 +480,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#Save", func() {
 				it("should save image", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					err = idx.Save()
@@ -490,7 +490,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#Push", func() {
 				it("should push index to registry", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					err = idx.Push()
@@ -500,7 +500,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#Inspect", func() {
 				it("should return an error", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					err = idx.Inspect()
@@ -509,7 +509,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("#Delete", func() {
 				it("should delete index from local storage", func() {
-					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1)
+					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
 					err = idx.Delete()

@@ -14,7 +14,7 @@ import (
 	"github.com/buildpacks/imgutil"
 )
 
-func NewIndex(format types.MediaType, byteSize, layers, count int64, ops ...Option) (*Index, error) {
+func NewIndex(format types.MediaType, byteSize, layers, count int64, desc v1.Descriptor, ops ...Option) (*Index, error) {
 	var (
 		os          = make(map[v1.Hash]string, count)
 		arch        = make(map[v1.Hash]string, count)
@@ -25,7 +25,7 @@ func NewIndex(format types.MediaType, byteSize, layers, count int64, ops ...Opti
 		urls        = make(map[v1.Hash][]string, count)
 		annotations = make(map[v1.Hash]map[string]string, count)
 	)
-	idx, err := ImageIndex(byteSize, layers, count, ops...)
+	idx, err := ImageIndex(byteSize, layers, count, desc, ops...)
 	if err != nil {
 		return nil, err
 	}
@@ -434,10 +434,7 @@ func (i *Index) Add(ref name.Reference, ops ...imgutil.IndexAddOption) error {
 
 	addOps := &imgutil.AddOptions{}
 	for _, op := range ops {
-		err := op(addOps)
-		if err != nil {
-			return err
-		}
+		op(addOps)
 	}
 
 	if idx, ok := i.ImageIndex.(*randomIndex); ok {
@@ -526,11 +523,12 @@ type randomIndex struct {
 
 // Index returns a pseudo-randomly generated ImageIndex with count images, each
 // having the given number of layers of size byteSize.
-func ImageIndex(byteSize, layers, count int64, options ...Option) (v1.ImageIndex, error) {
+func ImageIndex(byteSize, layers, count int64, desc v1.Descriptor, options ...Option) (v1.ImageIndex, error) {
 	manifest := v1.IndexManifest{
 		SchemaVersion: 2,
 		MediaType:     types.OCIImageIndex,
 		Manifests:     []v1.Descriptor{},
+		Subject:       &desc,
 	}
 
 	images := make(map[v1.Hash]v1.Image)

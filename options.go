@@ -5,19 +5,19 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
-type IndexAddOption func(*AddOptions) error
+type IndexAddOption func(*AddOptions)
 type IndexPushOption func(*PushOptions) error
 
 type AddOptions struct {
-	all                          bool
-	os, arch, variant, osVersion string
-	features, osFeatures         []string
-	annotations                  map[string]string
+	All                          bool
+	OS, Arch, Variant, OSVersion string
+	Features, OSFeatures         []string
+	Annotations                  map[string]string
 }
 
 type PushOptions struct {
-	insecure, purge bool
-	format          types.MediaType
+	Insecure, Purge bool
+	Format          types.MediaType
 }
 
 type IndexOptions struct {
@@ -43,78 +43,73 @@ func (o *IndexOptions) Insecure() bool {
 }
 
 func WithAll(all bool) IndexAddOption {
-	return func(a *AddOptions) error {
-		a.all = all
-		return nil
+	return func(a *AddOptions) {
+		a.All = all
 	}
 }
 
 func WithOS(os string) IndexAddOption {
-	return func(a *AddOptions) error {
-		a.os = os
-		return nil
+	return func(a *AddOptions) {
+		a.OS = os
 	}
 }
 
 func WithArchitecture(arch string) IndexAddOption {
-	return func(a *AddOptions) error {
-		a.arch = arch
-		return nil
+	return func(a *AddOptions) {
+		a.Arch = arch
 	}
 }
 
 func WithVariant(variant string) IndexAddOption {
-	return func(a *AddOptions) error {
-		a.variant = variant
-		return nil
+	return func(a *AddOptions) {
+		a.Variant = variant
 	}
 }
 
 func WithOSVersion(osVersion string) IndexAddOption {
-	return func(a *AddOptions) error {
-		a.osVersion = osVersion
-		return nil
+	return func(a *AddOptions) {
+		a.OSVersion = osVersion
 	}
 }
 
 func WithFeatures(features []string) IndexAddOption {
-	return func(a *AddOptions) error {
-		a.features = features
-		return nil
+	return func(a *AddOptions) {
+		a.Features = features
 	}
 }
 
 func WithOSFeatures(osFeatures []string) IndexAddOption {
-	return func(a *AddOptions) error {
-		a.osFeatures = osFeatures
-		return nil
+	return func(a *AddOptions) {
+		a.OSFeatures = osFeatures
+	}
+}
+
+func WithAnnotations(annotations map[string]string) IndexAddOption {
+	return func(a *AddOptions) {
+		a.Annotations = annotations
 	}
 }
 
 func WithInsecure(insecure bool) IndexPushOption {
 	return func(a *PushOptions) error {
-		a.insecure = insecure
+		a.Insecure = insecure
 		return nil
 	}
 }
 
 func WithPurge(purge bool) IndexPushOption {
 	return func(a *PushOptions) error {
-		a.purge = purge
+		a.Purge = purge
 		return nil
 	}
 }
 
 func WithFormat(format types.MediaType) IndexPushOption {
 	return func(a *PushOptions) error {
-		a.format = format
-		return nil
-	}
-}
-
-func WithAnnotations(annotations map[string]string) IndexAddOption {
-	return func(a *AddOptions) error {
-		a.annotations = annotations
+		if !format.IsIndex() {
+			return ErrUnknownMediaType
+		}
+		a.Format = format
 		return nil
 	}
 }

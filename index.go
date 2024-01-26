@@ -241,7 +241,7 @@ func (a *Annotate) SetURLs(hash v1.Hash, urls []string) {
 
 func (a *Annotate) Format(hash v1.Hash) (format types.MediaType, err error) {
 	desc := a.Instance[hash]
-	if desc.MediaType == "" {
+	if desc.MediaType == types.MediaType("") {
 		return format, ErrUnknownMediaType
 	}
 
@@ -379,7 +379,7 @@ func (i *Index) SetArchitecture(digest name.Digest, arch string) error {
 		return nil
 	}
 
-	return ErrUnknownMediaType
+	return ErrNoImageOrIndexFoundWithGivenDigest
 }
 
 func (i *Index) Variant(digest name.Digest) (osVariant string, err error) {
@@ -441,7 +441,7 @@ func (i *Index) SetVariant(digest name.Digest, osVariant string) error {
 		return nil
 	}
 
-	return ErrUnknownMediaType
+	return ErrNoImageOrIndexFoundWithGivenDigest
 }
 
 func (i *Index) OSVersion(digest name.Digest) (osVersion string, err error) {
@@ -503,7 +503,7 @@ func (i *Index) SetOSVersion(digest name.Digest, osVersion string) error {
 		return nil
 	}
 
-	return ErrUnknownMediaType
+	return ErrNoImageOrIndexFoundWithGivenDigest
 }
 
 func (i *Index) Features(digest name.Digest) (features []string, err error) {
@@ -597,7 +597,7 @@ func (i *Index) SetFeatures(digest name.Digest, features []string) error {
 		return nil
 	}
 
-	return ErrUnknownMediaType
+	return ErrNoImageOrIndexFoundWithGivenDigest
 }
 
 func (i *Index) OSFeatures(digest name.Digest) (osFeatures []string, err error) {
@@ -685,7 +685,7 @@ func (i *Index) SetOSFeatures(digest name.Digest, osFeatures []string) error {
 		return nil
 	}
 
-	return ErrUnknownMediaType
+	return ErrNoImageOrIndexFoundWithGivenDigest
 }
 
 func (i *Index) Annotations(digest name.Digest) (annotations map[string]string, err error) {
@@ -718,12 +718,26 @@ func (i *Index) Annotations(digest name.Digest) (annotations map[string]string, 
 	}
 
 	if annotations, err = i.Annotate.Annotations(hash); err == nil {
-		return
+		if format, err := i.Annotate.Format(hash); err == nil {
+			switch format {
+			case types.DockerManifestSchema2:
+			case types.DockerManifestSchema1:
+			case types.DockerManifestSchema1Signed:
+			case types.DockerManifestList:
+				return nil, ErrAnnotationsUndefined
+			case types.OCIManifestSchema1:
+			case types.OCIImageIndex:
+				return annotations, err
+			default:
+				return annotations, ErrUnknownMediaType
+			}
+		}
+		return annotations, ErrUnknownMediaType
 	}
 
 	annotations, err = indexAnnotations(i, digest)
-	if err == nil {
-		return
+	if err == nil || errors.Is(err, ErrAnnotationsUndefined) {
+		return annotations, err
 	}
 
 	img, err := i.Image(hash)
@@ -744,7 +758,9 @@ func (i *Index) Annotations(digest name.Digest) (annotations map[string]string, 
 		return annotations, ErrAnnotationsUndefined
 	}
 
-	if mfest.MediaType == types.DockerManifestSchema2 {
+	if mfest.MediaType == types.DockerManifestSchema2 ||
+		mfest.MediaType == types.DockerManifestSchema1 ||
+		mfest.MediaType == types.DockerManifestSchema1Signed {
 		return nil, nil
 	}
 
@@ -763,21 +779,41 @@ func (i *Index) SetAnnotations(digest name.Digest, annotations map[string]string
 		}
 	}
 
-	if _, err = i.ImageIndex.ImageIndex(hash); err == nil {
-		i.Annotate.SetAnnotations(hash, annotations)
+	if idx, err := i.ImageIndex.ImageIndex(hash); err == nil {
+		mfest, err := idx.IndexManifest()
+		if err != nil {
+			return err
+		}
+
+		annos := mfest.Annotations
+		for k, v := range annotations {
+			annos[k] = v
+		}
+
+		i.Annotate.SetAnnotations(hash, annos)
 		i.Annotate.SetFormat(hash, types.OCIImageIndex)
 
 		return nil
 	}
 
-	if _, err = i.Image(hash); err == nil {
-		i.Annotate.SetAnnotations(hash, annotations)
+	if img, err := i.Image(hash); err == nil {
+		mfest, err := img.Manifest()
+		if err != nil {
+			return err
+		}
+
+		annos := mfest.Annotations
+		for k, v := range annotations {
+			annos[k] = v
+		}
+
+		i.Annotate.SetAnnotations(hash, annos)
 		i.Annotate.SetFormat(hash, types.OCIManifestSchema1)
 
 		return nil
 	}
 
-	return ErrUnknownMediaType
+	return ErrNoImageOrIndexFoundWithGivenDigest
 }
 
 func (i *Index) URLs(digest name.Digest) (urls []string, err error) {
@@ -839,52 +875,13 @@ func (i *Index) SetURLs(digest name.Digest, urls []string) error {
 		return nil
 	}
 
-	return ErrUnknownMediaType
+	return ErrNoImageOrIndexFoundWithGivenDigest
 }
 
 func (i *Index) Add(ref name.Reference, ops ...IndexAddOption) error {
 	var addOps = &AddOptions{}
 	for _, op := range ops {
-		if err := op(addOps); err != nil {
-			return err
-		}
-	}
-
-	var fetchPlatformSpecificImage = false
-	platform := v1.Platform{}
-
-	if addOps.os != "" {
-		platform.OS = addOps.os
-		fetchPlatformSpecificImage = true
-	}
-
-	if addOps.arch != "" {
-		platform.Architecture = addOps.arch
-		fetchPlatformSpecificImage = true
-	}
-
-	if addOps.variant != "" {
-		platform.Variant = addOps.variant
-		fetchPlatformSpecificImage = true
-	}
-
-	if addOps.osVersion != "" {
-		platform.OSVersion = addOps.osVersion
-		fetchPlatformSpecificImage = true
-	}
-
-	if len(addOps.features) != 0 {
-		platform.Features = addOps.features
-		fetchPlatformSpecificImage = true
-	}
-
-	if len(addOps.osFeatures) != 0 {
-		platform.OSFeatures = addOps.osFeatures
-		fetchPlatformSpecificImage = true
-	}
-
-	if fetchPlatformSpecificImage {
-		return addPlatformSpecificImages(i, ref, platform, addOps.annotations)
+		op(addOps)
 	}
 
 	desc, err := remote.Get(
@@ -892,6 +889,7 @@ func (i *Index) Add(ref name.Reference, ops ...IndexAddOption) error {
 		remote.WithAuthFromKeychain(i.Options.KeyChain),
 		remote.WithTransport(getTransport(true)),
 	)
+
 	if err != nil {
 		return err
 	}
@@ -940,8 +938,37 @@ func (i *Index) Add(ref name.Reference, ops ...IndexAddOption) error {
 			return err
 		}
 
-		if addOps.all {
-			return addAllImages(i, idx, ref, addOps.annotations)
+		if !reflect.DeepEqual(addOps, AddOptions{}) {
+			platformSpecificDesc := &v1.Platform{}
+			if addOps.OS != "" {
+				platformSpecificDesc.OS = addOps.OS
+			}
+
+			if addOps.Arch != "" {
+				platformSpecificDesc.Architecture = addOps.Arch
+			}
+
+			if addOps.Variant != "" {
+				platformSpecificDesc.Variant = addOps.Variant
+			}
+
+			if addOps.OSVersion != "" {
+				platformSpecificDesc.OSVersion = addOps.OSVersion
+			}
+
+			if len(addOps.Features) != 0 {
+				platformSpecificDesc.Features = addOps.Features
+			}
+
+			if len(addOps.OSFeatures) != 0 {
+				platformSpecificDesc.OSFeatures = addOps.OSFeatures
+			}
+
+			return addPlatformSpecificImages(i, ref, *platformSpecificDesc, addOps.Annotations)
+		}
+
+		if addOps.All {
+			return addAllImages(i, idx, ref, addOps.Annotations)
 		}
 
 		platform := v1.Platform{
@@ -949,7 +976,7 @@ func (i *Index) Add(ref name.Reference, ops ...IndexAddOption) error {
 			Architecture: runtime.GOARCH,
 		}
 
-		return addPlatformSpecificImages(i, ref, platform, addOps.annotations)
+		return addPlatformSpecificImages(i, ref, platform, addOps.Annotations)
 	default:
 		return ErrNoImageOrIndexFoundWithGivenDigest
 	}
@@ -1037,18 +1064,34 @@ func appendImage(i *Index, desc *remote.Descriptor, annotations map[string]strin
 		return err
 	}
 
-	return addImage(i, img, annotations)
+	if desc.MediaType == types.OCIImageIndex || desc.MediaType == types.OCIManifestSchema1 {
+		return addImage(i, img, annotations, true)
+	}
+
+	return addImage(i, img, annotations, false)
 }
 
-func addImage(i *Index, img v1.Image, annotations map[string]string) error {
+func addImage(i *Index, img v1.Image, annotations map[string]string, addAnnos bool) error {
 	var v1Desc = v1.Descriptor{
 		Annotations: annotations,
 	}
 
-	i.ImageIndex = mutate.AppendManifests(i.ImageIndex, mutate.IndexAddendum{
-		Add:        img,
-		Descriptor: v1Desc,
-	})
+	if addAnnos {
+		i.ImageIndex = mutate.AppendManifests(
+			i.ImageIndex,
+			mutate.IndexAddendum{
+				Add:        img,
+				Descriptor: v1Desc,
+			},
+		)
+	} else {
+		i.ImageIndex = mutate.AppendManifests(
+			i.ImageIndex,
+			mutate.IndexAddendum{
+				Add: img,
+			},
+		)
+	}
 
 	return nil
 }
@@ -1240,7 +1283,7 @@ func (i *Index) Push(ops ...IndexPushOption) error {
 		return err
 	}
 
-	if pushOps.format != "" {
+	if pushOps.Format != "" {
 		mfest, err := i.IndexManifest()
 		if err != nil {
 			return err
@@ -1250,8 +1293,8 @@ func (i *Index) Push(ops ...IndexPushOption) error {
 			return ErrManifestUndefined
 		}
 
-		if pushOps.format != mfest.MediaType {
-			imageIndex = mutate.IndexMediaType(imageIndex, pushOps.format)
+		if pushOps.Format != mfest.MediaType {
+			imageIndex = mutate.IndexMediaType(imageIndex, pushOps.Format)
 		}
 	}
 
@@ -1259,13 +1302,13 @@ func (i *Index) Push(ops ...IndexPushOption) error {
 		ref,
 		imageIndex,
 		remote.WithAuthFromKeychain(i.Options.KeyChain),
-		remote.WithTransport(getTransport(pushOps.insecure)),
+		remote.WithTransport(getTransport(pushOps.Insecure)),
 	)
 	if err != nil {
 		return err
 	}
 
-	if pushOps.purge {
+	if pushOps.Purge {
 		return i.Delete()
 	}
 
