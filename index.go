@@ -3,7 +3,6 @@ package imgutil
 import (
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -1210,7 +1209,7 @@ func (i *Index) Save() error {
 				})
 			}
 		default:
-			return errors.New(ErrUnknownMediaType.Error() + fmt.Sprintf("; found %v", desc.MediaType))
+			return ErrUnknownMediaType
 		}
 	}
 

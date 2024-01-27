@@ -2,6 +2,7 @@ package imgutil_test
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"testing"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/buildpacks/imgutil"
 	"github.com/buildpacks/imgutil/docker"
 	"github.com/buildpacks/imgutil/index"
+	"github.com/buildpacks/imgutil/local"
 	"github.com/buildpacks/imgutil/remote"
 	h "github.com/buildpacks/imgutil/testhelpers"
 )
@@ -26,6 +28,10 @@ func TestIndex(t *testing.T) {
 
 func testIndex(t *testing.T, when spec.G, it spec.S) {
 	when("#ImageIndex", func() {
+		it.After(func() {
+			err := os.RemoveAll("xdgPath")
+			h.AssertNil(t, err)
+		})
 		when("#OS", func() {
 			it("should return an error when invalid digest provided", func() {
 				digest := name.Digest{}
@@ -1557,6 +1563,30 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					arch, err := index.Architecture(digest)
 					h.AssertNil(t, err)
 					h.AssertEq(t, arch, "amd64")
+
+					variant, err := index.Variant(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+					h.AssertEq(t, variant, "")
+
+					osVersion, err := index.OSVersion(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+					h.AssertEq(t, osVersion, "")
+
+					features, err := index.Features(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+					h.AssertEq(t, features, []string(nil))
+
+					osFeatures, err := index.OSFeatures(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+					h.AssertEq(t, osFeatures, []string(nil))
+
+					urls, err := index.URLs(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+					h.AssertEq(t, urls, []string(nil))
+
+					annotations, err := index.Annotations(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrAnnotationsUndefined.Error())
+					h.AssertEq(t, annotations, map[string]string(nil))
 				})
 				it("should add annotations when WithAnnotations used for oci", func() {
 					idx, err := index.NewIndex("some/image:tag")
@@ -1596,6 +1626,26 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					arch, err := index.Architecture(digest)
 					h.AssertNil(t, err)
 					h.AssertEq(t, arch, "amd64")
+
+					variant, err := index.Variant(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+					h.AssertEq(t, variant, "")
+
+					osVersion, err := index.OSVersion(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+					h.AssertEq(t, osVersion, "")
+
+					features, err := index.Features(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+					h.AssertEq(t, features, []string(nil))
+
+					osFeatures, err := index.OSFeatures(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+					h.AssertEq(t, osFeatures, []string(nil))
+
+					urls, err := index.URLs(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+					h.AssertEq(t, urls, []string(nil))
 
 					annotations, err := index.Annotations(digest)
 					h.AssertNil(t, err)
@@ -1642,6 +1692,26 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					arch, err := index.Architecture(digest)
 					h.AssertNil(t, err)
 					h.AssertEq(t, arch, "amd64")
+
+					variant, err := index.Variant(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+					h.AssertEq(t, variant, "")
+
+					osVersion, err := index.OSVersion(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+					h.AssertEq(t, osVersion, "")
+
+					features, err := index.Features(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+					h.AssertEq(t, features, []string(nil))
+
+					osFeatures, err := index.OSFeatures(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+					h.AssertEq(t, osFeatures, []string(nil))
+
+					urls, err := index.URLs(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+					h.AssertEq(t, urls, []string(nil))
 
 					annotations, err := index.Annotations(digest)
 					h.AssertNil(t, err)
@@ -1683,6 +1753,30 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					arch, err := index.Architecture(digest)
 					h.AssertNil(t, err)
 					h.AssertEq(t, arch, runtime.GOARCH)
+
+					variant, err := index.Variant(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+					h.AssertEq(t, variant, "")
+
+					osVersion, err := index.OSVersion(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+					h.AssertEq(t, osVersion, "")
+
+					features, err := index.Features(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+					h.AssertEq(t, features, []string(nil))
+
+					osFeatures, err := index.OSFeatures(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+					h.AssertEq(t, osFeatures, []string(nil))
+
+					urls, err := index.URLs(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+					h.AssertEq(t, urls, []string(nil))
+
+					annotations, err := index.Annotations(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrAnnotationsUndefined.Error())
+					h.AssertEq(t, annotations, map[string]string(nil))
 				})
 				it("should add annotations when WithAnnotations used for oci", func() {
 					idx, err := index.NewIndex("some/image:tag")
@@ -1720,6 +1814,26 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					arch, err := index.Architecture(digest)
 					h.AssertNil(t, err)
 					h.AssertEq(t, arch, runtime.GOARCH)
+
+					variant, err := index.Variant(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+					h.AssertEq(t, variant, "")
+
+					osVersion, err := index.OSVersion(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+					h.AssertEq(t, osVersion, "")
+
+					features, err := index.Features(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+					h.AssertEq(t, features, []string(nil))
+
+					osFeatures, err := index.OSFeatures(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+					h.AssertEq(t, osFeatures, []string(nil))
+
+					urls, err := index.URLs(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+					h.AssertEq(t, urls, []string(nil))
 
 					annotations, err := index.Annotations(digest)
 					h.AssertNil(t, err)
@@ -1764,6 +1878,26 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					arch, err := index.Architecture(digest)
 					h.AssertNil(t, err)
 					h.AssertEq(t, arch, runtime.GOARCH)
+
+					variant, err := index.Variant(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+					h.AssertEq(t, variant, "")
+
+					osVersion, err := index.OSVersion(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+					h.AssertEq(t, osVersion, "")
+
+					features, err := index.Features(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+					h.AssertEq(t, features, []string(nil))
+
+					osFeatures, err := index.OSFeatures(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+					h.AssertEq(t, osFeatures, []string(nil))
+
+					urls, err := index.URLs(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+					h.AssertEq(t, urls, []string(nil))
 
 					annotations, err := index.Annotations(digest)
 					h.AssertNil(t, err)
@@ -1809,6 +1943,30 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					arch, err := index.Architecture(digest)
 					h.AssertNil(t, err)
 					h.AssertEq(t, arch, "amd64")
+
+					variant, err := index.Variant(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+					h.AssertEq(t, variant, "")
+
+					osVersion, err := index.OSVersion(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+					h.AssertEq(t, osVersion, "")
+
+					features, err := index.Features(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+					h.AssertEq(t, features, []string(nil))
+
+					osFeatures, err := index.OSFeatures(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+					h.AssertEq(t, osFeatures, []string(nil))
+
+					urls, err := index.URLs(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+					h.AssertEq(t, urls, []string(nil))
+
+					annotations, err := index.Annotations(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrAnnotationsUndefined.Error())
+					h.AssertEq(t, annotations, map[string]string(nil))
 				})
 				it("should annotate the annotations when Annotations provided for oci", func() {
 					idx, err := index.NewIndex("some/image:tag")
@@ -1846,6 +2004,26 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					arch, err := index.Architecture(digest)
 					h.AssertNil(t, err)
 					h.AssertEq(t, arch, "amd64")
+
+					variant, err := index.Variant(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+					h.AssertEq(t, variant, "")
+
+					osVersion, err := index.OSVersion(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+					h.AssertEq(t, osVersion, "")
+
+					features, err := index.Features(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+					h.AssertEq(t, features, []string(nil))
+
+					osFeatures, err := index.OSFeatures(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+					h.AssertEq(t, osFeatures, []string(nil))
+
+					urls, err := index.URLs(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+					h.AssertEq(t, urls, []string(nil))
 
 					annotations, err := index.Annotations(digest)
 					h.AssertNil(t, err)
@@ -1890,6 +2068,26 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					arch, err := index.Architecture(digest)
 					h.AssertNil(t, err)
 					h.AssertEq(t, arch, "amd64")
+
+					variant, err := index.Variant(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+					h.AssertEq(t, variant, "")
+
+					osVersion, err := index.OSVersion(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+					h.AssertEq(t, osVersion, "")
+
+					features, err := index.Features(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+					h.AssertEq(t, features, []string(nil))
+
+					osFeatures, err := index.OSFeatures(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+					h.AssertEq(t, osFeatures, []string(nil))
+
+					urls, err := index.URLs(digest)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+					h.AssertEq(t, urls, []string(nil))
 
 					annotations, err := index.Annotations(digest)
 					h.AssertNil(t, err)
@@ -1936,6 +2134,30 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 					h.AssertEq(t, arch, "amd64")
 
+					variant, err := idx.Variant(digest1)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+					h.AssertEq(t, variant, "")
+
+					osVersion, err := idx.OSVersion(digest1)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+					h.AssertEq(t, osVersion, "")
+
+					features, err := idx.Features(digest1)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+					h.AssertEq(t, features, []string(nil))
+
+					osFeatures, err := idx.OSFeatures(digest1)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+					h.AssertEq(t, osFeatures, []string(nil))
+
+					urls, err := idx.URLs(digest1)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+					h.AssertEq(t, urls, []string(nil))
+
+					annotations, err := idx.Annotations(digest1)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrAnnotationsUndefined.Error())
+					h.AssertEq(t, annotations, map[string]string(nil))
+
 					os, err = idx.OS(digest2)
 					h.AssertNil(t, err)
 					h.AssertEq(t, os, "linux")
@@ -1944,9 +2166,29 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 					h.AssertEq(t, arch, "arm")
 
-					variant, err := idx.Variant(digest2)
+					variant, err = idx.Variant(digest2)
 					h.AssertNil(t, err)
 					h.AssertEq(t, variant, "v6")
+
+					osVersion, err = idx.OSVersion(digest2)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+					h.AssertEq(t, osVersion, "")
+
+					features, err = idx.Features(digest2)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+					h.AssertEq(t, features, []string(nil))
+
+					osFeatures, err = idx.OSFeatures(digest2)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+					h.AssertEq(t, osFeatures, []string(nil))
+
+					urls, err = idx.URLs(digest2)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+					h.AssertEq(t, urls, []string(nil))
+
+					annotations, err = idx.Annotations(digest2)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrAnnotationsUndefined.Error())
+					h.AssertEq(t, annotations, map[string]string(nil))
 				})
 				it("should not ignore WithAnnotations for oci", func() {
 					idx, err := index.NewIndex("some/image:tag")
@@ -1990,6 +2232,26 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 					h.AssertEq(t, arch, "amd64")
 
+					variant, err := idx.Variant(digest1)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+					h.AssertEq(t, variant, "")
+
+					osVersion, err := idx.OSVersion(digest1)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+					h.AssertEq(t, osVersion, "")
+
+					features, err := idx.Features(digest1)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+					h.AssertEq(t, features, []string(nil))
+
+					osFeatures, err := idx.OSFeatures(digest1)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+					h.AssertEq(t, osFeatures, []string(nil))
+
+					urls, err := idx.URLs(digest1)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+					h.AssertEq(t, urls, []string(nil))
+
 					annotations, err := idx.Annotations(digest1)
 					h.AssertNil(t, err)
 
@@ -2008,6 +2270,26 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					arch, err = idx.Variant(digest2)
 					h.AssertNil(t, err)
 					h.AssertEq(t, arch, "v6")
+
+					osVersion, err = idx.OSVersion(digest2)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+					h.AssertEq(t, osVersion, "")
+
+					features, err = idx.Features(digest2)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+					h.AssertEq(t, features, []string(nil))
+
+					osFeatures, err = idx.OSFeatures(digest2)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+					h.AssertEq(t, osFeatures, []string(nil))
+
+					urls, err = idx.URLs(digest2)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+					h.AssertEq(t, urls, []string(nil))
+
+					annotations, err = idx.Annotations(digest2)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrAnnotationsUndefined.Error())
+					h.AssertEq(t, annotations, map[string]string(nil))
 
 					annotations, err = idx.Annotations(digest1)
 					h.AssertNil(t, err)
@@ -2058,6 +2340,26 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 					h.AssertEq(t, arch, "amd64")
 
+					variant, err := idx.Variant(digest1)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+					h.AssertEq(t, variant, "")
+
+					osVersion, err := idx.OSVersion(digest1)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+					h.AssertEq(t, osVersion, "")
+
+					features, err := idx.Features(digest1)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+					h.AssertEq(t, features, []string(nil))
+
+					osFeatures, err := idx.OSFeatures(digest1)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+					h.AssertEq(t, osFeatures, []string(nil))
+
+					urls, err := idx.URLs(digest1)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+					h.AssertEq(t, urls, []string(nil))
+
 					annotations, err := idx.Annotations(digest1)
 					h.AssertNil(t, err)
 
@@ -2077,6 +2379,26 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 					h.AssertEq(t, arch, "v6")
 
+					variant, err = idx.Variant(digest2)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+					h.AssertEq(t, variant, "")
+
+					osVersion, err = idx.OSVersion(digest2)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+					h.AssertEq(t, osVersion, "")
+
+					features, err = idx.Features(digest2)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+					h.AssertEq(t, features, []string(nil))
+
+					osFeatures, err = idx.OSFeatures(digest2)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+					h.AssertEq(t, osFeatures, []string(nil))
+
+					urls, err = idx.URLs(digest2)
+					h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+					h.AssertEq(t, urls, []string(nil))
+
 					annotations, err = idx.Annotations(digest1)
 					h.AssertNil(t, err)
 
@@ -2087,18 +2409,672 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 		when("#Save", func() {
-			it("should save the index", func() {})
-			it("should save the annotated images", func() {})
-			it("should not save annotations for docker images", func() {})
-			it("should not save annotations for docker indexes", func() {})
-			it("should save the annotated platform fields", func() {})
-			it("should save the annotated urls", func() {})
-			it("should remove the images/indexes from save's output", func() {})
-			it("should set the Annotate and RemovedManifests to empty slice", func() {})
-			it("should return an error", func() {})
+			it("should save the index", func() {
+				idx, err := remote.NewIndex(
+					"alpine:3.19.0",
+					index.WithInsecure(true),
+					index.WithKeychain(authn.DefaultKeychain),
+					index.WithXDGRuntimePath("xdgPath"),
+				)
+				h.AssertNil(t, err)
+
+				err = idx.Save()
+				h.AssertNil(t, err)
+
+				_, err = local.NewIndex(
+					"alpine:3.19.0",
+					index.WithInsecure(true),
+					index.WithKeychain(authn.DefaultKeychain),
+					index.WithXDGRuntimePath("xdgPath"),
+				)
+				h.AssertNil(t, err)
+			})
+			it("should save the annotated images", func() {
+				idx, err := remote.NewIndex(
+					"alpine:3.19.0",
+					index.WithInsecure(true),
+					index.WithKeychain(authn.DefaultKeychain),
+					index.WithXDGRuntimePath("xdgPath"),
+				)
+				h.AssertNil(t, err)
+
+				// linux/arm/v6
+				digest1, err := name.NewDigest(
+					"alpine@sha256:45eeb55d6698849eb12a02d3e9a323e3d8e656882ef4ca542d1dda0274231e84",
+					name.WeakValidation,
+					name.Insecure,
+				)
+				h.AssertNil(t, err)
+
+				// linux/amd64
+				digest2, err := name.NewDigest(
+					"alpine@sha256:13b7e62e8df80264dbb747995705a986aa530415763a6c58f84a3ca8af9a5bcd",
+					name.Insecure,
+					name.WeakValidation,
+				)
+				h.AssertNil(t, err)
+
+				err = idx.SetOS(digest1, "some-os")
+				h.AssertNil(t, err)
+
+				err = idx.SetArchitecture(digest1, "some-arch")
+				h.AssertNil(t, err)
+
+				err = idx.Save()
+				h.AssertNil(t, err)
+
+				idx, err = local.NewIndex(
+					"alpine:3.19.0",
+					index.WithInsecure(true),
+					index.WithKeychain(authn.DefaultKeychain),
+					index.WithXDGRuntimePath("xdgPath"),
+				)
+				h.AssertNil(t, err)
+
+				os, err := idx.OS(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "some-os")
+
+				arch, err := idx.Architecture(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "some-arch")
+
+				variant, err := idx.Variant(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, variant, "v6")
+
+				osVersion, err := idx.OSVersion(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+				h.AssertEq(t, osVersion, "")
+
+				features, err := idx.Features(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+				h.AssertEq(t, features, []string(nil))
+
+				osFeatures, err := idx.OSFeatures(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+				h.AssertEq(t, osFeatures, []string(nil))
+
+				urls, err := idx.URLs(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+				h.AssertEq(t, urls, []string(nil))
+
+				annotations, err := idx.Annotations(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrAnnotationsUndefined.Error())
+				h.AssertEq(t, annotations, map[string]string(nil))
+
+				os, err = idx.OS(digest2)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "linux")
+
+				arch, err = idx.Architecture(digest2)
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "amd64")
+
+				variant, err = idx.Variant(digest2)
+				h.AssertEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+
+				osVersion, err = idx.OSVersion(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+				h.AssertEq(t, osVersion, "")
+
+				features, err = idx.Features(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+				h.AssertEq(t, features, []string(nil))
+
+				osFeatures, err = idx.OSFeatures(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+				h.AssertEq(t, osFeatures, []string(nil))
+
+				urls, err = idx.URLs(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+				h.AssertEq(t, urls, []string(nil))
+
+				annotations, err = idx.Annotations(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrAnnotationsUndefined.Error())
+				h.AssertEq(t, annotations, map[string]string(nil))
+			})
+			it("should not save annotations for docker image/index", func() {
+				idx, err := remote.NewIndex(
+					"alpine:3.19.0",
+					index.WithInsecure(true),
+					index.WithKeychain(authn.DefaultKeychain),
+					index.WithXDGRuntimePath("xdgPath"),
+				)
+				h.AssertNil(t, err)
+
+				// linux/arm/v6
+				digest1, err := name.NewDigest(
+					"alpine@sha256:45eeb55d6698849eb12a02d3e9a323e3d8e656882ef4ca542d1dda0274231e84",
+					name.WeakValidation,
+					name.Insecure,
+				)
+				h.AssertNil(t, err)
+
+				// linux/amd64
+				digest2, err := name.NewDigest(
+					"alpine@sha256:13b7e62e8df80264dbb747995705a986aa530415763a6c58f84a3ca8af9a5bcd",
+					name.Insecure,
+					name.WeakValidation,
+				)
+				h.AssertNil(t, err)
+
+				err = idx.SetAnnotations(digest1, map[string]string{
+					"some-key": "some-value",
+				})
+				h.AssertNil(t, err)
+
+				err = idx.Save()
+				h.AssertNil(t, err)
+
+				idx, err = local.NewIndex(
+					"alpine:3.19.0",
+					index.WithInsecure(true),
+					index.WithKeychain(authn.DefaultKeychain),
+					index.WithXDGRuntimePath("xdgPath"),
+				)
+				h.AssertNil(t, err)
+
+				os, err := idx.OS(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "linux")
+
+				arch, err := idx.Architecture(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "arm")
+
+				variant, err := idx.Variant(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, variant, "v6")
+
+				osVersion, err := idx.OSVersion(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+				h.AssertEq(t, osVersion, "")
+
+				features, err := idx.Features(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+				h.AssertEq(t, features, []string(nil))
+
+				osFeatures, err := idx.OSFeatures(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+				h.AssertEq(t, osFeatures, []string(nil))
+
+				urls, err := idx.URLs(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+				h.AssertEq(t, urls, []string(nil))
+
+				annotations, err := idx.Annotations(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrAnnotationsUndefined.Error())
+				h.AssertEq(t, annotations, map[string]string(nil))
+
+				os, err = idx.OS(digest2)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "linux")
+
+				arch, err = idx.Architecture(digest2)
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "amd64")
+
+				variant, err = idx.Variant(digest2)
+				h.AssertEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+
+				osVersion, err = idx.OSVersion(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+				h.AssertEq(t, osVersion, "")
+
+				features, err = idx.Features(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+				h.AssertEq(t, features, []string(nil))
+
+				osFeatures, err = idx.OSFeatures(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+				h.AssertEq(t, osFeatures, []string(nil))
+
+				urls, err = idx.URLs(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+				h.AssertEq(t, urls, []string(nil))
+
+				annotations, err = idx.Annotations(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrAnnotationsUndefined.Error())
+				h.AssertEq(t, annotations, map[string]string(nil))
+			})
+			it("should save the annotated annotations fields", func() {
+				idx, err := remote.NewIndex(
+					"busybox:1.36-musl",
+					index.WithInsecure(true),
+					index.WithKeychain(authn.DefaultKeychain),
+					index.WithXDGRuntimePath("xdgPath"),
+				)
+				h.AssertNil(t, err)
+
+				// linux/arm/v6
+				digest1, err := name.NewDigest(
+					"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+					name.WeakValidation,
+					name.Insecure,
+				)
+				h.AssertNil(t, err)
+
+				// linux/amd64
+				digest2, err := name.NewDigest(
+					"busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
+					name.Insecure,
+					name.WeakValidation,
+				)
+				h.AssertNil(t, err)
+
+				err = idx.SetAnnotations(digest1, map[string]string{
+					"some-key": "some-value",
+				})
+				h.AssertNil(t, err)
+
+				err = idx.Save()
+				h.AssertNil(t, err)
+
+				idx, err = local.NewIndex(
+					"busybox:1.36-musl",
+					index.WithInsecure(true),
+					index.WithKeychain(authn.DefaultKeychain),
+					index.WithXDGRuntimePath("xdgPath"),
+				)
+				h.AssertNil(t, err)
+
+				os, err := idx.OS(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "linux")
+
+				arch, err := idx.Architecture(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "arm")
+
+				variant, err := idx.Variant(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, variant, "v6")
+
+				osVersion, err := idx.OSVersion(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+				h.AssertEq(t, osVersion, "")
+
+				features, err := idx.Features(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+				h.AssertEq(t, features, []string(nil))
+
+				osFeatures, err := idx.OSFeatures(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+				h.AssertEq(t, osFeatures, []string(nil))
+
+				urls, err := idx.URLs(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+				h.AssertEq(t, urls, []string(nil))
+
+				annotations, err := idx.Annotations(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrAnnotationsUndefined.Error())
+				v, ok := annotations["some-key"]
+				h.AssertEq(t, ok, true)
+				h.AssertEq(t, v, "some-value")
+
+				os, err = idx.OS(digest2)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "linux")
+
+				arch, err = idx.Architecture(digest2)
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "amd64")
+
+				variant, err = idx.Variant(digest2)
+				h.AssertEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+
+				osVersion, err = idx.OSVersion(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+				h.AssertEq(t, osVersion, "")
+
+				features, err = idx.Features(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+				h.AssertEq(t, features, []string(nil))
+
+				osFeatures, err = idx.OSFeatures(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+				h.AssertEq(t, osFeatures, []string(nil))
+
+				urls, err = idx.URLs(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+				h.AssertEq(t, urls, []string(nil))
+
+				annotations, err = idx.Annotations(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrAnnotationsUndefined.Error())
+				h.AssertEq(t, annotations, map[string]string(nil))
+			})
+			it("should save the annotated urls", func() {
+				idx, err := remote.NewIndex(
+					"busybox:1.36-musl",
+					index.WithInsecure(true),
+					index.WithKeychain(authn.DefaultKeychain),
+					index.WithXDGRuntimePath("xdgPath"),
+				)
+				h.AssertNil(t, err)
+
+				// linux/arm/v6
+				digest1, err := name.NewDigest(
+					"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+					name.WeakValidation,
+					name.Insecure,
+				)
+				h.AssertNil(t, err)
+
+				// linux/amd64
+				digest2, err := name.NewDigest(
+					"busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
+					name.Insecure,
+					name.WeakValidation,
+				)
+				h.AssertNil(t, err)
+
+				err = idx.SetURLs(digest1, []string{
+					"some-urls",
+				})
+				h.AssertNil(t, err)
+
+				err = idx.Save()
+				h.AssertNil(t, err)
+
+				idx, err = local.NewIndex(
+					"busybox:1.36-musl",
+					index.WithInsecure(true),
+					index.WithKeychain(authn.DefaultKeychain),
+					index.WithXDGRuntimePath("xdgPath"),
+				)
+				h.AssertNil(t, err)
+
+				os, err := idx.OS(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "linux")
+
+				arch, err := idx.Architecture(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "arm")
+
+				variant, err := idx.Variant(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, variant, "v6")
+
+				osVersion, err := idx.OSVersion(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+				h.AssertEq(t, osVersion, "")
+
+				features, err := idx.Features(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+				h.AssertEq(t, features, []string(nil))
+
+				osFeatures, err := idx.OSFeatures(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+				h.AssertEq(t, osFeatures, []string(nil))
+
+				urls, err := idx.URLs(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, urls, []string{
+					"some-urls",
+				})
+
+				annotations, err := idx.Annotations(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrAnnotationsUndefined.Error())
+				h.AssertEq(t, annotations, map[string]string(nil))
+
+				os, err = idx.OS(digest2)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "linux")
+
+				arch, err = idx.Architecture(digest2)
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "amd64")
+
+				variant, err = idx.Variant(digest2)
+				h.AssertEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+
+				osVersion, err = idx.OSVersion(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+				h.AssertEq(t, osVersion, "")
+
+				features, err = idx.Features(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+				h.AssertEq(t, features, []string(nil))
+
+				osFeatures, err = idx.OSFeatures(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+				h.AssertEq(t, osFeatures, []string(nil))
+
+				urls, err = idx.URLs(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+				h.AssertEq(t, urls, []string(nil))
+
+				annotations, err = idx.Annotations(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrAnnotationsUndefined.Error())
+				h.AssertEq(t, annotations, map[string]string(nil))
+			})
+			it("should save annotated osFeatures", func() {
+				idx, err := remote.NewIndex(
+					"busybox:1.36-musl",
+					index.WithInsecure(true),
+					index.WithKeychain(authn.DefaultKeychain),
+					index.WithXDGRuntimePath("xdgPath"),
+				)
+				h.AssertNil(t, err)
+
+				// linux/arm/v6
+				digest1, err := name.NewDigest(
+					"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+					name.WeakValidation,
+					name.Insecure,
+				)
+				h.AssertNil(t, err)
+
+				// linux/amd64
+				digest2, err := name.NewDigest(
+					"busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
+					name.Insecure,
+					name.WeakValidation,
+				)
+				h.AssertNil(t, err)
+
+				err = idx.SetOSFeatures(digest1, []string{
+					"some-osFeatures",
+				})
+				h.AssertNil(t, err)
+
+				err = idx.Save()
+				h.AssertNil(t, err)
+
+				idx, err = local.NewIndex(
+					"busybox:1.36-musl",
+					index.WithInsecure(true),
+					index.WithKeychain(authn.DefaultKeychain),
+					index.WithXDGRuntimePath("xdgPath"),
+				)
+				h.AssertNil(t, err)
+
+				os, err := idx.OS(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "linux")
+
+				arch, err := idx.Architecture(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "arm")
+
+				variant, err := idx.Variant(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, variant, "v6")
+
+				osVersion, err := idx.OSVersion(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+				h.AssertEq(t, osVersion, "")
+
+				features, err := idx.Features(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+				h.AssertEq(t, features, []string(nil))
+
+				osFeatures, err := idx.OSFeatures(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+				h.AssertEq(t, osFeatures, []string{
+					"some-osFeatures",
+				})
+
+				urls, err := idx.URLs(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, urls, []string(nil))
+
+				annotations, err := idx.Annotations(digest1)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrAnnotationsUndefined.Error())
+				h.AssertEq(t, annotations, map[string]string(nil))
+
+				os, err = idx.OS(digest2)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "linux")
+
+				arch, err = idx.Architecture(digest2)
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "amd64")
+
+				variant, err = idx.Variant(digest2)
+				h.AssertEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+
+				osVersion, err = idx.OSVersion(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+				h.AssertEq(t, osVersion, "")
+
+				features, err = idx.Features(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+				h.AssertEq(t, features, []string(nil))
+
+				osFeatures, err = idx.OSFeatures(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+				h.AssertEq(t, osFeatures, []string(nil))
+
+				urls, err = idx.URLs(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+				h.AssertEq(t, urls, []string(nil))
+
+				annotations, err = idx.Annotations(digest2)
+				h.AssertNotEq(t, err.Error(), imgutil.ErrAnnotationsUndefined.Error())
+				h.AssertEq(t, annotations, map[string]string(nil))
+			})
+			it("should remove the images/indexes from save's output", func() {
+				idx, err := remote.NewIndex(
+					"busybox:1.36-musl",
+					index.WithInsecure(true),
+					index.WithKeychain(authn.DefaultKeychain),
+					index.WithXDGRuntimePath("xdgPath"),
+				)
+				h.AssertNil(t, err)
+
+				// linux/arm/v6
+				digest1, err := name.NewDigest(
+					"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+					name.WeakValidation,
+					name.Insecure,
+				)
+				h.AssertNil(t, err)
+
+				// linux/amd64
+				digest2, err := name.NewDigest(
+					"busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
+					name.Insecure,
+					name.WeakValidation,
+				)
+				h.AssertNil(t, err)
+
+				err = idx.Remove(digest1)
+				h.AssertNil(t, err)
+
+				err = idx.Save()
+				h.AssertNil(t, err)
+
+				idx, err = local.NewIndex(
+					"busybox:1.36-musl",
+					index.WithInsecure(true),
+					index.WithKeychain(authn.DefaultKeychain),
+					index.WithXDGRuntimePath("xdgPath"),
+				)
+				h.AssertNil(t, err)
+
+				_, err = idx.OS(digest1)
+				h.AssertEq(t, err.Error(), imgutil.ErrNoImageOrIndexFoundWithGivenDigest.Error())
+
+				os, err := idx.OS(digest2)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "linux")
+			})
+			it("should set the Annotate and RemovedManifests to empty slice", func() {
+				idx, err := remote.NewIndex(
+					"busybox:1.36-musl",
+					index.WithInsecure(true),
+					index.WithKeychain(authn.DefaultKeychain),
+					index.WithXDGRuntimePath("xdgPath"),
+				)
+				h.AssertNil(t, err)
+
+				// linux/arm/v6
+				digest1, err := name.NewDigest(
+					"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+					name.WeakValidation,
+					name.Insecure,
+				)
+				h.AssertNil(t, err)
+
+				// linux/amd64
+				digest2, err := name.NewDigest(
+					"busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
+					name.Insecure,
+					name.WeakValidation,
+				)
+				h.AssertNil(t, err)
+
+				err = idx.Remove(digest1)
+				h.AssertNil(t, err)
+
+				err = idx.SetOS(digest2, "some-os")
+				h.AssertNil(t, err)
+
+				err = idx.Save()
+				h.AssertNil(t, err)
+
+				_, err = idx.OS(digest1)
+				h.AssertEq(t, err.Error(), imgutil.ErrNoImageOrIndexFoundWithGivenDigest.Error())
+
+				os, err := idx.OS(digest2)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "some-os")
+			})
+			it("should return an error", func() {
+				idx := imgutil.Index{
+					ImageIndex: empty.Index,
+					Annotate: imgutil.Annotate{
+						Instance: map[v1.Hash]v1.Descriptor{
+							{}: {
+								MediaType: types.DockerConfigJSON,
+							},
+						},
+					},
+				}
+
+				err := idx.Save()
+				h.AssertEq(t, err.Error(), imgutil.ErrUnknownMediaType.Error())
+			})
 		})
 		when("#Push", func() {
-			it("should return an error when index is not saved", func() {})
+			it("should return an error when index is not saved", func() {
+				idx := imgutil.Index{
+					ImageIndex: empty.Index,
+					Annotate: imgutil.Annotate{
+						Instance: map[v1.Hash]v1.Descriptor{
+							{}: {
+								MediaType: types.DockerConfigJSON,
+							},
+						},
+					},
+				}
+
+				err := idx.Push()
+				h.AssertEq(t, err.Error(), imgutil.ErrIndexNeedToBeSaved.Error())
+			})
 			it("should push index to registry", func() {})
 			it("should push with insecure registry when WithInsecure used", func() {})
 			it("should delete local image index", func() {})
