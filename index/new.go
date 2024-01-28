@@ -22,7 +22,7 @@ func NewIndex(repoName string, ops ...Option) (idx imgutil.ImageIndex, err error
 
 	switch idxOps.format {
 	case types.DockerManifestList:
-		return &imgutil.Index{
+		idx = &imgutil.Index{
 			ImageIndex: &docker.DockerIndex,
 			Options: imgutil.IndexOptions{
 				KeyChain:         idxOps.keychain,
@@ -30,9 +30,9 @@ func NewIndex(repoName string, ops ...Option) (idx imgutil.ImageIndex, err error
 				Reponame:         idxOps.repoName,
 				InsecureRegistry: idxOps.insecure,
 			},
-		}, nil
-	case types.OCIImageIndex:
-		return &imgutil.Index{
+		}
+	default:
+		idx = &imgutil.Index{
 			ImageIndex: empty.Index,
 			Annotate: imgutil.Annotate{
 				Instance: make(map[v1.Hash]v1.Descriptor),
@@ -44,8 +44,13 @@ func NewIndex(repoName string, ops ...Option) (idx imgutil.ImageIndex, err error
 				Reponame:         idxOps.repoName,
 				InsecureRegistry: idxOps.insecure,
 			},
-		}, nil
-	default:
-		return idx, imgutil.ErrUnknownMediaType
+		}
 	}
+
+	err = idx.Save()
+	if err != nil {
+		return
+	}
+
+	return idx, err
 }
