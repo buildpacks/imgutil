@@ -45,13 +45,14 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...func(*imgutil.I
 		store = baseImage.store
 	}
 
-	cnbImage, err := imgutil.NewCNBImage(repoName, *options)
+	cnbImage, err := imgutil.NewCNBImage(*options)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Image{
 		CNBImageCore:   cnbImage,
+		repoName:       repoName,
 		store:          store,
 		lastIdentifier: baseIdentifier,
 		daemonOS:       options.Platform.OS,

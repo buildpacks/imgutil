@@ -98,7 +98,23 @@ func newV1ImageFacadeFromInspect(dockerInspect types.ImageInspect, history []ima
 		OSVersion:     dockerInspect.OsVersion,
 		Variant:       dockerInspect.Variant,
 	}
-	img, err := mutate.ConfigFile(empty.Image, configFile)
+	layers := newEmptyLayerListFrom(configFile)
+	// first, append each layer to the image to update the layers in the underlying manifest
+	img, err := mutate.ConfigFile(empty.Image, &v1.ConfigFile{})
+	if err != nil {
+		return nil, err
+	}
+	for _, layer := range layers {
+		img, err = mutate.Append(img, mutate.Addendum{
+			Layer:     layer,
+			MediaType: v1types.OCILayer,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	// then, set the config file
+	img, err = mutate.ConfigFile(img, configFile)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +228,7 @@ func newEmptyLayerListFrom(configFile *v1.ConfigFile) []v1.Layer {
 }
 
 func (l v1LayerFacade) Digest() (v1.Hash, error) {
-	return l.diffID, nil
+	return v1.Hash{}, nil
 }
 
 func (l v1LayerFacade) DiffID() (v1.Hash, error) {
@@ -220,13 +236,6 @@ func (l v1LayerFacade) DiffID() (v1.Hash, error) {
 }
 
 func (l v1LayerFacade) Compressed() (io.ReadCloser, error) {
-	if l.optionalLayerPath != "" {
-		f, err := os.Open(l.optionalLayerPath)
-		if err != nil {
-			return nil, err
-		}
-		return f, nil
-	}
 	return io.NopCloser(bytes.NewReader([]byte{})), nil
 }
 

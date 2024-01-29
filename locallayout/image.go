@@ -15,6 +15,7 @@ import (
 // Image wraps an imgutil.CNBImageCore and implements the methods needed to complete the imgutil.Image interface.
 type Image struct {
 	*imgutil.CNBImageCore
+	repoName       string
 	store          *Store
 	lastIdentifier string
 	daemonOS       string
@@ -23,6 +24,14 @@ type Image struct {
 
 func (i *Image) Kind() string {
 	return "locallayout"
+}
+
+func (i *Image) Name() string {
+	return i.repoName
+}
+
+func (i *Image) Rename(name string) {
+	i.repoName = name
 }
 
 func (i *Image) Found() bool {

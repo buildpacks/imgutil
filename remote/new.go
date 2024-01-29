@@ -292,7 +292,7 @@ func (i *Image) setUnderlyingImage(base v1.Image) error {
 		return nil
 	}
 	// provided v1.Image media types differ from requested, override them
-	newBase, err := imgutil.OverrideMediaTypes(base, i.requestedMediaTypes)
+	newBase, err := imgutil.EnsureMediaTypes(base, i.requestedMediaTypes)
 	if err != nil {
 		return err
 	}

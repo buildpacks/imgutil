@@ -27,7 +27,7 @@ const someSHA = "sha256:aec070645fe53ee3b3763059376134f058cc337247c978add178b6cc
 
 var localTestRegistry *h.DockerRegistry
 
-func TestLocal(t *testing.T) {
+func TestLocalLayout(t *testing.T) {
 	localTestRegistry = h.NewDockerRegistry()
 	localTestRegistry.Start(t)
 	defer localTestRegistry.Stop(t)

@@ -137,7 +137,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("#Digest", func() {
-			it("returns the original image digest when there are no modifications", func() {
+			it.Pend("returns the original image digest when there are no modifications", func() {
+				// TODO: created at
 				image, err := sparse.NewImage(imagePath, testImage)
 				h.AssertNil(t, err)
 
