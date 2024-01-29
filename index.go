@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -650,7 +649,6 @@ func (i *Index) Features(digest name.Digest) (features []string, err error) {
 	}
 
 	platform := config.Platform()
-
 	if platform == nil {
 		return features, ErrConfigFilePlatformUndefined
 	}
@@ -1144,10 +1142,111 @@ func addIndexAddendum(i *Index, ref name.Reference, desc v1.Descriptor, addEndum
 		if err != nil {
 			return addEndums, err
 		}
-		addEndums = append(addEndums, mutate.IndexAddendum{
-			Add:        img,
-			Descriptor: desc,
-		})
+
+		var upsertDesc = imgDesc.DeepCopy()
+		config, err := img.ConfigFile()
+		var upsertConfig = config.DeepCopy()
+		if err != nil {
+			return addEndums, err
+		}
+
+		if upsertDesc.Platform == nil {
+			upsertDesc.Platform = &v1.Platform{}
+		}
+
+		if config.OS != "" {
+			upsertDesc.Platform.OS = config.OS
+		}
+
+		if config.Architecture != "" {
+			upsertDesc.Platform.Architecture = config.Architecture
+		}
+
+		if config.Variant != "" {
+			upsertDesc.Platform.Variant = config.Variant
+		}
+
+		if config.OSVersion != "" {
+			upsertDesc.Platform.OSVersion = config.OSVersion
+		}
+
+		if config.Platform() != nil && len(config.Platform().Features) != 0 {
+			upsertDesc.Platform.Features = config.Platform().Features
+		}
+
+		if len(config.OSFeatures) != 0 {
+			upsertDesc.Platform.OSFeatures = config.OSFeatures
+		}
+
+		if desc.Platform != nil {
+			if desc.Platform.OS != "" {
+				upsertDesc.Platform.OS = desc.Platform.OS
+				upsertConfig.OS = desc.Platform.OS
+			}
+
+			if desc.Platform.Architecture != "" {
+				upsertDesc.Platform.Architecture = desc.Platform.Architecture
+				upsertConfig.Architecture = desc.Platform.Architecture
+			}
+
+			if desc.Platform.Variant != "" {
+				upsertDesc.Platform.Variant = desc.Platform.Variant
+				upsertConfig.Variant = desc.Platform.Variant
+			}
+
+			if desc.Platform.OSVersion != "" {
+				upsertDesc.Platform.OSVersion = desc.Platform.OSVersion
+				upsertConfig.OSVersion = desc.Platform.OSVersion
+			}
+
+			if len(desc.Platform.Features) != 0 {
+				upsertDesc.Platform.Features = append(upsertDesc.Platform.Features, desc.Platform.Features...)
+				platform := upsertConfig.Platform()
+				if platform == nil {
+					platform = &v1.Platform{}
+				}
+				platform.Features = append(platform.Features, desc.Platform.Features...)
+			}
+
+			if len(desc.Platform.OSFeatures) != 0 {
+				upsertDesc.Platform.OSFeatures = append(upsertDesc.Platform.OSFeatures, desc.Platform.OSFeatures...)
+				upsertConfig.OSFeatures = append(upsertConfig.OSFeatures, desc.Platform.OSFeatures...)
+			}
+		}
+
+		if desc.Digest != (v1.Hash{}) {
+			upsertDesc.Digest = desc.Digest
+		}
+
+		if len(desc.URLs) != 0 {
+			upsertDesc.URLs = append(upsertDesc.URLs, desc.URLs...)
+		}
+
+		if len(desc.Annotations) != 0 {
+			if len(upsertDesc.Annotations) == 0 {
+				upsertDesc.Annotations = make(map[string]string)
+			}
+
+			for k, v := range desc.Annotations {
+				upsertDesc.Annotations[k] = v
+			}
+		}
+
+		// if !reflect.DeepEqual(config, upsertConfig) {
+		// 	img, err = mutate.ConfigFile(img, upsertConfig)
+		// 	if err != nil {
+		// 		return addEndums, err
+		// 	}
+		// }
+		
+		addEndums = append(
+			addEndums,
+			mutate.IndexAddendum{
+				Add:        img,
+				Descriptor: *upsertDesc,
+			},
+		)
+
 
 		return addEndums, nil
 	case imgDesc.MediaType.IsIndex():
@@ -1214,7 +1313,6 @@ func appendImage(i *Index, desc *remote.Descriptor, annotations map[string]strin
 		return err
 	}
 
-	// if desc.MediaType == types.OCIManifestSchema1 {
 	annos := desc.Annotations
 	if len(annos) == 0 {
 		annos = make(map[string]string)
@@ -1226,7 +1324,6 @@ func appendImage(i *Index, desc *remote.Descriptor, annotations map[string]strin
 
 	i.Annotate.SetAnnotations(digest, annos)
 	i.Annotate.SetFormat(digest, desc.MediaType)
-	// }
 
 	i.ImageIndex = mutate.AppendManifests(
 		i.ImageIndex,
@@ -1239,111 +1336,28 @@ func appendImage(i *Index, desc *remote.Descriptor, annotations map[string]strin
 
 func (i *Index) Save() error {
 	layoutPath := filepath.Join(i.Options.XdgPath, i.Options.Reponame)
-	if _, err := os.Stat(filepath.Join(layoutPath, "index.json")); err != nil {
-		_, err = layout.Write(layoutPath, i.ImageIndex)
+	if _, err := os.Stat(filepath.Join(layoutPath, "index.json")); err == nil {
+		err = os.RemoveAll(layoutPath)
 		if err != nil {
 			return err
 		}
 	}
 
-	path, err := layout.FromPath(layoutPath)
+	ref, err := name.ParseReference(i.Options.Reponame, name.Insecure, name.WeakValidation)
 	if err != nil {
 		return err
 	}
 
 	var errs = SaveError{}
+	var addEndumns = []mutate.IndexAddendum{}
+	var hashes = []v1.Hash{}
 	for hash, desc := range i.Annotate.Instance {
 		switch {
-		case desc.MediaType.IsImage():
-			img, err := i.Image(hash)
-			if err != nil {
-				return err
-			}
-
-			var upsertDesc = v1.Descriptor{}
-			mfest, err := img.Manifest()
-			if err != nil {
-				return err
-			}
-
-			if mfest == nil {
-				return ErrManifestUndefined
-			}
-
-			upsertDesc = mfest.Config
-			if mfest.Subject != nil {
-				upsertDesc = *mfest.Subject.DeepCopy()
-			}
-
-			if upsertDesc.Platform == nil {
-				upsertDesc.Platform = &v1.Platform{}
-			}
-
-			var ops = []layout.Option{}
-			if desc.Platform != nil && !reflect.DeepEqual(desc.Platform, v1.Platform{}) {
-				updatePlatformFromDesc(upsertDesc.Platform, desc)
-				ops = append(ops, layout.WithPlatform(*upsertDesc.Platform))
-			}
-
-			if mfest.MediaType == types.DockerManifestSchema2 ||
-				mfest.MediaType == types.DockerManifestSchema1 ||
-				mfest.MediaType == types.DockerManifestSchema1Signed {
-				ops = append(ops, layout.WithAnnotations(map[string]string(nil)))
-			} else if len(desc.Annotations) != 0 {
-				ops = append(ops, layout.WithAnnotations(desc.Annotations))
-			}
-
-			if len(desc.URLs) != 0 {
-				ops = append(ops, layout.WithURLs(desc.URLs))
-			}
-
-			err = path.ReplaceImage(img, match.Digests(hash), ops...)
-			if err != nil {
-				errs.Errors = append(errs.Errors, SaveDiagnostic{
-					ImageName: hash.String(),
-					Cause:     err,
-				})
-			}
-		case desc.MediaType.IsIndex():
-			idx, err := i.ImageIndex.ImageIndex(hash)
-			if err != nil {
-				return err
-			}
-
-			var upsertDesc = v1.Descriptor{}
-			mfest, err := idx.IndexManifest()
-			if err != nil {
-				return err
-			}
-
-			if mfest == nil {
-				return ErrManifestUndefined
-			}
-
-			if mfest.Subject != nil {
-				return ErrManifestUndefined
-			}
-
-			upsertDesc = *mfest.Subject
-			if upsertDesc.Platform == nil {
-				upsertDesc.Platform = &v1.Platform{}
-			}
-
-			var ops = []layout.Option{}
-			if desc.Platform != nil && !reflect.DeepEqual(desc.Platform, v1.Platform{}) {
-				updatePlatformFromDesc(upsertDesc.Platform, desc)
-				ops = append(ops, layout.WithPlatform(*upsertDesc.Platform))
-			}
-
-			if len(desc.Annotations) != 0 && mfest.MediaType != types.DockerManifestList {
-				ops = append(ops, layout.WithAnnotations(desc.Annotations))
-			}
-
-			if len(desc.URLs) != 0 {
-				ops = append(ops, layout.WithURLs(desc.URLs))
-			}
-
-			err = path.ReplaceIndex(idx, match.Digests(hash), ops...)
+		case desc.MediaType.IsImage(),
+			desc.MediaType.IsIndex():
+			desc.Digest = hash
+			hashes = append(hashes, hash)
+			addEndumns, err = addIndexAddendum(i, ref, desc, addEndumns)
 			if err != nil {
 				errs.Errors = append(errs.Errors, SaveDiagnostic{
 					ImageName: hash.String(),
@@ -1355,14 +1369,59 @@ func (i *Index) Save() error {
 		}
 	}
 
+	i.ImageIndex = mutate.AppendManifests(
+		mutate.RemoveManifests(
+			i.ImageIndex,
+			match.Digests(hashes...),
+		),
+		addEndumns...,
+	)
+	path, err := layout.Write(layoutPath, i.ImageIndex)
+	if err != nil {
+		return err
+	}
+	
+	mfest, err := i.ImageIndex.IndexManifest()
+	if err == nil && mfest != nil {
+		for _, m := range mfest.Manifests {
+			switch{
+			case m.MediaType.IsImage():
+				img, err := i.ImageIndex.Image(m.Digest)
+				if err != nil {
+					return err
+				}
+
+				err = path.AppendImage(img)
+				if err != nil {
+					return err
+				}
+			case m.MediaType.IsIndex():
+				imgIdx, err := i.ImageIndex.ImageIndex(m.Digest)
+				if err != nil {
+					return err
+				}
+
+				err = path.AppendIndex(imgIdx)
+				if err != nil {
+					return err
+				}
+			default:
+				return ErrUnknownMediaType
+			}
+		}
+	}
+
 	i.Annotate = Annotate{}
 	for _, h := range i.RemovedManifests {
 		err = path.RemoveDescriptors(match.Digests(h))
 		if err != nil {
-			errs.Errors = append(errs.Errors, SaveDiagnostic{
-				ImageName: h.String(),
-				Cause:     err,
-			})
+			errs.Errors = append(
+				errs.Errors,
+				SaveDiagnostic{
+					ImageName: h.String(),
+					Cause:     err,
+				},
+			)
 		}
 	}
 
@@ -1372,32 +1431,6 @@ func (i *Index) Save() error {
 	}
 
 	return nil
-}
-
-func updatePlatformFromDesc(actual *v1.Platform, want v1.Descriptor) {
-	if want.Platform.OS != "" {
-		actual.OS = want.Platform.OS
-	}
-
-	if want.Platform.Architecture != "" {
-		actual.Architecture = want.Platform.Architecture
-	}
-
-	if want.Platform.Variant != "" {
-		actual.Variant = want.Platform.Variant
-	}
-
-	if want.Platform.OSVersion != "" {
-		actual.OSVersion = want.Platform.OSVersion
-	}
-
-	if len(want.Platform.Features) != 0 {
-		actual.Features = want.Platform.Features
-	}
-
-	if len(want.Platform.OSFeatures) != 0 {
-		actual.OSFeatures = want.Platform.OSFeatures
-	}
 }
 
 func (i *Index) Push(ops ...IndexPushOption) error {
