@@ -116,7 +116,7 @@ func (i *Image) doSaveAs(name string) (types.ImageInspect, error) {
 	}()
 
 	tw := tar.NewWriter(pw)
-	configHash, err := i.addImageToTar(tw, repoName)
+	_, err = i.addImageToTar(tw, repoName)
 	if err != nil {
 		return types.ImageInspect{}, err
 	}
@@ -134,9 +134,6 @@ func (i *Image) doSaveAs(name string) (types.ImageInspect, error) {
 		if client.IsErrNotFound(err) {
 			return types.ImageInspect{}, errors.Wrapf(err, "saving image %q", i.repoName)
 		}
-		return types.ImageInspect{}, err
-	}
-	if err = i.validateInspect(inspect, configHash); err != nil {
 		return types.ImageInspect{}, err
 	}
 
@@ -274,22 +271,6 @@ func (i *Image) addImageToTar(tw *tar.Writer, repoName string) (string, error) {
 	}
 
 	return configHash, addTextToTar(tw, "manifest.json", manifest)
-}
-
-func (i *Image) validateInspect(inspect types.ImageInspect, givenConfigHash string) error {
-	foundConfig, err := v1Config(inspect, i.createdAt, i.history)
-	if err != nil {
-		return fmt.Errorf("failed to get config file from inspect: %w", err)
-	}
-	foundConfigFile, err := json.Marshal(foundConfig)
-	if err != nil {
-		return fmt.Errorf("failed to marshal config file: %w", err)
-	}
-	foundID := fmt.Sprintf("%x", sha256.Sum256(foundConfigFile))
-	if foundID != givenConfigHash {
-		return fmt.Errorf("expected config hash %q; got %q", givenConfigHash, foundID)
-	}
-	return nil
 }
 
 // helpers
