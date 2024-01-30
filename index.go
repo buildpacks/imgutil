@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -1218,10 +1219,6 @@ func addIndexAddendum(i *Index, ref name.Reference, desc v1.Descriptor, addEndum
 			upsertDesc.Digest = desc.Digest
 		}
 
-		if len(desc.URLs) != 0 {
-			upsertDesc.URLs = append(upsertDesc.URLs, desc.URLs...)
-		}
-
 		if len(desc.Annotations) != 0 {
 			if len(upsertDesc.Annotations) == 0 {
 				upsertDesc.Annotations = make(map[string]string)
@@ -1230,15 +1227,34 @@ func addIndexAddendum(i *Index, ref name.Reference, desc v1.Descriptor, addEndum
 			for k, v := range desc.Annotations {
 				upsertDesc.Annotations[k] = v
 			}
+
+			img = mutate.Annotations(img, upsertDesc.Annotations).(v1.Image)
+			hash, err := img.Digest()
+			if err != nil {
+				return addEndums, err
+			}
+
+			upsertDesc.Digest = hash
 		}
 
-		// if !reflect.DeepEqual(config, upsertConfig) {
-		// 	img, err = mutate.ConfigFile(img, upsertConfig)
-		// 	if err != nil {
-		// 		return addEndums, err
-		// 	}
-		// }
-		
+		if !reflect.DeepEqual(config, upsertConfig) {
+			img, err = mutate.ConfigFile(img, upsertConfig)
+			if err != nil {
+				return addEndums, err
+			}
+
+			hash, err := img.Digest()
+			if err != nil {
+				return addEndums, err
+			}
+
+			upsertDesc.Digest = hash
+		}
+
+		if len(desc.URLs) != 0 {
+			upsertDesc.URLs = append(upsertDesc.URLs, desc.URLs...)
+		}
+
 		addEndums = append(
 			addEndums,
 			mutate.IndexAddendum{
@@ -1246,7 +1262,6 @@ func addIndexAddendum(i *Index, ref name.Reference, desc v1.Descriptor, addEndum
 				Descriptor: *upsertDesc,
 			},
 		)
-
 
 		return addEndums, nil
 	case imgDesc.MediaType.IsIndex():
@@ -1379,36 +1394,6 @@ func (i *Index) Save() error {
 	path, err := layout.Write(layoutPath, i.ImageIndex)
 	if err != nil {
 		return err
-	}
-	
-	mfest, err := i.ImageIndex.IndexManifest()
-	if err == nil && mfest != nil {
-		for _, m := range mfest.Manifests {
-			switch{
-			case m.MediaType.IsImage():
-				img, err := i.ImageIndex.Image(m.Digest)
-				if err != nil {
-					return err
-				}
-
-				err = path.AppendImage(img)
-				if err != nil {
-					return err
-				}
-			case m.MediaType.IsIndex():
-				imgIdx, err := i.ImageIndex.ImageIndex(m.Digest)
-				if err != nil {
-					return err
-				}
-
-				err = path.AppendIndex(imgIdx)
-				if err != nil {
-					return err
-				}
-			default:
-				return ErrUnknownMediaType
-			}
-		}
 	}
 
 	i.Annotate = Annotate{}
