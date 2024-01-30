@@ -4,9 +4,6 @@ import (
 	"fmt"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/empty"
-	"github.com/google/go-containerregistry/pkg/v1/mutate"
-	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	"github.com/buildpacks/imgutil"
 )
@@ -17,23 +14,24 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 		op(options)
 	}
 	options.Platform = processDefaultPlatformOption(options.Platform)
-	preferredMediaTypes := imgutil.GetPreferredMediaTypes(*options)
 
 	var err error
 	if options.PreviousImageRepoName != "" {
-		options.PreviousImage, err = newImageFromPath(options.PreviousImageRepoName, options.Platform, preferredMediaTypes)
+		options.PreviousImage, err = newImageFromPath(options.PreviousImageRepoName, options.Platform, imgutil.DefaultTypes)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if options.BaseImage != nil { // options.BaseImage supersedes options.BaseImageRepoName
-		options.BaseImage, err = imgutil.EnsureMediaTypes(options.BaseImage, preferredMediaTypes)
+	if options.BaseImage == nil && options.BaseImageRepoName != "" { // options.BaseImage supersedes options.BaseImageRepoName
+		options.BaseImage, err = newImageFromPath(options.BaseImageRepoName, options.Platform, imgutil.DefaultTypes)
 		if err != nil {
 			return nil, err
 		}
-	} else if options.BaseImageRepoName != "" {
-		options.BaseImage, err = newImageFromPath(options.BaseImageRepoName, options.Platform, preferredMediaTypes)
+	}
+	options.MediaTypes = imgutil.GetPreferredMediaTypes(*options)
+	if options.BaseImage != nil {
+		options.BaseImage, err = imgutil.EnsureMediaTypes(options.BaseImage, options.MediaTypes)
 		if err != nil {
 			return nil, err
 		}
@@ -64,29 +62,23 @@ func processDefaultPlatformOption(requestedPlatform imgutil.Platform) imgutil.Pl
 
 // newImageFromPath creates a layout image from the given path.
 // * If an image index for multiple platforms exists, it will try to select the image according to the platform provided.
-// * If the image does not exist, then an empty image is returned.
+// * If the image does not exist, then nothing is returned.
 func newImageFromPath(path string, withPlatform imgutil.Platform, withMediaTypes imgutil.MediaTypes) (v1.Image, error) {
-	var image v1.Image
+	if !imageExists(path) {
+		return nil, nil
+	}
 
-	if imageExists(path) {
-		layoutPath, err := FromPath(path)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load layout from path: %w", err)
-		}
-		index, err := layoutPath.ImageIndex()
-		if err != nil {
-			return nil, fmt.Errorf("failed to load index: %w", err)
-		}
-		image, err = imageFromIndex(index, withPlatform)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load image from index: %w", err)
-		}
-	} else {
-		var err error
-		image, err = emptyImage(withPlatform)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize empty image: %w", err)
-		}
+	layoutPath, err := FromPath(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load layout from path: %w", err)
+	}
+	index, err := layoutPath.ImageIndex()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load index: %w", err)
+	}
+	image, err := imageFromIndex(index, withPlatform)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load image from index: %w", err)
 	}
 
 	// ensure layers will not error when accessed if there is no underlying data
@@ -130,20 +122,4 @@ func imageFromIndex(index v1.ImageIndex, platform imgutil.Platform) (v1.Image, e
 	}
 
 	return index.Image(manifest.Digest)
-}
-
-func emptyImage(platform imgutil.Platform) (v1.Image, error) {
-	cfg := &v1.ConfigFile{
-		Architecture: platform.Architecture,
-		History:      []v1.History{},
-		OS:           platform.OS,
-		OSVersion:    platform.OSVersion,
-		RootFS: v1.RootFS{
-			Type:    "layers",
-			DiffIDs: []v1.Hash{},
-		},
-	}
-	image := mutate.MediaType(empty.Image, types.OCIManifestSchema1)
-	image = mutate.ConfigMediaType(image, types.OCIConfigJSON)
-	return mutate.ConfigFile(image, cfg)
 }

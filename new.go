@@ -101,8 +101,7 @@ func GetPreferredMediaTypes(options ImageOptions) MediaTypes {
 		return options.MediaTypes
 	}
 	if options.MediaTypes == MissingTypes &&
-		options.BaseImage == nil &&
-		options.BaseImageRepoName == "" {
+		options.BaseImage == nil {
 		return OCITypes
 	}
 	return DefaultTypes
