@@ -31,7 +31,7 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 	}
 	options.MediaTypes = imgutil.GetPreferredMediaTypes(*options)
 	if options.BaseImage != nil {
-		options.BaseImage, err = imgutil.EnsureMediaTypes(options.BaseImage, options.MediaTypes)
+		options.BaseImage, err = imgutil.EnsureMediaTypes(options.BaseImage, options.MediaTypes) // FIXME: this can move into imgutil constructor
 		if err != nil {
 			return nil, err
 		}

@@ -191,7 +191,7 @@ func EnsureMediaTypesAndLayers(image v1.Image, requestedTypes MediaTypes, mutate
 		configType = beforeManifest.Config.MediaType
 	}
 	// zero out history and diff IDs, as these will be updated when we call `mutate.Append` to add the layers
-	beforeHistory := NormalizedHistory(beforeConfig.History, len(beforeConfig.RootFS.DiffIDs))
+	beforeHistory := beforeConfig.History
 	beforeConfig.History = []v1.History{}
 	beforeConfig.RootFS.DiffIDs = make([]v1.Hash, 0)
 	// set config
