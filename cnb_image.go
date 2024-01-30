@@ -28,11 +28,6 @@ type CNBImageCore struct {
 	previousImage       v1.Image
 }
 
-type IdentifiableV1Image interface {
-	v1.Image
-	Identifier() (Identifier, error)
-}
-
 var _ v1.Image = &CNBImageCore{}
 
 // FIXME: mark deprecated methods as deprecated on the interface when other packages (remote, layout) expose a v1.Image

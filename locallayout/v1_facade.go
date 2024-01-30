@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
-	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -19,68 +17,12 @@ import (
 	"github.com/buildpacks/imgutil"
 )
 
-// v1ImageFacade wraps a v1.Image constructed from the output of `docker inspect`.
+// newV1ImageFacadeFromInspect returns a v1.Image constructed from the output of `docker inspect`.
 // It is used to provide a v1.Image implementation for previous images and base images.
-// The v1ImageFacade is never modified, but it may become the underlying v1.Image for imgutil.CNBImageCore images.
-// A v1ImageFacade will try to return layer data if the layers exist on disk,
-// otherwise it will return empty layer data.
-// By storing a pointer to the image store, users can update the store to force a v1ImageFacade to return layer data.
-type v1ImageFacade struct {
-	v1.Image
-	emptyLayers []v1.Layer
-
-	// for downloading layers from the daemon as needed
-	store                  *Store
-	downloadLayersOnAccess bool // set to true to downloading ALL the image layers from the daemon when LayerByDiffID is called
-	downloadOnce           *sync.Once
-	identifier             string
-}
-
-var _ v1.Image = &v1ImageFacade{}
-
-func (i *v1ImageFacade) LayerByDiffID(h v1.Hash) (v1.Layer, error) {
-	if layer := findLayer(h, i.store.Layers()); layer != nil {
-		return layer, nil
-	}
-	if i.downloadLayersOnAccess {
-		if err := i.ensureLayers(); err != nil {
-			return nil, err
-		}
-		if layer := findLayer(h, i.store.Layers()); layer != nil {
-			return layer, nil
-		}
-	}
-	if layer := findLayer(h, i.emptyLayers); layer != nil {
-		return layer, nil
-	}
-	return nil, fmt.Errorf("failed to find layer with diff ID %q", h.String())
-}
-
-func (i *v1ImageFacade) ensureLayers() error {
-	var err error
-	i.downloadOnce.Do(func() {
-		err = i.store.DownloadLayersFor(i.identifier)
-	})
-	if err != nil {
-		return fmt.Errorf("fetching base layers: %w", err)
-	}
-	return nil
-}
-
-func findLayer(withHash v1.Hash, inLayers []v1.Layer) v1.Layer {
-	for _, layer := range inLayers {
-		layerHash, err := layer.DiffID()
-		if err != nil {
-			continue
-		}
-		if layerHash.String() == withHash.String() {
-			return layer
-		}
-	}
-	return nil
-}
-
-func newV1ImageFacadeFromInspect(dockerInspect types.ImageInspect, history []image.HistoryResponseItem, dockerClient DockerClient, downloadLayersOnAccess bool) (*v1ImageFacade, error) {
+// The facade is never modified, but it may become the underlying v1.Image for imgutil.CNBImageCore images.
+// The underlying layers will return data if they are contained in the store.
+// By storing a pointer to the image store, callers can update the store to force the layers to return data.
+func newV1ImageFacadeFromInspect(dockerInspect types.ImageInspect, history []image.HistoryResponseItem, withStore *Store, downloadLayersOnAccess bool) (v1.Image, error) {
 	rootFS, err := toV1RootFS(dockerInspect.RootFS)
 	if err != nil {
 		return nil, err
@@ -98,34 +40,61 @@ func newV1ImageFacadeFromInspect(dockerInspect types.ImageInspect, history []ima
 		OSVersion:     dockerInspect.OsVersion,
 		Variant:       dockerInspect.Variant,
 	}
-	layers := newEmptyLayerListFrom(configFile)
-	// first, append each layer to the image to update the layers in the underlying manifest
-	img, err := mutate.ConfigFile(empty.Image, &v1.ConfigFile{})
+	layersToSet := newEmptyLayerListFrom(configFile, dockerInspect.ID, withStore, downloadLayersOnAccess)
+	return imageFrom(layersToSet, configFile, imgutil.DockerTypes)
+}
+
+func imageFrom(layers []v1.Layer, configFile *v1.ConfigFile, requestedTypes imgutil.MediaTypes) (v1.Image, error) {
+	// (1) construct a new image with the right manifest media type
+	manifestType := requestedTypes.ManifestType()
+	retImage := mutate.MediaType(empty.Image, manifestType)
+
+	// (2) set config media type
+	configType := requestedTypes.ConfigType()
+	// zero out history and diff IDs, as these will be updated when we call `mutate.Append` to add the layers
+	beforeHistory := imgutil.NormalizedHistory(configFile.History, len(configFile.RootFS.DiffIDs))
+	configFile.History = []v1.History{}
+	configFile.RootFS.DiffIDs = make([]v1.Hash, 0)
+	// set config
+	var err error
+	retImage, err = mutate.ConfigFile(retImage, configFile)
 	if err != nil {
 		return nil, err
 	}
-	for _, layer := range layers {
-		img, err = mutate.Append(img, mutate.Addendum{
+	retImage = mutate.ConfigMediaType(retImage, configType)
+	// (3) set layers with the right media type
+	additions := layersAddendum(layers, beforeHistory, requestedTypes.LayerType())
+	if err != nil {
+		return nil, err
+	}
+	retImage, err = mutate.Append(retImage, additions...)
+	if err != nil {
+		return nil, err
+	}
+	afterLayers, err := retImage.Layers()
+	if err != nil {
+		return nil, err
+	}
+	if len(afterLayers) != len(layers) {
+		return nil, fmt.Errorf("found %d layers for image; expected %d", len(afterLayers), len(layers))
+	}
+	return retImage, nil
+}
+
+func layersAddendum(layers []v1.Layer, history []v1.History, requestedType v1types.MediaType) []mutate.Addendum {
+	addendums := make([]mutate.Addendum, 0)
+	if len(history) != len(layers) {
+		history = make([]v1.History, len(layers))
+	}
+	for idx, layer := range layers {
+		layerType := requestedType
+		addendums = append(addendums, mutate.Addendum{
 			Layer:     layer,
-			MediaType: v1types.OCILayer,
+			History:   history[idx],
+			MediaType: layerType,
 		})
-		if err != nil {
-			return nil, err
-		}
 	}
-	// then, set the config file
-	img, err = mutate.ConfigFile(img, configFile)
-	if err != nil {
-		return nil, err
-	}
-	return &v1ImageFacade{
-		Image:                  img,
-		emptyLayers:            newEmptyLayerListFrom(configFile),
-		store:                  &Store{dockerClient: dockerClient},
-		downloadLayersOnAccess: downloadLayersOnAccess,
-		downloadOnce:           &sync.Once{},
-		identifier:             dockerInspect.ID,
-	}, nil
+	return addendums
 }
 
 func toV1RootFS(dockerRootFS types.RootFS) (v1.RootFS, error) {
@@ -213,51 +182,79 @@ func toV1Config(dockerCfg *container.Config) v1.Config {
 var _ v1.Layer = &v1LayerFacade{}
 
 type v1LayerFacade struct {
-	diffID            v1.Hash
-	optionalLayerPath string
+	diffID v1.Hash
+	store  *Store
+	// for downloading layers from the daemon as needed
+	downloadOnAccess bool
+	imageIdentifier  string
 }
 
-func newEmptyLayerListFrom(configFile *v1.ConfigFile) []v1.Layer {
+func newEmptyLayerListFrom(configFile *v1.ConfigFile, withImageIdentifier string, withStore *Store, downloadOnAccess bool) []v1.Layer {
 	layers := make([]v1.Layer, len(configFile.RootFS.DiffIDs))
 	for idx, diffID := range configFile.RootFS.DiffIDs {
 		layers[idx] = &v1LayerFacade{
-			diffID: diffID,
+			diffID:           diffID,
+			store:            withStore,
+			downloadOnAccess: downloadOnAccess,
+			imageIdentifier:  withImageIdentifier,
 		}
 	}
 	return layers
-}
-
-func (l v1LayerFacade) Digest() (v1.Hash, error) {
-	return v1.Hash{}, nil
-}
-
-func (l v1LayerFacade) DiffID() (v1.Hash, error) {
-	return l.diffID, nil
 }
 
 func (l v1LayerFacade) Compressed() (io.ReadCloser, error) {
 	return io.NopCloser(bytes.NewReader([]byte{})), nil
 }
 
+func (l v1LayerFacade) DiffID() (v1.Hash, error) {
+	return l.diffID, nil
+}
+
+func (l v1LayerFacade) Digest() (v1.Hash, error) {
+	return v1.Hash{}, nil
+}
+
 func (l v1LayerFacade) Uncompressed() (io.ReadCloser, error) {
-	if l.optionalLayerPath != "" {
-		f, err := os.Open(l.optionalLayerPath)
-		if err != nil {
-			return nil, err
-		}
-		return f, nil
+	layer, err := l.store.LayerByDiffID(l.diffID)
+	if err == nil {
+		return layer.Uncompressed()
 	}
-	return io.NopCloser(bytes.NewReader([]byte{})), nil
+	if !l.downloadOnAccess {
+		return io.NopCloser(bytes.NewReader([]byte{})), nil
+	}
+	if err = l.store.downloadLayersFor(l.imageIdentifier); err != nil {
+		return nil, err
+	}
+	layer, err = l.store.LayerByDiffID(l.diffID)
+	if err != nil {
+		return io.NopCloser(bytes.NewReader([]byte{})), nil
+	}
+	return layer.Uncompressed()
 }
 
 // Size returns a sentinel value indicating if the layer has data.
 func (l v1LayerFacade) Size() (int64, error) {
-	if l.optionalLayerPath != "" {
-		return 1, nil
+	layer, err := l.store.LayerByDiffID(l.diffID)
+	if err == nil {
+		return layer.Size()
 	}
-	return -1, nil
+	if !l.downloadOnAccess {
+		return -1, nil
+	}
+	if err = l.store.downloadLayersFor(l.imageIdentifier); err != nil {
+		return -1, err
+	}
+	layer, err = l.store.LayerByDiffID(l.diffID)
+	if err != nil {
+		return -1, nil
+	}
+	return layer.Size()
 }
 
 func (l v1LayerFacade) MediaType() (v1types.MediaType, error) {
-	return v1types.OCILayer, nil
+	layer, err := l.store.LayerByDiffID(l.diffID)
+	if err != nil {
+		return v1types.OCILayer, nil
+	}
+	return layer.MediaType()
 }

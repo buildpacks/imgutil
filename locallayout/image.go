@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"sync"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 
@@ -19,7 +18,6 @@ type Image struct {
 	store          *Store
 	lastIdentifier string
 	daemonOS       string
-	downloadOnce   *sync.Once
 }
 
 func (i *Image) Kind() string {
@@ -79,11 +77,7 @@ func (i *Image) GetLayer(diffID string) (io.ReadCloser, error) {
 }
 
 func (i *Image) ensureLayers() error {
-	var err error
-	i.downloadOnce.Do(func() {
-		err = i.store.DownloadLayersFor(i.lastIdentifier)
-	})
-	if err != nil {
+	if err := i.store.downloadLayersFor(i.lastIdentifier); err != nil {
 		return fmt.Errorf("fetching base layers: %w", err)
 	}
 	return nil

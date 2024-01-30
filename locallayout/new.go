@@ -8,6 +8,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 
 	"github.com/buildpacks/imgutil"
 )
@@ -26,23 +27,28 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...func(*imgutil.I
 		return nil, err
 	}
 
-	options.PreviousImage, err = processPreviousImageOption(options.PreviousImageRepoName, dockerClient)
+	processPrevious, err := processImageOption(options.PreviousImageRepoName, dockerClient, true)
 	if err != nil {
 		return nil, err
+	}
+	if processPrevious.image != nil {
+		options.PreviousImage = processPrevious.image
 	}
 
 	var (
 		baseIdentifier string
-		store          = &Store{dockerClient: dockerClient}
+		store          *Store
 	)
-	baseImage, err := processBaseImageOption(options.BaseImageRepoName, dockerClient)
+	processBase, err := processImageOption(options.BaseImageRepoName, dockerClient, false)
 	if err != nil {
 		return nil, err
 	}
-	if baseImage != nil {
-		options.BaseImage = baseImage
-		baseIdentifier = baseImage.identifier
-		store = baseImage.store
+	if processBase.image != nil {
+		options.BaseImage = processBase.image
+		baseIdentifier = processBase.identifier
+		store = processBase.layerStore
+	} else {
+		store = &Store{dockerClient: dockerClient, downloadOnce: &sync.Once{}}
 	}
 
 	cnbImage, err := imgutil.NewCNBImage(*options)
@@ -56,7 +62,6 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...func(*imgutil.I
 		store:          store,
 		lastIdentifier: baseIdentifier,
 		daemonOS:       options.Platform.OS,
-		downloadOnce:   &sync.Once{},
 	}, nil
 }
 
@@ -86,32 +91,33 @@ func defaultPlatform(dockerClient DockerClient) (imgutil.Platform, error) {
 	}, nil
 }
 
-func processPreviousImageOption(repoName string, dockerClient DockerClient) (*v1ImageFacade, error) {
-	if repoName == "" {
-		return nil, nil
-	}
-	inspect, history, err := getInspectAndHistory(repoName, dockerClient)
-	if err != nil {
-		return nil, err
-	}
-	if inspect == nil {
-		return nil, nil
-	}
-	return newV1ImageFacadeFromInspect(*inspect, history, dockerClient, true)
+type imageResult struct {
+	image      v1.Image
+	identifier string
+	layerStore *Store
 }
 
-func processBaseImageOption(repoName string, dockerClient DockerClient) (*v1ImageFacade, error) {
+func processImageOption(repoName string, dockerClient DockerClient, downloadLayersOnAccess bool) (imageResult, error) {
 	if repoName == "" {
-		return nil, nil
+		return imageResult{}, nil
 	}
 	inspect, history, err := getInspectAndHistory(repoName, dockerClient)
 	if err != nil {
-		return nil, err
+		return imageResult{}, err
 	}
 	if inspect == nil {
-		return nil, nil
+		return imageResult{}, nil
 	}
-	return newV1ImageFacadeFromInspect(*inspect, history, dockerClient, false)
+	layerStore := &Store{dockerClient: dockerClient, downloadOnce: &sync.Once{}}
+	image, err := newV1ImageFacadeFromInspect(*inspect, history, layerStore, downloadLayersOnAccess)
+	if err != nil {
+		return imageResult{}, err
+	}
+	return imageResult{
+		image:      image,
+		identifier: inspect.ID,
+		layerStore: layerStore,
+	}, nil
 }
 
 func getInspectAndHistory(repoName string, dockerClient DockerClient) (*types.ImageInspect, []image.HistoryResponseItem, error) {

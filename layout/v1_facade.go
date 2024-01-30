@@ -12,6 +12,7 @@ type v1LayerFacade struct {
 	v1.Layer
 	diffID v1.Hash
 	digest v1.Hash
+	size   int64
 }
 
 func (l *v1LayerFacade) Compressed() (io.ReadCloser, error) {
@@ -30,6 +31,10 @@ func (l *v1LayerFacade) Uncompressed() (io.ReadCloser, error) {
 	return io.NopCloser(bytes.NewReader([]byte{})), nil
 }
 
+func (l *v1LayerFacade) Size() (int64, error) {
+	return l.size, nil
+}
+
 func newLayerOrFacadeFrom(configFile v1.ConfigFile, manifestFile v1.Manifest, layerIndex int, originalLayer v1.Layer) (v1.Layer, error) {
 	if hasData(originalLayer) {
 		return originalLayer, nil
@@ -44,6 +49,7 @@ func newLayerOrFacadeFrom(configFile v1.ConfigFile, manifestFile v1.Manifest, la
 		Layer:  originalLayer,
 		diffID: configFile.RootFS.DiffIDs[layerIndex],
 		digest: manifestFile.Layers[layerIndex].Digest,
+		size:   manifestFile.Layers[layerIndex].Size,
 	}, nil
 }
 
