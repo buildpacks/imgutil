@@ -12,6 +12,9 @@ func (i *Image) Save(additionalNames ...string) error {
 
 // SaveAs ignores the image `Name()` method and saves the image according to name & additional names provided to this method
 func (i *Image) SaveAs(name string, additionalNames ...string) error {
+	if err := i.SetCreatedAtAndHistory(); err != nil {
+		return err
+	}
 	refName, err := i.GetAnnotateRefName()
 	if err != nil {
 		return err

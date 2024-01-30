@@ -104,13 +104,19 @@ func (i *Image) Rebase(baseTopLayerDiffID string, withNewBase imgutil.Image) err
 }
 
 func (i *Image) Save(additionalNames ...string) error {
-	var err error
+	err := i.SetCreatedAtAndHistory()
+	if err != nil {
+		return err
+	}
 	i.lastIdentifier, err = i.store.Save(i, i.Name(), additionalNames...)
 	return err
 }
 
 func (i *Image) SaveAs(name string, additionalNames ...string) error {
-	var err error
+	err := i.SetCreatedAtAndHistory()
+	if err != nil {
+		return err
+	}
 	i.lastIdentifier, err = i.store.Save(i, name, additionalNames...)
 	return err
 }

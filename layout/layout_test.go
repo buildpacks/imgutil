@@ -502,10 +502,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
-	when.Pend("#CreatedAt", func() {
-		// Previously, we only zeroed CreatedAt at the point of save.
-		// Now, we zero CreatedAt at the point of instantiation.
-		// If this behavior change is acceptable, we can remove this test.
+	when("#CreatedAt", func() {
 		it.Before(func() {
 			imagePath = filepath.Join(tmpDir, "new-created-at-image")
 		})

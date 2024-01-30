@@ -709,10 +709,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
-	when.Pend("#CreatedAt", func() {
-		// Previously, we only zeroed CreatedAt at the point of save.
-		// Now, we zero CreatedAt at the point of instantiation.
-		// If this behavior change is acceptable, we can remove this test.
+	when("#CreatedAt", func() {
 		it("returns the containers created at time", func() {
 			img, err := local.NewImage(newTestImageName(), dockerClient, local.FromBaseImage(runnableBaseImageName))
 			h.AssertNil(t, err)

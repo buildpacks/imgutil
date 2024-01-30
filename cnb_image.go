@@ -310,6 +310,13 @@ func (i *CNBImageCore) AddLayerWithDiffID(path, _ string) error {
 }
 
 func (i *CNBImageCore) AddLayerWithDiffIDAndHistory(path, _ string, history v1.History) error {
+	// ensure existing history
+	if err := i.MutateConfigFile(func(c *v1.ConfigFile) {
+		c.History = NormalizedHistory(c.History, len(c.RootFS.DiffIDs))
+	}); err != nil {
+		return err
+	}
+
 	layer, err := tarball.LayerFromFile(path)
 	if err != nil {
 		return err
@@ -437,7 +444,9 @@ func (i *CNBImageCore) ReuseLayerWithHistory(diffID string, history v1.History) 
 	if err != nil {
 		return err
 	}
-	if !i.preserveHistory {
+	if i.preserveHistory {
+		history.Created = v1.Time{Time: i.createdAt}
+	} else {
 		history = emptyHistory
 	}
 	i.Image, err = mutate.Append(
@@ -461,6 +470,34 @@ func (i *CNBImageCore) MutateConfigFile(withFunc func(c *v1.ConfigFile)) error {
 	}
 	withFunc(configFile)
 	i.Image, err = mutate.ConfigFile(i.Image, configFile)
+	return err
+}
+
+func (i *CNBImageCore) SetCreatedAtAndHistory() error {
+	var err error
+	// set created at
+	if err = i.MutateConfigFile(func(c *v1.ConfigFile) {
+		c.Created = v1.Time{Time: i.createdAt}
+		c.Container = ""
+	}); err != nil {
+		return err
+	}
+	// set history
+	if i.preserveHistory {
+		// set created at for each history
+		err = i.MutateConfigFile(func(c *v1.ConfigFile) {
+			for j := range c.History {
+				c.History[j].Created = v1.Time{Time: i.createdAt}
+			}
+		})
+	} else {
+		// zero history
+		err = i.MutateConfigFile(func(c *v1.ConfigFile) {
+			for j := range c.History {
+				c.History[j] = v1.History{Created: v1.Time{Time: i.createdAt}}
+			}
+		})
+	}
 	return err
 }
 

@@ -41,13 +41,6 @@ func NewCNBImage(options ImageOptions) (*CNBImageCore, error) {
 		return nil, err
 	}
 
-	// ensure existing history
-	if err = image.MutateConfigFile(func(c *v1.ConfigFile) {
-		c.History = NormalizedHistory(c.History, len(c.RootFS.DiffIDs))
-	}); err != nil {
-		return nil, err
-	}
-
 	// set config if requested
 	if options.Config != nil {
 		if err = image.MutateConfigFile(func(c *v1.ConfigFile) {
@@ -55,33 +48,6 @@ func NewCNBImage(options ImageOptions) (*CNBImageCore, error) {
 		}); err != nil {
 			return nil, err
 		}
-	}
-
-	// set created at
-	if err = image.MutateConfigFile(func(c *v1.ConfigFile) {
-		c.Created = v1.Time{Time: image.createdAt}
-		c.Container = ""
-	}); err != nil {
-		return nil, err
-	}
-	// set history
-	if options.PreserveHistory {
-		// set created at for each history
-		err = image.MutateConfigFile(func(c *v1.ConfigFile) {
-			for j := range c.History {
-				c.History[j].Created = v1.Time{Time: image.createdAt}
-			}
-		})
-	} else {
-		// zero history
-		err = image.MutateConfigFile(func(c *v1.ConfigFile) {
-			for j := range c.History {
-				c.History[j] = v1.History{Created: v1.Time{Time: image.createdAt}}
-			}
-		})
-	}
-	if err != nil {
-		return nil, err
 	}
 
 	return image, nil
