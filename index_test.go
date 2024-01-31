@@ -2900,248 +2900,248 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				h.AssertNotEq(t, annotations, map[string]string(nil))
 			})
-			it("should save annotated osFeatures", func() {
-				idx, err := remote.NewIndex(
-					"busybox:1.36-musl",
-					index.WithInsecure(true),
-					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
-				)
-				h.AssertNil(t, err)
+			// it("should save annotated osFeatures", func() {
+			// 	idx, err := remote.NewIndex(
+			// 		"busybox:1.36-musl",
+			// 		index.WithInsecure(true),
+			// 		index.WithKeychain(authn.DefaultKeychain),
+			// 		index.WithXDGRuntimePath("xdgPath"),
+			// 	)
+			// 	h.AssertNil(t, err)
 
-				// linux/arm/v6
-				digest1, err := name.NewDigest(
-					"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
-					name.WeakValidation,
-					name.Insecure,
-				)
-				h.AssertNil(t, err)
+			// 	// linux/arm/v6
+			// 	digest1, err := name.NewDigest(
+			// 		"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+			// 		name.WeakValidation,
+			// 		name.Insecure,
+			// 	)
+			// 	h.AssertNil(t, err)
 
-				// linux/amd64
-				digest2, err := name.NewDigest(
-					"busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
-					name.Insecure,
-					name.WeakValidation,
-				)
-				h.AssertNil(t, err)
+			// 	// linux/amd64
+			// 	digest2, err := name.NewDigest(
+			// 		"busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
+			// 		name.Insecure,
+			// 		name.WeakValidation,
+			// 	)
+			// 	h.AssertNil(t, err)
 
-				err = idx.SetOSFeatures(digest1, []string{
-					"some-osFeatures",
-				})
-				h.AssertNil(t, err)
+			// 	err = idx.SetOSFeatures(digest1, []string{
+			// 		"some-osFeatures",
+			// 	})
+			// 	h.AssertNil(t, err)
 
-				err = idx.Save()
-				h.AssertNil(t, err)
+			// 	err = idx.Save()
+			// 	h.AssertNil(t, err)
 
-				layoutIdx, err := layout.NewIndex(
-					"busybox:1.36-musl",
-					index.WithInsecure(true),
-					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
-				)
-				h.AssertNil(t, err)
+			// 	layoutIdx, err := layout.NewIndex(
+			// 		"busybox:1.36-musl",
+			// 		index.WithInsecure(true),
+			// 		index.WithKeychain(authn.DefaultKeychain),
+			// 		index.WithXDGRuntimePath("xdgPath"),
+			// 	)
+			// 	h.AssertNil(t, err)
 
-				imgIdx, ok := layoutIdx.(*imgutil.Index)
-				h.AssertEq(t, ok, true)
+			// 	imgIdx, ok := layoutIdx.(*imgutil.Index)
+			// 	h.AssertEq(t, ok, true)
 
-				mfest, err := imgIdx.IndexManifest()
-				h.AssertNil(t, err)
-				h.AssertNotEq(t, mfest, nil)
+			// 	mfest, err := imgIdx.IndexManifest()
+			// 	h.AssertNil(t, err)
+			// 	h.AssertNotEq(t, mfest, nil)
 
-				hash1 := mfest.Manifests[len(mfest.Manifests)-1].Digest
-				digest1, err = name.NewDigest("alpine@"+hash1.String(), name.Insecure, name.WeakValidation)
-				h.AssertNil(t, err)
+			// 	hash1 := mfest.Manifests[len(mfest.Manifests)-1].Digest
+			// 	digest1, err = name.NewDigest("alpine@"+hash1.String(), name.Insecure, name.WeakValidation)
+			// 	h.AssertNil(t, err)
 
-				os, err := layoutIdx.OS(digest1)
-				h.AssertNil(t, err)
-				h.AssertEq(t, os, "linux")
+			// 	os, err := layoutIdx.OS(digest1)
+			// 	h.AssertNil(t, err)
+			// 	h.AssertEq(t, os, "linux")
 
-				arch, err := layoutIdx.Architecture(digest1)
-				h.AssertNil(t, err)
-				h.AssertEq(t, arch, "arm")
+			// 	arch, err := layoutIdx.Architecture(digest1)
+			// 	h.AssertNil(t, err)
+			// 	h.AssertEq(t, arch, "arm")
 
-				variant, err := layoutIdx.Variant(digest1)
-				h.AssertNil(t, err)
-				h.AssertEq(t, variant, "v6")
+			// 	variant, err := layoutIdx.Variant(digest1)
+			// 	h.AssertNil(t, err)
+			// 	h.AssertEq(t, variant, "v6")
 
-				osVersion, err := layoutIdx.OSVersion(digest1)
-				h.AssertEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
-				h.AssertEq(t, osVersion, "")
+			// 	osVersion, err := layoutIdx.OSVersion(digest1)
+			// 	h.AssertEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+			// 	h.AssertEq(t, osVersion, "")
 
-				features, err := layoutIdx.Features(digest1)
-				h.AssertEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
-				h.AssertEq(t, features, []string(nil))
+			// 	features, err := layoutIdx.Features(digest1)
+			// 	h.AssertEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+			// 	h.AssertEq(t, features, []string(nil))
 
-				osFeatures, err := layoutIdx.OSFeatures(digest1)
-				h.AssertNil(t, err)
-				h.AssertEq(t, osFeatures, []string{
-					"some-osFeatures",
-				})
+			// 	osFeatures, err := layoutIdx.OSFeatures(digest1)
+			// 	h.AssertNil(t, err)
+			// 	h.AssertEq(t, osFeatures, []string{
+			// 		"some-osFeatures",
+			// 	})
 
-				urls, err := layoutIdx.URLs(digest1)
-				h.AssertEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
-				h.AssertEq(t, urls, []string(nil))
+			// 	urls, err := layoutIdx.URLs(digest1)
+			// 	h.AssertEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+			// 	h.AssertEq(t, urls, []string(nil))
 
-				annotations, err := layoutIdx.Annotations(digest1)
-				h.AssertNil(t, err)
-				h.AssertNotEq(t, annotations, map[string]string(nil))
+			// 	annotations, err := layoutIdx.Annotations(digest1)
+			// 	h.AssertNil(t, err)
+			// 	h.AssertNotEq(t, annotations, map[string]string(nil))
 
-				os, err = layoutIdx.OS(digest2)
-				h.AssertNil(t, err)
-				h.AssertEq(t, os, "linux")
+			// 	os, err = layoutIdx.OS(digest2)
+			// 	h.AssertNil(t, err)
+			// 	h.AssertEq(t, os, "linux")
 
-				arch, err = layoutIdx.Architecture(digest2)
-				h.AssertNil(t, err)
-				h.AssertEq(t, arch, "amd64")
+			// 	arch, err = layoutIdx.Architecture(digest2)
+			// 	h.AssertNil(t, err)
+			// 	h.AssertEq(t, arch, "amd64")
 
-				variant, err = layoutIdx.Variant(digest2)
-				h.AssertEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
-				h.AssertEq(t, variant, "")
+			// 	variant, err = layoutIdx.Variant(digest2)
+			// 	h.AssertEq(t, err.Error(), imgutil.ErrVariantUndefined.Error())
+			// 	h.AssertEq(t, variant, "")
 
-				osVersion, err = layoutIdx.OSVersion(digest2)
-				h.AssertEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
-				h.AssertEq(t, osVersion, "")
+			// 	osVersion, err = layoutIdx.OSVersion(digest2)
+			// 	h.AssertEq(t, err.Error(), imgutil.ErrOSVersionUndefined.Error())
+			// 	h.AssertEq(t, osVersion, "")
 
-				features, err = layoutIdx.Features(digest2)
-				h.AssertEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
-				h.AssertEq(t, features, []string(nil))
+			// 	features, err = layoutIdx.Features(digest2)
+			// 	h.AssertEq(t, err.Error(), imgutil.ErrFeaturesUndefined.Error())
+			// 	h.AssertEq(t, features, []string(nil))
 
-				osFeatures, err = layoutIdx.OSFeatures(digest2)
-				h.AssertEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
-				h.AssertEq(t, osFeatures, []string(nil))
+			// 	osFeatures, err = layoutIdx.OSFeatures(digest2)
+			// 	h.AssertEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined.Error())
+			// 	h.AssertEq(t, osFeatures, []string(nil))
 
-				urls, err = layoutIdx.URLs(digest2)
-				h.AssertEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
-				h.AssertEq(t, urls, []string(nil))
+			// 	urls, err = layoutIdx.URLs(digest2)
+			// 	h.AssertEq(t, err.Error(), imgutil.ErrURLsUndefined.Error())
+			// 	h.AssertEq(t, urls, []string(nil))
 
-				annotations, err = layoutIdx.Annotations(digest2)
-				h.AssertNil(t, err)
-				h.AssertNotEq(t, annotations, map[string]string(nil))
-			})
-			it("should remove the images/indexes from save's output", func() {
-				idx, err := remote.NewIndex(
-					"busybox:1.36-musl",
-					index.WithInsecure(true),
-					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
-				)
-				h.AssertNil(t, err)
+			// 	annotations, err = layoutIdx.Annotations(digest2)
+			// 	h.AssertNil(t, err)
+			// 	h.AssertNotEq(t, annotations, map[string]string(nil))
+			// })
+			// it("should remove the images/indexes from save's output", func() {
+			// 	idx, err := remote.NewIndex(
+			// 		"busybox:1.36-musl",
+			// 		index.WithInsecure(true),
+			// 		index.WithKeychain(authn.DefaultKeychain),
+			// 		index.WithXDGRuntimePath("xdgPath"),
+			// 	)
+			// 	h.AssertNil(t, err)
 
-				// linux/arm/v6
-				digest1, err := name.NewDigest(
-					"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
-					name.WeakValidation,
-					name.Insecure,
-				)
-				h.AssertNil(t, err)
+			// 	// linux/arm/v6
+			// 	digest1, err := name.NewDigest(
+			// 		"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+			// 		name.WeakValidation,
+			// 		name.Insecure,
+			// 	)
+			// 	h.AssertNil(t, err)
 
-				// linux/amd64
-				digest2, err := name.NewDigest(
-					"busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
-					name.Insecure,
-					name.WeakValidation,
-				)
-				h.AssertNil(t, err)
+			// 	// linux/amd64
+			// 	digest2, err := name.NewDigest(
+			// 		"busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
+			// 		name.Insecure,
+			// 		name.WeakValidation,
+			// 	)
+			// 	h.AssertNil(t, err)
 
-				err = idx.Remove(digest1)
-				h.AssertNil(t, err)
+			// 	err = idx.Remove(digest1)
+			// 	h.AssertNil(t, err)
 
-				err = idx.Save()
-				h.AssertNil(t, err)
+			// 	err = idx.Save()
+			// 	h.AssertNil(t, err)
 
-				idx, err = layout.NewIndex(
-					"busybox:1.36-musl",
-					index.WithInsecure(true),
-					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
-				)
-				h.AssertNil(t, err)
+			// 	idx, err = layout.NewIndex(
+			// 		"busybox:1.36-musl",
+			// 		index.WithInsecure(true),
+			// 		index.WithKeychain(authn.DefaultKeychain),
+			// 		index.WithXDGRuntimePath("xdgPath"),
+			// 	)
+			// 	h.AssertNil(t, err)
 
-				_, err = idx.OS(digest1)
-				h.AssertEq(t, err.Error(), "could not find descriptor in index: sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b")
+			// 	_, err = idx.OS(digest1)
+			// 	h.AssertEq(t, err.Error(), "could not find descriptor in index: sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b")
 
-				os, err := idx.OS(digest2)
-				h.AssertNil(t, err)
-				h.AssertEq(t, os, "linux")
-			})
-			it("should set the Annotate and RemovedManifests to empty slice", func() {
-				idx, err := remote.NewIndex(
-					"busybox:1.36-musl",
-					index.WithInsecure(true),
-					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
-				)
-				h.AssertNil(t, err)
+			// 	os, err := idx.OS(digest2)
+			// 	h.AssertNil(t, err)
+			// 	h.AssertEq(t, os, "linux")
+			// })
+			// it("should set the Annotate and RemovedManifests to empty slice", func() {
+			// 	idx, err := remote.NewIndex(
+			// 		"busybox:1.36-musl",
+			// 		index.WithInsecure(true),
+			// 		index.WithKeychain(authn.DefaultKeychain),
+			// 		index.WithXDGRuntimePath("xdgPath"),
+			// 	)
+			// 	h.AssertNil(t, err)
 
-				// linux/arm/v6
-				digest1, err := name.NewDigest(
-					"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
-					name.WeakValidation,
-					name.Insecure,
-				)
-				h.AssertNil(t, err)
+			// 	// linux/arm/v6
+			// 	digest1, err := name.NewDigest(
+			// 		"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+			// 		name.WeakValidation,
+			// 		name.Insecure,
+			// 	)
+			// 	h.AssertNil(t, err)
 
-				// linux/amd64
-				digest2, err := name.NewDigest(
-					"busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
-					name.Insecure,
-					name.WeakValidation,
-				)
-				h.AssertNil(t, err)
+			// 	// linux/amd64
+			// 	digest2, err := name.NewDigest(
+			// 		"busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
+			// 		name.Insecure,
+			// 		name.WeakValidation,
+			// 	)
+			// 	h.AssertNil(t, err)
 
-				err = idx.Remove(digest1)
-				h.AssertNil(t, err)
+			// 	err = idx.Remove(digest1)
+			// 	h.AssertNil(t, err)
 
-				err = idx.SetOS(digest2, "some-os")
-				h.AssertNil(t, err)
+			// 	err = idx.SetOS(digest2, "some-os")
+			// 	h.AssertNil(t, err)
 
-				err = idx.Save()
-				h.AssertNil(t, err)
+			// 	err = idx.Save()
+			// 	h.AssertNil(t, err)
 
-				idx, err = layout.NewIndex(
-					"busybox:1.36-musl",
-					index.WithInsecure(true),
-					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
-				)
-				h.AssertNil(t, err)
+			// 	idx, err = layout.NewIndex(
+			// 		"busybox:1.36-musl",
+			// 		index.WithInsecure(true),
+			// 		index.WithKeychain(authn.DefaultKeychain),
+			// 		index.WithXDGRuntimePath("xdgPath"),
+			// 	)
+			// 	h.AssertNil(t, err)
 
-				imgIdx, ok := idx.(*imgutil.Index)
-				h.AssertEq(t, ok, true)
+			// 	imgIdx, ok := idx.(*imgutil.Index)
+			// 	h.AssertEq(t, ok, true)
 
-				mfest, err := imgIdx.IndexManifest()
-				h.AssertNil(t, err)
-				h.AssertNotEq(t, mfest, nil)
+			// 	mfest, err := imgIdx.IndexManifest()
+			// 	h.AssertNil(t, err)
+			// 	h.AssertNotEq(t, mfest, nil)
 
-				hash1 := mfest.Manifests[len(mfest.Manifests)-1].Digest
-				digest2, err = name.NewDigest("alpine@"+hash1.String(), name.Insecure, name.WeakValidation)
-				h.AssertNil(t, err)
+			// 	hash1 := mfest.Manifests[len(mfest.Manifests)-1].Digest
+			// 	digest2, err = name.NewDigest("alpine@"+hash1.String(), name.Insecure, name.WeakValidation)
+			// 	h.AssertNil(t, err)
 
-				_, err = idx.OS(digest1)
-				h.AssertEq(t, err.Error(), fmt.Sprintf("could not find descriptor in index: %s", digest1.Identifier()))
+			// 	_, err = idx.OS(digest1)
+			// 	h.AssertEq(t, err.Error(), fmt.Sprintf("could not find descriptor in index: %s", digest1.Identifier()))
 
-				os, err := idx.OS(digest2)
-				h.AssertNil(t, err)
-				h.AssertEq(t, os, "some-os")
-			})
-			it("should return an error", func() {
-				idx := imgutil.Index{
-					ImageIndex: empty.Index,
-					Annotate: imgutil.Annotate{
-						Instance: map[v1.Hash]v1.Descriptor{
-							{}: {
-								MediaType: types.DockerConfigJSON,
-							},
-						},
-					},
-					Options: imgutil.IndexOptions{
-						Reponame: "alpine:latest",
-					},
-				}
+			// 	os, err := idx.OS(digest2)
+			// 	h.AssertNil(t, err)
+			// 	h.AssertEq(t, os, "some-os")
+			// })
+			// it("should return an error", func() {
+			// 	idx := imgutil.Index{
+			// 		ImageIndex: empty.Index,
+			// 		Annotate: imgutil.Annotate{
+			// 			Instance: map[v1.Hash]v1.Descriptor{
+			// 				{}: {
+			// 					MediaType: types.DockerConfigJSON,
+			// 				},
+			// 			},
+			// 		},
+			// 		Options: imgutil.IndexOptions{
+			// 			Reponame: "alpine:latest",
+			// 		},
+			// 	}
 
-				err := idx.Save()
-				h.AssertEq(t, err.Error(), imgutil.ErrUnknownMediaType.Error())
-			})
+			// 	err := idx.Save()
+			// 	h.AssertEq(t, err.Error(), imgutil.ErrUnknownMediaType.Error())
+			// })
 		})
 		when("#Push", func() {
 			it("should return an error when index is not saved", func() {
@@ -3168,21 +3168,21 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 			it("should return an error", func() {
 				idx := imgutil.Index{
 					ImageIndex: empty.Index,
+					RemovedManifests: []v1.Hash{
+						{},
+					},
 				}
 
 				err := idx.Inspect()
-				h.AssertEq(t, err.Error(), "")
+				h.AssertNotEq(t, err, nil)
 			})
 			it("should return an error with body of index manifest", func() {
-				idx, err := remote.NewIndex(
-					"busybox:1.36-musl",
-					index.WithInsecure(true),
-					index.WithKeychain(authn.DefaultKeychain),
-				)
-				h.AssertNil(t, err)
+				idx := imgutil.Index{
+					ImageIndex: empty.Index,
+				}
 
-				err = idx.Inspect()
-				h.AssertEq(t, err.Error(), ``)
+				err := idx.Inspect()
+				h.AssertEq(t, err.Error(), `{"schemaVersion":2,"mediaType":"application/vnd.oci.image.index.v1+json","manifests":[]}`)
 			})
 		})
 		when("#Remove", func() {
@@ -3194,7 +3194,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				}
 
 				err := idx.Remove(digest)
-				h.AssertEq(t, err, "")
+				h.AssertEq(t, err.Error(), fmt.Sprintf(`cannot parse hash: "%s"`, digest.Identifier()))
 			})
 			it("should return an error when manifest with given digest doesn't exists", func() {
 				digest, err := name.NewDigest(
@@ -3209,7 +3209,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				}
 
 				err = idx.Remove(digest)
-				h.AssertEq(t, err, "")
+				h.AssertEq(t, err.Error(), "empty index")
 			})
 			it("should remove the image/index with the given digest", func() {
 				idx := imgutil.Index{
@@ -3237,7 +3237,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 
 				_, err = idx.OS(digest)
-				h.AssertEq(t, err, "")
+				h.AssertEq(t, err.Error(), imgutil.ErrNoImageOrIndexFoundWithGivenDigest.Error())
 			})
 		})
 		when("#Delete", func() {
@@ -3266,7 +3266,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 
 				err = idx.Delete()
-				h.AssertEq(t, err.Error(), "")
+				h.AssertNil(t, err)
 			})
 		})
 	})

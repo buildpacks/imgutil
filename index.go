@@ -1215,9 +1215,15 @@ func addIndexAddendum(i *Index, ref name.Reference, desc v1.Descriptor, addEndum
 			}
 		}
 
-		if desc.Digest != (v1.Hash{}) {
-			upsertDesc.Digest = desc.Digest
-		}
+		// if desc.Digest != (v1.Hash{}) {
+		// 	upsertDesc.Digest = desc.Digest
+		// }
+
+		// hash, err := img.Digest()
+		// if err != nil {
+		// 	return addEndums, err
+		// }
+		// upsertDesc.Digest = hash
 
 		if len(desc.Annotations) != 0 {
 			if len(upsertDesc.Annotations) == 0 {
