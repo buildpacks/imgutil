@@ -175,9 +175,8 @@ func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string) e
 		return err
 	}
 	var (
-		layerPaths          []string
-		blankIdx            int
-		processingBaseLayer = true
+		layerPaths []string
+		blankIdx   int
 	)
 	for _, layer := range layers {
 		var layerName string
@@ -185,7 +184,7 @@ func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string) e
 		if err != nil {
 			return err
 		}
-		if size == -1 && processingBaseLayer { // layer facade fronting empty layer
+		if size == -1 { // layer facade fronting empty layer
 			layerName = fmt.Sprintf("blank_%d", blankIdx)
 			blankIdx++
 			hdr := &tar.Header{Name: layerName, Mode: 0644, Size: 0}
@@ -193,7 +192,6 @@ func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string) e
 				return err
 			}
 		} else {
-			processingBaseLayer = false // once we have layer data, we can't rely on future layers being in the daemon
 			layerName, err = s.addLayerToTar(tw, layer)
 			if err != nil {
 				return err
