@@ -255,6 +255,16 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					h.AssertError(t, err, "has no layers")
 				})
 			})
+
+			when("existing config has extra fields", func() {
+				it.Focus("returns an unmodified digest", func() {
+					img, err := layout.NewImage(imagePath, layout.FromBaseImagePath(filepath.Join("testdata", "layout", "busybox-sparse")))
+					h.AssertNil(t, err)
+					digest, err := img.Digest()
+					h.AssertNil(t, err)
+					h.AssertEq(t, digest.String(), "sha256:f75f3d1a317fc82c793d567de94fc8df2bece37acd5f2bd364a0d91a0d1f3dab")
+				})
+			})
 		})
 
 		when("#WithMediaTypes", func() {
