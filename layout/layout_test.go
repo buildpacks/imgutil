@@ -258,7 +258,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			when("existing config has extra fields", func() {
 				it("returns an unmodified digest", func() {
-					img, err := layout.NewImage(imagePath, layout.FromBaseImagePath(filepath.Join("testdata", "layout", "busybox-latest")))
+					img, err := layout.NewImage(imagePath, layout.FromBaseImagePath(filepath.Join("testdata", "layout", "busybox-sparse")))
 					h.AssertNil(t, err)
 					digest, err := img.Digest()
 					h.AssertNil(t, err)
