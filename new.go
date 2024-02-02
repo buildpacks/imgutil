@@ -202,6 +202,15 @@ func EnsureMediaTypesAndLayers(image v1.Image, requestedTypes MediaTypes, mutate
 		return nil, false, fmt.Errorf("failed to append layers: %w", err)
 	}
 
+	// (5) force compute
+	afterLayers, err := retImage.Layers()
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to get layers: %w", err)
+	}
+	if len(afterLayers) != len(beforeLayers) {
+		return nil, false, fmt.Errorf("expected %d layers; got %d", len(beforeLayers), len(afterLayers))
+	}
+
 	return retImage, true, nil
 }
 
