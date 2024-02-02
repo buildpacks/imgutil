@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -257,6 +258,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			when("existing config has extra fields", func() {
+				it.Before(func() {
+					if runtime.GOOS == "windows" {
+						t.Skip("Due to line endings the digest is different on Windows")
+					}
+				})
 				it("returns an unmodified digest", func() {
 					img, err := layout.NewImage(imagePath, layout.FromBaseImagePath(filepath.Join("testdata", "layout", "busybox-sparse")))
 					h.AssertNil(t, err)
