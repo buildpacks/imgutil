@@ -393,11 +393,11 @@ func (i *CNBImageCore) ReuseLayer(diffID string) error {
 	}
 	idx, err := getLayerIndex(diffID, i.previousImage)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get layer index: %w", err)
 	}
 	previousHistory, err := getHistory(idx, i.previousImage)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get history: %w", err)
 	}
 	return i.ReuseLayerWithHistory(diffID, previousHistory)
 }
@@ -405,11 +405,11 @@ func (i *CNBImageCore) ReuseLayer(diffID string) error {
 func getLayerIndex(forDiffID string, fromImage v1.Image) (int, error) {
 	layerHash, err := v1.NewHash(forDiffID)
 	if err != nil {
-		return -1, err
+		return -1, fmt.Errorf("failed to get layer hash: %w", err)
 	}
 	configFile, err := getConfigFile(fromImage)
 	if err != nil {
-		return -1, err
+		return -1, fmt.Errorf("failed to get config file: %w", err)
 	}
 	for idx, configHash := range configFile.RootFS.DiffIDs {
 		if layerHash.String() == configHash.String() {
@@ -433,11 +433,11 @@ func getHistory(forIndex int, fromImage v1.Image) (v1.History, error) {
 func (i *CNBImageCore) ReuseLayerWithHistory(diffID string, history v1.History) error {
 	layerHash, err := v1.NewHash(diffID)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get layer hash: %w", err)
 	}
 	layer, err := i.previousImage.LayerByDiffID(layerHash)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get layer by diffID: %w", err)
 	}
 	if i.preserveHistory {
 		history.Created = v1.Time{Time: i.createdAt}

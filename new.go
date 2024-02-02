@@ -34,8 +34,6 @@ func NewCNBImage(options ImageOptions) (*CNBImageCore, error) {
 		}
 	}
 
-	// FIXME: we can call EnsureMediaTypesAndLayers here when locallayout supports replacing the underlying image
-
 	// ensure windows
 	if err = prepareNewWindowsImageIfNeeded(image); err != nil {
 		return nil, err
@@ -130,113 +128,102 @@ func emptyV1(withPlatform Platform, withMediaTypes MediaTypes) (v1.Image, error)
 	if err != nil {
 		return nil, err
 	}
-	return EnsureMediaTypes(image, withMediaTypes)
+	image, _, err = EnsureMediaTypesAndLayers(image, withMediaTypes, PreserveLayers)
+	return image, err
 }
 
-func PreserveLayers(idx int, layer v1.Layer) (v1.Layer, error) {
+func PreserveLayers(_ int, layer v1.Layer) (v1.Layer, error) {
 	return layer, nil
-}
-
-// EnsureMediaTypes replaces the provided image with a new image that has the desired media types.
-// It does this by constructing a manifest and config from the provided image,
-// and adding the layers from the provided image to the new image with the right media type.
-// If requested types are missing or default, it does nothing.
-func EnsureMediaTypes(image v1.Image, requestedTypes MediaTypes) (v1.Image, error) {
-	if requestedTypes == MissingTypes || requestedTypes == DefaultTypes {
-		return image, nil
-	}
-	return EnsureMediaTypesAndLayers(image, requestedTypes, PreserveLayers)
 }
 
 // EnsureMediaTypesAndLayers replaces the provided image with a new image that has the desired media types.
 // It does this by constructing a manifest and config from the provided image,
 // and adding the layers from the provided image to the new image with the right media type.
+// If requested types are missing or default, it does nothing.
 // While adding the layers, each layer can be additionally mutated by providing a "mutate layer" function.
-func EnsureMediaTypesAndLayers(image v1.Image, requestedTypes MediaTypes, mutateLayer func(idx int, layer v1.Layer) (v1.Layer, error)) (v1.Image, error) {
+func EnsureMediaTypesAndLayers(image v1.Image, requestedTypes MediaTypes, mutateLayer func(idx int, layer v1.Layer) (v1.Layer, error)) (v1.Image, bool, error) {
+	if requestedTypes == MissingTypes || requestedTypes == DefaultTypes {
+		return image, false, nil
+	}
 	// (1) get data from the original image
 	// manifest
 	beforeManifest, err := image.Manifest()
 	if err != nil {
-		return nil, err
+		return nil, false, fmt.Errorf("failed to get manifest: %w", err)
 	}
 	// config
 	beforeConfig, err := image.ConfigFile()
 	if err != nil {
-		return nil, err
+		return nil, false, fmt.Errorf("failed to get config: %w", err)
 	}
 	// layers
 	beforeLayers, err := image.Layers()
 	if err != nil {
-		return nil, err
+		return nil, false, fmt.Errorf("failed to get layers: %w", err)
 	}
-	layersToSet := make([]v1.Layer, len(beforeLayers))
-	for idx, layer := range beforeLayers {
-		mutatedLayer, err := mutateLayer(idx, layer)
+	var layersToAdd []v1.Layer
+	for idx, l := range beforeLayers {
+		layer, err := mutateLayer(idx, l)
 		if err != nil {
-			return nil, err
+			return nil, false, fmt.Errorf("failed to mutate layer: %w", err)
 		}
-		layersToSet[idx] = mutatedLayer
+		layersToAdd = append(layersToAdd, layer)
 	}
 
-	// (2) construct a new image with the right manifest media type
+	// (2) construct a new image manifest with the right media type
 	manifestType := requestedTypes.ManifestType()
 	if manifestType == "" {
 		manifestType = beforeManifest.MediaType
 	}
 	retImage := mutate.MediaType(empty.Image, manifestType)
 
-	// (3) set config media type
+	// (3) set config with the right media type
 	configType := requestedTypes.ConfigType()
 	if configType == "" {
 		configType = beforeManifest.Config.MediaType
 	}
-	// zero out history and diff IDs, as these will be updated when we call `mutate.Append` to add the layers
+	// zero out diff IDs and history, these will be added back when we append the layers
 	beforeHistory := beforeConfig.History
 	beforeConfig.History = []v1.History{}
-	beforeConfig.RootFS.DiffIDs = make([]v1.Hash, 0)
-	// set config
+	beforeConfig.RootFS.DiffIDs = []v1.Hash{}
 	retImage, err = mutate.ConfigFile(retImage, beforeConfig)
 	if err != nil {
-		return nil, err
+		return nil, false, fmt.Errorf("failed to set config: %w", err)
 	}
 	retImage = mutate.ConfigMediaType(retImage, configType)
+
 	// (4) set layers with the right media type
-	additions := layersAddendum(layersToSet, beforeHistory, requestedTypes.LayerType())
+	additions := layersAddendum(layersToAdd, beforeHistory, requestedTypes.LayerType())
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	retImage, err = mutate.Append(retImage, additions...)
 	if err != nil {
-		return nil, err
+		return nil, false, fmt.Errorf("failed to append layers: %w", err)
 	}
-	afterLayers, err := retImage.Layers()
-	if err != nil {
-		return nil, err
-	}
-	if len(afterLayers) != len(beforeLayers) {
-		return nil, fmt.Errorf("found %d layers for image; expected %d", len(afterLayers), len(beforeLayers))
-	}
-	return retImage, nil
+
+	return retImage, true, nil
 }
 
 // layersAddendum creates an Addendum array with the given layers
 // and the desired media type
 func layersAddendum(layers []v1.Layer, history []v1.History, requestedType types.MediaType) []mutate.Addendum {
 	addendums := make([]mutate.Addendum, 0)
+	history = NormalizedHistory(history, len(layers))
 	if len(history) != len(layers) {
 		history = make([]v1.History, len(layers))
 	}
 	var err error
-	for idx, layer := range layers {
+	for idx, l := range layers {
 		layerType := requestedType
 		if requestedType == "" {
 			// try to get a non-empty media type
-			if layerType, err = layer.MediaType(); err != nil {
+			if layerType, err = l.MediaType(); err != nil {
 				layerType = ""
 			}
 		}
 		addendums = append(addendums, mutate.Addendum{
-			Layer:     layer,
+			Layer:     l,
 			History:   history[idx],
 			MediaType: layerType,
 		})
