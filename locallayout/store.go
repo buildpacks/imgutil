@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/image"
@@ -17,6 +18,7 @@ import (
 	"github.com/docker/docker/pkg/jsonmessage"
 	registryName "github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/buildpacks/imgutil"
@@ -29,6 +31,7 @@ type Store struct {
 	// required
 	dockerClient DockerClient
 	// optional
+	downloadOnce *sync.Once
 	onDiskLayers []v1.Layer
 }
 
@@ -43,8 +46,6 @@ type DockerClient interface {
 	Info(ctx context.Context) (types.Info, error)
 	ServerVersion(ctx context.Context) (types.Version, error)
 }
-
-var _ imgutil.ImageStore = &Store{}
 
 // images
 
@@ -65,17 +66,13 @@ func (s *Store) Delete(identifier string) error {
 	return err
 }
 
-func (s *Store) Save(image imgutil.IdentifiableV1Image, withName string, withAdditionalNames ...string) (string, error) {
+func (s *Store) Save(image *Image, withName string, withAdditionalNames ...string) (string, error) {
 	withName = tryNormalizing(withName)
 
 	// save
 	inspect, err := s.doSave(image, withName)
 	if err != nil {
-		identifier, err := image.Identifier()
-		if err != nil {
-			return "", err
-		}
-		if err = s.DownloadLayersFor(identifier.String()); err != nil {
+		if err = image.ensureLayers(); err != nil {
 			return "", err
 		}
 		inspect, err = s.doSave(image, withName)
@@ -223,7 +220,7 @@ func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer) (string, error) {
 	}
 	withName := fmt.Sprintf("/%s.tar", layerDiffID.String())
 
-	uncompressedSize, err := getLayerSize(layer)
+	uncompressedSize, err := getLayerSize(layer) // FIXME: this degrades performance compared to `local` package
 	if err != nil {
 		return "", err
 	}
@@ -292,7 +289,7 @@ func ensureReaderClosed(r io.ReadCloser) error {
 	return err
 }
 
-func (s *Store) SaveFile(image imgutil.IdentifiableV1Image, withName string) (string, error) {
+func (s *Store) SaveFile(image *Image, withName string) (string, error) {
 	withName = tryNormalizing(withName)
 
 	f, err := os.CreateTemp("", "imgutil.local.image.export.*.tar")
@@ -310,11 +307,7 @@ func (s *Store) SaveFile(image imgutil.IdentifiableV1Image, withName string) (st
 	// (1) WithPreviousImage(), or (2) FromBaseImage().
 	// The former is only relevant if ReuseLayers() has been called which takes care of resolving them.
 	// The latter case needs to be handled explicitly.
-	identifier, err := image.Identifier()
-	if err != nil {
-		return "", err
-	}
-	if err = s.DownloadLayersFor(identifier.String()); err != nil {
+	if err = image.ensureLayers(); err != nil {
 		return "", err
 	}
 
@@ -347,40 +340,39 @@ func (s *Store) SaveFile(image imgutil.IdentifiableV1Image, withName string) (st
 
 // layers
 
-func (s *Store) DownloadLayersFor(identifier string) error {
-	layers, err := downloadLayersFor(identifier, s.dockerClient)
-	if err != nil {
-		return err
-	}
-	s.onDiskLayers = append(s.onDiskLayers, layers...)
-	return nil
+func (s *Store) downloadLayersFor(identifier string) error {
+	var err error
+	s.downloadOnce.Do(func() {
+		err = s.doDownloadLayersFor(identifier)
+	})
+	return err
 }
 
-func downloadLayersFor(identifier string, dockerClient DockerClient) ([]v1.Layer, error) {
+func (s *Store) doDownloadLayersFor(identifier string) error {
 	if identifier == "" {
-		return nil, nil
+		return nil
 	}
 	ctx := context.Background()
 
-	imageReader, err := dockerClient.ImageSave(ctx, []string{identifier})
+	imageReader, err := s.dockerClient.ImageSave(ctx, []string{identifier})
 	if err != nil {
-		return nil, fmt.Errorf("saving base image with ID %q from the docker daemon: %w", identifier, err)
+		return fmt.Errorf("saving base image with ID %q from the docker daemon: %w", identifier, err)
 	}
 	defer ensureReaderClosed(imageReader)
 
 	tmpDir, err := os.MkdirTemp("", "imgutil.local.image.")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temp dir: %w", err)
+		return fmt.Errorf("failed to create temp dir: %w", err)
 	}
 
 	err = untar(imageReader, tmpDir)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	mf, err := os.Open(filepath.Clean(filepath.Join(tmpDir, "manifest.json")))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer mf.Close()
 
@@ -389,15 +381,15 @@ func downloadLayersFor(identifier string, dockerClient DockerClient) ([]v1.Layer
 		Layers []string
 	}
 	if err := json.NewDecoder(mf).Decode(&manifest); err != nil {
-		return nil, err
+		return err
 	}
 	if len(manifest) != 1 {
-		return nil, fmt.Errorf("manifest.json had unexpected number of entries: %d", len(manifest))
+		return fmt.Errorf("manifest.json had unexpected number of entries: %d", len(manifest))
 	}
 
 	cfg, err := os.Open(filepath.Clean(filepath.Join(tmpDir, manifest[0].Config)))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer cfg.Close()
 	var configFile struct {
@@ -406,22 +398,17 @@ func downloadLayersFor(identifier string, dockerClient DockerClient) ([]v1.Layer
 		} `json:"rootfs"`
 	}
 	if err = json.NewDecoder(cfg).Decode(&configFile); err != nil {
-		return nil, err
+		return err
 	}
 
-	layers := make([]v1.Layer, len(configFile.RootFS.DiffIDs))
-	for idx, diffID := range configFile.RootFS.DiffIDs {
-		var h v1.Hash
-		h, err = v1.NewHash(diffID)
+	for idx := range configFile.RootFS.DiffIDs {
+		layer, err := tarball.LayerFromFile(filepath.Join(tmpDir, manifest[0].Layers[idx]))
 		if err != nil {
-			return nil, err
+			return err
 		}
-		layers[idx] = &v1LayerFacade{
-			diffID:            h,
-			optionalLayerPath: filepath.Join(tmpDir, manifest[0].Layers[idx]),
-		}
+		s.onDiskLayers = append(s.onDiskLayers, layer)
 	}
-	return layers, nil
+	return nil
 }
 
 func untar(r io.Reader, dest string) error {
@@ -488,6 +475,23 @@ func cleanPath(dest, header string) (string, error) {
 	return "", fmt.Errorf("bad filepath: %s", header)
 }
 
-func (s *Store) Layers() []v1.Layer {
-	return s.onDiskLayers
+func (s *Store) LayerByDiffID(h v1.Hash) (v1.Layer, error) {
+	layer := findLayer(h, s.onDiskLayers)
+	if layer == nil {
+		return nil, fmt.Errorf("failed to find layer with diff ID %q", h.String())
+	}
+	return layer, nil
+}
+
+func findLayer(withHash v1.Hash, inLayers []v1.Layer) v1.Layer {
+	for _, layer := range inLayers {
+		layerHash, err := layer.DiffID()
+		if err != nil {
+			continue
+		}
+		if layerHash.String() == withHash.String() {
+			return layer
+		}
+	}
+	return nil
 }

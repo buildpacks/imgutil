@@ -141,9 +141,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				image, err := sparse.NewImage(imagePath, testImage)
 				h.AssertNil(t, err)
 
-				err = image.Save()
-				h.AssertNil(t, err)
-
 				expectedDigest, err := testImage.Digest()
 				h.AssertNil(t, err)
 
