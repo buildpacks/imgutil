@@ -16,9 +16,13 @@ jobs:
       - name: Set up go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.20'
+          go-version-file: 'go.mod'
       - name: Test
         run: make test
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}  
   test-and-build-windows:
     runs-on: windows-2019
     steps:
@@ -31,6 +35,11 @@ jobs:
       - name: Set up go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.20'
+          go-version-file: 'go.mod'
       - name: Test
         run: make test
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+        
