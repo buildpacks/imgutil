@@ -7,15 +7,14 @@ import (
 )
 
 // NewImage returns a new Image saved on disk that can be modified
-func NewImage(path string, from v1.Image, ops ...layout.ImageOption) (*Image, error) {
-	allOps := append([]layout.ImageOption{layout.FromBaseImage(from)}, ops...)
-	img, err := layout.NewImage(path, allOps...)
+func NewImage(path string, from v1.Image, ops ...layout.ImageOption) (*layout.Image, error) {
+	ops = append([]layout.ImageOption{
+		layout.FromBaseImage(from),
+		layout.WithoutLayersWhenSaved(),
+	}, ops...)
+	img, err := layout.NewImage(path, ops...)
 	if err != nil {
 		return nil, err
 	}
-
-	image := &Image{
-		Image: *img,
-	}
-	return image, nil
+	return img, nil
 }

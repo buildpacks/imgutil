@@ -8,12 +8,14 @@ import (
 
 type ImageOptions struct {
 	BaseImageRepoName     string
+	PreviousImageRepoName string
 	Config                *v1.Config
 	CreatedAt             time.Time
-	Platform              Platform
-	PreserveHistory       bool
-	PreviousImageRepoName string
 	MediaTypes            MediaTypes
+	Platform              Platform
+	PreserveDigest        bool
+	PreserveHistory       bool
+	WithoutLayers         bool // only relevant for layout images
 
 	// These options are specified in each implementation's image constructor
 	BaseImage     v1.Image
