@@ -54,6 +54,7 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 		CNBImageCore:      cnbImage,
 		repoPath:          path,
 		saveWithoutLayers: options.WithoutLayers,
+		preserveDigest:    options.PreserveDigest,
 	}, nil
 }
 

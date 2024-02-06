@@ -15,6 +15,7 @@ type Image struct {
 	*imgutil.CNBImageCore
 	repoPath          string
 	saveWithoutLayers bool
+	preserveDigest    bool
 }
 
 func (i *Image) Kind() string {
