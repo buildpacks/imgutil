@@ -28,9 +28,12 @@ func TestIndex(t *testing.T) {
 }
 
 func testIndex(t *testing.T, when spec.G, it spec.S) {
+	var(
+		xdgPath = "xdgPath"
+	)
 	when("#ImageIndex", func() {
 		it.After(func() {
-			err := os.RemoveAll("xdgPath")
+			err := os.RemoveAll(xdgPath)
 			h.AssertNil(t, err)
 		})
 		when("#OS", func() {
@@ -106,7 +109,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"busybox:1.36-musl",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 				h.AssertNotEq(t, idx, v1.ImageIndex(nil))
@@ -149,7 +152,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"busybox:latest",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -268,7 +271,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				)
 				h.AssertNil(t, err)
 
-				idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath("xdgPath"))
+				idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath))
 				h.AssertNil(t, err)
 				h.AssertNotEq(t, idx, v1.ImageIndex(nil))
 
@@ -310,7 +313,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"busybox:latest",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -429,7 +432,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				)
 				h.AssertNil(t, err)
 
-				idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath("xdgPath"))
+				idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath))
 				h.AssertNil(t, err)
 				h.AssertNotEq(t, idx, v1.ImageIndex(nil))
 
@@ -471,7 +474,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"busybox:latest",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -590,7 +593,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				)
 				h.AssertNil(t, err)
 
-				idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath("xdgPath"))
+				idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath))
 				h.AssertNil(t, err)
 				h.AssertNotEq(t, idx, v1.ImageIndex(nil))
 
@@ -635,7 +638,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"busybox:latest",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -754,7 +757,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				)
 				h.AssertNil(t, err)
 
-				idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath("xdgPath"))
+				idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath))
 				h.AssertNil(t, err)
 				h.AssertNotEq(t, idx, v1.ImageIndex(nil))
 
@@ -799,7 +802,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"busybox:latest",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -918,7 +921,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				)
 				h.AssertNil(t, err)
 
-				idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath("xdgPath"))
+				idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath))
 				h.AssertNil(t, err)
 				h.AssertNotEq(t, idx, v1.ImageIndex(nil))
 
@@ -963,7 +966,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"busybox:latest",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -1043,7 +1046,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						"alpine:3.19.0",
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
-						index.WithXDGRuntimePath("xdgPath"),
+						index.WithXDGRuntimePath(xdgPath),
 					)
 					h.AssertNil(t, err)
 
@@ -1080,7 +1083,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					idx, err := remote.NewIndex("alpine:3.19.0", index.WithXDGRuntimePath("xdgPath"))
+					idx, err := remote.NewIndex("alpine:3.19.0", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 					h.AssertNotEq(t, idx, v1.ImageIndex(nil))
 
@@ -1131,7 +1134,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						"alpine:latest",
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
-						index.WithXDGRuntimePath("xdgPath"),
+						index.WithXDGRuntimePath(xdgPath),
 					)
 					h.AssertNil(t, err)
 
@@ -1216,7 +1219,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						"busybox:1.36-musl",
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
-						index.WithXDGRuntimePath("xdgPath"),
+						index.WithXDGRuntimePath(xdgPath),
 					)
 					h.AssertNil(t, err)
 
@@ -1255,7 +1258,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath("xdgPath"))
+					idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 					h.AssertNotEq(t, idx, v1.ImageIndex(nil))
 
@@ -1308,7 +1311,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						"busybox:latest",
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
-						index.WithXDGRuntimePath("xdgPath"),
+						index.WithXDGRuntimePath(xdgPath),
 					)
 					h.AssertNil(t, err)
 
@@ -1436,7 +1439,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				)
 				h.AssertNil(t, err)
 
-				idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath("xdgPath"))
+				idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath))
 				h.AssertNil(t, err)
 				h.AssertNotEq(t, idx, v1.ImageIndex(nil))
 
@@ -1483,7 +1486,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"busybox:latest",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -1533,17 +1536,20 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"unknown/index",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertEq(t, err.Error(), "GET https://index.docker.io/v2/unknown/index/manifests/latest: UNAUTHORIZED: authentication required; [map[Action:pull Class: Name:unknown/index Type:repository]]")
 			})
 			when("platform specific", func() {
 				it("should add platform specific image", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath("xdgPath"))
+					_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
+					h.AssertNil(t, err)
+
+					idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
-						"alpine:latest",
+						"alpine:3.19",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -1557,13 +1563,14 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					index := idx.(*imgutil.Index)
-					mfest, err := index.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-					h.AssertEq(t, len(mfest.Manifests), 1)
 
-					hash := mfest.Manifests[0].Digest
-					digest, err := name.NewDigest("alpine@"+hash.String(), name.WeakValidation, name.Insecure)
+					hashes := make([]v1.Hash, 0, len(index.Images))
+					for h2 := range index.Images {
+						hashes = append(hashes, h2)
+					}
+					h.AssertEq(t, len(hashes), 1)
+
+					digest, err := name.NewDigest("alpine@sha256:6457d53fb065d6f250e1504b9bc42d5b6c65941d57532c072d929dd0628977d0", name.WeakValidation, name.Insecure)
 					h.AssertNil(t, err)
 
 					os, err := index.OS(digest)
@@ -1599,7 +1606,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, annotations, map[string]string(nil))
 				})
 				it("should add annotations when WithAnnotations used for oci", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath("xdgPath"))
+					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -1620,12 +1627,13 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					index := idx.(*imgutil.Index)
-					mfest, err := index.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-					h.AssertEq(t, len(mfest.Manifests), 1)
+					hashes := make([]v1.Hash, 0, len(index.Images))
+					for h2 := range index.Images {
+						hashes = append(hashes, h2)
+					}
+					
 
-					hash := mfest.Manifests[0].Digest
+					hash := hashes[0]
 					digest, err := name.NewDigest("busybox@"+hash.String(), name.WeakValidation, name.Insecure)
 					h.AssertNil(t, err)
 
@@ -1665,7 +1673,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, v, "some-value")
 				})
 				it("should not add annotations when WithAnnotations used for docker", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath("xdgPath"))
+					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -1686,12 +1694,13 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					index := idx.(*imgutil.Index)
-					mfest, err := index.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-					h.AssertEq(t, len(mfest.Manifests), 1)
+					hashes := make([]v1.Hash, 0, len(index.Images))
+					for h2 := range index.Images {
+						hashes = append(hashes, h2)
+					}
+					h.AssertEq(t, len(hashes), 1)
 
-					hash := mfest.Manifests[0].Digest
+					hash := hashes[0]
 					digest, err := name.NewDigest("alpine@"+hash.String(), name.WeakValidation, name.Insecure)
 					h.AssertNil(t, err)
 
@@ -1730,7 +1739,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("target specific", func() {
 				it("should add target specific image", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath("xdgPath"))
+					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -1744,12 +1753,14 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					index := idx.(*imgutil.Index)
-					mfest, err := index.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-					h.AssertEq(t, len(mfest.Manifests), 1)
+					hashes := make([]v1.Hash, 0, len(index.Images))
+					for h2 := range index.Images {
+						hashes = append(hashes, h2)
+					}
+					h.AssertEq(t, len(hashes), 1)
+					
 
-					hash := mfest.Manifests[0].Digest
+					hash := hashes[0]
 					digest, err := name.NewDigest("alpine@"+hash.String(), name.WeakValidation, name.Insecure)
 					h.AssertNil(t, err)
 
@@ -1786,7 +1797,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, annotations, map[string]string(nil))
 				})
 				it("should add annotations when WithAnnotations used for oci", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath("xdgPath"))
+					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -1805,12 +1816,14 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					index := idx.(*imgutil.Index)
-					mfest, err := index.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-					h.AssertEq(t, len(mfest.Manifests), 1)
+					hashes := make([]v1.Hash, 0, len(index.Images))
+					for h2 := range index.Images {
+						hashes = append(hashes, h2)
+					}
+					h.AssertEq(t, len(hashes), 1)
+					
 
-					hash := mfest.Manifests[0].Digest
+					hash := hashes[0]
 					digest, err := name.NewDigest("busybox@"+hash.String(), name.WeakValidation, name.Insecure)
 					h.AssertNil(t, err)
 
@@ -1850,7 +1863,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, v, "some-value")
 				})
 				it("should not add annotations when WithAnnotations used for docker", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath("xdgPath"))
+					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -1869,12 +1882,13 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					index := idx.(*imgutil.Index)
-					mfest, err := index.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-					h.AssertEq(t, len(mfest.Manifests), 1)
-
-					hash := mfest.Manifests[0].Digest
+					hashes := make([]v1.Hash, 0, len(index.Images))
+					for h2 := range index.Images {
+						hashes = append(hashes, h2)
+					}
+					h.AssertEq(t, len(hashes), 1)
+					
+					hash := hashes[0]
 					digest, err := name.NewDigest("alpine@"+hash.String(), name.WeakValidation, name.Insecure)
 					h.AssertNil(t, err)
 
@@ -1913,7 +1927,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("image specific", func() {
 				it("should not change the digest of the image when added", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath("xdgPath"))
+					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -1927,12 +1941,13 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					index := idx.(*imgutil.Index)
-					mfest, err := index.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-					h.AssertEq(t, len(mfest.Manifests), 1)
-
-					hash := mfest.Manifests[0].Digest
+					hashes := make([]v1.Hash, 0, len(index.Images))
+					for h2 := range index.Images {
+						hashes = append(hashes, h2)
+					}
+					
+					h.AssertEq(t, len(hashes), 1)
+					hash := hashes[0]
 					digest, err := name.NewDigest(
 						"alpine@"+hash.String(),
 						name.WeakValidation,
@@ -1973,7 +1988,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, annotations, map[string]string(nil))
 				})
 				it("should annotate the annotations when Annotations provided for oci", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath("xdgPath"))
+					_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
+					h.AssertNil(t, err)
+
+					idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -1992,12 +2010,13 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					index := idx.(*imgutil.Index)
-					mfest, err := index.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-					h.AssertEq(t, len(mfest.Manifests), 1)
+					hashes := make([]v1.Hash, 0, len(index.Images))
+					for h2 := range index.Images {
+						hashes = append(hashes, h2)
+					}
 
-					hash := mfest.Manifests[0].Digest
+					h.AssertEq(t, len(hashes), 1)
+					hash := hashes[0]
 					digest, err := name.NewDigest("busybox@"+hash.String(), name.WeakValidation, name.Insecure)
 					h.AssertNil(t, err)
 
@@ -2037,7 +2056,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, v, "some-value")
 				})
 				it("should not annotate the annotations when Annotations provided for docker", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath("xdgPath"))
+					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -2056,12 +2075,13 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					index := idx.(*imgutil.Index)
-					mfest, err := index.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-					h.AssertEq(t, len(mfest.Manifests), 1)
+					hashes := make([]v1.Hash, 0, len(index.Images))
+					for h2 := range index.Images {
+						hashes = append(hashes, h2)
+					}
+					h.AssertEq(t, len(hashes), 1)
 
-					hash := mfest.Manifests[0].Digest
+					hash := hashes[0]
 					digest, err := name.NewDigest("alpine@"+hash.String(), name.WeakValidation, name.Insecure)
 					h.AssertNil(t, err)
 
@@ -2106,7 +2126,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					_, err := index.NewIndex(
 						"some/image:tag",
 						index.WithKeychain(authn.DefaultKeychain),
-						index.WithXDGRuntimePath("xdgPath"),
+						index.WithXDGRuntimePath(xdgPath),
 						index.WithFormat(types.DockerManifestList),
 					)
 					h.AssertNil(t, err)
@@ -2114,7 +2134,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := local.NewIndex(
 						"some/image:tag",
 						index.WithKeychain(authn.DefaultKeychain),
-						index.WithXDGRuntimePath("xdgPath"),
+						index.WithXDGRuntimePath(xdgPath),
 					)
 					h.AssertNil(t, err)
 
@@ -2125,6 +2145,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
+					// linux/amd64
 					digest1, err := name.NewDigest(
 						"alpine@sha256:13b7e62e8df80264dbb747995705a986aa530415763a6c58f84a3ca8af9a5bcd",
 						name.WeakValidation,
@@ -2132,6 +2153,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
+					// linux arm/v6
 					digest2, err := name.NewDigest(
 						"alpine@sha256:45eeb55d6698849eb12a02d3e9a323e3d8e656882ef4ca542d1dda0274231e84",
 						name.WeakValidation,
@@ -2207,7 +2229,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, annotations, map[string]string(nil))
 				})
 				it("should not ignore WithAnnotations for oci", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath("xdgPath"))
+					_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
+					h.AssertNil(t, err)
+
+					idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -2311,7 +2336,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, v, "some-value")
 				})
 				it("should ignore WithAnnotations for docker", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath("xdgPath"))
+					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -2416,7 +2441,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"alpine:3.19.0",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -2427,16 +2452,540 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"alpine:3.19.0",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
+			})
+			it("should save all added images", func() {
+				_, err := index.NewIndex(
+					"pack/imgutil", 
+					index.WithXDGRuntimePath(xdgPath), 
+					index.WithFormat(types.OCIImageIndex),
+				)
+				h.AssertNil(t, err)
+
+				idx1, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
+				h.AssertNil(t, err)
+
+				ref, err := name.ParseReference("busybox:1.36-musl", name.Insecure, name.WeakValidation)
+				h.AssertNil(t, err)
+
+				err = idx1.Add(ref, imgutil.WithAll(true))
+				h.AssertNil(t, err)
+
+				ii1, ok := idx1.(*imgutil.Index)
+				h.AssertEq(t, ok, true)
+
+				hashes := make([]v1.Hash, 0, len(ii1.Images))
+				for h2 := range ii1.Images {
+					hashes = append(hashes, h2)
+				}
+				h.AssertEq(t, len(hashes), 14)
+				
+
+				err = idx1.Save()
+				h.AssertNil(t, err)
+
+				idx2, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
+				h.AssertNil(t, err)
+
+				ii2, ok := idx2.(*imgutil.Index)
+				h.AssertEq(t, ok, true)
+
+				mfestSaved, err := ii2.IndexManifest()
+				h.AssertNil(t, err)
+				h.AssertNotEq(t, mfestSaved, nil)
+				h.AssertEq(t, len(mfestSaved.Manifests), 14)
+
+				// linux/amd64
+				imgRefStr := "busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56"
+				digest, err := name.NewDigest(imgRefStr, name.Insecure, name.WeakValidation)
+				h.AssertNil(t, err)
+
+				os, err := ii2.OS(digest)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "linux")
+			})
+			it("should save all added images with annotations", func() {
+				_, err := index.NewIndex(
+					"pack/imgutil", 
+					index.WithXDGRuntimePath(xdgPath), 
+					index.WithFormat(types.OCIImageIndex),
+				)
+				h.AssertNil(t, err)
+
+				idx1, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
+				h.AssertNil(t, err)
+
+				ref, err := name.ParseReference("busybox:1.36-musl", name.Insecure, name.WeakValidation)
+				h.AssertNil(t, err)
+
+				err = idx1.Add(
+					ref, 
+					imgutil.WithAll(true), 
+					imgutil.WithAnnotations(map[string]string{
+						"some-key":"some-value",
+					}),
+				)
+				h.AssertNil(t, err)
+
+				ii1, ok := idx1.(*imgutil.Index)
+				h.AssertEq(t, ok, true)
+
+				keys := make([]v1.Hash, 0, len(ii1.Images))
+				for h2 := range ii1.Images {
+					keys = append(keys, h2)
+				}
+				h.AssertEq(t, len(keys), 14)
+
+				err = idx1.Save()
+				h.AssertNil(t, err)
+
+				idx2, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
+				h.AssertNil(t, err)
+
+				ii2, ok := idx2.(*imgutil.Index)
+				h.AssertEq(t, ok, true)
+
+				mfestSaved, err := ii2.IndexManifest()
+				h.AssertNil(t, err)
+				h.AssertNotEq(t, mfestSaved, nil)
+				h.AssertEq(t, len(mfestSaved.Manifests), len(keys))
+
+				// linux/amd64
+				var imgRefStr1 string
+				for _, m := range mfestSaved.Manifests {
+					if m.Platform == nil {
+						m.Platform = &v1.Platform{}
+					}
+					if m.Platform.Architecture == "amd64" {
+						imgRefStr1 = "busybox@" + m.Digest.String()
+						break
+					}
+				}
+				h.AssertNotEq(t, imgRefStr1, "")
+				digest1, err := name.NewDigest(imgRefStr1, name.Insecure, name.WeakValidation)
+				h.AssertNil(t, err)
+
+				// linux/arm64
+				var imgRefStr2 string
+				for _, m := range mfestSaved.Manifests {
+					if m.Platform == nil {
+						m.Platform = &v1.Platform{}
+					}
+					if m.Platform.Architecture == "arm64" {
+						imgRefStr2 = "busybox@" + m.Digest.String()
+						break
+					}
+				}
+				h.AssertNotEq(t, imgRefStr2, "")
+				digest2, err := name.NewDigest(imgRefStr2, name.Insecure, name.WeakValidation)
+				h.AssertNil(t, err)
+
+				os, err := ii2.OS(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "linux")
+
+				arch, err := ii2.Architecture(digest1)
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "amd64")
+
+				annos, err := ii2.Annotations(digest1)
+				h.AssertNil(t, err)
+
+				v, ok := annos["some-key"]
+				h.AssertEq(t, ok, true)
+				h.AssertEq(t, v, "some-value")
+
+				os, err = ii2.OS(digest2)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "linux")
+
+				arch, err = ii2.Architecture(digest2)
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "arm64")
+
+				annos, err = ii2.Annotations(digest2)
+				h.AssertNil(t, err)
+
+				v, ok = annos["some-key"]
+				h.AssertEq(t, ok, true)
+				h.AssertEq(t, v, "some-value")
+			})
+			it("should save platform specific added image", func() {
+				_, err := index.NewIndex(
+					"pack/imgutil", 
+					index.WithXDGRuntimePath(xdgPath), 
+					index.WithFormat(types.OCIImageIndex),
+				)
+				h.AssertNil(t, err)
+
+				idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
+				h.AssertNil(t, err)
+
+				ref, err := name.ParseReference("busybox:1.36-musl", name.Insecure, name.WeakValidation)
+				h.AssertNil(t, err)
+
+				err = idx.Add(ref)
+				h.AssertNil(t, err)
+
+				ii, ok := idx.(*imgutil.Index)
+				h.AssertEq(t, ok, true)
+
+				keys := make([]v1.Hash, 0, len(ii.Images))
+				for h2 := range ii.Images {
+					keys = append(keys, h2)
+				}
+				h.AssertEq(t, len(keys), 1)
+
+				err = idx.Save()
+				h.AssertNil(t, err)
+
+				idx, err = layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
+				h.AssertNil(t, err)
+
+				ii, ok = idx.(*imgutil.Index)
+				h.AssertEq(t, ok, true)
+
+				mfestSaved, err := ii.IndexManifest()
+				h.AssertNil(t, err)
+				h.AssertNotEq(t, mfestSaved, nil)
+				h.AssertEq(t, len(mfestSaved.Manifests), len(keys))
+
+				imgRefStr := "busybox@"+ mfestSaved.Manifests[0].Digest.String()
+				digest, err := name.NewDigest(imgRefStr, name.Insecure, name.WeakValidation)
+				h.AssertNil(t, err)
+
+				os, err := ii.OS(digest)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, runtime.GOOS)
+
+				arch, err := ii.Architecture(digest)
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, runtime.GOARCH)
+			})
+			it("should save platform specific added image with annotations", func() {
+				_, err := index.NewIndex(
+					"pack/imgutil", 
+					index.WithXDGRuntimePath(xdgPath), 
+					index.WithFormat(types.OCIImageIndex),
+				)
+				h.AssertNil(t, err)
+
+				idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
+				h.AssertNil(t, err)
+
+				ref, err := name.ParseReference("busybox:1.36-musl", name.Insecure, name.WeakValidation)
+				h.AssertNil(t, err)
+
+				err = idx.Add(ref, imgutil.WithAnnotations(map[string]string{
+					"some-key":"some-value",
+				}))
+				h.AssertNil(t, err)
+
+				ii, ok := idx.(*imgutil.Index)
+				h.AssertEq(t, ok, true)
+
+				keys := make([]v1.Hash, 0, len(ii.Images))
+				for h2 := range ii.Images {
+					keys = append(keys, h2)
+				}
+				h.AssertEq(t, len(keys), 1)
+
+				err = idx.Save()
+				h.AssertNil(t, err)
+
+				idx, err = layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
+				h.AssertNil(t, err)
+
+				ii, ok = idx.(*imgutil.Index)
+				h.AssertEq(t, ok, true)
+
+				mfestSaved, err := ii.IndexManifest()
+				h.AssertNil(t, err)
+				h.AssertNotEq(t, mfestSaved, nil)
+				h.AssertEq(t, len(mfestSaved.Manifests), len(keys))
+
+				imgRefStr := "busybox@"+ mfestSaved.Manifests[0].Digest.String()
+				digest, err := name.NewDigest(imgRefStr, name.Insecure, name.WeakValidation)
+				h.AssertNil(t, err)
+
+				os, err := ii.OS(digest)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, runtime.GOOS)
+
+				arch, err := ii.Architecture(digest)
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, runtime.GOARCH)
+
+				annos, err := ii.Annotations(digest)
+				h.AssertNil(t, err)
+
+				v, ok := annos["some-key"]
+				h.AssertEq(t, ok, true)
+				h.AssertEq(t, v, "some-value")
+			})
+			it("should save target specific added images", func() {
+				_, err := index.NewIndex(
+					"pack/imgutil", 
+					index.WithXDGRuntimePath(xdgPath), 
+					index.WithFormat(types.OCIImageIndex),
+				)
+				h.AssertNil(t, err)
+
+				idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
+				h.AssertNil(t, err)
+
+				ref, err := name.ParseReference("busybox:1.36-musl", name.Insecure, name.WeakValidation)
+				h.AssertNil(t, err)
+
+				err = idx.Add(ref, imgutil.WithOS("linux"), imgutil.WithArchitecture("amd64"))
+				h.AssertNil(t, err)
+
+				ii, ok := idx.(*imgutil.Index)
+				h.AssertEq(t, ok, true)
+
+				keys := make([]v1.Hash, 0, len(ii.Images))
+				for h2 := range ii.Images {
+					keys = append(keys, h2)
+				}
+				h.AssertEq(t, len(keys), 1)
+
+				err = idx.Save()
+				h.AssertNil(t, err)
+
+				idx, err = layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
+				h.AssertNil(t, err)
+
+				ii, ok = idx.(*imgutil.Index)
+				h.AssertEq(t, ok, true)
+
+				mfestSaved, err := ii.IndexManifest()
+				h.AssertNil(t, err)
+				h.AssertNotEq(t, mfestSaved, nil)
+				h.AssertEq(t, len(mfestSaved.Manifests), len(keys))
+
+				// linux/amd64
+				imgRefStr := "busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56"
+				digest, err := name.NewDigest(imgRefStr, name.Insecure, name.WeakValidation)
+				h.AssertNil(t, err)
+
+				os, err := ii.OS(digest)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "linux")
+
+				arch, err := ii.Architecture(digest)
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "amd64")
+			})
+			it("should save target specific added images with Annotations", func() {
+				_, err := index.NewIndex(
+					"pack/imgutil", 
+					index.WithXDGRuntimePath(xdgPath), 
+					index.WithFormat(types.OCIImageIndex),
+				)
+				h.AssertNil(t, err)
+
+				idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
+				h.AssertNil(t, err)
+
+				ref, err := name.ParseReference("busybox:1.36-musl", name.Insecure, name.WeakValidation)
+				h.AssertNil(t, err)
+
+				err = idx.Add(
+					ref, 
+					imgutil.WithOS("linux"), 
+					imgutil.WithArchitecture("amd64"), 
+					imgutil.WithAnnotations(map[string]string{
+						"some-key":"some-value",
+					}),
+				)
+				h.AssertNil(t, err)
+
+				ii, ok := idx.(*imgutil.Index)
+				h.AssertEq(t, ok, true)
+
+				keys := make([]v1.Hash, 0, len(ii.Images))
+				for h2 := range ii.Images {
+					keys = append(keys, h2)
+				}
+				h.AssertEq(t, len(keys), 1)
+
+				err = idx.Save()
+				h.AssertNil(t, err)
+
+				idx, err = layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
+				h.AssertNil(t, err)
+
+				ii, ok = idx.(*imgutil.Index)
+				h.AssertEq(t, ok, true)
+
+				mfestSaved, err := ii.IndexManifest()
+				h.AssertNil(t, err)
+				h.AssertNotEq(t, mfestSaved, nil)
+				h.AssertEq(t, len(mfestSaved.Manifests), len(keys))
+
+				// linux/amd64
+				var imgRefStr1 string
+				for _, m := range mfestSaved.Manifests {
+					if m.Platform == nil {
+						m.Platform = &v1.Platform{}
+					}
+					if m.Platform.Architecture == "amd64" {
+						imgRefStr1 = "busybox@" + m.Digest.String()
+						break
+					}
+				}
+				h.AssertNotEq(t, imgRefStr1, "")
+				digest, err := name.NewDigest(imgRefStr1, name.Insecure, name.WeakValidation)
+				h.AssertNil(t, err)
+
+				os, err := ii.OS(digest)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "linux")
+
+				arch, err := ii.Architecture(digest)
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "amd64")
+
+				annos, err := ii.Annotations(digest)
+				h.AssertNil(t, err)
+
+				v, ok := annos["some-key"]
+				h.AssertEq(t, ok, true)
+				h.AssertEq(t, v, "some-value")
+			})
+			it("should save single added image", func() {
+				_, err := index.NewIndex(
+					"pack/imgutil", 
+					index.WithXDGRuntimePath(xdgPath), 
+					index.WithFormat(types.OCIImageIndex),
+				)
+				h.AssertNil(t, err)
+
+				idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
+				h.AssertNil(t, err)
+
+				ref, err := name.ParseReference("busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56", name.Insecure, name.WeakValidation)
+				h.AssertNil(t, err)
+
+				err = idx.Add(ref)
+				h.AssertNil(t, err)
+
+				ii, ok := idx.(*imgutil.Index)
+				h.AssertEq(t, ok, true)
+
+				keys := make([]v1.Hash, 0, len(ii.Images))
+				for h2 := range ii.Images {
+					keys = append(keys, h2)
+				}
+				h.AssertEq(t, len(keys), 1)
+
+				err = idx.Save()
+				h.AssertNil(t, err)
+
+				idx, err = layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
+				h.AssertNil(t, err)
+
+				ii, ok = idx.(*imgutil.Index)
+				h.AssertEq(t, ok, true)
+
+				mfestSaved, err := ii.IndexManifest()
+				h.AssertNil(t, err)
+				h.AssertNotEq(t, mfestSaved, nil)
+				h.AssertEq(t, len(mfestSaved.Manifests), 1)
+
+				// linux/amd64
+				imgRefStr := "busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56"
+				digest, err := name.NewDigest(imgRefStr, name.Insecure, name.WeakValidation)
+				h.AssertNil(t, err)
+
+				os, err := ii.OS(digest)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "linux")
+
+				arch, err := ii.Architecture(digest)
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "amd64")
+			})
+			it("should save single added image with annotations", func() {
+				_, err := index.NewIndex(
+					"pack/imgutil", 
+					index.WithXDGRuntimePath(xdgPath), 
+					index.WithFormat(types.OCIImageIndex),
+				)
+				h.AssertNil(t, err)
+
+				idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
+				h.AssertNil(t, err)
+
+				ref, err := name.ParseReference("busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56", name.Insecure, name.WeakValidation)
+				h.AssertNil(t, err)
+
+				err = idx.Add(ref, imgutil.WithAnnotations(map[string]string{
+					"some-key":"some-value",
+				}))
+				h.AssertNil(t, err)
+
+				ii, ok := idx.(*imgutil.Index)
+				h.AssertEq(t, ok, true)
+
+				keys := make([]v1.Hash, 0, len(ii.Images))
+				for h2 := range ii.Images {
+					keys = append(keys, h2)
+				}
+				h.AssertEq(t, len(keys), 1)
+
+				err = idx.Save()
+				h.AssertNil(t, err)
+
+				idx, err = layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
+				h.AssertNil(t, err)
+
+				ii, ok = idx.(*imgutil.Index)
+				h.AssertEq(t, ok, true)
+
+				mfestSaved, err := ii.IndexManifest()
+				h.AssertNil(t, err)
+				h.AssertNotEq(t, mfestSaved, nil)
+				h.AssertEq(t, len(mfestSaved.Manifests), 1)
+
+
+				// linux/amd64
+				var imgRefStr1 string
+				for _, m := range mfestSaved.Manifests {
+					if m.Platform == nil {
+						m.Platform = &v1.Platform{}
+					}
+					if m.Platform.Architecture == "amd64" {
+						imgRefStr1 = "busybox@" + m.Digest.String()
+						break
+					}
+				}
+				h.AssertNotEq(t, imgRefStr1, "")
+				digest, err := name.NewDigest(imgRefStr1, name.Insecure, name.WeakValidation)
+				h.AssertNil(t, err)
+
+				os, err := ii.OS(digest)
+				h.AssertNil(t, err)
+				h.AssertEq(t, os, "linux")
+
+				arch, err := ii.Architecture(digest)
+				h.AssertNil(t, err)
+				h.AssertEq(t, arch, "amd64")
+
+				annos, err := ii.Annotations(digest)
+				h.AssertNil(t, err)
+				v, ok := annos["some-key"]
+				h.AssertEq(t, ok, true)
+				h.AssertEq(t, v, "some-value")
 			})
 			it("should save the annotated images", func() {
 				idx, err := remote.NewIndex(
 					"alpine:3.19.0",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -2469,7 +3018,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"alpine:3.19.0",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -2553,7 +3102,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"alpine:3.19.0",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -2585,7 +3134,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"alpine:3.19.0",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -2669,7 +3218,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"busybox:1.36-musl",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -2701,7 +3250,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"busybox:1.36-musl",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -2792,7 +3341,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"busybox:1.36-musl",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -2824,7 +3373,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"busybox:1.36-musl",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -2910,7 +3459,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"busybox:1.36-musl",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -2942,7 +3491,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"busybox:1.36-musl",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -3028,7 +3577,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"busybox:1.36-musl",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -3058,7 +3607,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"busybox:1.36-musl",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -3074,7 +3623,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"busybox:1.36-musl",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -3107,7 +3656,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					"busybox:1.36-musl",
 					index.WithInsecure(true),
 					index.WithKeychain(authn.DefaultKeychain),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 				)
 				h.AssertNil(t, err)
 
@@ -3217,9 +3766,11 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				h.AssertEq(t, err.Error(), "empty index")
 			})
 			it("should remove the image/index with the given digest", func() {
-				idx := imgutil.Index{
-					ImageIndex: empty.Index,
-				}
+				_, err := index.NewIndex("some/index", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
+				h.AssertNil(t, err)
+
+				idx, err := layout.NewIndex("some/index", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
+				h.AssertNil(t, err)
 
 				ref, err := name.ParseReference(
 					"busybox:1.36-musl",
@@ -3250,7 +3801,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				idx, err := remote.NewIndex(
 					"busybox:1.36-musl",
 					index.WithInsecure(true),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 					index.WithKeychain(authn.DefaultKeychain),
 				)
 				h.AssertNil(t, err)
@@ -3265,7 +3816,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				idx, err := remote.NewIndex(
 					"busybox:1.36-musl",
 					index.WithInsecure(true),
-					index.WithXDGRuntimePath("xdgPath"),
+					index.WithXDGRuntimePath(xdgPath),
 					index.WithKeychain(authn.DefaultKeychain),
 				)
 				h.AssertNil(t, err)

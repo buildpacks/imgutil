@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -78,6 +77,7 @@ type Index struct {
 	Annotate         Annotate
 	Options          IndexOptions
 	RemovedManifests []v1.Hash
+	Images map[v1.Hash]v1.Image
 }
 
 type Annotate struct {
@@ -343,6 +343,19 @@ func (i *Index) OS(digest name.Digest) (os string, err error) {
 		return
 	}
 
+	if img, ok := i.Images[hash]; ok {
+		config, err := getConfigFile(img)
+		if err != nil {
+			return os, err
+		}
+	
+		if config.OS == "" {
+			return os, ErrOSUndefined
+		}
+	
+		return config.OS, nil
+	}
+
 	img, err := i.Image(hash)
 	if err != nil {
 		return
@@ -385,6 +398,26 @@ func (i *Index) SetOS(digest name.Digest, os string) error {
 			return err
 		}
 
+		if mfest == nil {
+			return ErrManifestUndefined
+		}
+
+		i.Annotate.SetOS(hash, os)
+		i.Annotate.SetFormat(hash, mfest.MediaType)
+
+		return nil
+	}
+
+	if img, ok := i.Images[hash]; ok {
+		mfest, err := img.Manifest()
+		if err != nil {
+			return err
+		}
+
+		if mfest == nil {
+			return ErrManifestUndefined
+		}
+
 		i.Annotate.SetOS(hash, os)
 		i.Annotate.SetFormat(hash, mfest.MediaType)
 
@@ -408,6 +441,19 @@ func (i *Index) Architecture(digest name.Digest) (arch string, err error) {
 
 	if arch, err = i.Annotate.Architecture(hash); err == nil {
 		return
+	}
+
+	if img, ok := i.Images[hash]; ok {
+		config, err := getConfigFile(img)
+		if err != nil {
+			return arch, err
+		}
+	
+		if config.Architecture == "" {
+			return arch, ErrArchUndefined
+		}
+	
+		return config.Architecture, nil
 	}
 
 	img, err := i.Image(hash)
@@ -452,6 +498,26 @@ func (i *Index) SetArchitecture(digest name.Digest, arch string) error {
 			return err
 		}
 
+		if mfest == nil {
+			return ErrManifestUndefined
+		}
+
+		i.Annotate.SetArchitecture(hash, arch)
+		i.Annotate.SetFormat(hash, mfest.MediaType)
+
+		return nil
+	}
+
+	if img, ok := i.Images[hash]; ok {
+		mfest, err := img.Manifest()
+		if err != nil {
+			return err
+		}
+
+		if mfest == nil {
+			return ErrManifestUndefined
+		}
+
 		i.Annotate.SetArchitecture(hash, arch)
 		i.Annotate.SetFormat(hash, mfest.MediaType)
 
@@ -475,6 +541,19 @@ func (i *Index) Variant(digest name.Digest) (osVariant string, err error) {
 
 	if osVariant, err = i.Annotate.Variant(hash); err == nil {
 		return
+	}
+
+	if img, ok := i.Images[hash]; ok {
+		config, err := getConfigFile(img)
+		if err != nil {
+			return osVariant, err
+		}
+
+		if config.Variant == "" {
+			return osVariant, ErrVariantUndefined
+		}
+
+		return config.Variant, nil
 	}
 
 	img, err := i.Image(hash)
@@ -519,6 +598,26 @@ func (i *Index) SetVariant(digest name.Digest, osVariant string) error {
 			return err
 		}
 
+		if mfest == nil {
+			return ErrManifestUndefined
+		}
+
+		i.Annotate.SetVariant(hash, osVariant)
+		i.Annotate.SetFormat(hash, mfest.MediaType)
+
+		return nil
+	}
+
+	if img, ok := i.Images[hash]; ok {
+		mfest, err := img.Manifest()
+		if err != nil {
+			return err
+		}
+
+		if mfest == nil {
+			return ErrManifestUndefined
+		}
+
 		i.Annotate.SetVariant(hash, osVariant)
 		i.Annotate.SetFormat(hash, mfest.MediaType)
 
@@ -542,6 +641,19 @@ func (i *Index) OSVersion(digest name.Digest) (osVersion string, err error) {
 
 	if osVersion, err = i.Annotate.OSVersion(hash); err == nil {
 		return
+	}
+
+	if img, ok := i.Images[hash]; ok {
+		config, err := getConfigFile(img)
+		if err != nil {
+			return osVersion, err
+		}
+
+		if config.OSVersion == "" {
+			return osVersion, ErrOSVersionUndefined
+		}
+
+		return config.OSVersion, nil
 	}
 
 	img, err := i.Image(hash)
@@ -584,6 +696,26 @@ func (i *Index) SetOSVersion(digest name.Digest, osVersion string) error {
 		mfest, err := img.Manifest()
 		if err != nil {
 			return err
+		}
+
+		if mfest == nil {
+			return ErrManifestUndefined
+		}
+
+		i.Annotate.SetOSVersion(hash, osVersion)
+		i.Annotate.SetFormat(hash, mfest.MediaType)
+
+		return nil
+	}
+
+	if img, ok := i.Images[hash]; ok {
+		mfest, err := img.Manifest()
+		if err != nil {
+			return err
+		}
+
+		if mfest == nil {
+			return ErrManifestUndefined
 		}
 
 		i.Annotate.SetOSVersion(hash, osVersion)
@@ -637,6 +769,24 @@ func (i *Index) Features(digest name.Digest) (features []string, err error) {
 		return
 	}
 
+	if img, ok := i.Images[hash]; ok {
+		config, err := getConfigFile(img)
+		if err != nil {
+			return features, err
+		}
+	
+		platform := config.Platform()
+		if platform == nil {
+			return features, ErrConfigFilePlatformUndefined
+		}
+	
+		if len(platform.Features) == 0 {
+			return features, ErrFeaturesUndefined
+		}
+	
+		return platform.Features, nil
+	}
+
 	img, err := i.Image(hash)
 	if err != nil {
 		return
@@ -682,6 +832,26 @@ func (i *Index) SetFeatures(digest name.Digest, features []string) error {
 		mfest, err := img.Manifest()
 		if err != nil {
 			return err
+		}
+
+		if mfest == nil {
+			return ErrManifestUndefined
+		}
+
+		i.Annotate.SetFeatures(hash, features)
+		i.Annotate.SetFormat(hash, mfest.MediaType)
+
+		return nil
+	}
+
+	if img, ok := i.Images[hash]; ok {
+		mfest, err := img.Manifest()
+		if err != nil {
+			return err
+		}
+
+		if mfest == nil {
+			return ErrManifestUndefined
 		}
 
 		i.Annotate.SetFeatures(hash, features)
@@ -735,6 +905,19 @@ func (i *Index) OSFeatures(digest name.Digest) (osFeatures []string, err error) 
 		return
 	}
 
+	if img, ok := i.Images[hash]; ok {
+		config, err := getConfigFile(img)
+		if err != nil {
+			return osFeatures, err
+		}
+	
+		if len(config.OSFeatures) == 0 {
+			return osFeatures, ErrOSFeaturesUndefined
+		}
+	
+		return config.OSFeatures, nil
+	}
+
 	img, err := i.Image(hash)
 	if err != nil {
 		return
@@ -775,6 +958,26 @@ func (i *Index) SetOSFeatures(digest name.Digest, osFeatures []string) error {
 		mfest, err := img.Manifest()
 		if err != nil {
 			return err
+		}
+
+		if mfest == nil {
+			return ErrManifestUndefined
+		}
+
+		i.Annotate.SetOSFeatures(hash, osFeatures)
+		i.Annotate.SetFormat(hash, mfest.MediaType)
+
+		return nil
+	}
+
+	if img, ok := i.Images[hash]; ok {
+		mfest, err := img.Manifest()
+		if err != nil {
+			return err
+		}
+
+		if mfest == nil {
+			return ErrManifestUndefined
 		}
 
 		i.Annotate.SetOSFeatures(hash, osFeatures)
@@ -834,6 +1037,34 @@ func (i *Index) Annotations(digest name.Digest) (annotations map[string]string, 
 	annotations, err = indexAnnotations(i, digest)
 	if err == nil || errors.Is(err, ErrAnnotationsUndefined) {
 		return annotations, err
+	}
+
+	if img, ok := i.Images[hash]; ok {
+		mfest, err := img.Manifest()
+		if err != nil {
+			return annotations, err
+		}
+
+		if mfest == nil {
+			return annotations, ErrManifestUndefined
+		}
+
+		if len(mfest.Annotations) == 0 {
+			return annotations, ErrAnnotationsUndefined
+		}
+
+		switch mfest.MediaType {
+		case types.DockerManifestSchema2,
+			types.DockerManifestSchema1,
+			types.DockerManifestSchema1Signed,
+			types.DockerManifestList:
+			return nil, ErrAnnotationsUndefined
+		case types.OCIImageIndex,
+			types.OCIManifestSchema1:
+			return mfest.Annotations, nil
+		default:
+			return nil, ErrUnknownMediaType
+		}
 	}
 
 	img, err := i.Image(hash)
@@ -904,6 +1135,34 @@ func (i *Index) SetAnnotations(digest name.Digest, annotations map[string]string
 		mfest, err := img.Manifest()
 		if err != nil {
 			return err
+		}
+
+		if mfest == nil {
+			return ErrManifestUndefined
+		}
+
+		annos := mfest.Annotations
+		if len(annos) == 0 {
+			annos = make(map[string]string)
+		}
+
+		for k, v := range annotations {
+			annos[k] = v
+		}
+
+		i.Annotate.SetAnnotations(hash, annos)
+		i.Annotate.SetFormat(hash, mfest.MediaType)
+		return nil
+	}
+
+	if img, ok := i.Images[hash]; ok {
+		mfest, err := img.Manifest()
+		if err != nil {
+			return err
+		}
+
+		if mfest == nil {
+			return ErrManifestUndefined
 		}
 
 		annos := mfest.Annotations
@@ -981,6 +1240,26 @@ func (i *Index) SetURLs(digest name.Digest, urls []string) error {
 			return err
 		}
 
+		if mfest == nil {
+			return ErrManifestUndefined
+		}
+
+		i.Annotate.SetURLs(hash, urls)
+		i.Annotate.SetFormat(hash, mfest.MediaType)
+
+		return nil
+	}
+
+	if img, ok := i.Images[hash]; ok {
+		mfest, err := img.Manifest()
+		if err != nil {
+			return err
+		}
+
+		if mfest == nil {
+			return ErrManifestUndefined
+		}
+
 		i.Annotate.SetURLs(hash, urls)
 		i.Annotate.SetFormat(hash, mfest.MediaType)
 
@@ -999,7 +1278,7 @@ func (i *Index) Add(ref name.Reference, ops ...IndexAddOption) error {
 	desc, err := remote.Get(
 		ref,
 		remote.WithAuthFromKeychain(i.Options.KeyChain),
-		remote.WithTransport(getTransport(true)),
+		remote.WithTransport(getTransport(i.Options.Insecure())),
 	)
 
 	if err != nil {
@@ -1013,15 +1292,18 @@ func (i *Index) Add(ref name.Reference, ops ...IndexAddOption) error {
 			return err
 		}
 
-		i.ImageIndex = mutate.AppendManifests(
-			i.ImageIndex,
-			mutate.IndexAddendum{
-				Add: img,
-			},
-		)
+		mfest, err := img.Manifest()
+		if err != nil {
+			return err
+		}
 
-		if desc.MediaType == types.OCIManifestSchema1 {
-			annos := desc.Annotations
+		if mfest == nil {
+			return ErrManifestUndefined
+		}
+
+		var layoutOps []layout.Option
+		annos := mfest.Annotations
+		if desc.MediaType == types.OCIManifestSchema1 && len(addOps.Annotations) != 0 {
 			if len(annos) == 0 {
 				annos = make(map[string]string)
 			}
@@ -1030,11 +1312,49 @@ func (i *Index) Add(ref name.Reference, ops ...IndexAddOption) error {
 				annos[k] = v
 			}
 
+			layoutOps = append(layoutOps, layout.WithAnnotations(annos))
+			img = mutate.Annotations(img, annos).(v1.Image)
 			i.Annotate.SetAnnotations(desc.Digest, annos)
 			i.Annotate.SetFormat(desc.Digest, desc.MediaType)
 		}
 
-		return nil
+		if len(mfest.Config.URLs) != 0 {
+			layoutOps = append(layoutOps, layout.WithURLs(mfest.Config.URLs))
+		}
+
+		var platform *v1.Platform
+		if platform = mfest.Config.Platform; platform == nil || platform.Equals(v1.Platform{}) {
+			if platform == nil {
+				platform = &v1.Platform{}
+			}
+
+			config, err := img.ConfigFile()
+			if err != nil {
+				return err
+			}
+
+			if config == nil {
+				return ErrConfigFileUndefined
+			}
+
+			if err = updatePlatform(config, platform); err != nil {
+				return err
+			}
+			
+			layoutOps = append(layoutOps, layout.WithPlatform(*platform))
+		}
+
+		layoutPath := filepath.Join(i.Options.XdgPath, i.Options.Reponame)
+		path, err := layout.FromPath(layoutPath)
+		if err != nil {
+			path, err = layout.Write(layoutPath, i.ImageIndex)
+			if err != nil {
+				return err
+			}
+		}
+
+		i.Images[desc.Digest] = img
+		return path.AppendImage(img, layoutOps...)
 	case desc.MediaType.IsIndex():
 		idx, err := desc.ImageIndex()
 		if err != nil {
@@ -1089,7 +1409,48 @@ func (i *Index) Add(ref name.Reference, ops ...IndexAddOption) error {
 	}
 }
 
-func addAllImages(i *Index, idx *v1.ImageIndex, annotations map[string]string) error {
+func updatePlatform(config *v1.ConfigFile, platform *v1.Platform) error {
+	if config == nil {
+		return ErrConfigFileUndefined
+	}
+
+	if platform == nil {
+		return ErrPlatformUndefined
+	}
+
+	if platform.OS == "" {
+		platform.OS = config.OS
+	}
+
+	if platform.Architecture == "" {
+		platform.Architecture = config.Architecture
+	}
+
+	if platform.Variant == "" {
+		platform.Variant = config.Variant
+	}
+
+	if platform.OSVersion == "" {
+		platform.OSVersion = config.OSVersion
+	}
+
+	if len(platform.Features) == 0 {
+		p := config.Platform()
+		if p == nil {
+			p = &v1.Platform{}
+		}
+
+		platform.Features = p.Features
+	}
+
+	if len(platform.OSFeatures) == 0 {
+		platform.OSFeatures = config.OSFeatures
+	}
+
+	return nil
+}
+
+func addAllImages(i *Index, idx *v1.ImageIndex, annotations map[string]string) (error) {
 	mfest, err := (*idx).IndexManifest()
 	if err != nil {
 		return err
@@ -1100,9 +1461,8 @@ func addAllImages(i *Index, idx *v1.ImageIndex, annotations map[string]string) e
 	}
 
 	errs := SaveError{}
-	addEndums := []mutate.IndexAddendum{}
 	for _, desc := range mfest.Manifests {
-		addEndums, err = addIndexAddendum(i, annotations, desc, addEndums, idx)
+		err = addIndexAddendum(i, annotations, desc, idx)
 		if err != nil {
 			errs.Errors = append(errs.Errors, SaveDiagnostic{
 				ImageName: desc.Digest.String(),
@@ -1111,7 +1471,6 @@ func addAllImages(i *Index, idx *v1.ImageIndex, annotations map[string]string) e
 		}
 	}
 
-	i.ImageIndex = mutate.AppendManifests(*idx, addEndums...)
 	if len(errs.Errors) != 0 {
 		return errors.New(errs.Error())
 	}
@@ -1119,13 +1478,13 @@ func addAllImages(i *Index, idx *v1.ImageIndex, annotations map[string]string) e
 	return nil
 }
 
-func addIndexAddendum(i *Index, annotations map[string]string, desc v1.Descriptor, addEndums []mutate.IndexAddendum, idx *v1.ImageIndex) ([]mutate.IndexAddendum, error) {
+func addIndexAddendum(i *Index, annotations map[string]string, desc v1.Descriptor, idx *v1.ImageIndex) (error) {
 	layoutPath := filepath.Join(i.Options.XdgPath, i.Options.Reponame)
 	path, err := layout.FromPath(layoutPath)
 	if err != nil {
 		err = i.Save()
 		if err != nil {
-			return addEndums, err
+			return err
 		}
 	}
 
@@ -1133,40 +1492,34 @@ func addIndexAddendum(i *Index, annotations map[string]string, desc v1.Descripto
 	case desc.MediaType.IsIndex():
 		ii, err := (*idx).ImageIndex(desc.Digest)
 		if err != nil {
-			return addEndums, err
+			return err
 		}
 
-		return addEndums, addAllImages(i, &ii, annotations)
+		return addAllImages(i, &ii, annotations)
 	case desc.MediaType.IsImage():
 		img, err := (*idx).Image(desc.Digest)
 		if err != nil {
-			return addEndums, err
+			return err
 		}
 
 		mfest, err := img.Manifest()
 		if err != nil {
-			return addEndums, err
+			return err
 		}
 
 		if mfest == nil {
-			return addEndums, ErrManifestUndefined
+			return ErrManifestUndefined
 		}
 
 		if mfest.Subject == nil {
 			mfest.Subject = &v1.Descriptor{}
 		}
 
+		var annos = make(map[string]string)
 		var ops []layout.Option
-		if len(annotations) != 0 {
-			var annos = make(map[string]string)
-			if len(mfest.Config.Annotations) != 0 {
-				annos = mfest.Config.Annotations
-			}
-
-			if mfest.Subject != nil {
-				if len(mfest.Subject.Annotations) != 0 {
-					annos = mfest.Subject.Annotations
-				}
+		if len(annotations) != 0 && mfest.MediaType == types.OCIManifestSchema1 {
+			if len(mfest.Annotations) != 0 {
+				annos = mfest.Annotations
 			}
 
 			for k, v := range annotations {
@@ -1174,19 +1527,40 @@ func addIndexAddendum(i *Index, annotations map[string]string, desc v1.Descripto
 			}
 
 			ops = append(ops, layout.WithAnnotations(annos))
-			i.Annotate.SetAnnotations(desc.Digest, annos)
-			i.Annotate.SetFormat(desc.Digest, desc.MediaType)
+			// i.Annotate.SetAnnotations(desc.Digest, annos)
+			// i.Annotate.SetFormat(desc.Digest, desc.MediaType)
+			img = mutate.Annotations(img, annos).(v1.Image)
 		}
 
-		addEndums = append(
-			addEndums,
-			mutate.IndexAddendum{
-				Add: img,
-			},
-		)
-		return addEndums, path.AppendImage(img, ops...)
+		if len(mfest.Config.URLs) != 0 {
+			ops = append(ops, layout.WithURLs(mfest.Config.URLs))
+		}
+
+		if platform := mfest.Config.Platform; platform == nil || platform.Equals(v1.Platform{}) {
+			if platform == nil {
+				platform = &v1.Platform{}
+			}
+
+			config, err := img.ConfigFile()
+			if err != nil {
+				return err
+			}
+
+			if config == nil {
+				return ErrConfigFileUndefined
+			}
+
+			if err = updatePlatform(config, platform); err != nil {
+				return err
+			}
+
+			ops = append(ops, layout.WithPlatform(*platform))
+		}
+
+		i.Images[desc.Digest] = img
+		return path.AppendImage(img, ops...)
 	default:
-		return addEndums, ErrUnknownMediaType
+		return ErrUnknownMediaType
 	}
 }
 
@@ -1219,25 +1593,68 @@ func appendImage(i *Index, desc *remote.Descriptor, annotations map[string]strin
 		return err
 	}
 
-	annos := desc.Annotations
-	if len(annos) == 0 {
-		annos = make(map[string]string)
+	mfest, err := img.Manifest()
+	if err != nil {
+		return err
 	}
 
-	for k, v := range annotations {
-		annos[k] = v
+	if mfest == nil {
+		return ErrManifestUndefined
 	}
 
-	i.Annotate.SetAnnotations(digest, annos)
-	i.Annotate.SetFormat(digest, desc.MediaType)
+	var layoutOps []layout.Option
+	var annos = make(map[string]string)
+	if len(annotations) != 0 && mfest.MediaType == types.OCIManifestSchema1 {
+		if len(mfest.Annotations) != 0 {
+			annos = mfest.Annotations
+		}
 
-	i.ImageIndex = mutate.AppendManifests(
-		i.ImageIndex,
-		mutate.IndexAddendum{
-			Add: img,
-		},
-	)
-	return nil
+		for k, v := range annotations {
+			annos[k] = v
+		}
+
+		layoutOps = append(layoutOps, layout.WithAnnotations(annos))
+		// i.Annotate.SetAnnotations(digest, annos)
+		// i.Annotate.SetFormat(digest, desc.MediaType)
+		img = mutate.Annotations(img, annos).(v1.Image)
+	}
+
+	if len(mfest.Config.URLs) != 0 {
+		layoutOps = append(layoutOps, layout.WithURLs(mfest.Config.URLs))
+	}
+
+	if platform := mfest.Config.Platform; platform == nil || platform.Equals(v1.Platform{}) {
+		if platform == nil {
+			platform = &v1.Platform{}
+		}
+
+		config, err := img.ConfigFile()
+		if err != nil {
+			return err
+		}
+
+		if config == nil {
+			return ErrConfigFileUndefined
+		}
+
+		if err = updatePlatform(config, platform); err != nil {
+			return err
+		}
+
+		layoutOps = append(layoutOps, layout.WithPlatform(*platform))
+	}
+
+	layoutPath := filepath.Join(i.Options.XdgPath, i.Options.Reponame)
+	path, err := layout.FromPath(layoutPath)
+	if err != nil {
+		path, err = layout.Write(layoutPath, i.ImageIndex)
+		if err != nil {
+			return err
+		}
+	}
+
+	i.Images[digest] = img
+	return path.AppendImage(img, layoutOps...)
 }
 
 func (i *Index) Save() error {
@@ -1278,7 +1695,7 @@ func (i *Index) Save() error {
 			}
 
 			var ops []layout.Option
-			if len(desc.Annotations) != 0 {
+			if len(desc.Annotations) != 0 && desc.MediaType == types.OCIImageIndex {
 				var annos = make(map[string]string)
 				if len(mfest.Annotations) != 0 {
 					annos = mfest.Annotations
@@ -1303,6 +1720,10 @@ func (i *Index) Save() error {
 		case desc.MediaType.IsImage():
 			img, err := i.Image(hash)
 			if err != nil {
+				if _, ok := i.Images[hash]; ok {
+					continue
+				}
+
 				return err
 			}
 
@@ -1339,35 +1760,12 @@ func (i *Index) Save() error {
 				upsertSubject.Platform = &v1.Platform{}
 			}
 
-			if upsertSubject.Platform.OS == "" {
-				upsertSubject.Platform.OS = config.OS
+			err = updatePlatform(config, upsertSubject.Platform)
+			if err != nil {
+				return err
 			}
 
-			if upsertSubject.Platform.Architecture == "" {
-				upsertSubject.Platform.Architecture = config.Architecture
-			}
-
-			if upsertSubject.Platform.Variant == "" {
-				upsertSubject.Platform.Variant = config.Variant
-			}
-
-			if upsertSubject.Platform.OSVersion == "" {
-				upsertSubject.Platform.OSVersion = config.OSVersion
-			}
-
-			if len(upsertSubject.Platform.Features) == 0 {
-				if platform := config.Platform(); platform != nil && len(platform.Features) != 0 {
-					upsertSubject.Platform.Features = platform.Features
-				}
-			}
-
-			if len(upsertSubject.Platform.OSFeatures) == 0 {
-				if len(upsertConfig.OSFeatures) != 0 {
-					upsertSubject.Platform.OSFeatures = config.OSFeatures
-				}
-			}
-
-			if platform := desc.Platform; platform != nil && !reflect.DeepEqual(*platform, v1.Platform{}) {
+			if platform := desc.Platform; platform != nil && !platform.Equals(v1.Platform{}) {
 				if platform.OS != "" {
 					upsertConfig.OS = platform.OS
 					if upsertSubject.Platform == nil {
@@ -1482,7 +1880,15 @@ func (i *Index) Save() error {
 	}
 	i.Annotate = Annotate{}
 
-	err = path.RemoveDescriptors(match.Digests(i.RemovedManifests...))
+	var removeHashes = make([]v1.Hash, 0)
+	for _, h := range i.RemovedManifests {
+		if _, ok := i.Images[h]; !ok {
+			removeHashes = append(removeHashes, h)
+			delete(i.Images , h)
+		}
+	}
+
+	err = path.RemoveDescriptors(match.Digests(removeHashes...))
 	if err != nil {
 		return err
 	}
@@ -1492,7 +1898,6 @@ func (i *Index) Save() error {
 }
 
 func (i *Index) Push(ops ...IndexPushOption) error {
-	var imageIndex = i.ImageIndex
 	var pushOps = &PushOptions{}
 
 	if len(i.RemovedManifests) != 0 || len(i.Annotate.Instance) != 0 {
@@ -1511,6 +1916,17 @@ func (i *Index) Push(ops ...IndexPushOption) error {
 		name.WeakValidation,
 		name.Insecure,
 	)
+	if err != nil {
+		return err
+	}
+
+	layoutPath := filepath.Join(i.Options.XdgPath, i.Options.Reponame)
+	path, err := layout.FromPath(layoutPath)
+	if err != nil {
+		return err
+	}
+	
+	imageIndex, err := path.ImageIndex()
 	if err != nil {
 		return err
 	}
@@ -1566,6 +1982,11 @@ func (i *Index) Remove(digest name.Digest) error {
 		return err
 	}
 
+	if _, ok := i.Images[hash]; ok {
+		i.RemovedManifests = append(i.RemovedManifests, hash)
+		return nil
+	}
+
 	if _, err = i.ImageIndex.ImageIndex(hash); err != nil {
 		_, err = i.Image(hash)
 		if err != nil {
@@ -1608,6 +2029,27 @@ func getIndexURLs(i *Index, hash v1.Hash) (urls []string, err error) {
 }
 
 func getImageURLs(i *Index, hash v1.Hash) (urls []string, err error) {
+	if img, ok := i.Images[hash]; ok {
+		mfest, err := img.Manifest()
+		if err != nil {
+			return urls, err
+		}
+	
+		if len(mfest.Config.URLs) != 0 {
+			return mfest.Config.URLs, nil
+		}
+	
+		if mfest.Subject == nil {
+			mfest.Subject = &v1.Descriptor{}
+		}
+	
+		if len(mfest.Subject.URLs) == 0 {
+			return urls, ErrURLsUndefined
+		}
+	
+		return mfest.Subject.URLs, nil
+	}
+
 	img, err := i.Image(hash)
 	if err != nil {
 		return

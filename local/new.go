@@ -72,6 +72,7 @@ func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err
 			Reponame:         idxOps.RepoName(),
 			InsecureRegistry: idxOps.Insecure(),
 		},
+		Images: make(map[v1.Hash]v1.Image),
 	}, nil
 }
 

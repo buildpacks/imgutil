@@ -1,8 +1,11 @@
 package index
 
 import (
+	"path/filepath"
+
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	"github.com/buildpacks/imgutil"
@@ -20,17 +23,20 @@ func NewIndex(repoName string, ops ...Option) (idx imgutil.ImageIndex, err error
 		}
 	}
 
+	layoutPath := filepath.Join(idxOps.xdgPath, idxOps.repoName)
 	switch idxOps.format {
 	case types.DockerManifestList:
 		idx = &imgutil.Index{
-			ImageIndex: &docker.DockerIndex,
+			ImageIndex: docker.DockerIndex,
 			Options: imgutil.IndexOptions{
 				KeyChain:         idxOps.keychain,
 				XdgPath:          idxOps.xdgPath,
 				Reponame:         idxOps.repoName,
 				InsecureRegistry: idxOps.insecure,
 			},
+			Images: make(map[v1.Hash]v1.Image),
 		}
+		_, err = layout.Write(layoutPath, docker.DockerIndex)
 	default:
 		idx = &imgutil.Index{
 			ImageIndex: empty.Index,
@@ -44,12 +50,9 @@ func NewIndex(repoName string, ops ...Option) (idx imgutil.ImageIndex, err error
 				Reponame:         idxOps.repoName,
 				InsecureRegistry: idxOps.insecure,
 			},
+			Images: make(map[v1.Hash]v1.Image),
 		}
-	}
-
-	err = idx.Save()
-	if err != nil {
-		return
+		_, err = layout.Write(layoutPath, empty.Index)
 	}
 
 	return idx, err
