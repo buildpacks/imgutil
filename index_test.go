@@ -28,7 +28,7 @@ func TestIndex(t *testing.T) {
 }
 
 func testIndex(t *testing.T, when spec.G, it spec.S) {
-	var(
+	var (
 		xdgPath = "xdgPath"
 	)
 	when("#ImageIndex", func() {
@@ -1606,7 +1606,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, annotations, map[string]string(nil))
 				})
 				it("should add annotations when WithAnnotations used for oci", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath))
+					_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
+					h.AssertNil(t, err)
+
+					idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -1631,7 +1634,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					for h2 := range index.Images {
 						hashes = append(hashes, h2)
 					}
-					
 
 					hash := hashes[0]
 					digest, err := name.NewDigest("busybox@"+hash.String(), name.WeakValidation, name.Insecure)
@@ -1673,7 +1675,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, v, "some-value")
 				})
 				it("should not add annotations when WithAnnotations used for docker", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath))
+					_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList))
+					h.AssertNil(t, err)
+
+					idx, err := local.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -1739,7 +1744,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("target specific", func() {
 				it("should add target specific image", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath))
+					_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
+					h.AssertNil(t, err)
+
+					idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -1758,7 +1766,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						hashes = append(hashes, h2)
 					}
 					h.AssertEq(t, len(hashes), 1)
-					
 
 					hash := hashes[0]
 					digest, err := name.NewDigest("alpine@"+hash.String(), name.WeakValidation, name.Insecure)
@@ -1797,7 +1804,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, annotations, map[string]string(nil))
 				})
 				it("should add annotations when WithAnnotations used for oci", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath))
+					_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
+					h.AssertNil(t, err)
+
+					idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -1821,7 +1831,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						hashes = append(hashes, h2)
 					}
 					h.AssertEq(t, len(hashes), 1)
-					
 
 					hash := hashes[0]
 					digest, err := name.NewDigest("busybox@"+hash.String(), name.WeakValidation, name.Insecure)
@@ -1863,7 +1872,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, v, "some-value")
 				})
 				it("should not add annotations when WithAnnotations used for docker", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath))
+					_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList))
+					h.AssertNil(t, err)
+
+					idx, err := local.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -1887,7 +1899,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						hashes = append(hashes, h2)
 					}
 					h.AssertEq(t, len(hashes), 1)
-					
+
 					hash := hashes[0]
 					digest, err := name.NewDigest("alpine@"+hash.String(), name.WeakValidation, name.Insecure)
 					h.AssertNil(t, err)
@@ -1927,7 +1939,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("image specific", func() {
 				it("should not change the digest of the image when added", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath))
+					_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
+					h.AssertNil(t, err)
+
+					idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -1945,7 +1960,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					for h2 := range index.Images {
 						hashes = append(hashes, h2)
 					}
-					
+
 					h.AssertEq(t, len(hashes), 1)
 					hash := hashes[0]
 					digest, err := name.NewDigest(
@@ -2056,7 +2071,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, v, "some-value")
 				})
 				it("should not annotate the annotations when Annotations provided for docker", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath))
+					_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList))
+					h.AssertNil(t, err)
+
+					idx, err := local.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -2336,7 +2354,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, v, "some-value")
 				})
 				it("should ignore WithAnnotations for docker", func() {
-					idx, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath))
+					_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList))
+					h.AssertNil(t, err)
+
+					idx, err := local.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -2458,8 +2479,8 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			it("should save all added images", func() {
 				_, err := index.NewIndex(
-					"pack/imgutil", 
-					index.WithXDGRuntimePath(xdgPath), 
+					"pack/imgutil",
+					index.WithXDGRuntimePath(xdgPath),
 					index.WithFormat(types.OCIImageIndex),
 				)
 				h.AssertNil(t, err)
@@ -2481,7 +2502,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					hashes = append(hashes, h2)
 				}
 				h.AssertEq(t, len(hashes), 14)
-				
 
 				err = idx1.Save()
 				h.AssertNil(t, err)
@@ -2508,8 +2528,8 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			it("should save all added images with annotations", func() {
 				_, err := index.NewIndex(
-					"pack/imgutil", 
-					index.WithXDGRuntimePath(xdgPath), 
+					"pack/imgutil",
+					index.WithXDGRuntimePath(xdgPath),
 					index.WithFormat(types.OCIImageIndex),
 				)
 				h.AssertNil(t, err)
@@ -2521,10 +2541,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 
 				err = idx1.Add(
-					ref, 
-					imgutil.WithAll(true), 
+					ref,
+					imgutil.WithAll(true),
 					imgutil.WithAnnotations(map[string]string{
-						"some-key":"some-value",
+						"some-key": "some-value",
 					}),
 				)
 				h.AssertNil(t, err)
@@ -2614,8 +2634,8 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			it("should save platform specific added image", func() {
 				_, err := index.NewIndex(
-					"pack/imgutil", 
-					index.WithXDGRuntimePath(xdgPath), 
+					"pack/imgutil",
+					index.WithXDGRuntimePath(xdgPath),
 					index.WithFormat(types.OCIImageIndex),
 				)
 				h.AssertNil(t, err)
@@ -2652,7 +2672,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNotEq(t, mfestSaved, nil)
 				h.AssertEq(t, len(mfestSaved.Manifests), len(keys))
 
-				imgRefStr := "busybox@"+ mfestSaved.Manifests[0].Digest.String()
+				imgRefStr := "busybox@" + mfestSaved.Manifests[0].Digest.String()
 				digest, err := name.NewDigest(imgRefStr, name.Insecure, name.WeakValidation)
 				h.AssertNil(t, err)
 
@@ -2666,8 +2686,8 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			it("should save platform specific added image with annotations", func() {
 				_, err := index.NewIndex(
-					"pack/imgutil", 
-					index.WithXDGRuntimePath(xdgPath), 
+					"pack/imgutil",
+					index.WithXDGRuntimePath(xdgPath),
 					index.WithFormat(types.OCIImageIndex),
 				)
 				h.AssertNil(t, err)
@@ -2679,7 +2699,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 
 				err = idx.Add(ref, imgutil.WithAnnotations(map[string]string{
-					"some-key":"some-value",
+					"some-key": "some-value",
 				}))
 				h.AssertNil(t, err)
 
@@ -2706,7 +2726,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNotEq(t, mfestSaved, nil)
 				h.AssertEq(t, len(mfestSaved.Manifests), len(keys))
 
-				imgRefStr := "busybox@"+ mfestSaved.Manifests[0].Digest.String()
+				imgRefStr := "busybox@" + mfestSaved.Manifests[0].Digest.String()
 				digest, err := name.NewDigest(imgRefStr, name.Insecure, name.WeakValidation)
 				h.AssertNil(t, err)
 
@@ -2727,8 +2747,8 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			it("should save target specific added images", func() {
 				_, err := index.NewIndex(
-					"pack/imgutil", 
-					index.WithXDGRuntimePath(xdgPath), 
+					"pack/imgutil",
+					index.WithXDGRuntimePath(xdgPath),
 					index.WithFormat(types.OCIImageIndex),
 				)
 				h.AssertNil(t, err)
@@ -2780,8 +2800,8 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			it("should save target specific added images with Annotations", func() {
 				_, err := index.NewIndex(
-					"pack/imgutil", 
-					index.WithXDGRuntimePath(xdgPath), 
+					"pack/imgutil",
+					index.WithXDGRuntimePath(xdgPath),
 					index.WithFormat(types.OCIImageIndex),
 				)
 				h.AssertNil(t, err)
@@ -2793,11 +2813,11 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 
 				err = idx.Add(
-					ref, 
-					imgutil.WithOS("linux"), 
-					imgutil.WithArchitecture("amd64"), 
+					ref,
+					imgutil.WithOS("linux"),
+					imgutil.WithArchitecture("amd64"),
 					imgutil.WithAnnotations(map[string]string{
-						"some-key":"some-value",
+						"some-key": "some-value",
 					}),
 				)
 				h.AssertNil(t, err)
@@ -2857,8 +2877,8 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			it("should save single added image", func() {
 				_, err := index.NewIndex(
-					"pack/imgutil", 
-					index.WithXDGRuntimePath(xdgPath), 
+					"pack/imgutil",
+					index.WithXDGRuntimePath(xdgPath),
 					index.WithFormat(types.OCIImageIndex),
 				)
 				h.AssertNil(t, err)
@@ -2910,8 +2930,8 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			it("should save single added image with annotations", func() {
 				_, err := index.NewIndex(
-					"pack/imgutil", 
-					index.WithXDGRuntimePath(xdgPath), 
+					"pack/imgutil",
+					index.WithXDGRuntimePath(xdgPath),
 					index.WithFormat(types.OCIImageIndex),
 				)
 				h.AssertNil(t, err)
@@ -2923,7 +2943,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 
 				err = idx.Add(ref, imgutil.WithAnnotations(map[string]string{
-					"some-key":"some-value",
+					"some-key": "some-value",
 				}))
 				h.AssertNil(t, err)
 
@@ -2949,7 +2969,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				h.AssertNotEq(t, mfestSaved, nil)
 				h.AssertEq(t, len(mfestSaved.Manifests), 1)
-
 
 				// linux/amd64
 				var imgRefStr1 string

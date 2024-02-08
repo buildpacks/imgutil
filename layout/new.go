@@ -55,7 +55,7 @@ func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err
 		Annotate: imgutil.Annotate{
 			Instance: make(map[v1.Hash]v1.Descriptor),
 		},
-		RemovedManifests: make([]v1.Hash, 10),
+		RemovedManifests: make([]v1.Hash, 0),
 		Options: imgutil.IndexOptions{
 			KeyChain:         idxOps.Keychain(),
 			XdgPath:          idxOps.XDGRuntimePath(),

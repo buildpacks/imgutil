@@ -1,6 +1,7 @@
 package remote_test
 
 import (
+	"os"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -19,20 +20,27 @@ func TestRemoteNew(t *testing.T) {
 }
 
 func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
+	var (
+		xdgPath = "xdgPath"
+	)
 	when("#NewIndex", func() {
+		it.After(func() {
+			err := os.RemoveAll(xdgPath)
+			h.AssertNil(t, err)
+		})
 		it("should have expected indexOptions", func() {
 			idx, err := remote.NewIndex(
 				"busybox:1.36-musl",
 				index.WithInsecure(true),
 				index.WithKeychain(authn.DefaultKeychain),
-				index.WithXDGRuntimePath("xdgPath"),
+				index.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertNil(t, err)
 
 			imgIx, ok := idx.(*imgutil.Index)
 			h.AssertEq(t, ok, true)
 			h.AssertEq(t, imgIx.Options.Insecure(), true)
-			h.AssertEq(t, imgIx.Options.XdgPath, "xdgPath")
+			h.AssertEq(t, imgIx.Options.XdgPath, xdgPath)
 			h.AssertEq(t, imgIx.Options.Reponame, "busybox:1.36-musl")
 		})
 		it("should return an error when invalid repoName is passed", func() {
@@ -40,7 +48,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 				"some/invalidImage",
 				index.WithInsecure(true),
 				index.WithKeychain(authn.DefaultKeychain),
-				index.WithXDGRuntimePath("xdgPath"),
+				index.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertEq(t, err.Error(), "could not parse reference: some/invalidImage")
 		})
@@ -49,7 +57,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 				"some/image",
 				index.WithInsecure(true),
 				index.WithKeychain(authn.DefaultKeychain),
-				index.WithXDGRuntimePath("xdgPath"),
+				index.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertNotEq(t, err, nil)
 		})
@@ -58,7 +66,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 				"busybox:1.36-musl",
 				index.WithInsecure(true),
 				index.WithKeychain(authn.DefaultKeychain),
-				index.WithXDGRuntimePath("xdgPath"),
+				index.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertNil(t, err)
 
@@ -75,7 +83,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 				"busybox:1.36-musl",
 				index.WithInsecure(true),
 				index.WithKeychain(authn.DefaultKeychain),
-				index.WithXDGRuntimePath("xdgPath"),
+				index.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertNil(t, err)
 
@@ -96,7 +104,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 				"busybox:1.36-musl",
 				index.WithInsecure(true),
 				index.WithKeychain(authn.DefaultKeychain),
-				index.WithXDGRuntimePath("xdgPath"),
+				index.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertNil(t, err)
 

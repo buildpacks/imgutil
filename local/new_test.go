@@ -1,6 +1,7 @@
 package local_test
 
 import (
+	"os"
 	"testing"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -32,6 +33,12 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 				index.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertNil(t, err)
+		})
+		it.After(func() {
+			it.After(func() {
+				err := os.RemoveAll(xdgPath)
+				h.AssertNil(t, err)
+			})
 		})
 		it("should have expected indexOptions", func() {
 			idx, err := local.NewIndex(
