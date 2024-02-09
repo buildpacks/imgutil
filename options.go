@@ -1,6 +1,9 @@
 package imgutil
 
 import (
+	"crypto/tls"
+	"net/http"
+
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )

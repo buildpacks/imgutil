@@ -1,6 +1,7 @@
 package imgutil_test
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -3709,6 +3710,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					},
 					Options: imgutil.IndexOptions{
 						Reponame: "alpine:latest",
+						XdgPath:  xdgPath,
 					},
 				}
 
@@ -3730,8 +3732,9 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				}
 
 				err := idx.Push()
-				h.AssertEq(t, err.Error(), imgutil.ErrIndexNeedToBeSaved.Error())
+				h.AssertEq(t, err.Error(), errors.New("mkdir : no such file or directory").Error())
 			})
+			// FIXME: should need to create a mock to push images and indexes
 			it("should push index to registry", func() {})
 			it("should push with insecure registry when WithInsecure used", func() {})
 			it("should delete local image index", func() {})
@@ -3755,7 +3758,11 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				}
 
 				err := idx.Inspect()
-				h.AssertEq(t, err.Error(), `{"schemaVersion":2,"mediaType":"application/vnd.oci.image.index.v1+json","manifests":[]}`)
+				h.AssertEq(t, err.Error(), `{
+		"schemaVersion": 2,
+		"mediaType": "application/vnd.oci.image.index.v1+json",
+		"manifests": []
+}`)
 			})
 		})
 		when("#Remove", func() {
@@ -3841,7 +3848,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 
 				err = idx.Delete()
-				h.AssertNil(t, err)
+				h.AssertEq(t, err.Error(), "stat xdgPath/busybox:1.36-musl: no such file or directory")
 			})
 		})
 	})

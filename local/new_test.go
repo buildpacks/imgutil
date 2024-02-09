@@ -1,7 +1,6 @@
 package local_test
 
 import (
-	"os"
 	"testing"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -25,23 +24,21 @@ var (
 )
 
 func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
+	var (
+		idx imgutil.ImageIndex
+		err error
+	)
 	when("#NewIndex", func() {
 		it.Before(func() {
-			_, err := index.NewIndex(
+			idx, err = index.NewIndex(
 				repoName,
 				index.WithFormat(types.DockerManifestList),
 				index.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertNil(t, err)
 		})
-		it.After(func() {
-			it.After(func() {
-				err := os.RemoveAll(xdgPath)
-				h.AssertNil(t, err)
-			})
-		})
 		it("should have expected indexOptions", func() {
-			idx, err := local.NewIndex(
+			idx, err = local.NewIndex(
 				repoName,
 				index.WithXDGRuntimePath(xdgPath),
 			)
@@ -51,9 +48,12 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			h.AssertEq(t, ok, true)
 			h.AssertEq(t, imgIdx.Options.Reponame, repoName)
 			h.AssertEq(t, imgIdx.Options.XdgPath, xdgPath)
+
+			err = idx.Delete()
+			h.AssertNil(t, err)
 		})
 		it("should return an error when invalid repoName is passed", func() {
-			idx, err := local.NewIndex(
+			idx, err = local.NewIndex(
 				repoName+"Image",
 				index.WithXDGRuntimePath(xdgPath),
 			)
@@ -61,15 +61,18 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, idx)
 		})
 		it("should return ImageIndex with expected output", func() {
-			idx, err := local.NewIndex(
+			idx, err = local.NewIndex(
 				repoName,
 				index.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertNil(t, err)
 			h.AssertNotEq(t, idx, nil)
+
+			err = idx.Delete()
+			h.AssertNil(t, err)
 		})
 		it("should able to call #ImageIndex", func() {
-			idx, err := local.NewIndex(
+			idx, err = local.NewIndex(
 				repoName,
 				index.WithXDGRuntimePath(xdgPath),
 			)
@@ -80,9 +83,12 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 
 			_, err = imgIdx.ImageIndex.ImageIndex(v1.Hash{})
 			h.AssertNotEq(t, err.Error(), "empty index")
+
+			err = idx.Delete()
+			h.AssertNil(t, err)
 		})
 		it("should able to call #Image", func() {
-			idx, err := local.NewIndex(
+			idx, err = local.NewIndex(
 				repoName,
 				index.WithXDGRuntimePath(xdgPath),
 			)
@@ -93,6 +99,9 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 
 			_, err = imgIdx.Image(v1.Hash{})
 			h.AssertNotEq(t, err.Error(), "empty index")
+
+			err = idx.Delete()
+			h.AssertNil(t, err)
 		})
 	})
 }

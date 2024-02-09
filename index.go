@@ -2,9 +2,8 @@ package imgutil
 
 import (
 	"context"
-	"crypto/tls"
+	"encoding/json"
 	"errors"
-	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -1279,7 +1278,7 @@ func (i *Index) Add(ref name.Reference, ops ...IndexAddOption) error {
 			})
 
 			if len(errs.Errors) != 0 {
-				return errors.New(errs.Error())
+				return errs
 			}
 
 			return nil
@@ -1395,7 +1394,7 @@ func addAllImages(i *Index, idx *v1.ImageIndex, annotations map[string]string, w
 	}
 
 	if len(errs.Errors) != 0 {
-		return errors.New(errs.Error())
+		return errs
 	}
 
 	return nil
@@ -1848,7 +1847,7 @@ func (i *Index) Save() error {
 	})
 
 	if len(errs.Errors) != 0 {
-		return errors.New(errs.Error())
+		return errs
 	}
 
 	var removeHashes = make([]v1.Hash, 0)
@@ -1872,7 +1871,9 @@ func (i *Index) Push(ops ...IndexPushOption) error {
 	var pushOps = &PushOptions{}
 
 	if len(i.RemovedManifests) != 0 || len(i.Annotate.Instance) != 0 {
-		return ErrIndexNeedToBeSaved
+		if err := i.Save(); err != nil {
+			return err
+		}
 	}
 
 	for _, op := range ops {
@@ -1912,7 +1913,7 @@ func (i *Index) Push(ops ...IndexPushOption) error {
 			return ErrManifestUndefined
 		}
 
-		if pushOps.Format != mfest.MediaType {
+		if pushOps.Format != types.MediaType("") && pushOps.Format != mfest.MediaType {
 			imageIndex = mutate.IndexMediaType(imageIndex, pushOps.Format)
 		}
 	}
@@ -1935,16 +1936,25 @@ func (i *Index) Push(ops ...IndexPushOption) error {
 }
 
 func (i *Index) Inspect() error {
-	bytes, err := i.RawManifest()
+	mfest, err := i.IndexManifest()
 	if err != nil {
 		return err
+	}
+
+	if mfest == nil {
+		return ErrManifestUndefined
 	}
 
 	if len(i.RemovedManifests) != 0 || len(i.Annotate.Instance) != 0 {
 		return ErrIndexNeedToBeSaved
 	}
 
-	return errors.New(string(bytes))
+	mfestBytes, err := json.MarshalIndent(mfest, "", "		")
+	if err != nil {
+		return err
+	}
+
+	return errors.New(string(mfestBytes))
 }
 
 func (i *Index) Remove(digest name.Digest) error {
@@ -1970,7 +1980,12 @@ func (i *Index) Remove(digest name.Digest) error {
 }
 
 func (i *Index) Delete() error {
-	return os.RemoveAll(filepath.Join(i.Options.XdgPath, i.Options.Reponame))
+	layoutPath := filepath.Join(i.Options.XdgPath, i.Options.Reponame)
+	if _, err := os.Stat(layoutPath); err != nil {
+		return err
+	}
+
+	return os.RemoveAll(layoutPath)
 }
 
 func getIndexURLs(i *Index, hash v1.Hash) (urls []string, err error) {
