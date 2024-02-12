@@ -16,6 +16,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/match"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"golang.org/x/sync/errgroup"
@@ -3765,4 +3766,24 @@ type TaggableIndex struct {
 
 func (t *TaggableIndex) RawManifest() ([]byte, error) {
 	return json.Marshal(t.IndexManifest)
+}
+
+func (t *TaggableIndex) Digest() (v1.Hash, error) {
+	if t.IndexManifest.Subject != nil && t.IndexManifest.Subject.Digest != (v1.Hash{}) {
+		return t.IndexManifest.Subject.Digest, nil
+	}
+
+	return partial.Digest(t)
+}
+
+func (t *TaggableIndex) MediaType() (types.MediaType, error) {
+	return t.IndexManifest.MediaType, nil
+}
+
+func (t *TaggableIndex) Size() (int64, error) {
+	if t.IndexManifest.Subject != nil && t.IndexManifest.Subject.Size != 0 {
+		return t.IndexManifest.Subject.Size, nil
+	}
+
+	return partial.Size(t)
 }
