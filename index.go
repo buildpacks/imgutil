@@ -2934,7 +2934,9 @@ func (h *ManifestHandler) Save() error {
 		}
 	}
 
-	h.Annotate = Annotate{}
+	h.Annotate = Annotate{
+		Instance: make(map[v1.Hash]v1.Descriptor, 0),
+	}
 	h.RemovedManifests = make([]v1.Hash, 0)
 	return path.RemoveDescriptors(match.Digests(removeHashes...))
 }
@@ -2967,7 +2969,7 @@ func (i *IndexHandler) Save() error {
 		switch {
 		case desc.MediaType.IsIndex():
 			wg.Add(1)
-			errGroup.TryGo(func() error {
+			errGroup.Go(func() error {
 				defer wg.Done()
 
 				ii, err := i.ImageIndex.ImageIndex(hash)
@@ -3016,7 +3018,7 @@ func (i *IndexHandler) Save() error {
 			}
 
 			wg.Add(1)
-			errGroup.TryGo(func() error {
+			errGroup.Go(func() error {
 				defer wg.Done()
 
 				img, err := i.Image(hash)
@@ -3180,7 +3182,9 @@ func (i *IndexHandler) Save() error {
 	}
 
 	wg.Wait()
-	i.Annotate = Annotate{}
+	i.Annotate = Annotate{
+		Instance: make(map[v1.Hash]v1.Descriptor, 0),
+	}
 	iMap.Range(func(key, value any) bool {
 		switch v := key.(type) {
 		case v1.Image:
@@ -3236,6 +3240,10 @@ func (i *IndexHandler) Save() error {
 }
 
 func (h *ManifestHandler) Push(ops ...IndexPushOption) error {
+	if len(h.RemovedManifests) != 0 || len(h.Annotate.Instance) != 0 {
+		return ErrIndexNeedToBeSaved
+	}
+
 	var pushOps = &PushOptions{}
 	for _, op := range ops {
 		err := op(pushOps)
@@ -3263,8 +3271,10 @@ func (h *ManifestHandler) Push(ops ...IndexPushOption) error {
 		}
 	}
 
-	if err := h.Save(); err != nil {
-		return err
+	if pushOps.Format != types.MediaType("") {
+		if err := h.Save(); err != nil {
+			return err
+		}
 	}
 
 	ref, err := name.ParseReference(
@@ -3276,20 +3286,9 @@ func (h *ManifestHandler) Push(ops ...IndexPushOption) error {
 		return err
 	}
 
-	layoutPath := filepath.Join(h.Options.XdgPath, h.Options.Reponame)
-	path, err := layout.FromPath(layoutPath)
-	if err != nil {
-		return err
-	}
-
-	imageIndex, err := path.ImageIndex()
-	if err != nil {
-		return err
-	}
-
 	err = remote.WriteIndex(
 		ref,
-		imageIndex,
+		h.ImageIndex,
 		remote.WithAuthFromKeychain(h.Options.KeyChain),
 		remote.WithTransport(getTransport(pushOps.Insecure)),
 	)
@@ -3305,7 +3304,18 @@ func (h *ManifestHandler) Push(ops ...IndexPushOption) error {
 }
 
 func (i *IndexHandler) Push(ops ...IndexPushOption) error {
+	if len(i.RemovedManifests) != 0 || len(i.Annotate.Instance) != 0 {
+		return ErrIndexNeedToBeSaved
+	}
+
 	var pushOps = &PushOptions{}
+	for _, op := range ops {
+		err := op(pushOps)
+		if err != nil {
+			return err
+		}
+	}
+
 	if pushOps.Format != types.MediaType("") {
 		mfest, err := i.IndexManifest()
 		if err != nil {
@@ -3325,17 +3335,6 @@ func (i *IndexHandler) Push(ops ...IndexPushOption) error {
 		}
 	}
 
-	for _, op := range ops {
-		err := op(pushOps)
-		if err != nil {
-			return err
-		}
-	}
-
-	if err := i.Save(); err != nil {
-		return err
-	}
-
 	ref, err := name.ParseReference(
 		i.Options.Reponame,
 		name.WeakValidation,
@@ -3345,20 +3344,9 @@ func (i *IndexHandler) Push(ops ...IndexPushOption) error {
 		return err
 	}
 
-	layoutPath := filepath.Join(i.Options.XdgPath, i.Options.Reponame)
-	path, err := layout.FromPath(layoutPath)
-	if err != nil {
-		return err
-	}
-
-	imageIndex, err := path.ImageIndex()
-	if err != nil {
-		return err
-	}
-
 	err = remote.WriteIndex(
 		ref,
-		imageIndex,
+		i.ImageIndex,
 		remote.WithAuthFromKeychain(i.Options.KeyChain),
 		remote.WithTransport(getTransport(pushOps.Insecure)),
 	)
@@ -3499,7 +3487,7 @@ func (i *IndexHandler) Delete() error {
 
 		if !d.IsDir() {
 			wg.Add(1)
-			errGroup.TryGo(func() error {
+			errGroup.Go(func() error {
 				defer wg.Done()
 				return os.Remove(path)
 			})
