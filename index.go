@@ -3298,9 +3298,22 @@ func (h *ManifestHandler) Push(ops ...IndexPushOption) error {
 		return err
 	}
 
+	mfest, err := h.IndexManifest()
+	if err != nil {
+		return err
+	}
+
+	if mfest == nil {
+		return ErrManifestUndefined
+	}
+
+	taggableIndex := &TaggableIndex{
+		IndexManifest: *mfest,
+	}
+
 	err = remote.Put(
 		ref,
-		h.ImageIndex,
+		taggableIndex,
 		remote.WithAuthFromKeychain(h.Options.KeyChain),
 		remote.WithTransport(getTransport(pushOps.Insecure)),
 	)
@@ -3744,4 +3757,12 @@ func getIndexManifest(i ImageIndex, digest name.Digest) (mfest *v1.IndexManifest
 	default:
 		return nil, ErrUnknownHandler
 	}
+}
+
+type TaggableIndex struct {
+	v1.IndexManifest
+}
+
+func (t *TaggableIndex) RawManifest() ([]byte, error) {
+	return json.Marshal(t.IndexManifest)
 }
