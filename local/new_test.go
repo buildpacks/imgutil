@@ -44,7 +44,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			)
 			h.AssertNil(t, err)
 
-			imgIdx, ok := idx.(*imgutil.Index)
+			imgIdx, ok := idx.(*imgutil.IndexHandler)
 			h.AssertEq(t, ok, true)
 			h.AssertEq(t, imgIdx.Options.Reponame, repoName)
 			h.AssertEq(t, imgIdx.Options.XdgPath, xdgPath)
@@ -78,7 +78,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			)
 			h.AssertNil(t, err)
 
-			imgIdx, ok := idx.(*imgutil.Index)
+			imgIdx, ok := idx.(*imgutil.IndexHandler)
 			h.AssertEq(t, ok, true)
 
 			_, err = imgIdx.ImageIndex.ImageIndex(v1.Hash{})
@@ -94,7 +94,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			)
 			h.AssertNil(t, err)
 
-			imgIdx, ok := idx.(*imgutil.Index)
+			imgIdx, ok := idx.(*imgutil.IndexHandler)
 			h.AssertEq(t, ok, true)
 
 			_, err = imgIdx.Image(v1.Hash{})

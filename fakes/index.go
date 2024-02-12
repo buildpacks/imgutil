@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -159,14 +160,16 @@ func computeIndex(idx *Index) error {
 	return nil
 }
 
+var _ imgutil.ImageIndex = (*Index)(nil)
+
 type Index struct {
-	os, arch, variant, osVersion map[v1.Hash]string
-	features, osFeatures, urls   map[v1.Hash][]string
-	annotations                  map[v1.Hash]map[string]string
-	format                       types.MediaType
-	byteSize, layers, count      int64
-	ops                          []Option
-	isDeleted                    bool
+	os, arch, variant, osVersion    map[v1.Hash]string
+	features, osFeatures, urls      map[v1.Hash][]string
+	annotations                     map[v1.Hash]map[string]string
+	format                          types.MediaType
+	byteSize, layers, count         int64
+	ops                             []Option
+	isDeleted, shouldSave, AddIndex bool
 	v1.ImageIndex
 }
 
@@ -320,6 +323,7 @@ func (i *Index) SetOS(digest name.Digest, os string) error {
 		return err
 	}
 
+	i.shouldSave = true
 	i.os[hash] = os
 	return nil
 }
@@ -334,6 +338,7 @@ func (i *Index) SetArchitecture(digest name.Digest, arch string) error {
 		return err
 	}
 
+	i.shouldSave = true
 	i.arch[hash] = arch
 	return nil
 }
@@ -348,6 +353,7 @@ func (i *Index) SetVariant(digest name.Digest, osVariant string) error {
 		return err
 	}
 
+	i.shouldSave = true
 	i.variant[hash] = osVariant
 	return nil
 }
@@ -362,6 +368,7 @@ func (i *Index) SetOSVersion(digest name.Digest, osVersion string) error {
 		return err
 	}
 
+	i.shouldSave = true
 	i.osVersion[hash] = osVersion
 	return nil
 }
@@ -376,6 +383,7 @@ func (i *Index) SetFeatures(digest name.Digest, features []string) error {
 		return err
 	}
 
+	i.shouldSave = true
 	i.features[hash] = features
 	return nil
 }
@@ -390,6 +398,7 @@ func (i *Index) SetOSFeatures(digest name.Digest, osFeatures []string) error {
 		return err
 	}
 
+	i.shouldSave = true
 	i.osFeatures[hash] = osFeatures
 	return nil
 }
@@ -404,6 +413,7 @@ func (i *Index) SetAnnotations(digest name.Digest, annotations map[string]string
 		return err
 	}
 
+	i.shouldSave = true
 	i.annotations[hash] = annotations
 	return nil
 }
@@ -418,6 +428,7 @@ func (i *Index) SetURLs(digest name.Digest, urls []string) error {
 		return err
 	}
 
+	i.shouldSave = true
 	i.urls[hash] = urls
 	return nil
 }
@@ -429,7 +440,12 @@ func (i *Index) Add(ref name.Reference, ops ...imgutil.IndexAddOption) error {
 
 	hash, err := v1.NewHash(ref.Identifier())
 	if err != nil {
-		return err
+		length := 4
+		b := make([]byte, length)
+		hash, _, err = v1.SHA256(strings.NewReader(string(b)))
+		if err != nil {
+			return err
+		}
 	}
 
 	addOps := &imgutil.AddOptions{}
@@ -438,18 +454,42 @@ func (i *Index) Add(ref name.Reference, ops ...imgutil.IndexAddOption) error {
 	}
 
 	if idx, ok := i.ImageIndex.(*randomIndex); ok {
-		if i.format == types.DockerManifestList {
-			index, err := idx.AddImage(hash, types.DockerManifestSchema2, i.byteSize, i.layers, i.count, i.ops...)
+		if i.AddIndex {
+			if i.format == types.DockerManifestList {
+				index, err := idx.addIndex(hash, types.DockerManifestSchema2, i.byteSize, i.layers, i.count, i.ops...)
+				if err != nil {
+					return err
+				}
+
+				i.shouldSave = true
+				i.ImageIndex = index
+				return computeIndex(i)
+			}
+			index, err := idx.addIndex(hash, types.OCIManifestSchema1, i.byteSize, i.layers, i.count, i.ops...)
 			if err != nil {
 				return err
 			}
+
+			i.shouldSave = true
 			i.ImageIndex = index
 			return computeIndex(i)
 		}
-		index, err := idx.AddImage(hash, types.OCIManifestSchema1, i.byteSize, i.layers, i.count, i.ops...)
+		if i.format == types.DockerManifestList {
+			index, err := idx.addImage(hash, types.DockerManifestSchema2, i.byteSize, i.layers, i.count, i.ops...)
+			if err != nil {
+				return err
+			}
+
+			i.shouldSave = true
+			i.ImageIndex = index
+			return computeIndex(i)
+		}
+		index, err := idx.addImage(hash, types.OCIManifestSchema1, i.byteSize, i.layers, i.count, i.ops...)
 		if err != nil {
 			return err
 		}
+
+		i.shouldSave = true
 		i.ImageIndex = index
 		return computeIndex(i)
 	}
@@ -462,6 +502,7 @@ func (i *Index) Save() error {
 		return errors.New("index doesn't exists")
 	}
 
+	i.shouldSave = false
 	return nil
 }
 
@@ -470,20 +511,37 @@ func (i *Index) Push(ops ...imgutil.IndexPushOption) error {
 		return errors.New("index doesn't exists")
 	}
 
+	if i.shouldSave {
+		return errors.New("index should need to be saved")
+	}
+
 	return nil
 }
 
-func (i *Index) Inspect() error {
+func (i *Index) Inspect() (mfestStr string, err error) {
 	if i.isDeleted {
-		return errors.New("index doesn't exists")
+		return mfestStr, errors.New("index doesn't exists")
 	}
 
-	bytes, err := i.ImageIndex.RawManifest()
+	if i.shouldSave {
+		return mfestStr, errors.New("index should need to be saved")
+	}
+
+	mfest, err := i.ImageIndex.IndexManifest()
 	if err != nil {
-		return err
+		return mfestStr, err
 	}
 
-	return errors.New(string(bytes))
+	if mfest == nil {
+		return mfestStr, imgutil.ErrManifestUndefined
+	}
+
+	mfestBytes, err := json.MarshalIndent(mfest, "", "	")
+	if err != nil {
+		return mfestStr, err
+	}
+
+	return string(mfestBytes), nil
 }
 
 func (i *Index) Remove(digest name.Digest) error {
@@ -513,11 +571,13 @@ func (i *Index) Delete() error {
 	}
 
 	i.isDeleted = true
+	i.shouldSave = false
 	return nil
 }
 
 type randomIndex struct {
 	images   map[v1.Hash]v1.Image
+	indexes  map[v1.Hash]v1.ImageIndex
 	manifest *v1.IndexManifest
 }
 
@@ -532,36 +592,74 @@ func ImageIndex(byteSize, layers, count int64, desc v1.Descriptor, options ...Op
 	}
 
 	images := make(map[v1.Hash]v1.Image)
-	for i := int64(0); i < count; i++ {
-		img, err := V1Image(byteSize, layers, options...)
-		if err != nil {
-			return nil, err
-		}
 
-		rawManifest, err := img.RawManifest()
-		if err != nil {
-			return nil, err
-		}
-		digest, size, err := v1.SHA256(bytes.NewReader(rawManifest))
-		if err != nil {
-			return nil, err
-		}
-		mediaType, err := img.MediaType()
-		if err != nil {
-			return nil, err
-		}
+	indexes := make(map[v1.Hash]v1.ImageIndex)
+	withouIndex := WithIndex(false)
+	o := getOptions(options)
 
-		manifest.Manifests = append(manifest.Manifests, v1.Descriptor{
-			Digest:    digest,
-			Size:      size,
-			MediaType: mediaType,
-		})
+	if o.withIndex {
+		withouIndex(o)
+		options = append(options, WithSource(o.source), WithIndex(o.withIndex))
+		for i := int64(0); i < count; i++ {
+			idx, err := ImageIndex(byteSize, layers, count, desc, options...)
+			if err != nil {
+				return nil, err
+			}
 
-		images[digest] = img
+			rawManifest, err := idx.RawManifest()
+			if err != nil {
+				return nil, err
+			}
+			digest, size, err := v1.SHA256(bytes.NewReader(rawManifest))
+			if err != nil {
+				return nil, err
+			}
+			mediaType, err := idx.MediaType()
+			if err != nil {
+				return nil, err
+			}
+
+			manifest.Manifests = append(manifest.Manifests, v1.Descriptor{
+				Digest:    digest,
+				Size:      size,
+				MediaType: mediaType,
+			})
+
+			indexes[digest] = idx
+		}
+	} else {
+		for i := int64(0); i < count; i++ {
+			img, err := V1Image(byteSize, layers, options...)
+			if err != nil {
+				return nil, err
+			}
+
+			rawManifest, err := img.RawManifest()
+			if err != nil {
+				return nil, err
+			}
+			digest, size, err := v1.SHA256(bytes.NewReader(rawManifest))
+			if err != nil {
+				return nil, err
+			}
+			mediaType, err := img.MediaType()
+			if err != nil {
+				return nil, err
+			}
+
+			manifest.Manifests = append(manifest.Manifests, v1.Descriptor{
+				Digest:    digest,
+				Size:      size,
+				MediaType: mediaType,
+			})
+
+			images[digest] = img
+		}
 	}
 
 	return &randomIndex{
 		images:   images,
+		indexes:  indexes,
 		manifest: &manifest,
 	}, nil
 }
@@ -599,11 +697,14 @@ func (i *randomIndex) Image(h v1.Hash) (v1.Image, error) {
 }
 
 func (i *randomIndex) ImageIndex(h v1.Hash) (v1.ImageIndex, error) {
-	// This is a single level index (for now?).
+	if idx, ok := i.indexes[h]; ok {
+		return idx, nil
+	}
+
 	return nil, fmt.Errorf("image not found: %v", h)
 }
 
-func (i *randomIndex) AddImage(hash v1.Hash, format types.MediaType, byteSize, layers, count int64, options ...Option) (v1.ImageIndex, error) {
+func (i *randomIndex) addImage(hash v1.Hash, format types.MediaType, byteSize, layers, count int64, options ...Option) (v1.ImageIndex, error) {
 	img, err := V1Image(byteSize, layers, options...)
 	if err != nil {
 		return nil, err
@@ -625,6 +726,32 @@ func (i *randomIndex) AddImage(hash v1.Hash, format types.MediaType, byteSize, l
 	})
 
 	i.images[hash] = img
+
+	return i, nil
+}
+
+func (i *randomIndex) addIndex(hash v1.Hash, format types.MediaType, byteSize, layers, count int64, options ...Option) (v1.ImageIndex, error) {
+	idx, err := ImageIndex(byteSize, layers, count, v1.Descriptor{}, options...)
+	if err != nil {
+		return nil, err
+	}
+
+	rawManifest, err := idx.RawManifest()
+	if err != nil {
+		return nil, err
+	}
+	_, size, err := v1.SHA256(bytes.NewReader(rawManifest))
+	if err != nil {
+		return nil, err
+	}
+
+	i.manifest.Manifests = append(i.manifest.Manifests, v1.Descriptor{
+		Digest:    hash,
+		Size:      size,
+		MediaType: format,
+	})
+
+	i.indexes[hash] = idx
 
 	return i, nil
 }

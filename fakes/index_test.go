@@ -503,8 +503,9 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
-					err = idx.Inspect()
-					h.AssertNotEq(t, err, nil)
+					mfest, err := idx.Inspect()
+					h.AssertNil(t, err)
+					h.AssertNotEq(t, mfest, "")
 				})
 			})
 			when("#Delete", func() {

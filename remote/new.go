@@ -53,7 +53,24 @@ func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err
 		return idx, err
 	}
 
-	return &imgutil.Index{
+	if !idxOps.ManifestOnly() {
+		return &imgutil.IndexHandler{
+			ImageIndex: imgIdx,
+			Annotate: imgutil.Annotate{
+				Instance: make(map[v1.Hash]v1.Descriptor, 0),
+			},
+			RemovedManifests: make([]v1.Hash, 0),
+			Options: imgutil.IndexOptions{
+				KeyChain:         idxOps.Keychain(),
+				XdgPath:          idxOps.XDGRuntimePath(),
+				Reponame:         idxOps.RepoName(),
+				InsecureRegistry: idxOps.Insecure(),
+			},
+			Images: make(map[v1.Hash]v1.Image),
+		}, nil
+	}
+
+	return &imgutil.ManifestHandler{
 		ImageIndex: imgIdx,
 		Annotate: imgutil.Annotate{
 			Instance: make(map[v1.Hash]v1.Descriptor, 0),
@@ -65,7 +82,7 @@ func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err
 			Reponame:         idxOps.RepoName(),
 			InsecureRegistry: idxOps.Insecure(),
 		},
-		Images: make(map[v1.Hash]v1.Image),
+		Images: make(map[v1.Hash]v1.Descriptor),
 	}, nil
 }
 

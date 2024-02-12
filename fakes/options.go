@@ -29,7 +29,8 @@ func WithFormat(format types.MediaType) IndexAddOption {
 type Option func(opts *options)
 
 type options struct {
-	source rand.Source
+	source    rand.Source
+	withIndex bool
 
 	// TODO opens the door to add this in the future
 	// algorithm digest.Algorithm
@@ -65,5 +66,11 @@ func getOptions(opts []Option) *options {
 func WithSource(source rand.Source) Option {
 	return func(opts *options) {
 		opts.source = source
+	}
+}
+
+func WithIndex(withIndex bool) Option {
+	return func(opts *options) {
+		opts.withIndex = withIndex
 	}
 }
