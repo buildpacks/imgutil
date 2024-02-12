@@ -544,7 +544,7 @@ func (i *Index) Inspect() (mfestStr string, err error) {
 	return string(mfestBytes), nil
 }
 
-func (i *Index) Remove(digest name.Digest) error {
+func (i *Index) Remove(digest name.Reference) error {
 	if i.isDeleted {
 		return errors.New("index doesn't exists")
 	}

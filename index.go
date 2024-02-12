@@ -52,7 +52,7 @@ type ImageIndex interface {
 	Save() error
 	Push(ops ...IndexPushOption) error
 	Inspect() (string, error)
-	Remove(digest name.Digest) error
+	Remove(ref name.Reference) error
 	Delete() error
 }
 
@@ -3272,9 +3272,21 @@ func (h *ManifestHandler) Push(ops ...IndexPushOption) error {
 	}
 
 	if pushOps.Format != types.MediaType("") {
+		h.ImageIndex = mutate.IndexMediaType(h.ImageIndex, pushOps.Format)
 		if err := h.Save(); err != nil {
 			return err
 		}
+	}
+
+	layoutPath := filepath.Join(h.Options.XdgPath, h.Options.Reponame)
+	path, err := layout.FromPath(layoutPath)
+	if err != nil {
+		return err
+	}
+
+	h.ImageIndex, err = path.ImageIndex()
+	if err != nil {
+		return err
 	}
 
 	ref, err := name.ParseReference(
@@ -3286,7 +3298,7 @@ func (h *ManifestHandler) Push(ops ...IndexPushOption) error {
 		return err
 	}
 
-	err = remote.WriteIndex(
+	err = remote.Put(
 		ref,
 		h.ImageIndex,
 		remote.WithAuthFromKeychain(h.Options.KeyChain),
@@ -3333,6 +3345,24 @@ func (i *IndexHandler) Push(ops ...IndexPushOption) error {
 		if pushOps.Format != mfest.MediaType {
 			i.ImageIndex = mutate.IndexMediaType(i.ImageIndex, pushOps.Format)
 		}
+	}
+
+	if pushOps.Format != types.MediaType("") {
+		i.ImageIndex = mutate.IndexMediaType(i.ImageIndex, pushOps.Format)
+		if err := i.Save(); err != nil {
+			return err
+		}
+	}
+
+	layoutPath := filepath.Join(i.Options.XdgPath, i.Options.Reponame)
+	path, err := layout.FromPath(layoutPath)
+	if err != nil {
+		return err
+	}
+
+	i.ImageIndex, err = path.ImageIndex()
+	if err != nil {
+		return err
 	}
 
 	ref, err := name.ParseReference(
@@ -3405,10 +3435,31 @@ func (i *IndexHandler) Inspect() (string, error) {
 	return string(mfestBytes), nil
 }
 
-func (h *ManifestHandler) Remove(digest name.Digest) error {
-	hash, err := v1.NewHash(digest.Identifier())
-	if err != nil {
-		return err
+func (h *ManifestHandler) Remove(ref name.Reference) (err error) {
+	var hash v1.Hash
+	switch v := ref.(type) {
+	case name.Tag:
+		desc, err := remote.Head(
+			v,
+			remote.WithAuthFromKeychain(h.Options.KeyChain),
+			remote.WithTransport(
+				getTransport(h.Options.InsecureRegistry),
+			),
+		)
+		if err != nil {
+			return err
+		}
+
+		if desc == nil {
+			return ErrManifestUndefined
+		}
+
+		hash = desc.Digest
+	default:
+		hash, err = v1.NewHash(v.Identifier())
+		if err != nil {
+			return err
+		}
 	}
 
 	if _, ok := h.Images[hash]; ok {
@@ -3441,10 +3492,31 @@ func (h *ManifestHandler) Remove(digest name.Digest) error {
 	return nil
 }
 
-func (i *IndexHandler) Remove(digest name.Digest) error {
-	hash, err := v1.NewHash(digest.Identifier())
-	if err != nil {
-		return err
+func (i *IndexHandler) Remove(ref name.Reference) (err error) {
+	var hash v1.Hash
+	switch v := ref.(type) {
+	case name.Tag:
+		desc, err := remote.Head(
+			v,
+			remote.WithAuthFromKeychain(i.Options.KeyChain),
+			remote.WithTransport(
+				getTransport(i.Options.InsecureRegistry),
+			),
+		)
+		if err != nil {
+			return err
+		}
+
+		if desc == nil {
+			return ErrManifestUndefined
+		}
+
+		hash = desc.Digest
+	default:
+		hash, err = v1.NewHash(v.Identifier())
+		if err != nil {
+			return err
+		}
 	}
 
 	if _, ok := i.Images[hash]; ok {
