@@ -50,37 +50,18 @@ func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err
 		return nil, errors.New("no oci image index found")
 	}
 
-	if !idxOps.ManifestOnly() {
-		return &imgutil.IndexHandler{
-			ImageIndex: imgIdx,
-			Annotate: imgutil.Annotate{
-				Instance: make(map[v1.Hash]v1.Descriptor),
-			},
-			RemovedManifests: make([]v1.Hash, 0),
-			Options: imgutil.IndexOptions{
-				KeyChain:         idxOps.Keychain(),
-				XdgPath:          idxOps.XDGRuntimePath(),
-				Reponame:         idxOps.RepoName(),
-				InsecureRegistry: idxOps.Insecure(),
-			},
-			Images: make(map[v1.Hash]v1.Image),
-		}, nil
+	idxOptions := imgutil.IndexOptions{
+		KeyChain:         idxOps.Keychain(),
+		XdgPath:          idxOps.XDGRuntimePath(),
+		Reponame:         idxOps.RepoName(),
+		InsecureRegistry: idxOps.Insecure(),
 	}
 
-	return &imgutil.ManifestHandler{
-		ImageIndex: imgIdx,
-		Annotate: imgutil.Annotate{
-			Instance: make(map[v1.Hash]v1.Descriptor),
-		},
-		RemovedManifests: make([]v1.Hash, 0),
-		Options: imgutil.IndexOptions{
-			KeyChain:         idxOps.Keychain(),
-			XdgPath:          idxOps.XDGRuntimePath(),
-			Reponame:         idxOps.RepoName(),
-			InsecureRegistry: idxOps.Insecure(),
-		},
-		Images: make(map[v1.Hash]v1.Descriptor),
-	}, nil
+	if !idxOps.ManifestOnly() {
+		return imgutil.NewIndexHandler(imgIdx, idxOptions), nil
+	}
+
+	return imgutil.NewManifestHandler(imgIdx, idxOptions), nil
 }
 
 func NewImage(path string, ops ...ImageOption) (*Image, error) {

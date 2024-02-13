@@ -9,7 +9,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
-var DockerIndex = dockerIndex{}
+var Index = dockerIndex{}
 
 type dockerIndex struct{}
 

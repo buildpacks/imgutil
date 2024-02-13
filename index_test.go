@@ -4885,7 +4885,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						idx := imgutil.IndexHandler{
-							ImageIndex: docker.DockerIndex,
+							ImageIndex: docker.Index,
 							RemovedManifests: []v1.Hash{
 								hash,
 							},
@@ -4929,7 +4929,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						idx := imgutil.IndexHandler{
-							ImageIndex: docker.DockerIndex,
+							ImageIndex: docker.Index,
 						}
 
 						annotations, err := idx.Annotations(digest)
@@ -4979,7 +4979,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						idx := imgutil.IndexHandler{
-							ImageIndex: docker.DockerIndex,
+							ImageIndex: docker.Index,
 							RemovedManifests: []v1.Hash{
 								hash,
 							},
@@ -5028,7 +5028,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						idx := imgutil.IndexHandler{
-							ImageIndex: docker.DockerIndex,
+							ImageIndex: docker.Index,
 						}
 
 						err = idx.SetAnnotations(digest, map[string]string{

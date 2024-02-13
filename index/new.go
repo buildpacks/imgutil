@@ -3,7 +3,6 @@ package index
 import (
 	"path/filepath"
 
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/types"
@@ -23,67 +22,30 @@ func NewIndex(repoName string, ops ...Option) (idx imgutil.ImageIndex, err error
 		}
 	}
 
+	idxOptions := imgutil.IndexOptions{
+		KeyChain:         idxOps.keychain,
+		XdgPath:          idxOps.xdgPath,
+		Reponame:         idxOps.repoName,
+		InsecureRegistry: idxOps.insecure,
+	}
+
 	layoutPath := filepath.Join(idxOps.xdgPath, idxOps.repoName)
 	if !idxOps.manifestOnly {
 		switch idxOps.format {
 		case types.DockerManifestList:
-			idx = &imgutil.IndexHandler{
-				ImageIndex: docker.DockerIndex,
-				Options: imgutil.IndexOptions{
-					KeyChain:         idxOps.keychain,
-					XdgPath:          idxOps.xdgPath,
-					Reponame:         idxOps.repoName,
-					InsecureRegistry: idxOps.insecure,
-				},
-				Images: make(map[v1.Hash]v1.Image),
-			}
-			_, err = layout.Write(layoutPath, docker.DockerIndex)
+			idx = imgutil.NewIndexHandler(docker.Index, idxOptions)
+			_, err = layout.Write(layoutPath, docker.Index)
 		default:
-			idx = &imgutil.IndexHandler{
-				ImageIndex: empty.Index,
-				Annotate: imgutil.Annotate{
-					Instance: make(map[v1.Hash]v1.Descriptor),
-				},
-				RemovedManifests: make([]v1.Hash, 10),
-				Options: imgutil.IndexOptions{
-					KeyChain:         idxOps.keychain,
-					XdgPath:          idxOps.xdgPath,
-					Reponame:         idxOps.repoName,
-					InsecureRegistry: idxOps.insecure,
-				},
-				Images: make(map[v1.Hash]v1.Image),
-			}
+			idx = imgutil.NewIndexHandler(empty.Index, idxOptions)
 			_, err = layout.Write(layoutPath, empty.Index)
 		}
 	} else {
 		switch idxOps.format {
 		case types.DockerManifestList:
-			idx = &imgutil.ManifestHandler{
-				ImageIndex: docker.DockerIndex,
-				Options: imgutil.IndexOptions{
-					KeyChain:         idxOps.keychain,
-					XdgPath:          idxOps.xdgPath,
-					Reponame:         idxOps.repoName,
-					InsecureRegistry: idxOps.insecure,
-				},
-				Images: make(map[v1.Hash]v1.Descriptor),
-			}
-			_, err = layout.Write(layoutPath, docker.DockerIndex)
+			idx = imgutil.NewManifestHandler(docker.Index, idxOptions)
+			_, err = layout.Write(layoutPath, docker.Index)
 		default:
-			idx = &imgutil.ManifestHandler{
-				ImageIndex: empty.Index,
-				Annotate: imgutil.Annotate{
-					Instance: make(map[v1.Hash]v1.Descriptor),
-				},
-				RemovedManifests: make([]v1.Hash, 10),
-				Options: imgutil.IndexOptions{
-					KeyChain:         idxOps.keychain,
-					XdgPath:          idxOps.xdgPath,
-					Reponame:         idxOps.repoName,
-					InsecureRegistry: idxOps.insecure,
-				},
-				Images: make(map[v1.Hash]v1.Descriptor),
-			}
+			idx = imgutil.NewManifestHandler(empty.Index, idxOptions)
 			_, err = layout.Write(layoutPath, empty.Index)
 		}
 	}
