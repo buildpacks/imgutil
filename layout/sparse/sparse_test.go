@@ -140,9 +140,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it("returns the original image digest when there are no modifications", func() {
 				image, err := sparse.NewImage(imagePath, testImage)
 				h.AssertNil(t, err)
-
-				err = image.Save()
-				h.AssertNil(t, err)
+				h.AssertNil(t, image.Save())
 
 				expectedDigest, err := testImage.Digest()
 				h.AssertNil(t, err)

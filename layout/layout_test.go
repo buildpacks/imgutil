@@ -114,7 +114,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertEq(t, osVersion, "10.0.17763.316")
 
 				_, err = img.TopLayer()
-				h.AssertError(t, err, "has no layers")
+				h.AssertNil(t, err) // Window images include a runnable base layer
 			})
 
 			it("sets all platform required fields for linux", func() {
@@ -251,6 +251,16 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					h.AssertError(t, err, "has no layers")
 				})
 			})
+
+			when("existing config has extra fields", func() {
+				it("returns an unmodified digest", func() {
+					img, err := layout.NewImage(imagePath, layout.FromBaseImagePath(filepath.Join("testdata", "layout", "busybox-sparse")))
+					h.AssertNil(t, err)
+					digest, err := img.Digest()
+					h.AssertNil(t, err)
+					h.AssertEq(t, digest.String(), "sha256:f75f3d1a317fc82c793d567de94fc8df2bece37acd5f2bd364a0d91a0d1f3dab")
+				})
+			})
 		})
 
 		when("#WithMediaTypes", func() {
@@ -268,6 +278,25 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertDockerMediaTypes(t, img) // after adding a layer
 				h.AssertNil(t, img.Save())
 				h.AssertDockerMediaTypes(t, img) // after saving
+			})
+
+			when("using a sparse image", func() {
+				it("sets the requested media types", func() {
+					img, err := layout.NewImage(
+						imagePath,
+						layout.FromBaseImagePath(sparseBaseImagePath),
+						layout.WithMediaTypes(imgutil.OCITypes),
+					)
+					h.AssertNil(t, err)
+					h.AssertOCIMediaTypes(t, img) // before saving
+					// add a random layer
+					path, diffID, _ := h.RandomLayer(t, tmpDir)
+					err = img.AddLayerWithDiffID(path, diffID)
+					h.AssertNil(t, err)
+					h.AssertOCIMediaTypes(t, img) // after adding a layer
+					h.AssertNil(t, img.Save())
+					h.AssertOCIMediaTypes(t, img) // after saving
+				})
 			})
 		})
 

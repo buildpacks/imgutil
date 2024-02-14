@@ -22,20 +22,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/v1/types"
-
-	"github.com/buildpacks/imgutil/layer"
-
 	dockertypes "github.com/docker/docker/api/types"
 	dockercli "github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
+
+	"github.com/buildpacks/imgutil/layer"
 )
 
 func RandString(n int) string {
