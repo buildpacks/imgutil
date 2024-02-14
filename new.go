@@ -291,7 +291,7 @@ func prepareNewWindowsImageIfNeeded(image *CNBImageCore) error {
 	}
 	return nil
 }
-  
+
 func NewIndexHandler(ii v1.ImageIndex, ops IndexOptions) *IndexHandler {
 	return &IndexHandler{
 		ImageIndex: ii,

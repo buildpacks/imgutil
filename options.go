@@ -3,11 +3,11 @@ package imgutil
 import (
 	"crypto/tls"
 	"net/http"
-  "time"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/v1/types"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
 type ImageOptions struct {

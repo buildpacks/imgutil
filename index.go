@@ -82,10 +82,10 @@ var (
 var _ ImageIndex = (*IndexHandler)(nil)
 var _ ImageIndex = (*ManifestHandler)(nil)
 
-// a Handler implementing ImageIndex.
+// A Handler implementing ImageIndex.
 // It will create and Manipulate ImageIndex along with underlying Images.
 //
-// prefer `ManifestHandler` if only IndexManifest should need to be manipulated
+// Prefer `ManifestHandler` if only IndexManifest should need to be manipulated.
 type IndexHandler struct {
 	v1.ImageIndex
 	Annotate         Annotate
@@ -94,10 +94,10 @@ type IndexHandler struct {
 	Images           map[v1.Hash]v1.Image
 }
 
-// a Handler implementing ImageIndex.
-// It will create and Manipulate IndexManifest
+// A Handler implementing ImageIndex.
+// It will create and Manipulate IndexManifest.
 //
-// prefer `IndexHandler` if underlying Images should need to be manipulated
+// Prefer `IndexHandler` if underlying Images should need to be manipulated
 type ManifestHandler struct {
 	v1.ImageIndex
 	Annotate         Annotate
@@ -106,12 +106,12 @@ type ManifestHandler struct {
 	Images           map[v1.Hash]v1.Descriptor
 }
 
-// an helper struct used for keeping track of changes made to ImageIndex
+// An helper struct used for keeping track of changes made to ImageIndex.
 type Annotate struct {
 	Instance map[v1.Hash]v1.Descriptor
 }
 
-// returns `OS` of an existing manipulated ImageIndex if found, else an error
+// Returns `OS` of an existing manipulated ImageIndex if found, else an error.
 func (a *Annotate) OS(hash v1.Hash) (os string, err error) {
 	if len(a.Instance) == 0 {
 		a.Instance = make(map[v1.Hash]v1.Descriptor)
@@ -125,7 +125,7 @@ func (a *Annotate) OS(hash v1.Hash) (os string, err error) {
 	return desc.Platform.OS, nil
 }
 
-// sets the `OS` of an Image/ImageIndex to keep track of changes
+// Sets the `OS` of an Image/ImageIndex to keep track of changes.
 func (a *Annotate) SetOS(hash v1.Hash, os string) {
 	if len(a.Instance) == 0 {
 		a.Instance = make(map[v1.Hash]v1.Descriptor)
@@ -140,7 +140,7 @@ func (a *Annotate) SetOS(hash v1.Hash, os string) {
 	a.Instance[hash] = desc
 }
 
-// returns `Architecture` of an existing manipulated ImageIndex if found, else an error
+// Returns `Architecture` of an existing manipulated ImageIndex if found, else an error.
 func (a *Annotate) Architecture(hash v1.Hash) (arch string, err error) {
 	if len(a.Instance) == 0 {
 		a.Instance = make(map[v1.Hash]v1.Descriptor)
@@ -154,6 +154,7 @@ func (a *Annotate) Architecture(hash v1.Hash) (arch string, err error) {
 	return desc.Platform.Architecture, nil
 }
 
+// Annotates the `Architecture` of the given Image.
 func (a *Annotate) SetArchitecture(hash v1.Hash, arch string) {
 	if len(a.Instance) == 0 {
 		a.Instance = make(map[v1.Hash]v1.Descriptor)
@@ -168,7 +169,7 @@ func (a *Annotate) SetArchitecture(hash v1.Hash, arch string) {
 	a.Instance[hash] = desc
 }
 
-// returns `Variant` of an existing manipulated ImageIndex if found, else an error
+// Returns `Variant` of an existing manipulated ImageIndex if found, else an error.
 func (a *Annotate) Variant(hash v1.Hash) (variant string, err error) {
 	if len(a.Instance) == 0 {
 		a.Instance = make(map[v1.Hash]v1.Descriptor)
@@ -182,6 +183,7 @@ func (a *Annotate) Variant(hash v1.Hash) (variant string, err error) {
 	return desc.Platform.Variant, nil
 }
 
+// Annotates the `Variant` of the given Image.
 func (a *Annotate) SetVariant(hash v1.Hash, variant string) {
 	if len(a.Instance) == 0 {
 		a.Instance = make(map[v1.Hash]v1.Descriptor)
@@ -196,7 +198,7 @@ func (a *Annotate) SetVariant(hash v1.Hash, variant string) {
 	a.Instance[hash] = desc
 }
 
-// returns `OSVersion` of an existing manipulated ImageIndex if found, else an error
+// Returns `OSVersion` of an existing manipulated ImageIndex if found, else an error.
 func (a *Annotate) OSVersion(hash v1.Hash) (osVersion string, err error) {
 	if len(a.Instance) == 0 {
 		a.Instance = make(map[v1.Hash]v1.Descriptor)
@@ -210,6 +212,7 @@ func (a *Annotate) OSVersion(hash v1.Hash) (osVersion string, err error) {
 	return desc.Platform.OSVersion, nil
 }
 
+// Annotates the `OSVersion` of the given Image.
 func (a *Annotate) SetOSVersion(hash v1.Hash, osVersion string) {
 	if len(a.Instance) == 0 {
 		a.Instance = make(map[v1.Hash]v1.Descriptor)
@@ -224,7 +227,7 @@ func (a *Annotate) SetOSVersion(hash v1.Hash, osVersion string) {
 	a.Instance[hash] = desc
 }
 
-// returns `Features` of an existing manipulated ImageIndex if found, else an error
+// Returns `Features` of an existing manipulated ImageIndex if found, else an error.
 func (a *Annotate) Features(hash v1.Hash) (features []string, err error) {
 	if len(a.Instance) == 0 {
 		a.Instance = make(map[v1.Hash]v1.Descriptor)
@@ -238,6 +241,7 @@ func (a *Annotate) Features(hash v1.Hash) (features []string, err error) {
 	return desc.Platform.Features, nil
 }
 
+// Annotates the `Features` of the given Image.
 func (a *Annotate) SetFeatures(hash v1.Hash, features []string) {
 	if len(a.Instance) == 0 {
 		a.Instance = make(map[v1.Hash]v1.Descriptor)
@@ -252,7 +256,7 @@ func (a *Annotate) SetFeatures(hash v1.Hash, features []string) {
 	a.Instance[hash] = desc
 }
 
-// returns `OSFeatures` of an existing manipulated ImageIndex if found, else an error
+// Returns `OSFeatures` of an existing manipulated ImageIndex if found, else an error.
 func (a *Annotate) OSFeatures(hash v1.Hash) (osFeatures []string, err error) {
 	if len(a.Instance) == 0 {
 		a.Instance = make(map[v1.Hash]v1.Descriptor)
@@ -266,6 +270,7 @@ func (a *Annotate) OSFeatures(hash v1.Hash) (osFeatures []string, err error) {
 	return desc.Platform.OSFeatures, nil
 }
 
+// Annotates the `OSFeatures` of the given Image.
 func (a *Annotate) SetOSFeatures(hash v1.Hash, osFeatures []string) {
 	if len(a.Instance) == 0 {
 		a.Instance = make(map[v1.Hash]v1.Descriptor)
@@ -280,7 +285,7 @@ func (a *Annotate) SetOSFeatures(hash v1.Hash, osFeatures []string) {
 	a.Instance[hash] = desc
 }
 
-// returns `Annotations` of an existing manipulated ImageIndex if found, else an error
+// Returns `Annotations` of an existing manipulated ImageIndex if found, else an error.
 func (a *Annotate) Annotations(hash v1.Hash) (annotations map[string]string, err error) {
 	if len(a.Instance) == 0 {
 		a.Instance = make(map[v1.Hash]v1.Descriptor)
@@ -294,6 +299,7 @@ func (a *Annotate) Annotations(hash v1.Hash) (annotations map[string]string, err
 	return desc.Annotations, nil
 }
 
+// Annotates the `Annotations` of the given Image.
 func (a *Annotate) SetAnnotations(hash v1.Hash, annotations map[string]string) {
 	if len(a.Instance) == 0 {
 		a.Instance = make(map[v1.Hash]v1.Descriptor)
@@ -308,7 +314,7 @@ func (a *Annotate) SetAnnotations(hash v1.Hash, annotations map[string]string) {
 	a.Instance[hash] = desc
 }
 
-// returns `URLs` of an existing manipulated ImageIndex if found, else an error
+// Returns `URLs` of an existing manipulated ImageIndex if found, else an error.
 func (a *Annotate) URLs(hash v1.Hash) (urls []string, err error) {
 	if len(a.Instance) == 0 {
 		a.Instance = make(map[v1.Hash]v1.Descriptor)
@@ -322,6 +328,7 @@ func (a *Annotate) URLs(hash v1.Hash) (urls []string, err error) {
 	return desc.URLs, nil
 }
 
+// Annotates the `URLs` of the given Image.
 func (a *Annotate) SetURLs(hash v1.Hash, urls []string) {
 	if len(a.Instance) == 0 {
 		a.Instance = make(map[v1.Hash]v1.Descriptor)
@@ -336,7 +343,7 @@ func (a *Annotate) SetURLs(hash v1.Hash, urls []string) {
 	a.Instance[hash] = desc
 }
 
-// returns `types.MediaType` of an existing manipulated ImageIndex if found, else an error
+// Returns `types.MediaType` of an existing manipulated ImageIndex if found, else an error.
 func (a *Annotate) Format(hash v1.Hash) (format types.MediaType, err error) {
 	if len(a.Instance) == 0 {
 		a.Instance = make(map[v1.Hash]v1.Descriptor)
@@ -350,6 +357,7 @@ func (a *Annotate) Format(hash v1.Hash) (format types.MediaType, err error) {
 	return desc.MediaType, nil
 }
 
+// Stores the `Format` of the given Image.
 func (a *Annotate) SetFormat(hash v1.Hash, format types.MediaType) {
 	if len(a.Instance) == 0 {
 		a.Instance = make(map[v1.Hash]v1.Descriptor)
@@ -364,7 +372,7 @@ func (a *Annotate) SetFormat(hash v1.Hash, format types.MediaType) {
 	a.Instance[hash] = desc
 }
 
-// returns `OS` of an existing Image.
+// Returns `OS` of an existing Image.
 func (h *ManifestHandler) OS(digest name.Digest) (os string, err error) {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -424,7 +432,7 @@ func (h *ManifestHandler) OS(digest name.Digest) (os string, err error) {
 	return os, ErrNoImageOrIndexFoundWithGivenDigest
 }
 
-// returns `OS` of an existing Image.
+// Returns `OS` of an existing Image.
 func (i *IndexHandler) OS(digest name.Digest) (os string, err error) {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -470,9 +478,7 @@ func imageOS(img v1.Image) (os string, err error) {
 }
 
 // Annotates existing Image by updating `OS` field in IndexManifest.
-// returns an error if no Image/Index found with given Digest
-//
-// grabs an Image from an ImageIndex if the given digest refers to an ImageIndex
+// Returns an error if no Image/Index found with given Digest.
 func (h *ManifestHandler) SetOS(digest name.Digest, os string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -514,9 +520,7 @@ func (h *ManifestHandler) SetOS(digest name.Digest, os string) error {
 }
 
 // Annotate ImageIndex to update `OS` along with underlying Image.
-// returns an error if no Image/Index found with given Digest
-//
-// grabs an Image from an ImageIndex if the given digest refers to an ImageIndex
+// Returns an error if no Image/Index found with given Digest.
 func (i *IndexHandler) SetOS(digest name.Digest, os string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -575,8 +579,8 @@ func imageSetOS(i ImageIndex, img v1.Image, hash v1.Hash, os string) error {
 	return nil
 }
 
-// Return the Architecture of an Image/Index based on given Digest
-// returns an error if no Image/Index found with given Digest
+// Return the Architecture of an Image/Index based on given Digest.
+// Returns an error if no Image/Index found with given Digest.
 func (h *ManifestHandler) Architecture(digest name.Digest) (arch string, err error) {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -631,8 +635,8 @@ func (h *ManifestHandler) Architecture(digest name.Digest) (arch string, err err
 	return arch, ErrNoImageOrIndexFoundWithGivenDigest
 }
 
-// Return the `Architecture` of an Image
-// returns an error if no Image/Index found with given Digest
+// Return the `Architecture` of an Image.
+// Returns an error if no Image/Index found with given Digest.
 func (i *IndexHandler) Architecture(digest name.Digest) (arch string, err error) {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -674,10 +678,8 @@ func imageArch(img v1.Image) (arch string, err error) {
 	return config.Architecture, nil
 }
 
-// Annotates the `Architecture` of an Image
-// returns an error if no Image/Index found with given Digest
-//
-// grabs an Image from an ImageIndex if the given digest refers to an ImageIndex
+// Annotates the `Architecture` of an Image.
+// Returns an error if no Image/Index found with given Digest.
 func (h *ManifestHandler) SetArchitecture(digest name.Digest, arch string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -712,9 +714,7 @@ func (h *ManifestHandler) SetArchitecture(digest name.Digest, arch string) error
 }
 
 // Annotates the `Architecture` of an Image
-// returns an error if no Image/Index found with given Digest
-//
-// grabs an Image from an ImageIndex if the given digest refers to an ImageIndex
+// Returns an error if no Image/Index found with given Digest.
 func (i *IndexHandler) SetArchitecture(digest name.Digest, arch string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -769,8 +769,8 @@ func imageSetArch(i ImageIndex, img v1.Image, hash v1.Hash, arch string) error {
 	return nil
 }
 
-// Return the `Variant` of an Image
-// returns an error if no Image/Index found with given Digest
+// Return the `Variant` of an Image.
+// Returns an error if no Image/Index found with given Digest.
 func (h *ManifestHandler) Variant(digest name.Digest) (osVariant string, err error) {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -825,8 +825,8 @@ func (h *ManifestHandler) Variant(digest name.Digest) (osVariant string, err err
 	return osVariant, ErrNoImageOrIndexFoundWithGivenDigest
 }
 
-// Return the `Variant` of an Image with gievn Digest
-// returns an error if no Image/Index found with given Digest
+// Return the `Variant` of an Image with gievn Digest.
+// Returns an error if no Image/Index found with given Digest.
 func (i *IndexHandler) Variant(digest name.Digest) (osVariant string, err error) {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -868,10 +868,8 @@ func imageVariant(img v1.Image) (osVariant string, err error) {
 	return config.Variant, nil
 }
 
-// Annotates the `Variant` of an Image with given Digest
-// returns an error if no Image/Index found with given Digest
-//
-// grabs an Image from an ImageIndex if the given digest refers to an ImageIndex
+// Annotates the `Variant` of an Image with given Digest.
+// Returns an error if no Image/Index found with given Digest.
 func (h *ManifestHandler) SetVariant(digest name.Digest, osVariant string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -903,10 +901,8 @@ func (h *ManifestHandler) SetVariant(digest name.Digest, osVariant string) error
 	return ErrNoImageOrIndexFoundWithGivenDigest
 }
 
-// Annotates the `Variant` of an Image with given Digest
-// returns an error if no Image/Index found with given Digest
-//
-// grabs an Image from an ImageIndex if the given digest refers to an ImageIndex
+// Annotates the `Variant` of an Image with given Digest.
+// Returns an error if no Image/Index found with given Digest.
 func (i *IndexHandler) SetVariant(digest name.Digest, osVariant string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -961,8 +957,8 @@ func imageSetVariant(i ImageIndex, img v1.Image, hash v1.Hash, osVariant string)
 	return nil
 }
 
-// Returns the `OSVersion` of an Image with given Digest
-// returns an error if no Image/Index found with given Digest
+// Returns the `OSVersion` of an Image with given Digest.
+// Returns an error if no Image/Index found with given Digest.
 func (h *ManifestHandler) OSVersion(digest name.Digest) (osVersion string, err error) {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -1017,8 +1013,8 @@ func (h *ManifestHandler) OSVersion(digest name.Digest) (osVersion string, err e
 	return osVersion, ErrNoImageOrIndexFoundWithGivenDigest
 }
 
-// Returns the `OSVersion` of an Image with given Digest
-// returns an error if no Image/Index found with given Digest
+// Returns the `OSVersion` of an Image with given Digest.
+// Returns an error if no Image/Index found with given Digest.
 func (i *IndexHandler) OSVersion(digest name.Digest) (osVersion string, err error) {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -1060,10 +1056,8 @@ func imageOSVersion(img v1.Image) (osVersion string, err error) {
 	return config.OSVersion, nil
 }
 
-// Annotates the `OSVersion` of an Image with given Digest
-// returns an error if no Image/Index found with given Digest
-//
-// grabs an Image from an ImageIndex if the given digest refers to an ImageIndex
+// Annotates the `OSVersion` of an Image with given Digest.
+// Returns an error if no Image/Index found with given Digest.
 func (h *ManifestHandler) SetOSVersion(digest name.Digest, osVersion string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -1095,10 +1089,8 @@ func (h *ManifestHandler) SetOSVersion(digest name.Digest, osVersion string) err
 	return ErrNoImageOrIndexFoundWithGivenDigest
 }
 
-// Annotates the `OSVersion` of an Image with given Digest
-// returns an error if no Image/Index found with given Digest
-//
-// grabs an Image from an ImageIndex if the given digest refers to an ImageIndex
+// Annotates the `OSVersion` of an Image with given Digest.
+// Returns an error if no Image/Index found with given Digest.
 func (i *IndexHandler) SetOSVersion(digest name.Digest, osVersion string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -1153,8 +1145,8 @@ func imageSetOSVersion(i ImageIndex, img v1.Image, hash v1.Hash, osVersion strin
 	return nil
 }
 
-// Returns the `Features` of an Image with given Digest
-// returns an error if no Image/Index found with given Digest
+// Returns the `Features` of an Image with given Digest.
+// Returns an error if no Image/Index found with given Digest.
 func (h *ManifestHandler) Features(digest name.Digest) (features []string, err error) {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -1214,8 +1206,8 @@ func (h *ManifestHandler) Features(digest name.Digest) (features []string, err e
 	return features, ErrNoImageOrIndexFoundWithGivenDigest
 }
 
-// Returns the `Features` of an Image with given Digest
-// returns an error if no Image/Index found with given Digest
+// Returns the `Features` of an Image with given Digest.
+// Returns an error if no Image/Index found with given Digest.
 func (i *IndexHandler) Features(digest name.Digest) (features []string, err error) {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -1288,10 +1280,9 @@ func imageFeatures(img v1.Image) (features []string, err error) {
 	return platform.Features, nil
 }
 
-// Annotates the `Features` of an Image with given Digest by appending to existsing Features if any
-// returns an error if no Image/Index found with given Digest
+// Annotates the `Features` of an Image with given Digest by appending to existsing Features if any.
 //
-// grabs an Image from an ImageIndex if the given digest refers to an ImageIndex
+// Returns an error if no Image/Index found with given Digest.
 func (h *ManifestHandler) SetFeatures(digest name.Digest, features []string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -1323,10 +1314,9 @@ func (h *ManifestHandler) SetFeatures(digest name.Digest, features []string) err
 	return ErrNoImageOrIndexFoundWithGivenDigest
 }
 
-// Annotates the `Features` of an Image with given Digest by appending to existsing Features if any
-// returns an error if no Image/Index found with given Digest
+// Annotates the `Features` of an Image with given Digest by appending to existsing Features if any.
 //
-// grabs an Image from an ImageIndex if the given digest refers to an ImageIndex
+// Returns an error if no Image/Index found with given Digest.
 func (i *IndexHandler) SetFeatures(digest name.Digest, features []string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -1381,8 +1371,8 @@ func imageSetFeatures(i ImageIndex, img v1.Image, hash v1.Hash, features []strin
 	return nil
 }
 
-// Returns the `OSFeatures` of an Image with given Digest
-// returns an error if no Image/Index found with given Digest
+// Returns the `OSFeatures` of an Image with given Digest.
+// Returns an error if no Image/Index found with given Digest.
 func (h *ManifestHandler) OSFeatures(digest name.Digest) (osFeatures []string, err error) {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -1442,8 +1432,8 @@ func (h *ManifestHandler) OSFeatures(digest name.Digest) (osFeatures []string, e
 	return osFeatures, ErrNoImageOrIndexFoundWithGivenDigest
 }
 
-// Returns the `OSFeatures` of an Image with given Digest
-// returns an error if no Image/Index found with given Digest
+// Returns the `OSFeatures` of an Image with given Digest.
+// Returns an error if no Image/Index found with given Digest.
 func (i *IndexHandler) OSFeatures(digest name.Digest) (osFeatures []string, err error) {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -1511,10 +1501,9 @@ func imageOSFeatures(img v1.Image) (osFeatures []string, err error) {
 	return config.OSFeatures, nil
 }
 
-// Annotates the `OSFeatures` of an Image with given Digest by appending to existsing OSFeatures if any
-// returns an error if no Image/Index found with given Digest
+// Annotates the `OSFeatures` of an Image with given Digest by appending to existsing OSFeatures if any.
 //
-// grabs an Image from an ImageIndex if the given digest refers to an ImageIndex
+// Returns an error if no Image/Index found with given Digest.
 func (h *ManifestHandler) SetOSFeatures(digest name.Digest, osFeatures []string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -1546,10 +1535,9 @@ func (h *ManifestHandler) SetOSFeatures(digest name.Digest, osFeatures []string)
 	return ErrNoImageOrIndexFoundWithGivenDigest
 }
 
-// Annotates the `OSFeatures` of an Image with given Digest by appending to existsing OSFeatures if any
-// returns an error if no Image/Index found with given Digest
+// Annotates the `OSFeatures` of an Image with given Digest by appending to existsing OSFeatures if any.
 //
-// grabs an Image from an ImageIndex if the given digest refers to an ImageIndex
+// Returns an error if no Image/Index found with given Digest.
 func (i *IndexHandler) SetOSFeatures(digest name.Digest, osFeatures []string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -1604,10 +1592,10 @@ func imageSetOSFeatures(i ImageIndex, img v1.Image, hash v1.Hash, osFeatures []s
 	return nil
 }
 
-// Return the `Annotations` of an Image with given Digest
-// returns an error if no Image/Index found with given Digest
+// Return the `Annotations` of an Image with given Digest.
+// Returns an error if no Image/Index found with given Digest.
 //
-// For Docker Images and Indexes it returns an error
+// For Docker Images and Indexes it returns an error.
 func (h *ManifestHandler) Annotations(digest name.Digest) (annotations map[string]string, err error) {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -1671,8 +1659,8 @@ func (h *ManifestHandler) Annotations(digest name.Digest) (annotations map[strin
 	return annotations, ErrNoImageOrIndexFoundWithGivenDigest
 }
 
-// Return the `Annotations` of an Image with given Digest
-// returns an error if no Image/Index found with given Digest
+// Return the `Annotations` of an Image with given Digest.
+// Returns an error if no Image/Index found with given Digest.
 //
 // For Docker Images and Indexes it returns an error
 func (i *IndexHandler) Annotations(digest name.Digest) (annotations map[string]string, err error) {
@@ -1765,11 +1753,11 @@ func imageAnnotations(img v1.Image) (annotations map[string]string, err error) {
 	}
 }
 
-// Annotates the `Annotations` of an Image with given Digest by appending to existsing Annotations if any
-// returns an error if no Image/Index found with given Digest
+// Annotates the `Annotations` of an Image with given Digest by appending to existsing Annotations if any.
 //
-// For Docker Images and Indexes it ignores updating Annotations
-// grabs an Image from an ImageIndex if the given digest refers to an ImageIndex
+// Returns an error if no Image/Index found with given Digest.
+//
+// For Docker Images and Indexes it ignores updating Annotations.
 func (h *ManifestHandler) SetAnnotations(digest name.Digest, annotations map[string]string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -1825,11 +1813,11 @@ func (h *ManifestHandler) SetAnnotations(digest name.Digest, annotations map[str
 	return ErrNoImageOrIndexFoundWithGivenDigest
 }
 
-// Annotates the `Annotations` of an Image with given Digest by appending to existsing Annotations if any
-// returns an error if no Image/Index found with given Digest
+// Annotates the `Annotations` of an Image with given Digest by appending to existsing Annotations if any.
+//
+// Returns an error if no Image/Index found with given Digest.
 //
 // For Docker Images and Indexes ignore updating Annotations
-// grabs an Image from an ImageIndex if the given digest refers to an ImageIndex
 func (i *IndexHandler) SetAnnotations(digest name.Digest, annotations map[string]string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -1905,8 +1893,8 @@ func imageSetAnnotations(i ImageIndex, img v1.Image, hash v1.Hash, annotations m
 	return nil
 }
 
-// Returns the `URLs` of an Image with given Digest
-// returns an error if no Image/Index found with given Digest
+// Returns the `URLs` of an Image with given Digest.
+// Returns an error if no Image/Index found with given Digest.
 func (h *ManifestHandler) URLs(digest name.Digest) (urls []string, err error) {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -1941,7 +1929,7 @@ func (h *ManifestHandler) URLs(digest name.Digest) (urls []string, err error) {
 }
 
 // Returns the `URLs` of an Image with given Digest.
-// Returns an error if no Image/Index found with given Digest
+// Returns an error if no Image/Index found with given Digest.
 func (i *IndexHandler) URLs(digest name.Digest) (urls []string, err error) {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -1976,9 +1964,7 @@ func (i *IndexHandler) URLs(digest name.Digest) (urls []string, err error) {
 }
 
 // Annotates the `URLs` of an Image with given Digest by appending to existsing URLs if any.
-// Returns an error if no Image/Index found with given Digest
-//
-// Grabs an Image from an ImageIndex if the given digest refers to an ImageIndex
+// Returns an error if no Image/Index found with given Digest.
 func (h *ManifestHandler) SetURLs(digest name.Digest, urls []string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -2010,10 +1996,8 @@ func (h *ManifestHandler) SetURLs(digest name.Digest, urls []string) error {
 	return ErrNoImageOrIndexFoundWithGivenDigest
 }
 
-// Annotates the `URLs` of an Image with given Digest by appending to existsing URLs if any
-// Returns an error if no Image/Index found with given Digest
-//
-// Grabs an Image from an ImageIndex if the given digest refers to an ImageIndex
+// Annotates the `URLs` of an Image with given Digest by appending to existsing URLs if any.
+// Returns an error if no Image/Index found with given Digest.
 func (i *IndexHandler) SetURLs(digest name.Digest, urls []string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -2071,7 +2055,7 @@ func imageSetURLs(i ImageIndex, img v1.Image, hash v1.Hash, urls []string) error
 // Add the ImageIndex from the registry with the given Reference.
 //
 // If referencing an ImageIndex, will add Platform Specific Image from the Index.
-// Use IndexAddOptions to alter behaviour for ImageIndex Reference
+// Use IndexAddOptions to alter behaviour for ImageIndex Reference.
 func (h *ManifestHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
 	var addOps = &AddOptions{}
 	for _, op := range ops {
@@ -2279,7 +2263,7 @@ func (h *ManifestHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
 // If referencing an ImageIndex, will add Platform Specific Image from the Index.
 // Use IndexAddOptions to alter behaviour for ImageIndex Reference.
 //
-// It will locally store all the blobs of the added Images
+// It will locally store all the blobs of the added Images.
 func (i *IndexHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
 	var addOps = &AddOptions{}
 	for _, op := range ops {
@@ -3419,7 +3403,9 @@ func (i *IndexHandler) Save() error {
 	return nil
 }
 
-// Publishes ImageIndex to the registry
+// Publishes ImageIndex to the registry assuming every image it referes exists in registry.
+//
+// It will only push the IndexManifest to registry.
 func (h *ManifestHandler) Push(ops ...IndexPushOption) error {
 	if len(h.RemovedManifests) != 0 || len(h.Annotate.Instance) != 0 {
 		return ErrIndexNeedToBeSaved
@@ -3506,7 +3492,7 @@ func (h *ManifestHandler) Push(ops ...IndexPushOption) error {
 	return nil
 }
 
-// Publishes ImageIndex to the given Registry
+// Publishes ImageIndex to the given Registry.
 func (i *IndexHandler) Push(ops ...IndexPushOption) error {
 	if len(i.RemovedManifests) != 0 || len(i.Annotate.Instance) != 0 {
 		return ErrIndexNeedToBeSaved
@@ -3626,7 +3612,7 @@ func (i *IndexHandler) Push(ops ...IndexPushOption) error {
 	return nil
 }
 
-// Displays IndexManifest
+// Displays IndexManifest.
 func (h *ManifestHandler) Inspect() (string, error) {
 	mfest, err := h.IndexManifest()
 	if err != nil {
@@ -3649,7 +3635,7 @@ func (h *ManifestHandler) Inspect() (string, error) {
 	return string(mfestBytes), nil
 }
 
-// Displays IndexManifest
+// Displays IndexManifest.
 func (i *IndexHandler) Inspect() (string, error) {
 	mfest, err := i.IndexManifest()
 	if err != nil {
@@ -3672,9 +3658,9 @@ func (i *IndexHandler) Inspect() (string, error) {
 	return string(mfestBytes), nil
 }
 
-// Remove Image/Index from ImageIndex
+// Remove Image/Index from ImageIndex.
 //
-// Accepts both Tags and Digests
+// Accepts both Tags and Digests.
 func (h *ManifestHandler) Remove(ref name.Reference) (err error) {
 	var hash v1.Hash
 	switch v := ref.(type) {
@@ -3732,9 +3718,9 @@ func (h *ManifestHandler) Remove(ref name.Reference) (err error) {
 	return nil
 }
 
-// Remove Image/Index from ImageIndex
+// Remove Image/Index from ImageIndex.
 //
-// Accepts both Tags and Digests
+// Accepts both Tags and Digests.
 func (i *IndexHandler) Remove(ref name.Reference) (err error) {
 	var hash v1.Hash
 	switch v := ref.(type) {
@@ -3939,19 +3925,6 @@ func imageURLs(img v1.Image) (urls []string, err error) {
 	return mfest.Subject.URLs, nil
 }
 
-func getConfigFile(img v1.Image) (config *v1.ConfigFile, err error) {
-	config, err = img.ConfigFile()
-	if err != nil {
-		return
-	}
-
-	if config == nil {
-		return config, ErrConfigFileUndefined
-	}
-
-	return config, nil
-}
-
 func getIndexManifest(i ImageIndex, digest name.Digest) (mfest *v1.IndexManifest, err error) {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
@@ -3991,14 +3964,18 @@ func getIndexManifest(i ImageIndex, digest name.Digest) (mfest *v1.IndexManifest
 	}
 }
 
+// Any ImageIndex with RawManifest method.
 type TaggableIndex struct {
 	v1.IndexManifest
 }
 
+// Returns the bytes of IndexManifest.
 func (t *TaggableIndex) RawManifest() ([]byte, error) {
 	return json.Marshal(t.IndexManifest)
 }
 
+// Returns the Digest of the IndexManifest if present.
+// Else generate a new Digest.
 func (t *TaggableIndex) Digest() (v1.Hash, error) {
 	if t.IndexManifest.Subject != nil && t.IndexManifest.Subject.Digest != (v1.Hash{}) {
 		return t.IndexManifest.Subject.Digest, nil
@@ -4007,10 +3984,13 @@ func (t *TaggableIndex) Digest() (v1.Hash, error) {
 	return partial.Digest(t)
 }
 
+// Returns the MediaType of the IndexManifest.
 func (t *TaggableIndex) MediaType() (types.MediaType, error) {
 	return t.IndexManifest.MediaType, nil
 }
 
+// Returns the Size of IndexManifest if present.
+// Calculate the Size of empty.
 func (t *TaggableIndex) Size() (int64, error) {
 	if t.IndexManifest.Subject != nil && t.IndexManifest.Subject.Size != 0 {
 		return t.IndexManifest.Subject.Size, nil
