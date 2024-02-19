@@ -2,12 +2,16 @@ package fakes
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"runtime"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
@@ -17,15 +21,10 @@ import (
 
 func NewIndex(format types.MediaType, byteSize, layers, count int64, desc v1.Descriptor, ops ...Option) (*Index, error) {
 	var (
-		os          = make(map[v1.Hash]string, count)
-		arch        = make(map[v1.Hash]string, count)
-		variant     = make(map[v1.Hash]string, count)
-		osVersion   = make(map[v1.Hash]string, count)
-		features    = make(map[v1.Hash][]string, count)
-		osFeatures  = make(map[v1.Hash][]string, count)
-		urls        = make(map[v1.Hash][]string, count)
-		annotations = make(map[v1.Hash]map[string]string, count)
+		annotate = make(map[v1.Hash]v1.Descriptor, 0)
+		images = make(map[v1.Hash]v1.Image, 0)
 	)
+
 	idx, err := ImageIndex(byteSize, layers, count, desc, ops...)
 	if err != nil {
 		return nil, err
@@ -46,6 +45,8 @@ func NewIndex(format types.MediaType, byteSize, layers, count int64, desc v1.Des
 			return nil, err
 		}
 
+		images[m.Digest] = img
+
 		config, err := img.ConfigFile()
 		if err != nil {
 			return nil, err
@@ -54,12 +55,6 @@ func NewIndex(format types.MediaType, byteSize, layers, count int64, desc v1.Des
 		if config == nil {
 			config = &v1.ConfigFile{}
 		}
-
-		os[m.Digest] = config.OS
-		arch[m.Digest] = config.Architecture
-		variant[m.Digest] = config.Variant
-		osVersion[m.Digest] = config.OSVersion
-		osFeatures[m.Digest] = config.OSFeatures
 
 		imgMfest, err := img.Manifest()
 		if err != nil {
@@ -80,9 +75,18 @@ func NewIndex(format types.MediaType, byteSize, layers, count int64, desc v1.Des
 			platform = &v1.Platform{}
 		}
 
-		features[m.Digest] = platform.Features
-		annotations[m.Digest] = imgMfest.Annotations
-		urls[m.Digest] = imgMfest.Config.URLs
+		annotate[m.Digest] = v1.Descriptor{
+			Platform: &v1.Platform{
+				OS: config.OS,
+				Architecture: config.Architecture,
+				Variant: config.Variant,
+				OSVersion: config.OSVersion,
+				Features: platform.Features,
+				OSFeatures: config.OSFeatures,
+			},
+			Annotations: imgMfest.Annotations,
+			URLs: imgMfest.Config.URLs,
+		}
 	}
 
 	return &Index{
@@ -92,14 +96,8 @@ func NewIndex(format types.MediaType, byteSize, layers, count int64, desc v1.Des
 		layers:      layers,
 		count:       count,
 		ops:         ops,
-		os:          os,
-		arch:        arch,
-		variant:     variant,
-		osVersion:   osVersion,
-		features:    features,
-		osFeatures:  osFeatures,
-		urls:        urls,
-		annotations: annotations,
+		Annotate: annotate,
+		images: images,
 	}, nil
 }
 
@@ -119,6 +117,8 @@ func computeIndex(idx *Index) error {
 			return err
 		}
 
+		idx.images[m.Digest] = img
+
 		config, err := img.ConfigFile()
 		if err != nil {
 			return err
@@ -127,12 +127,6 @@ func computeIndex(idx *Index) error {
 		if config == nil {
 			config = &v1.ConfigFile{}
 		}
-
-		idx.os[m.Digest] = config.OS
-		idx.arch[m.Digest] = config.Architecture
-		idx.variant[m.Digest] = config.Variant
-		idx.osVersion[m.Digest] = config.OSVersion
-		idx.osFeatures[m.Digest] = config.OSFeatures
 
 		imgMfest, err := img.Manifest()
 		if err != nil {
@@ -153,9 +147,18 @@ func computeIndex(idx *Index) error {
 			platform = &v1.Platform{}
 		}
 
-		idx.features[m.Digest] = platform.Features
-		idx.annotations[m.Digest] = imgMfest.Annotations
-		idx.urls[m.Digest] = imgMfest.Config.URLs
+		idx.Annotate[m.Digest] = v1.Descriptor{
+			Platform: &v1.Platform{
+				OS: config.OS,
+				Architecture: config.Architecture,
+				OSVersion: config.OSVersion,
+				OSFeatures: config.OSFeatures,
+				Variant: config.Variant,
+				Features: platform.Features,
+			},
+			Annotations: imgMfest.Annotations,
+			URLs: imgMfest.Config.URLs,
+		}
 	}
 	return nil
 }
@@ -163,19 +166,28 @@ func computeIndex(idx *Index) error {
 var _ imgutil.ImageIndex = (*Index)(nil)
 
 type Index struct {
-	os, arch, variant, osVersion    map[v1.Hash]string
-	features, osFeatures, urls      map[v1.Hash][]string
-	annotations                     map[v1.Hash]map[string]string
+	Annotate    map[v1.Hash]v1.Descriptor
 	format                          types.MediaType
 	byteSize, layers, count         int64
 	ops                             []Option
 	isDeleted, shouldSave, AddIndex bool
+	images 							map[v1.Hash]v1.Image
 	v1.ImageIndex
 }
 
+func (i *Index) compute() {
+	for h, v := range i.Annotate {
+		i.ImageIndex = mutate.AppendManifests(i.ImageIndex, mutate.IndexAddendum{
+			Add: i.images[h],
+			Descriptor: v,
+		})
+	}
+}
+
 func (i *Index) OS(digest name.Digest) (os string, err error) {
+	i.compute()
 	if i.isDeleted {
-		return "", errors.New("index doesn't exists")
+		return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -183,16 +195,17 @@ func (i *Index) OS(digest name.Digest) (os string, err error) {
 		return
 	}
 
-	if v, ok := i.os[hash]; ok {
-		return v, nil
+	if desc, ok := i.Annotate[hash]; ok {
+		return desc.Platform.OS, nil
 	}
 
-	return "", errors.New("no image/index found with the given digest")
+	return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 }
 
 func (i *Index) Architecture(digest name.Digest) (arch string, err error) {
+	i.compute()
 	if i.isDeleted {
-		return "", errors.New("index doesn't exists")
+		return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -200,16 +213,17 @@ func (i *Index) Architecture(digest name.Digest) (arch string, err error) {
 		return
 	}
 
-	if v, ok := i.arch[hash]; ok {
-		return v, nil
+	if desc, ok := i.Annotate[hash]; ok {
+		return desc.Platform.Architecture, nil
 	}
 
-	return "", errors.New("no image/index found with the given digest")
+	return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 }
 
 func (i *Index) Variant(digest name.Digest) (osVariant string, err error) {
+	i.compute()
 	if i.isDeleted {
-		return "", errors.New("index doesn't exists")
+		return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -217,16 +231,17 @@ func (i *Index) Variant(digest name.Digest) (osVariant string, err error) {
 		return
 	}
 
-	if v, ok := i.variant[hash]; ok {
-		return v, nil
+	if desc, ok := i.Annotate[hash]; ok {
+		return desc.Platform.Variant, nil
 	}
 
-	return "", errors.New("no image/index found with the given digest")
+	return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 }
 
 func (i *Index) OSVersion(digest name.Digest) (osVersion string, err error) {
+	i.compute()
 	if i.isDeleted {
-		return "", errors.New("index doesn't exists")
+		return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -234,16 +249,17 @@ func (i *Index) OSVersion(digest name.Digest) (osVersion string, err error) {
 		return
 	}
 
-	if v, ok := i.osVersion[hash]; ok {
-		return v, nil
+	if desc, ok := i.Annotate[hash]; ok {
+		return desc.Platform.OSVersion, nil
 	}
 
-	return "", errors.New("no image/index found with the given digest")
+	return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 }
 
 func (i *Index) Features(digest name.Digest) (features []string, err error) {
+	i.compute()
 	if i.isDeleted {
-		return nil, errors.New("index doesn't exists")
+		return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -251,16 +267,17 @@ func (i *Index) Features(digest name.Digest) (features []string, err error) {
 		return
 	}
 
-	if v, ok := i.features[hash]; ok {
-		return v, nil
+	if desc, ok := i.Annotate[hash]; ok {
+		return desc.Platform.Features, nil
 	}
 
-	return nil, errors.New("no image/index found with the given digest")
+	return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 }
 
 func (i *Index) OSFeatures(digest name.Digest) (osFeatures []string, err error) {
+	i.compute()
 	if i.isDeleted {
-		return nil, errors.New("index doesn't exists")
+		return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -268,16 +285,17 @@ func (i *Index) OSFeatures(digest name.Digest) (osFeatures []string, err error) 
 		return
 	}
 
-	if v, ok := i.osFeatures[hash]; ok {
-		return v, nil
+	if desc, ok := i.Annotate[hash]; ok {
+		return desc.Platform.OSFeatures, nil
 	}
 
-	return nil, errors.New("no image/index found with the given digest")
+	return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 }
 
 func (i *Index) Annotations(digest name.Digest) (annotations map[string]string, err error) {
+	i.compute()
 	if i.isDeleted {
-		return nil, errors.New("index doesn't exists")
+		return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	if i.format == types.DockerManifestList {
@@ -289,16 +307,17 @@ func (i *Index) Annotations(digest name.Digest) (annotations map[string]string, 
 		return
 	}
 
-	if v, ok := i.annotations[hash]; ok {
-		return v, nil
+	if desc, ok := i.Annotate[hash]; ok {
+		return desc.Annotations, nil
 	}
 
-	return nil, errors.New("no image/index found with the given digest")
+	return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 }
 
 func (i *Index) URLs(digest name.Digest) (urls []string, err error) {
+	i.compute()
 	if i.isDeleted {
-		return nil, errors.New("index doesn't exists")
+		return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -306,16 +325,16 @@ func (i *Index) URLs(digest name.Digest) (urls []string, err error) {
 		return
 	}
 
-	if v, ok := i.urls[hash]; ok {
-		return v, nil
+	if desc, ok := i.Annotate[hash]; ok {
+		return desc.URLs, nil
 	}
 
-	return nil, errors.New("no image/index found with the given digest")
+	return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 }
 
 func (i *Index) SetOS(digest name.Digest, os string) error {
 	if i.isDeleted {
-		return errors.New("index doesn't exists")
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -324,13 +343,21 @@ func (i *Index) SetOS(digest name.Digest, os string) error {
 	}
 
 	i.shouldSave = true
-	i.os[hash] = os
+	desc := i.Annotate[hash]
+	if desc.Platform == nil {
+		desc.Platform = &v1.Platform{}
+	}
+
+	platform := desc.Platform
+	platform.OS = os
+	desc.Platform = platform
+	i.Annotate[hash] = desc
 	return nil
 }
 
 func (i *Index) SetArchitecture(digest name.Digest, arch string) error {
 	if i.isDeleted {
-		return errors.New("index doesn't exists")
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -339,13 +366,21 @@ func (i *Index) SetArchitecture(digest name.Digest, arch string) error {
 	}
 
 	i.shouldSave = true
-	i.arch[hash] = arch
+	desc := i.Annotate[hash]
+	if desc.Platform == nil {
+		desc.Platform = &v1.Platform{}
+	}
+
+	platform := desc.Platform
+	platform.Architecture = arch
+	desc.Platform = platform
+	i.Annotate[hash] = desc
 	return nil
 }
 
 func (i *Index) SetVariant(digest name.Digest, osVariant string) error {
 	if i.isDeleted {
-		return errors.New("index doesn't exists")
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -354,13 +389,21 @@ func (i *Index) SetVariant(digest name.Digest, osVariant string) error {
 	}
 
 	i.shouldSave = true
-	i.variant[hash] = osVariant
+	desc := i.Annotate[hash]
+	if desc.Platform == nil {
+		desc.Platform = &v1.Platform{}
+	}
+
+	platform := desc.Platform
+	platform.Variant = osVariant
+	desc.Platform = platform
+	i.Annotate[hash] = desc
 	return nil
 }
 
 func (i *Index) SetOSVersion(digest name.Digest, osVersion string) error {
 	if i.isDeleted {
-		return errors.New("index doesn't exists")
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -369,13 +412,21 @@ func (i *Index) SetOSVersion(digest name.Digest, osVersion string) error {
 	}
 
 	i.shouldSave = true
-	i.osVersion[hash] = osVersion
+	desc := i.Annotate[hash]
+	if desc.Platform == nil {
+		desc.Platform = &v1.Platform{}
+	}
+
+	platform := desc.Platform
+	platform.OSVersion = osVersion
+	desc.Platform = platform
+	i.Annotate[hash] = desc
 	return nil
 }
 
 func (i *Index) SetFeatures(digest name.Digest, features []string) error {
 	if i.isDeleted {
-		return errors.New("index doesn't exists")
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -384,13 +435,20 @@ func (i *Index) SetFeatures(digest name.Digest, features []string) error {
 	}
 
 	i.shouldSave = true
-	i.features[hash] = features
+	desc := i.Annotate[hash]
+	if desc.Platform == nil {
+		desc.Platform = &v1.Platform{}
+	}
+	platform := desc.Platform
+	platform.Features = append(desc.Platform.Features, features...)
+	desc.Platform = platform
+	i.Annotate[hash] = desc
 	return nil
 }
 
 func (i *Index) SetOSFeatures(digest name.Digest, osFeatures []string) error {
 	if i.isDeleted {
-		return errors.New("index doesn't exists")
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -399,13 +457,20 @@ func (i *Index) SetOSFeatures(digest name.Digest, osFeatures []string) error {
 	}
 
 	i.shouldSave = true
-	i.osFeatures[hash] = osFeatures
+	desc := i.Annotate[hash]
+	if desc.Platform == nil {
+		desc.Platform = &v1.Platform{}
+	}
+	platform := desc.Platform
+	platform.OSFeatures = append(desc.Platform.OSFeatures, osFeatures...)
+	desc.Platform = platform
+	i.Annotate[hash] = desc
 	return nil
 }
 
 func (i *Index) SetAnnotations(digest name.Digest, annotations map[string]string) error {
 	if i.isDeleted {
-		return errors.New("index doesn't exists")
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -414,13 +479,25 @@ func (i *Index) SetAnnotations(digest name.Digest, annotations map[string]string
 	}
 
 	i.shouldSave = true
-	i.annotations[hash] = annotations
+	desc := i.Annotate[hash]
+	if desc.Platform == nil {
+		desc.Platform = &v1.Platform{}
+	}
+
+	if len(desc.Annotations) == 0 {
+		desc.Annotations = make(map[string]string, 0)
+	}
+
+	for k, v := range annotations {
+		desc.Annotations[k] = v
+	}
+	i.Annotate[hash] = desc
 	return nil
 }
 
 func (i *Index) SetURLs(digest name.Digest, urls []string) error {
 	if i.isDeleted {
-		return errors.New("index doesn't exists")
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -429,13 +506,19 @@ func (i *Index) SetURLs(digest name.Digest, urls []string) error {
 	}
 
 	i.shouldSave = true
-	i.urls[hash] = urls
+	desc := i.Annotate[hash]
+	if desc.Platform == nil {
+		desc.Platform = &v1.Platform{}
+	}
+
+	desc.URLs = append(desc.URLs, urls...)
+	i.Annotate[hash] = desc
 	return nil
 }
 
 func (i *Index) Add(ref name.Reference, ops ...imgutil.IndexAddOption) error {
 	if i.isDeleted {
-		return errors.New("index doesn't exists")
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	hash, err := v1.NewHash(ref.Identifier())
@@ -456,50 +539,61 @@ func (i *Index) Add(ref name.Reference, ops ...imgutil.IndexAddOption) error {
 	if idx, ok := i.ImageIndex.(*randomIndex); ok {
 		if i.AddIndex {
 			if i.format == types.DockerManifestList {
-				index, err := idx.addIndex(hash, types.DockerManifestSchema2, i.byteSize, i.layers, i.count, i.ops...)
+				imgs, err := idx.addIndex(hash, types.DockerManifestSchema2, i.byteSize, i.layers, i.count, *addOps)
 				if err != nil {
 					return err
 				}
 
-				i.shouldSave = true
-				i.ImageIndex = index
-				return computeIndex(i)
+				for _, img := range imgs {
+					err := i.addImage(img, v1.Descriptor{})
+					if err != nil {
+						return err
+					}
+				}
 			}
-			index, err := idx.addIndex(hash, types.OCIManifestSchema1, i.byteSize, i.layers, i.count, i.ops...)
+			imgs, err := idx.addIndex(hash, types.OCIManifestSchema1, i.byteSize, i.layers, i.count, *addOps)
 			if err != nil {
 				return err
 			}
 
-			i.shouldSave = true
-			i.ImageIndex = index
-			return computeIndex(i)
+			for _, img := range imgs {
+				err := i.addImage(img, v1.Descriptor{})
+				if err != nil {
+					return err
+				}
+			}
 		}
 		if i.format == types.DockerManifestList {
-			index, err := idx.addImage(hash, types.DockerManifestSchema2, i.byteSize, i.layers, i.count, i.ops...)
+			img, err := idx.addImage(hash, types.DockerManifestSchema2, i.byteSize, i.layers, i.count, *addOps)
 			if err != nil {
 				return err
 			}
 
-			i.shouldSave = true
-			i.ImageIndex = index
-			return computeIndex(i)
+			return i.addImage(img, v1.Descriptor{})
 		}
-		index, err := idx.addImage(hash, types.OCIManifestSchema1, i.byteSize, i.layers, i.count, i.ops...)
+		img, err := idx.addImage(hash, types.OCIManifestSchema1, i.byteSize, i.layers, i.count, *addOps)
 		if err != nil {
 			return err
 		}
 
-		i.shouldSave = true
-		i.ImageIndex = index
-		return computeIndex(i)
+		return i.addImage(img, v1.Descriptor{})
 	}
 
 	return errors.New("index is not random index")
 }
 
+func (i *Index) addImage(image v1.Image, desc v1.Descriptor) error {
+	i.shouldSave = true
+	i.ImageIndex = mutate.AppendManifests(i.ImageIndex, mutate.IndexAddendum{
+		Add:        image,
+		Descriptor: desc,
+	})
+	return computeIndex(i)
+}
+
 func (i *Index) Save() error {
 	if i.isDeleted {
-		return errors.New("index doesn't exists")
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	i.shouldSave = false
@@ -508,7 +602,7 @@ func (i *Index) Save() error {
 
 func (i *Index) Push(ops ...imgutil.IndexPushOption) error {
 	if i.isDeleted {
-		return errors.New("index doesn't exists")
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	if i.shouldSave {
@@ -519,8 +613,9 @@ func (i *Index) Push(ops ...imgutil.IndexPushOption) error {
 }
 
 func (i *Index) Inspect() (mfestStr string, err error) {
+	i.compute()
 	if i.isDeleted {
-		return mfestStr, errors.New("index doesn't exists")
+		return mfestStr, imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	if i.shouldSave {
@@ -546,7 +641,7 @@ func (i *Index) Inspect() (mfestStr string, err error) {
 
 func (i *Index) Remove(digest name.Reference) error {
 	if i.isDeleted {
-		return errors.New("index doesn't exists")
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -554,20 +649,14 @@ func (i *Index) Remove(digest name.Reference) error {
 		return err
 	}
 
-	delete(i.os, hash)
-	delete(i.arch, hash)
-	delete(i.variant, hash)
-	delete(i.osVersion, hash)
-	delete(i.features, hash)
-	delete(i.osFeatures, hash)
-	delete(i.annotations, hash)
-	delete(i.urls, hash)
+	delete(i.images, hash)
+	delete(i.Annotate, hash)
 	return nil
 }
 
 func (i *Index) Delete() error {
 	if i.isDeleted {
-		return errors.New("index doesn't exists")
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	i.isDeleted = true
@@ -704,54 +793,124 @@ func (i *randomIndex) ImageIndex(h v1.Hash) (v1.ImageIndex, error) {
 	return nil, fmt.Errorf("image not found: %v", h)
 }
 
-func (i *randomIndex) addImage(hash v1.Hash, format types.MediaType, byteSize, layers, count int64, options ...Option) (v1.ImageIndex, error) {
-	img, err := V1Image(byteSize, layers, options...)
+func (i *randomIndex) addImage(hash v1.Hash, format types.MediaType, byteSize, layers, count int64, options imgutil.AddOptions) (v1.Image, error) {
+	img, err := V1Image(byteSize, layers)
 	if err != nil {
-		return nil, err
+		return img, err
 	}
 
 	rawManifest, err := img.RawManifest()
 	if err != nil {
-		return nil, err
+		return img, err
 	}
 	_, size, err := v1.SHA256(bytes.NewReader(rawManifest))
 	if err != nil {
-		return nil, err
+		return img, err
 	}
 
 	i.manifest.Manifests = append(i.manifest.Manifests, v1.Descriptor{
-		Digest:    hash,
-		Size:      size,
-		MediaType: format,
+		Digest:      hash,
+		Size:        size,
+		MediaType:   format,
+		Annotations: options.Annotations,
+		Platform: &v1.Platform{
+			OS:           options.OS,
+			Architecture: options.Arch,
+			Variant:      options.Variant,
+			OSVersion:    options.OSVersion,
+			Features:     options.Features,
+			OSFeatures:   options.OSFeatures,
+		},
 	})
 
 	i.images[hash] = img
 
-	return i, nil
+	return img, nil
 }
 
-func (i *randomIndex) addIndex(hash v1.Hash, format types.MediaType, byteSize, layers, count int64, options ...Option) (v1.ImageIndex, error) {
-	idx, err := ImageIndex(byteSize, layers, count, v1.Descriptor{}, options...)
+func randStr() (string, error) {
+	length := 10 // adjust the length as needed
+
+	b := make([]byte, length)
+	_, err := rand.Read(b) // read random bytes
 	if err != nil {
-		return nil, err
+		fmt.Println("Error generating random bytes:", err)
+		return "", err
 	}
 
-	rawManifest, err := idx.RawManifest()
-	if err != nil {
-		return nil, err
+	return base64.URLEncoding.EncodeToString(b)[:length], nil
+}
+
+func (i *randomIndex) addIndex(hash v1.Hash, format types.MediaType, byteSize, layers, count int64, ops imgutil.AddOptions) ([]v1.Image, error) {
+	switch {
+	case ops.All:
+		var images = make([]v1.Image, 0)
+		for _, v := range AllPlatforms {
+			str, err := randStr()
+			if err != nil {
+				return nil, err
+			}
+
+			d, _, err := v1.SHA256(bytes.NewReader([]byte(str)))
+			if err != nil {
+				return nil, err
+			}
+
+			img, err := i.addImage(d, format, byteSize, layers, 1, imgutil.AddOptions{
+				OS:      v.OS,
+				Arch:    v.Arch,
+				Variant: v.Variant,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			images = append(images, img)
+		}
+
+		return images, nil
+	case ops.OS != "",
+		ops.Arch != "",
+		ops.Variant != "",
+		ops.OSVersion != "",
+		len(ops.Features) != 0,
+		len(ops.OSFeatures) != 0,
+		len(ops.Annotations) != 0:
+		img, err := i.addImage(hash, format, byteSize, layers, 1, ops)
+		return []v1.Image{img}, err
+	default:
+		img, err := i.addImage(hash, format, byteSize, layers, 1, imgutil.AddOptions{
+			OS:   runtime.GOOS,
+			Arch: runtime.GOARCH,
+		})
+		return []v1.Image{img}, err
 	}
-	_, size, err := v1.SHA256(bytes.NewReader(rawManifest))
-	if err != nil {
-		return nil, err
-	}
+}
 
-	i.manifest.Manifests = append(i.manifest.Manifests, v1.Descriptor{
-		Digest:    hash,
-		Size:      size,
-		MediaType: format,
-	})
+type Platform struct {
+	OS      string `json:"os"`
+	Arch    string `json:"arch"`
+	Variant string `json:"variant,omitempty"` // Optional variant field
+}
 
-	i.indexes[hash] = idx
-
-	return i, nil
+var AllPlatforms = map[string]Platform{
+	"linux/amd64":     {OS: "linux", Arch: "amd64"},
+	"linux/arm64":     {OS: "linux", Arch: "arm64"},
+	"linux/386":       {OS: "linux", Arch: "386"},
+	"linux/mips64":    {OS: "linux", Arch: "mips64"},
+	"linux/mipsle":    {OS: "linux", Arch: "mipsle"},
+	"linux/ppc64le":   {OS: "linux", Arch: "ppc64le"},
+	"linux/s390x":     {OS: "linux", Arch: "s390x"},
+	"darwin/amd64":    {OS: "darwin", Arch: "amd64"},
+	"darwin/arm64":    {OS: "darwin", Arch: "arm64"},
+	"windows/amd64":   {OS: "windows", Arch: "amd64"},
+	"windows/386":     {OS: "windows", Arch: "386"},
+	"freebsd/amd64":   {OS: "freebsd", Arch: "amd64"},
+	"freebsd/386":     {OS: "freebsd", Arch: "386"},
+	"netbsd/amd64":    {OS: "netbsd", Arch: "amd64"},
+	"netbsd/386":      {OS: "netbsd", Arch: "386"},
+	"openbsd/amd64":   {OS: "openbsd", Arch: "amd64"},
+	"openbsd/386":     {OS: "openbsd", Arch: "386"},
+	"dragonfly/amd64": {OS: "dragonfly", Arch: "amd64"},
+	"dragonfly/386":   {OS: "dragonfly", Arch: "386"},
 }
