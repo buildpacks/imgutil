@@ -39,6 +39,7 @@ func (o *Options) ManifestOnly() bool {
 	return o.manifestOnly
 }
 
+// Fetch Index from registry with keychain
 func WithKeychain(keychain authn.Keychain) Option {
 	return func(o *Options) error {
 		o.keychain = keychain
@@ -46,6 +47,7 @@ func WithKeychain(keychain authn.Keychain) Option {
 	}
 }
 
+// Save the Index to the '`xdgPath`/manifests'
 func WithXDGRuntimePath(xdgPath string) Option {
 	return func(o *Options) error {
 		o.xdgPath = xdgPath
@@ -53,6 +55,7 @@ func WithXDGRuntimePath(xdgPath string) Option {
 	}
 }
 
+// Create a local index with repoName/Reference
 func WithRepoName(repoName string) Option {
 	return func(o *Options) error {
 		if o.insecure {
@@ -71,6 +74,7 @@ func WithRepoName(repoName string) Option {
 	}
 }
 
+// If true, pulls images from insecure registry
 func WithInsecure(insecure bool) Option {
 	return func(o *Options) error {
 		o.insecure = insecure
@@ -78,6 +82,7 @@ func WithInsecure(insecure bool) Option {
 	}
 }
 
+// Create the image index with the following format
 func WithFormat(format types.MediaType) Option {
 	return func(o *Options) error {
 		o.format = format
@@ -85,6 +90,7 @@ func WithFormat(format types.MediaType) Option {
 	}
 }
 
+// A Handler to switch between `ManifestHandler` and `IndexHandler`
 func WithManifestOnly(manifestOnly bool) Option {
 	return func(o *Options) error {
 		o.manifestOnly = manifestOnly

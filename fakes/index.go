@@ -187,7 +187,7 @@ func (i *Index) compute() {
 func (i *Index) OS(digest name.Digest) (os string, err error) {
 	i.compute()
 	if i.isDeleted {
-		return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -199,13 +199,13 @@ func (i *Index) OS(digest name.Digest) (os string, err error) {
 		return desc.Platform.OS, nil
 	}
 
-	return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+	return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 }
 
 func (i *Index) Architecture(digest name.Digest) (arch string, err error) {
 	i.compute()
 	if i.isDeleted {
-		return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest("")
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -217,13 +217,13 @@ func (i *Index) Architecture(digest name.Digest) (arch string, err error) {
 		return desc.Platform.Architecture, nil
 	}
 
-	return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+	return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest("")
 }
 
 func (i *Index) Variant(digest name.Digest) (osVariant string, err error) {
 	i.compute()
 	if i.isDeleted {
-		return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -235,13 +235,13 @@ func (i *Index) Variant(digest name.Digest) (osVariant string, err error) {
 		return desc.Platform.Variant, nil
 	}
 
-	return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+	return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 }
 
 func (i *Index) OSVersion(digest name.Digest) (osVersion string, err error) {
 	i.compute()
 	if i.isDeleted {
-		return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -253,13 +253,13 @@ func (i *Index) OSVersion(digest name.Digest) (osVersion string, err error) {
 		return desc.Platform.OSVersion, nil
 	}
 
-	return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+	return "", imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 }
 
 func (i *Index) Features(digest name.Digest) (features []string, err error) {
 	i.compute()
 	if i.isDeleted {
-		return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -271,13 +271,13 @@ func (i *Index) Features(digest name.Digest) (features []string, err error) {
 		return desc.Platform.Features, nil
 	}
 
-	return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+	return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 }
 
 func (i *Index) OSFeatures(digest name.Digest) (osFeatures []string, err error) {
 	i.compute()
 	if i.isDeleted {
-		return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -289,13 +289,13 @@ func (i *Index) OSFeatures(digest name.Digest) (osFeatures []string, err error) 
 		return desc.Platform.OSFeatures, nil
 	}
 
-	return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+	return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 }
 
 func (i *Index) Annotations(digest name.Digest) (annotations map[string]string, err error) {
 	i.compute()
 	if i.isDeleted {
-		return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest("")
 	}
 
 	if i.format == types.DockerManifestList {
@@ -311,13 +311,13 @@ func (i *Index) Annotations(digest name.Digest) (annotations map[string]string, 
 		return desc.Annotations, nil
 	}
 
-	return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+	return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest(hash.String())
 }
 
 func (i *Index) URLs(digest name.Digest) (urls []string, err error) {
 	i.compute()
 	if i.isDeleted {
-		return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -329,12 +329,12 @@ func (i *Index) URLs(digest name.Digest) (urls []string, err error) {
 		return desc.URLs, nil
 	}
 
-	return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+	return nil, imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 }
 
 func (i *Index) SetOS(digest name.Digest, os string) error {
 	if i.isDeleted {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -343,7 +343,7 @@ func (i *Index) SetOS(digest name.Digest, os string) error {
 	}
 
 	if _, err := i.OS(digest); err != nil {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	i.shouldSave = true
@@ -359,7 +359,7 @@ func (i *Index) SetOS(digest name.Digest, os string) error {
 
 func (i *Index) SetArchitecture(digest name.Digest, arch string) error {
 	if i.isDeleted {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -368,7 +368,7 @@ func (i *Index) SetArchitecture(digest name.Digest, arch string) error {
 	}
 
 	if _, err := i.OS(digest); err != nil {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	i.shouldSave = true
@@ -386,7 +386,7 @@ func (i *Index) SetArchitecture(digest name.Digest, arch string) error {
 
 func (i *Index) SetVariant(digest name.Digest, osVariant string) error {
 	if i.isDeleted {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -395,7 +395,7 @@ func (i *Index) SetVariant(digest name.Digest, osVariant string) error {
 	}
 
 	if _, err := i.OS(digest); err != nil {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	i.shouldSave = true
@@ -413,7 +413,7 @@ func (i *Index) SetVariant(digest name.Digest, osVariant string) error {
 
 func (i *Index) SetOSVersion(digest name.Digest, osVersion string) error {
 	if i.isDeleted {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -422,7 +422,7 @@ func (i *Index) SetOSVersion(digest name.Digest, osVersion string) error {
 	}
 
 	if _, err := i.OS(digest); err != nil {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	i.shouldSave = true
@@ -440,7 +440,7 @@ func (i *Index) SetOSVersion(digest name.Digest, osVersion string) error {
 
 func (i *Index) SetFeatures(digest name.Digest, features []string) error {
 	if i.isDeleted {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -449,7 +449,7 @@ func (i *Index) SetFeatures(digest name.Digest, features []string) error {
 	}
 
 	if _, err := i.OS(digest); err != nil {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	i.shouldSave = true
@@ -466,7 +466,7 @@ func (i *Index) SetFeatures(digest name.Digest, features []string) error {
 
 func (i *Index) SetOSFeatures(digest name.Digest, osFeatures []string) error {
 	if i.isDeleted {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -475,7 +475,7 @@ func (i *Index) SetOSFeatures(digest name.Digest, osFeatures []string) error {
 	}
 
 	if _, err := i.OS(digest); err != nil {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	i.shouldSave = true
@@ -492,7 +492,7 @@ func (i *Index) SetOSFeatures(digest name.Digest, osFeatures []string) error {
 
 func (i *Index) SetAnnotations(digest name.Digest, annotations map[string]string) error {
 	if i.isDeleted {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -501,7 +501,7 @@ func (i *Index) SetAnnotations(digest name.Digest, annotations map[string]string
 	}
 
 	if _, err := i.OS(digest); err != nil {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	i.shouldSave = true
@@ -523,7 +523,7 @@ func (i *Index) SetAnnotations(digest name.Digest, annotations map[string]string
 
 func (i *Index) SetURLs(digest name.Digest, urls []string) error {
 	if i.isDeleted {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -532,7 +532,7 @@ func (i *Index) SetURLs(digest name.Digest, urls []string) error {
 	}
 
 	if _, err := i.OS(digest); err != nil {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	i.shouldSave = true
@@ -762,7 +762,7 @@ func satisifyPlatform(image v1.Image, desc *v1.Descriptor) error {
 
 func (i *Index) Save() error {
 	if i.isDeleted {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest("")
 	}
 
 	i.shouldSave = false
@@ -771,7 +771,7 @@ func (i *Index) Save() error {
 
 func (i *Index) Push(ops ...imgutil.IndexPushOption) error {
 	if i.isDeleted {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest("")
 	}
 
 	if i.shouldSave {
@@ -784,7 +784,7 @@ func (i *Index) Push(ops ...imgutil.IndexPushOption) error {
 func (i *Index) Inspect() (mfestStr string, err error) {
 	i.compute()
 	if i.isDeleted {
-		return mfestStr, imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return mfestStr, imgutil.ErrNoImageOrIndexFoundWithGivenDigest("")
 	}
 
 	if i.shouldSave {
@@ -810,7 +810,7 @@ func (i *Index) Inspect() (mfestStr string, err error) {
 
 func (i *Index) Remove(digest name.Reference) error {
 	if i.isDeleted {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 	}
 
 	hash, err := v1.NewHash(digest.Identifier())
@@ -825,7 +825,7 @@ func (i *Index) Remove(digest name.Reference) error {
 
 func (i *Index) Delete() error {
 	if i.isDeleted {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest("")
 	}
 
 	i.isDeleted = true
