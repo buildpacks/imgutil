@@ -342,6 +342,10 @@ func (i *Index) SetOS(digest name.Digest, os string) error {
 		return err
 	}
 
+	if _, err := i.OS(digest); err != nil {
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+	}
+
 	i.shouldSave = true
 	desc := i.Annotate[hash]
 	if desc.Platform == nil {
@@ -361,6 +365,10 @@ func (i *Index) SetArchitecture(digest name.Digest, arch string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
 		return err
+	}
+
+	if _, err := i.OS(digest); err != nil {
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	i.shouldSave = true
@@ -386,6 +394,10 @@ func (i *Index) SetVariant(digest name.Digest, osVariant string) error {
 		return err
 	}
 
+	if _, err := i.OS(digest); err != nil {
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+	}
+
 	i.shouldSave = true
 	desc := i.Annotate[hash]
 	if desc.Platform == nil {
@@ -407,6 +419,10 @@ func (i *Index) SetOSVersion(digest name.Digest, osVersion string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
 		return err
+	}
+
+	if _, err := i.OS(digest); err != nil {
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	i.shouldSave = true
@@ -432,6 +448,10 @@ func (i *Index) SetFeatures(digest name.Digest, features []string) error {
 		return err
 	}
 
+	if _, err := i.OS(digest); err != nil {
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+	}
+
 	i.shouldSave = true
 	desc := i.Annotate[hash]
 	if desc.Platform == nil {
@@ -454,6 +474,10 @@ func (i *Index) SetOSFeatures(digest name.Digest, osFeatures []string) error {
 		return err
 	}
 
+	if _, err := i.OS(digest); err != nil {
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
+	}
+
 	i.shouldSave = true
 	desc := i.Annotate[hash]
 	if desc.Platform == nil {
@@ -474,6 +498,10 @@ func (i *Index) SetAnnotations(digest name.Digest, annotations map[string]string
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
 		return err
+	}
+
+	if _, err := i.OS(digest); err != nil {
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	i.shouldSave = true
@@ -501,6 +529,10 @@ func (i *Index) SetURLs(digest name.Digest, urls []string) error {
 	hash, err := v1.NewHash(digest.Identifier())
 	if err != nil {
 		return err
+	}
+
+	if _, err := i.OS(digest); err != nil {
+		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
 	}
 
 	i.shouldSave = true

@@ -22,6 +22,14 @@ func TestFakeIndex(t *testing.T) {
 }
 
 func fakeIndex(t *testing.T, when spec.G, it spec.S) {
+	var (
+		fakeDigest name.Digest
+		err        error
+	)
+	it.Before(func() {
+		fakeDigest, err = name.NewDigest("busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56", name.Insecure, name.WeakValidation)
+		h.AssertNil(t, err)
+	})
 	when("#NewIndex", func() {
 		it("implements imgutil.ImageIndex", func() {
 			idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
@@ -59,7 +67,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
-					os, err := idx.OS(name.Digest{})
+					os, err := idx.OS(fakeDigest)
 					h.AssertNotEq(t, err, nil)
 					h.AssertEq(t, os, "")
 				})
@@ -93,7 +101,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
-					arch, err := idx.Architecture(name.Digest{})
+					arch, err := idx.Architecture(fakeDigest)
 					h.AssertNotEq(t, err, nil)
 					h.AssertEq(t, arch, "")
 				})
@@ -127,7 +135,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
-					variant, err := idx.Variant(name.Digest{})
+					variant, err := idx.Variant(fakeDigest)
 					h.AssertNotEq(t, err, nil)
 					h.AssertEq(t, variant, "")
 				})
@@ -161,7 +169,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
-					osVersion, err := idx.OSVersion(name.Digest{})
+					osVersion, err := idx.OSVersion(fakeDigest)
 					h.AssertNotEq(t, err, nil)
 					h.AssertEq(t, osVersion, "")
 				})
@@ -200,7 +208,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
-					features, err := idx.Features(name.Digest{})
+					features, err := idx.Features(fakeDigest)
 					h.AssertNotEq(t, err, nil)
 					h.AssertEq(t, features, []string(nil))
 				})
@@ -234,7 +242,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
-					osFeatures, err := idx.OSFeatures(name.Digest{})
+					osFeatures, err := idx.OSFeatures(fakeDigest)
 					h.AssertNotEq(t, err, nil)
 					h.AssertEq(t, osFeatures, []string(nil))
 				})
@@ -286,7 +294,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
-					annos, err := idx.Annotations(name.Digest{})
+					annos, err := idx.Annotations(fakeDigest)
 					h.AssertNotEq(t, err, nil)
 					h.AssertEq(t, annos, map[string]string(nil))
 				})
@@ -323,7 +331,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
-					urls, err := idx.URLs(name.Digest{})
+					urls, err := idx.URLs(fakeDigest)
 					h.AssertNotEq(t, err, nil)
 					h.AssertEq(t, urls, []string(nil))
 				})
@@ -336,8 +344,8 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idxMfest, err := idx.IndexManifest()
 					h.AssertNil(t, err)
 
+					annotated := "some-os"
 					for _, mfest := range idxMfest.Manifests {
-						annotated := "some-os"
 						digest, err := name.NewDigest("cnbs/sample" + digestDelim + mfest.Digest.String())
 						h.AssertNil(t, err)
 
@@ -353,7 +361,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
-					err = idx.SetOS(name.Digest{}, "")
+					err = idx.SetOS(fakeDigest, "")
 					h.AssertNotEq(t, err, nil)
 				})
 			})
@@ -365,8 +373,8 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idxMfest, err := idx.IndexManifest()
 					h.AssertNil(t, err)
 
+					annotated := "some-arch"
 					for _, mfest := range idxMfest.Manifests {
-						annotated := "some-arch"
 						digest, err := name.NewDigest("cnbs/sample" + digestDelim + mfest.Digest.String())
 						h.AssertNil(t, err)
 
@@ -382,7 +390,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
-					err = idx.SetArchitecture(name.Digest{}, "")
+					err = idx.SetArchitecture(fakeDigest, "")
 					h.AssertNotEq(t, err, nil)
 				})
 			})
@@ -394,8 +402,8 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idxMfest, err := idx.IndexManifest()
 					h.AssertNil(t, err)
 
+					annotated := "some-variant"
 					for _, mfest := range idxMfest.Manifests {
-						annotated := "some-variant"
 						digest, err := name.NewDigest("cnbs/sample" + digestDelim + mfest.Digest.String())
 						h.AssertNil(t, err)
 
@@ -411,7 +419,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
-					err = idx.SetVariant(name.Digest{}, "")
+					err = idx.SetVariant(fakeDigest, "")
 					h.AssertNotEq(t, err, nil)
 				})
 			})
@@ -423,8 +431,8 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idxMfest, err := idx.IndexManifest()
 					h.AssertNil(t, err)
 
+					annotated := "some-os-version"
 					for _, mfest := range idxMfest.Manifests {
-						annotated := "some-os-version"
 						digest, err := name.NewDigest("cnbs/sample" + digestDelim + mfest.Digest.String())
 						h.AssertNil(t, err)
 
@@ -440,7 +448,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
-					err = idx.SetOSVersion(name.Digest{}, "")
+					err = idx.SetOSVersion(fakeDigest, "")
 					h.AssertNotEq(t, err, nil)
 				})
 			})
@@ -452,8 +460,8 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idxMfest, err := idx.IndexManifest()
 					h.AssertNil(t, err)
 
+					annotated := []string{"some-feature"}
 					for _, mfest := range idxMfest.Manifests {
-						annotated := []string{"some-feature"}
 						digest, err := name.NewDigest("cnbs/sample" + digestDelim + mfest.Digest.String())
 						h.AssertNil(t, err)
 
@@ -469,7 +477,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
-					err = idx.SetFeatures(name.Digest{}, []string{""})
+					err = idx.SetFeatures(fakeDigest, []string{""})
 					h.AssertNotEq(t, err, nil)
 				})
 			})
@@ -481,8 +489,8 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idxMfest, err := idx.IndexManifest()
 					h.AssertNil(t, err)
 
+					annotated := []string{"some-os-feature"}
 					for _, mfest := range idxMfest.Manifests {
-						annotated := []string{"some-os-feature"}
 						digest, err := name.NewDigest("cnbs/sample" + digestDelim + mfest.Digest.String())
 						h.AssertNil(t, err)
 
@@ -498,7 +506,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
-					err = idx.SetOSFeatures(name.Digest{}, []string{""})
+					err = idx.SetOSFeatures(fakeDigest, []string{""})
 					h.AssertNotEq(t, err, nil)
 				})
 			})
@@ -510,24 +518,22 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idxMfest, err := idx.IndexManifest()
 					h.AssertNil(t, err)
 
-					for _, mfest := range idxMfest.Manifests {
-						annotated := map[string]string{"some-key": "some-value"}
-						digest, err := name.NewDigest("cnbs/sample" + digestDelim + mfest.Digest.String())
-						h.AssertNil(t, err)
+					annotated := map[string]string{"some-key": "some-value"}
+					digest, err := name.NewDigest("cnbs/sample" + digestDelim + idxMfest.Manifests[0].Digest.String())
+					h.AssertNil(t, err)
 
-						err = idx.SetAnnotations(digest, annotated)
-						h.AssertNil(t, err)
+					err = idx.SetAnnotations(digest, annotated)
+					h.AssertNil(t, err)
 
-						annotations, err := idx.Annotations(digest)
-						h.AssertNil(t, err)
-						h.AssertEq(t, annotations, annotated)
-					}
+					annotations, err := idx.Annotations(digest)
+					h.AssertNil(t, err)
+					h.AssertEq(t, annotations, annotated)
 				})
 				it("should return an error", func() {
 					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
-					err = idx.SetAnnotations(name.Digest{}, map[string]string{"some-key": "some-value"})
+					err = idx.SetAnnotations(fakeDigest, map[string]string{"some-key": "some-value"})
 					h.AssertNotEq(t, err, nil)
 				})
 			})
@@ -539,8 +545,8 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idxMfest, err := idx.IndexManifest()
 					h.AssertNil(t, err)
 
+					annotated := []string{"some-urls"}
 					for _, mfest := range idxMfest.Manifests {
-						annotated := []string{"some-urls"}
 						digest, err := name.NewDigest("cnbs/sample" + digestDelim + mfest.Digest.String())
 						h.AssertNil(t, err)
 
@@ -556,7 +562,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := fakes.NewIndex(types.OCIImageIndex, 1024, 1, 1, v1.Descriptor{})
 					h.AssertNil(t, err)
 
-					err = idx.SetURLs(name.Digest{}, []string{""})
+					err = idx.SetURLs(fakeDigest, []string{""})
 					h.AssertNotEq(t, err, nil)
 				})
 			})
