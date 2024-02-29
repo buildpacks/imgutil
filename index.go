@@ -20,8 +20,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"golang.org/x/sync/errgroup"
-
-	"github.com/buildpacks/imgutil/docker"
 )
 
 // An Interface with list of Methods required for creation and manipulation of v1.IndexManifest
@@ -2514,6 +2512,11 @@ func updatePlatform(config *v1.ConfigFile, platform *v1.Platform) error {
 	return nil
 }
 
+func EmptyDocker() v1.ImageIndex {
+	idx := empty.Index
+	return mutate.IndexMediaType(idx, types.DockerManifestList)
+}
+
 func addAllImages(i ImageIndex, idx *v1.ImageIndex, annotations map[string]string, wg *sync.WaitGroup, imageMap *sync.Map) error {
 	mfest, err := (*idx).IndexManifest()
 	if err != nil {
@@ -2883,7 +2886,7 @@ func (h *ManifestHandler) Save() error {
 				return err
 			}
 		} else {
-			path, err = layout.Write(layoutPath, docker.Index)
+			path, err = layout.Write(layoutPath, EmptyDocker())
 			if err != nil {
 				return err
 			}

@@ -8,7 +8,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	"github.com/buildpacks/imgutil"
-	"github.com/buildpacks/imgutil/docker"
 )
 
 // NewIndex will return a New Empty ImageIndex that can be modified and saved to a registry
@@ -33,8 +32,8 @@ func NewIndex(repoName string, ops ...Option) (idx imgutil.ImageIndex, err error
 	if !idxOps.manifestOnly {
 		switch idxOps.format {
 		case types.DockerManifestList:
-			idx = imgutil.NewIndexHandler(docker.Index, idxOptions)
-			_, err = layout.Write(layoutPath, docker.Index)
+			idx = imgutil.NewIndexHandler(imgutil.EmptyDocker(), idxOptions)
+			_, err = layout.Write(layoutPath, imgutil.EmptyDocker())
 		default:
 			idx = imgutil.NewIndexHandler(empty.Index, idxOptions)
 			_, err = layout.Write(layoutPath, empty.Index)
@@ -42,8 +41,8 @@ func NewIndex(repoName string, ops ...Option) (idx imgutil.ImageIndex, err error
 	} else {
 		switch idxOps.format {
 		case types.DockerManifestList:
-			idx = imgutil.NewManifestHandler(docker.Index, idxOptions)
-			_, err = layout.Write(layoutPath, docker.Index)
+			idx = imgutil.NewManifestHandler(imgutil.EmptyDocker(), idxOptions)
+			_, err = layout.Write(layoutPath, imgutil.EmptyDocker())
 		default:
 			idx = imgutil.NewManifestHandler(empty.Index, idxOptions)
 			_, err = layout.Write(layoutPath, empty.Index)

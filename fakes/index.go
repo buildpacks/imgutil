@@ -22,7 +22,7 @@ import (
 func NewIndex(format types.MediaType, byteSize, layers, count int64, desc v1.Descriptor, ops ...Option) (*Index, error) {
 	var (
 		annotate = make(map[v1.Hash]v1.Descriptor, 0)
-		images = make(map[v1.Hash]v1.Image, 0)
+		images   = make(map[v1.Hash]v1.Image, 0)
 	)
 
 	idx, err := ImageIndex(byteSize, layers, count, desc, ops...)
@@ -77,27 +77,27 @@ func NewIndex(format types.MediaType, byteSize, layers, count int64, desc v1.Des
 
 		annotate[m.Digest] = v1.Descriptor{
 			Platform: &v1.Platform{
-				OS: config.OS,
+				OS:           config.OS,
 				Architecture: config.Architecture,
-				Variant: config.Variant,
-				OSVersion: config.OSVersion,
-				Features: platform.Features,
-				OSFeatures: config.OSFeatures,
+				Variant:      config.Variant,
+				OSVersion:    config.OSVersion,
+				Features:     platform.Features,
+				OSFeatures:   config.OSFeatures,
 			},
 			Annotations: imgMfest.Annotations,
-			URLs: imgMfest.Config.URLs,
+			URLs:        imgMfest.Config.URLs,
 		}
 	}
 
 	return &Index{
-		ImageIndex:  idx,
-		format:      format,
-		byteSize:    byteSize,
-		layers:      layers,
-		count:       count,
-		ops:         ops,
-		Annotate: annotate,
-		images: images,
+		ImageIndex: idx,
+		format:     format,
+		byteSize:   byteSize,
+		layers:     layers,
+		count:      count,
+		ops:        ops,
+		Annotate:   annotate,
+		images:     images,
 	}, nil
 }
 
@@ -149,15 +149,15 @@ func computeIndex(idx *Index) error {
 
 		idx.Annotate[m.Digest] = v1.Descriptor{
 			Platform: &v1.Platform{
-				OS: config.OS,
+				OS:           config.OS,
 				Architecture: config.Architecture,
-				OSVersion: config.OSVersion,
-				OSFeatures: config.OSFeatures,
-				Variant: config.Variant,
-				Features: platform.Features,
+				OSVersion:    config.OSVersion,
+				OSFeatures:   config.OSFeatures,
+				Variant:      config.Variant,
+				Features:     platform.Features,
 			},
 			Annotations: imgMfest.Annotations,
-			URLs: imgMfest.Config.URLs,
+			URLs:        imgMfest.Config.URLs,
 		}
 	}
 	return nil
@@ -166,19 +166,19 @@ func computeIndex(idx *Index) error {
 var _ imgutil.ImageIndex = (*Index)(nil)
 
 type Index struct {
-	Annotate    map[v1.Hash]v1.Descriptor
+	Annotate                        map[v1.Hash]v1.Descriptor
 	format                          types.MediaType
 	byteSize, layers, count         int64
 	ops                             []Option
 	isDeleted, shouldSave, AddIndex bool
-	images 							map[v1.Hash]v1.Image
+	images                          map[v1.Hash]v1.Image
 	v1.ImageIndex
 }
 
 func (i *Index) compute() {
 	for h, v := range i.Annotate {
 		i.ImageIndex = mutate.AppendManifests(i.ImageIndex, mutate.IndexAddendum{
-			Add: i.images[h],
+			Add:        i.images[h],
 			Descriptor: v,
 		})
 	}
@@ -348,9 +348,7 @@ func (i *Index) SetOS(digest name.Digest, os string) error {
 		desc.Platform = &v1.Platform{}
 	}
 
-	platform := desc.Platform
-	platform.OS = os
-	desc.Platform = platform
+	desc.Platform.OS = os
 	i.Annotate[hash] = desc
 	return nil
 }
@@ -517,10 +515,6 @@ func (i *Index) SetURLs(digest name.Digest, urls []string) error {
 }
 
 func (i *Index) Add(ref name.Reference, ops ...imgutil.IndexAddOption) error {
-	if i.isDeleted {
-		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest
-	}
-
 	hash, err := v1.NewHash(ref.Identifier())
 	if err != nil {
 		length := 4
@@ -536,6 +530,22 @@ func (i *Index) Add(ref name.Reference, ops ...imgutil.IndexAddOption) error {
 		op(addOps)
 	}
 
+	desc := func(format types.MediaType) v1.Descriptor {
+		return v1.Descriptor{
+			Digest:      hash,
+			MediaType:   format,
+			Annotations: addOps.Annotations,
+			Platform: &v1.Platform{
+				OS:           addOps.OS,
+				Architecture: addOps.Arch,
+				OSVersion:    addOps.OSVersion,
+				Variant:      addOps.Variant,
+				Features:     addOps.Features,
+				OSFeatures:   addOps.OSFeatures,
+			},
+		}
+	}
+
 	if idx, ok := i.ImageIndex.(*randomIndex); ok {
 		if i.AddIndex {
 			if i.format == types.DockerManifestList {
@@ -545,7 +555,7 @@ func (i *Index) Add(ref name.Reference, ops ...imgutil.IndexAddOption) error {
 				}
 
 				for _, img := range imgs {
-					err := i.addImage(img, v1.Descriptor{})
+					err := i.addImage(img, desc(types.DockerManifestSchema2))
 					if err != nil {
 						return err
 					}
@@ -557,7 +567,7 @@ func (i *Index) Add(ref name.Reference, ops ...imgutil.IndexAddOption) error {
 			}
 
 			for _, img := range imgs {
-				err := i.addImage(img, v1.Descriptor{})
+				err := i.addImage(img, desc(types.OCIManifestSchema1))
 				if err != nil {
 					return err
 				}
@@ -569,14 +579,14 @@ func (i *Index) Add(ref name.Reference, ops ...imgutil.IndexAddOption) error {
 				return err
 			}
 
-			return i.addImage(img, v1.Descriptor{})
+			return i.addImage(img, desc(types.DockerManifestSchema2))
 		}
 		img, err := idx.addImage(hash, types.OCIManifestSchema1, i.byteSize, i.layers, i.count, *addOps)
 		if err != nil {
 			return err
 		}
 
-		return i.addImage(img, v1.Descriptor{})
+		return i.addImage(img, desc(types.OCIManifestSchema1))
 	}
 
 	return errors.New("index is not random index")
@@ -584,11 +594,138 @@ func (i *Index) Add(ref name.Reference, ops ...imgutil.IndexAddOption) error {
 
 func (i *Index) addImage(image v1.Image, desc v1.Descriptor) error {
 	i.shouldSave = true
+	if err := satisifyPlatform(image, &desc); err != nil {
+		return err
+	}
+
+	if config, err := configFromDesc(image, desc); err == nil {
+		image, err = mutate.ConfigFile(image, config)
+		if err != nil {
+			return err
+		}
+	}
+
+	image = mutate.Subject(image, desc).(v1.Image)
 	i.ImageIndex = mutate.AppendManifests(i.ImageIndex, mutate.IndexAddendum{
 		Add:        image,
 		Descriptor: desc,
 	})
 	return computeIndex(i)
+}
+
+func configFromDesc(image v1.Image, desc v1.Descriptor) (*v1.ConfigFile, error) {
+	config, err := image.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+
+	if config == nil {
+		return nil, imgutil.ErrConfigFileUndefined
+	}
+
+	if desc.Platform == nil {
+		desc.Platform = &v1.Platform{}
+	}
+
+	switch p := desc.Platform; {
+	case p.OS != "":
+		config.OS = p.OS
+		fallthrough
+	case p.Architecture != "":
+		config.Architecture = p.Architecture
+		fallthrough
+	case p.Variant != "":
+		config.Variant = p.Variant
+		fallthrough
+	case p.OSVersion != "":
+		config.OSVersion = p.OSVersion
+		fallthrough
+	case len(p.Features) != 0:
+		plat := config.Platform()
+		if plat == nil {
+			plat = &v1.Platform{}
+		}
+
+		plat.Features = append(plat.Features, p.Features...)
+		fallthrough
+	case len(p.OSFeatures) != 0:
+		config.OSFeatures = append(config.OSFeatures, p.OSFeatures...)
+	}
+
+	return config, nil
+}
+
+func satisifyPlatform(image v1.Image, desc *v1.Descriptor) error {
+	config, err := image.ConfigFile()
+	if err != nil {
+		return err
+	}
+
+	if config == nil {
+		return imgutil.ErrConfigFileUndefined
+	}
+
+	mfest, err := image.Manifest()
+	if err != nil {
+		return err
+	}
+
+	if mfest == nil {
+		return imgutil.ErrManifestUndefined
+	}
+
+	features := make([]string, 0)
+	if p := config.Platform(); p != nil {
+		features = p.Features
+	}
+
+	platform := &v1.Platform{
+		OS:           config.OS,
+		Architecture: config.Architecture,
+		Variant:      config.Variant,
+		OSVersion:    config.OSVersion,
+		Features:     features,
+		OSFeatures:   config.OSFeatures,
+	}
+
+	if p := desc.Platform; !p.Equals(*platform) {
+		switch {
+		case p.OS != "":
+			platform.OS = p.OS
+			fallthrough
+		case p.Architecture != "":
+			platform.Architecture = p.Architecture
+			fallthrough
+		case p.Variant != "":
+			platform.Variant = p.Variant
+			fallthrough
+		case p.OSVersion != "":
+			platform.OSVersion = p.OSVersion
+			fallthrough
+		case len(p.Features) != 0:
+			platform.Features = append(platform.Features, p.Features...)
+			fallthrough
+		case len(p.OSFeatures) != 0:
+			platform.OSFeatures = append(platform.OSFeatures, p.OSFeatures...)
+		}
+	}
+
+	annos := make(map[string]string)
+	if len(mfest.Annotations) != 0 {
+		annos = mfest.Annotations
+	}
+
+	if len(desc.Annotations) != 0 {
+		for k, v := range mfest.Annotations {
+			annos[k] = v
+		}
+	}
+
+	desc = &v1.Descriptor{
+		Annotations: annos,
+		Platform:    platform,
+	}
+	return nil
 }
 
 func (i *Index) Save() error {

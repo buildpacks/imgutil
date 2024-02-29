@@ -16,7 +16,6 @@ import (
 	"github.com/sclevine/spec/report"
 
 	"github.com/buildpacks/imgutil"
-	"github.com/buildpacks/imgutil/docker"
 	"github.com/buildpacks/imgutil/index"
 	"github.com/buildpacks/imgutil/layout"
 	"github.com/buildpacks/imgutil/local"
@@ -4885,7 +4884,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						idx := imgutil.IndexHandler{
-							ImageIndex: docker.Index,
+							ImageIndex: imgutil.EmptyDocker(),
 							RemovedManifests: []v1.Hash{
 								hash,
 							},
@@ -4929,7 +4928,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						idx := imgutil.IndexHandler{
-							ImageIndex: docker.Index,
+							ImageIndex: imgutil.EmptyDocker(),
 						}
 
 						annotations, err := idx.Annotations(digest)
@@ -4979,7 +4978,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						idx := imgutil.IndexHandler{
-							ImageIndex: docker.Index,
+							ImageIndex: imgutil.EmptyDocker(),
 							RemovedManifests: []v1.Hash{
 								hash,
 							},
@@ -5028,7 +5027,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						idx := imgutil.IndexHandler{
-							ImageIndex: docker.Index,
+							ImageIndex: imgutil.EmptyDocker(),
 						}
 
 						err = idx.SetAnnotations(digest, map[string]string{
