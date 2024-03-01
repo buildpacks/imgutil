@@ -3085,108 +3085,86 @@ func (h *ManifestHandler) Save() error {
 			continue
 		}
 
-		// If an Image with the given Digest exists annotate and Save it locally
-		img, err := h.Image(hash)
+		// Using IndexManifest annotate required changes
+		mfest, err := h.IndexManifest()
 		if err != nil {
-			errs.Errors = append(errs.Errors, SaveDiagnostic{
-				Cause: err,
-			})
-			continue
-		}
-
-		mfest, err := img.Manifest()
-		if err != nil {
-			errs.Errors = append(errs.Errors, SaveDiagnostic{
-				Cause: err,
-			})
-			continue
+			return err
 		}
 
 		if mfest == nil {
-			errs.Errors = append(errs.Errors, SaveDiagnostic{
-				Cause: ErrManifestUndefined,
-			})
-			continue
+			return ErrManifestUndefined
 		}
 
-		config, err := img.ConfigFile()
-		if err != nil {
-			errs.Errors = append(errs.Errors, SaveDiagnostic{
-				Cause: err,
-			})
-			continue
-		}
+		var imageFound = false
+		for _, imgDesc := range mfest.Manifests {
+			if imgDesc.Digest == hash {
+				imageFound = true
+				if !imgDesc.MediaType.IsImage() && !imgDesc.MediaType.IsIndex() {
+					return ErrUnknownMediaType(imgDesc.MediaType)
+				}
 
-		if config == nil {
-			errs.Errors = append(errs.Errors, SaveDiagnostic{
-				Cause: ErrConfigFileUndefined,
-			})
-			continue
-		}
+				if len(desc.Annotations) != 0 && imgDesc.MediaType == types.OCIImageIndex || imgDesc.MediaType == types.OCIManifestSchema1 {
+					if len(imgDesc.Annotations) == 0 {
+						imgDesc.Annotations = desc.Annotations
+					}
 
-		mfestSubject := mfest.Config.DeepCopy()
-		mfestSubject.Annotations = mfest.Annotations
-		mfestSubject.Digest = hash
-		mfestSubject.MediaType = mfest.MediaType
+					for k, v := range desc.Annotations {
+						imgDesc.Annotations[k] = v
+					}
+				}
 
-		if len(desc.Annotations) != 0 && (mfest.MediaType == types.OCIImageIndex || mfest.MediaType == types.OCIManifestSchema1) {
-			if len(mfestSubject.Annotations) == 0 {
-				mfestSubject.Annotations = make(map[string]string, 0)
-			}
+				if len(desc.URLs) != 0 {
+					if len(imgDesc.URLs) == 0 {
+						imgDesc.URLs = make([]string, 0)
+					}
 
-			for k, v := range desc.Annotations {
-				mfestSubject.Annotations[k] = v
-			}
-		}
+					imgDesc.URLs = append(imgDesc.URLs, desc.URLs...)
+				}
 
-		if len(desc.URLs) != 0 {
-			mfestSubject.URLs = append(mfestSubject.URLs, desc.URLs...)
-		}
+				if p := desc.Platform; p != nil {
+					if imgDesc.Platform == nil {
+						imgDesc.Platform = &v1.Platform{}
+					}
 
-		platform := v1.Platform{}
-		if err = updatePlatform(config, &platform); err != nil {
-			errs.Errors = append(errs.Errors, SaveDiagnostic{
-				Cause: ErrConfigFileUndefined,
-			})
-			continue
-		}
+					if p.OS != "" {
+						imgDesc.Platform.OS = p.OS
+					}
 
-		if p := desc.Platform; p != nil {
-			if mfestSubject.Platform == nil {
-				mfestSubject.Platform = &v1.Platform{}
-			}
+					if p.Architecture != "" {
+						imgDesc.Platform.Architecture = p.Architecture
+					}
 
-			if p.OS != "" {
-				platform.OS = p.OS
-			}
+					if p.Variant != "" {
+						imgDesc.Platform.Variant = p.Variant
+					}
 
-			if p.Architecture != "" {
-				platform.Architecture = p.Architecture
-			}
+					if p.OSVersion != "" {
+						imgDesc.Platform.OSVersion = p.OSVersion
+					}
 
-			if p.Variant != "" {
-				platform.Variant = p.Variant
-			}
+					if len(p.Features) != 0 {
+						imgDesc.Platform.Features = append(imgDesc.Platform.Features, p.Features...)
+					}
 
-			if p.OSVersion != "" {
-				platform.OSVersion = p.OSVersion
-			}
+					if len(p.OSFeatures) != 0 {
+						imgDesc.Platform.OSFeatures = append(imgDesc.Platform.OSFeatures, p.OSFeatures...)
+					}
+				}
 
-			if len(p.Features) != 0 {
-				platform.Features = append(platform.Features, p.Features...)
-			}
+				path.RemoveDescriptors(match.Digests(hash))
+				if err = path.AppendDescriptor(imgDesc); err != nil {
+					errs.Errors = append(errs.Errors, SaveDiagnostic{
+						ImageName: hash.String(),
+						Cause:     err,
+					})
+				}
 
-			if len(p.OSFeatures) != 0 {
-				platform.OSFeatures = append(platform.OSFeatures, p.OSFeatures...)
+				break
 			}
 		}
 
-		mfestSubject.Platform = &platform
-		path.RemoveDescriptors(match.Digests(mfestSubject.Digest))
-		if err := path.AppendDescriptor(*mfestSubject); err != nil {
-			errs.Errors = append(errs.Errors, SaveDiagnostic{
-				Cause: err,
-			})
+		if !imageFound {
+			return ErrNoImageOrIndexFoundWithGivenDigest(hash.String())
 		}
 	}
 
@@ -4085,7 +4063,7 @@ func getIndexManifest(i ImageIndex, digest name.Digest) (mfest *v1.IndexManifest
 			if desc.Digest == hash {
 				return &v1.IndexManifest{
 					MediaType: desc.MediaType,
-					Subject: &desc,
+					Subject:   &desc,
 				}, nil
 			}
 		}

@@ -3875,7 +3875,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					}
 
 					err := idx.Save()
-					h.AssertEq(t, err.Error(), "failed to write image to the following tags: [: empty index]")
+					h.AssertEq(t, err.Error(), imgutil.ErrNoImageOrIndexFoundWithGivenDigest(":").Error())
 				})
 			})
 			when("#Push", func() {
