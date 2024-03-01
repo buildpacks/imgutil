@@ -17,6 +17,7 @@ type options struct {
 	createdAt           time.Time
 	addEmptyLayerOnSave bool
 	withHistory         bool
+	withDigest          bool
 	registrySettings    map[string]registrySetting
 	mediaTypes          imgutil.MediaTypes
 	config              *v1.Config
@@ -28,6 +29,14 @@ type options struct {
 func AddEmptyLayerOnSave() ImageOption {
 	return func(opts *options) error {
 		opts.addEmptyLayerOnSave = true
+		return nil
+	}
+}
+
+// SaveWithDigest (remote only)
+func SaveWithDigest() ImageOption {
+	return func(opts *options) error {
+		opts.withDigest = true
 		return nil
 	}
 }

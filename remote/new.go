@@ -45,6 +45,7 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 		repoName:            repoName,
 		image:               image,
 		addEmptyLayerOnSave: imageOpts.addEmptyLayerOnSave,
+		withDigest:          imageOpts.withDigest,
 		withHistory:         imageOpts.withHistory,
 		registrySettings:    imageOpts.registrySettings,
 	}

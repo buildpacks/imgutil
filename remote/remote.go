@@ -32,6 +32,7 @@ type Image struct {
 	createdAt           time.Time
 	addEmptyLayerOnSave bool
 	withHistory         bool
+	withDigest          bool
 	registrySettings    map[string]registrySetting
 	requestedMediaTypes imgutil.MediaTypes
 }
