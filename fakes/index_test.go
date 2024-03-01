@@ -585,7 +585,16 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 
 					digest, err := name.NewDigest("cnbs/sample-image" + digestDelim + "sha256:6d5a11994be8ca5e4cfaf4d370219f6eb6ef8fb41d57f9ed1568a93ffd5471ef")
 					h.AssertNil(t, err)
-					err = idx.Add(digest, imgutil.WithOS("some-os"), imgutil.WithArchitecture("some-arch"))
+					err = idx.Add(
+						digest,
+						imgutil.WithOS("some-os"),
+						imgutil.WithArchitecture("some-arch"),
+						imgutil.WithVariant("some-variant"),
+						imgutil.WithOSVersion("some-version"),
+						imgutil.WithFeatures([]string{"some-features"}),
+						imgutil.WithOSFeatures([]string{"some-osFeatures"}),
+						imgutil.WithAnnotations(map[string]string{"some-key": "some-value"}),
+					)
 					h.AssertNil(t, err)
 
 					os, err := idx.OS(digest)
@@ -595,6 +604,26 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 					arch, err := idx.Architecture(digest)
 					h.AssertNil(t, err)
 					h.AssertEq(t, arch, "some-arch")
+
+					variant, err := idx.Variant(digest)
+					h.AssertNil(t, err)
+					h.AssertEq(t, variant, "some-variant")
+
+					osVersion, err := idx.OSVersion(digest)
+					h.AssertNil(t, err)
+					h.AssertEq(t, osVersion, "some-version")
+
+					features, err := idx.Features(digest)
+					h.AssertNil(t, err)
+					h.AssertEq(t, features, []string{"some-features"})
+
+					osFeatures, err := idx.OSFeatures(digest)
+					h.AssertNil(t, err)
+					h.AssertEq(t, osFeatures, []string{"some-osFeatures"})
+
+					annos, err := idx.Annotations(digest)
+					h.AssertNil(t, err)
+					h.AssertEq(t, annos, map[string]string{"some-key": "some-value"})
 				})
 			})
 			when("#Save", func() {

@@ -637,6 +637,7 @@ func (i *Index) addImage(image v1.Image, desc v1.Descriptor) error {
 		}
 	}
 
+	image = mutate.Annotations(image, desc.Annotations).(v1.Image)
 	image = mutate.Subject(image, desc).(v1.Image)
 	i.ImageIndex = mutate.AppendManifests(i.ImageIndex, mutate.IndexAddendum{
 		Add:        image,
@@ -659,28 +660,37 @@ func configFromDesc(image v1.Image, desc v1.Descriptor) (*v1.ConfigFile, error) 
 		desc.Platform = &v1.Platform{}
 	}
 
-	switch p := desc.Platform; {
-	case p.OS != "":
+	p := desc.Platform
+	if p == nil {
+		return config, nil
+	}
+
+	if p.OS != "" {
 		config.OS = p.OS
-		fallthrough
-	case p.Architecture != "":
+	}
+
+	if p.Architecture != "" {
 		config.Architecture = p.Architecture
-		fallthrough
-	case p.Variant != "":
+	}
+
+	if p.Variant != "" {
 		config.Variant = p.Variant
-		fallthrough
-	case p.OSVersion != "":
+	}
+
+	if p.OSVersion != "" {
 		config.OSVersion = p.OSVersion
-		fallthrough
-	case len(p.Features) != 0:
+	}
+
+	if len(p.Features) != 0 {
 		plat := config.Platform()
 		if plat == nil {
 			plat = &v1.Platform{}
 		}
 
 		plat.Features = append(plat.Features, p.Features...)
-		fallthrough
-	case len(p.OSFeatures) != 0:
+	}
+
+	if len(p.OSFeatures) != 0 {
 		config.OSFeatures = append(config.OSFeatures, p.OSFeatures...)
 	}
 
@@ -747,16 +757,12 @@ func satisifyPlatform(image v1.Image, desc *v1.Descriptor) error {
 		annos = mfest.Annotations
 	}
 
-	if len(desc.Annotations) != 0 {
-		for k, v := range mfest.Annotations {
-			annos[k] = v
-		}
+	for k, v := range desc.Annotations {
+		annos[k] = v
 	}
 
-	desc = &v1.Descriptor{
-		Annotations: annos,
-		Platform:    platform,
-	}
+	desc.Annotations = annos
+	desc.Platform = platform
 	return nil
 }
 

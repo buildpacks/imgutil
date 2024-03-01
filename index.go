@@ -1856,29 +1856,55 @@ func (h *ManifestHandler) SetAnnotations(digest name.Digest, annotations map[str
 		}
 	}
 
-	if idx, err := h.ImageIndex.ImageIndex(hash); err == nil {
-		mfest, err := idx.IndexManifest()
-		if err != nil {
-			return err
-		}
-
-		annos := mfest.Annotations
-		if len(annos) == 0 {
-			annos = make(map[string]string)
-		}
-
-		for k, v := range annotations {
-			annos[k] = v
-		}
-
-		h.Annotate.SetAnnotations(hash, annos)
-		h.Annotate.SetFormat(hash, mfest.MediaType)
-		return nil
+	mfest, err := h.IndexManifest()
+	if err != nil {
+		return err
 	}
 
-	if img, err := h.Image(hash); err == nil {
-		return imageSetAnnotations(h, img, hash, annotations)
+	if mfest == nil {
+		return ErrManifestUndefined
 	}
+
+	for _, desc := range mfest.Manifests {
+		if desc.Digest == hash {
+			annos := mfest.Annotations
+			if len(annos) == 0 {
+				annos = make(map[string]string)
+			}
+
+			for k, v := range annotations {
+				annos[k] = v
+			}
+
+			h.Annotate.SetAnnotations(hash, annos)
+			h.Annotate.SetFormat(hash, mfest.MediaType)
+			return nil
+		}
+	}
+
+	// if idx, err := h.ImageIndex.ImageIndex(hash); err == nil {
+	// 	mfest, err := idx.IndexManifest()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+
+	// 	annos := mfest.Annotations
+	// 	if len(annos) == 0 {
+	// 		annos = make(map[string]string)
+	// 	}
+
+	// 	for k, v := range annotations {
+	// 		annos[k] = v
+	// 	}
+
+	// 	h.Annotate.SetAnnotations(hash, annos)
+	// 	h.Annotate.SetFormat(hash, mfest.MediaType)
+	// 	return nil
+	// }
+
+	// if img, err := h.Image(hash); err == nil {
+	// 	return imageSetAnnotations(h, img, hash, annotations)
+	// }
 
 	if desc, ok := h.Images[hash]; ok {
 		annos := make(map[string]string, 0)
@@ -1968,9 +1994,6 @@ func imageSetAnnotations(i ImageIndex, img v1.Image, hash v1.Hash, annotations m
 
 	switch i := i.(type) {
 	case *IndexHandler:
-		i.Annotate.SetAnnotations(hash, annos)
-		i.Annotate.SetFormat(hash, mfest.MediaType)
-	case *ManifestHandler:
 		i.Annotate.SetAnnotations(hash, annos)
 		i.Annotate.SetFormat(hash, mfest.MediaType)
 	default:
@@ -2957,7 +2980,7 @@ func (h *ManifestHandler) Save() error {
 	layoutPath := filepath.Join(h.Options.XdgPath, h.Options.Reponame)
 	path, err := layout.FromPath(layoutPath)
 	if err != nil {
-		// If the ImageIndex is not been saved before Save the ImageIndex
+		// If the ImageIndex is not saved before Save the ImageIndex
 		mfest, err := h.IndexManifest()
 		if err != nil {
 			return err
@@ -4049,12 +4072,25 @@ func getIndexManifest(i ImageIndex, digest name.Digest) (mfest *v1.IndexManifest
 
 		return indexManifest(idx)
 	case *ManifestHandler:
-		idx, err := i.ImageIndex.ImageIndex(hash)
+		mfest, err := i.IndexManifest()
 		if err != nil {
 			return nil, err
 		}
 
-		return indexManifest(idx)
+		if mfest == nil {
+			return nil, ErrManifestUndefined
+		}
+
+		for _, desc := range mfest.Manifests {
+			if desc.Digest == hash {
+				return &v1.IndexManifest{
+					MediaType: desc.MediaType,
+					Subject: &desc,
+				}, nil
+			}
+		}
+
+		return nil, ErrNoImageOrIndexFoundWithGivenDigest(hash.String())
 	default:
 		return nil, ErrUnknownHandler
 	}

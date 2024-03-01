@@ -2521,6 +2521,46 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					err = idx.Save()
 					h.AssertNil(t, err)
 
+					indx, err := local.NewIndex(
+						"alpine:3.19.0",
+						index.WithInsecure(true),
+						index.WithKeychain(authn.DefaultKeychain),
+						index.WithXDGRuntimePath(xdgPath),
+						index.WithManifestOnly(true),
+					)
+					h.AssertNil(t, err)
+
+					os, err := indx.OS(digest)
+					h.AssertNil(t, err)
+					h.AssertEq(t, os, "some-os")
+
+					err = indx.SetOS(digest, "some-os")
+					h.AssertNil(t, err)
+
+					err = indx.SetArchitecture(digest, "something")
+					h.AssertNil(t, err)
+
+					err = indx.SetVariant(digest, "something")
+					h.AssertNil(t, err)
+
+					err = indx.SetOSVersion(digest, "something")
+					h.AssertNil(t, err)
+
+					err = indx.SetFeatures(digest, []string{"some-features"})
+					h.AssertNil(t, err)
+
+					err = indx.SetOSFeatures(digest, []string{"some-osFeatures"})
+					h.AssertNil(t, err)
+
+					err = indx.SetURLs(digest, []string{"some-urls"})
+					h.AssertNil(t, err)
+
+					err = indx.SetAnnotations(digest, map[string]string{"some-key": "some-value"})
+					h.AssertNil(t, err)
+
+					// err = indx.Save()
+					// h.AssertNil(t, err)
+
 					idx, err = local.NewIndex(
 						"alpine:3.19.0",
 						index.WithInsecure(true),
@@ -2530,7 +2570,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					os, err := idx.OS(digest)
+					os, err = idx.OS(digest)
 					h.AssertNil(t, err)
 					h.AssertEq(t, os, "some-os")
 				})
