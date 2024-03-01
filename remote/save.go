@@ -87,6 +87,13 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 
 func (i *Image) doSave(imageName string) error {
 	reg := getRegistry(i.repoName, i.registrySettings)
+	if i.withDigest {
+		id, err := i.Identifier()
+		if err != nil {
+			return err
+		}
+		imageName = id.String()
+	}
 	ref, auth, err := referenceForRepoName(i.keychain, imageName, reg.insecure)
 	if err != nil {
 		return err
