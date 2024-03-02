@@ -502,7 +502,7 @@ func getConfigFile(image v1.Image) (*v1.ConfigFile, error) {
 		return nil, err
 	}
 	if configFile == nil {
-		return nil, errors.New("missing config file")
+		return nil, ErrConfigFileUndefined
 	}
 	return configFile, nil
 }
@@ -513,7 +513,7 @@ func getManifest(image v1.Image) (*v1.Manifest, error) {
 		return nil, err
 	}
 	if manifest == nil {
-		return nil, errors.New("missing manifest")
+		return nil, ErrManifestUndefined
 	}
 	return manifest, nil
 }

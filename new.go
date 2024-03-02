@@ -303,3 +303,8 @@ func NewManifestHandler(ii v1.ImageIndex, ops IndexOptions) *ManifestHandler {
 		Images:           make(map[v1.Hash]v1.Descriptor),
 	}
 }
+
+func EmptyDocker() v1.ImageIndex {
+	idx := empty.Index
+	return mutate.IndexMediaType(idx, types.DockerManifestList)
+}
