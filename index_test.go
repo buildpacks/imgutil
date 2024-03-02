@@ -150,7 +150,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should SetOS for the given digest when image/index exists", func() {
 					idx, err := remote.NewIndex(
-						"busybox:latest",
+						"busybox:1.36-musl",
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
@@ -158,21 +158,17 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					imgIdx, ok := idx.(*imgutil.ManifestHandler)
-					h.AssertEq(t, ok, true)
-
-					mfest, err := imgIdx.ImageIndex.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-
-					hash := mfest.Manifests[0].Digest
-					digest, err := name.NewDigest("alpine@" + hash.String())
+					digest, err := name.NewDigest(
+						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						name.WeakValidation,
+						name.Insecure,
+					)
 					h.AssertNil(t, err)
 
-					err = imgIdx.SetOS(digest, "some-os")
+					err = idx.SetOS(digest, "some-os")
 					h.AssertNil(t, err)
 
-					os, err := imgIdx.OS(digest)
+					os, err := idx.OS(digest)
 					h.AssertNil(t, err)
 					h.AssertEq(t, os, "some-os")
 				})
@@ -312,7 +308,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should SetArchitecture for the given digest when image/index exists", func() {
 					idx, err := remote.NewIndex(
-						"busybox:latest",
+						"busybox:1.36-musl",
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
@@ -320,21 +316,17 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					imgIdx, ok := idx.(*imgutil.ManifestHandler)
-					h.AssertEq(t, ok, true)
-
-					mfest, err := imgIdx.ImageIndex.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-
-					hash := mfest.Manifests[0].Digest
-					digest, err := name.NewDigest("alpine@" + hash.String())
+					digest, err := name.NewDigest(
+						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						name.WeakValidation,
+						name.Insecure,
+					)
 					h.AssertNil(t, err)
 
-					err = imgIdx.SetArchitecture(digest, "some-arch")
+					err = idx.SetArchitecture(digest, "some-arch")
 					h.AssertNil(t, err)
 
-					os, err := imgIdx.Architecture(digest)
+					os, err := idx.Architecture(digest)
 					h.AssertNil(t, err)
 					h.AssertEq(t, os, "some-arch")
 				})
@@ -474,7 +466,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should SetVariant for the given digest when image/index exists", func() {
 					idx, err := remote.NewIndex(
-						"busybox:latest",
+						"busybox:1.36-musl",
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
@@ -482,21 +474,17 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					imgIdx, ok := idx.(*imgutil.ManifestHandler)
-					h.AssertEq(t, ok, true)
-
-					mfest, err := imgIdx.ImageIndex.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-
-					hash := mfest.Manifests[0].Digest
-					digest, err := name.NewDigest("alpine@" + hash.String())
+					digest, err := name.NewDigest(
+						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						name.WeakValidation,
+						name.Insecure,
+					)
 					h.AssertNil(t, err)
 
-					err = imgIdx.SetVariant(digest, "some-variant")
+					err = idx.SetVariant(digest, "some-variant")
 					h.AssertNil(t, err)
 
-					os, err := imgIdx.Variant(digest)
+					os, err := idx.Variant(digest)
 					h.AssertNil(t, err)
 					h.AssertEq(t, os, "some-variant")
 				})
@@ -639,7 +627,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should SetOSVersion for the given digest when image/index exists", func() {
 					idx, err := remote.NewIndex(
-						"busybox:latest",
+						"busybox:1.36-musl",
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
@@ -647,21 +635,17 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					imgIdx, ok := idx.(*imgutil.ManifestHandler)
-					h.AssertEq(t, ok, true)
-
-					mfest, err := imgIdx.ImageIndex.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-
-					hash := mfest.Manifests[0].Digest
-					digest, err := name.NewDigest("alpine@" + hash.String())
+					digest, err := name.NewDigest(
+						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						name.WeakValidation,
+						name.Insecure,
+					)
 					h.AssertNil(t, err)
 
-					err = imgIdx.SetOSVersion(digest, "some-osVersion")
+					err = idx.SetOSVersion(digest, "some-osVersion")
 					h.AssertNil(t, err)
 
-					os, err := imgIdx.OSVersion(digest)
+					os, err := idx.OSVersion(digest)
 					h.AssertNil(t, err)
 					h.AssertEq(t, os, "some-osVersion")
 				})
@@ -804,7 +788,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should SetFeatures when the given digest is image/index", func() {
 					idx, err := remote.NewIndex(
-						"busybox:latest",
+						"busybox:1.36-musl",
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
@@ -812,21 +796,17 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					imgIdx, ok := idx.(*imgutil.ManifestHandler)
-					h.AssertEq(t, ok, true)
-
-					mfest, err := imgIdx.ImageIndex.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-
-					hash := mfest.Manifests[0].Digest
-					digest, err := name.NewDigest("alpine@" + hash.String())
+					digest, err := name.NewDigest(
+						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						name.WeakValidation,
+						name.Insecure,
+					)
 					h.AssertNil(t, err)
 
-					err = imgIdx.SetFeatures(digest, []string{"some-features"})
+					err = idx.SetFeatures(digest, []string{"some-features"})
 					h.AssertNil(t, err)
 
-					features, err := imgIdx.Features(digest)
+					features, err := idx.Features(digest)
 					h.AssertNil(t, err)
 					h.AssertEq(t, features, []string{"some-features"})
 				})
@@ -969,7 +949,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should SetOSFeatures when the given digest is image/index", func() {
 					idx, err := remote.NewIndex(
-						"busybox:latest",
+						"busybox:1.36-musl",
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
@@ -977,21 +957,17 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					imgIdx, ok := idx.(*imgutil.ManifestHandler)
-					h.AssertEq(t, ok, true)
-
-					mfest, err := imgIdx.ImageIndex.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-
-					hash := mfest.Manifests[0].Digest
-					digest, err := name.NewDigest("alpine@" + hash.String())
+					digest, err := name.NewDigest(
+						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						name.WeakValidation,
+						name.Insecure,
+					)
 					h.AssertNil(t, err)
 
-					err = imgIdx.SetOSFeatures(digest, []string{"some-osFeatures"})
+					err = idx.SetOSFeatures(digest, []string{"some-osFeatures"})
 					h.AssertNil(t, err)
 
-					osFeatures, err := imgIdx.OSFeatures(digest)
+					osFeatures, err := idx.OSFeatures(digest)
 					h.AssertNil(t, err)
 					h.AssertEq(t, osFeatures, []string{"some-osFeatures"})
 				})
@@ -1318,7 +1294,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					})
 					it("should SetAnnotations when an image/index with the given digest exists", func() {
 						idx, err := remote.NewIndex(
-							"busybox:latest",
+							"busybox:1.36-musl",
 							index.WithInsecure(true),
 							index.WithKeychain(authn.DefaultKeychain),
 							index.WithXDGRuntimePath(xdgPath),
@@ -1326,23 +1302,19 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						)
 						h.AssertNil(t, err)
 
-						imgIdx, ok := idx.(*imgutil.ManifestHandler)
-						h.AssertEq(t, ok, true)
-
-						mfest, err := imgIdx.ImageIndex.IndexManifest()
-						h.AssertNil(t, err)
-						h.AssertNotEq(t, mfest, nil)
-
-						hash := mfest.Manifests[0].Digest
-						digest, err := name.NewDigest("alpine@" + hash.String())
+						digest, err := name.NewDigest(
+							"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+							name.WeakValidation,
+							name.Insecure,
+						)
 						h.AssertNil(t, err)
 
-						err = imgIdx.SetAnnotations(digest, map[string]string{
+						err = idx.SetAnnotations(digest, map[string]string{
 							"some-key": "some-value",
 						})
 						h.AssertNil(t, err)
 
-						annotations, err := imgIdx.Annotations(digest)
+						annotations, err := idx.Annotations(digest)
 						h.AssertNil(t, err)
 						v, ok := annotations["some-key"]
 						h.AssertEq(t, ok, true)
@@ -1494,7 +1466,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should SetOSFeatures when the given digest is image/index", func() {
 					idx, err := remote.NewIndex(
-						"busybox:latest",
+						"busybox:1.36-musl",
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
@@ -1502,23 +1474,19 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					imgIdx, ok := idx.(*imgutil.ManifestHandler)
-					h.AssertEq(t, ok, true)
-
-					mfest, err := imgIdx.ImageIndex.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-
-					hash := mfest.Manifests[0].Digest
-					digest, err := name.NewDigest("alpine@" + hash.String())
+					digest, err := name.NewDigest(
+						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						name.WeakValidation,
+						name.Insecure,
+					)
 					h.AssertNil(t, err)
 
-					err = imgIdx.SetURLs(digest, []string{
+					err = idx.SetURLs(digest, []string{
 						"some-urls",
 					})
 					h.AssertNil(t, err)
 
-					urls, err := imgIdx.URLs(digest)
+					urls, err := idx.URLs(digest)
 					h.AssertNil(t, err)
 					h.AssertEq(t, urls, []string{
 						"some-urls",
@@ -1642,45 +1610,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						)
 						h.AssertNil(t, err)
 
-						index := idx.(*imgutil.ManifestHandler)
-						hashes := make([]v1.Hash, 0, len(index.Images))
-						for h2 := range index.Images {
-							hashes = append(hashes, h2)
-						}
-
-						hash := hashes[0]
-						digest, err := name.NewDigest("busybox@"+hash.String(), name.WeakValidation, name.Insecure)
+						digest, err := name.NewDigest("busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56", name.WeakValidation, name.Insecure)
 						h.AssertNil(t, err)
 
-						os, err := index.OS(digest)
-						h.AssertNil(t, err)
-						h.AssertEq(t, os, "linux")
-
-						arch, err := index.Architecture(digest)
-						h.AssertNil(t, err)
-						h.AssertEq(t, arch, "amd64")
-
-						variant, err := index.Variant(digest)
-						h.AssertEq(t, err.Error(), imgutil.ErrVariantUndefined(types.OCIImageIndex, digest.Identifier()).Error())
-						h.AssertEq(t, variant, "")
-
-						osVersion, err := index.OSVersion(digest)
-						h.AssertEq(t, err.Error(), imgutil.ErrOSVersionUndefined(types.OCIImageIndex, digest.Identifier()).Error())
-						h.AssertEq(t, osVersion, "")
-
-						features, err := index.Features(digest)
-						h.AssertEq(t, err.Error(), imgutil.ErrFeaturesUndefined(types.OCIImageIndex, digest.Identifier()).Error())
-						h.AssertEq(t, features, []string(nil))
-
-						osFeatures, err := index.OSFeatures(digest)
-						h.AssertEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined(types.OCIImageIndex, digest.Identifier()).Error())
-						h.AssertEq(t, osFeatures, []string(nil))
-
-						urls, err := index.URLs(digest)
-						h.AssertEq(t, err.Error(), imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier()).Error())
-						h.AssertEq(t, urls, []string(nil))
-
-						annotations, err := index.Annotations(digest)
+						annotations, err := idx.Annotations(digest)
 						h.AssertNil(t, err)
 
 						v, ok := annotations["some-key"]
@@ -1695,7 +1628,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						ref, err := name.ParseReference(
-							"alpine:latest",
+							"alpine:3.19.0",
 							name.WeakValidation,
 							name.Insecure,
 						)
@@ -1711,46 +1644,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						)
 						h.AssertNil(t, err)
 
-						index := idx.(*imgutil.ManifestHandler)
-						hashes := make([]v1.Hash, 0, len(index.Images))
-						for h2 := range index.Images {
-							hashes = append(hashes, h2)
-						}
-						h.AssertEq(t, len(hashes), 1)
-
-						hash := hashes[0]
-						digest, err := name.NewDigest("alpine@"+hash.String(), name.WeakValidation, name.Insecure)
+						digest, err := name.NewDigest("alpine@sha256:13b7e62e8df80264dbb747995705a986aa530415763a6c58f84a3ca8af9a5bcd", name.WeakValidation, name.Insecure)
 						h.AssertNil(t, err)
 
-						os, err := index.OS(digest)
-						h.AssertNil(t, err)
-						h.AssertEq(t, os, "linux")
-
-						arch, err := index.Architecture(digest)
-						h.AssertNil(t, err)
-						h.AssertEq(t, arch, "amd64")
-
-						variant, err := index.Variant(digest)
-						h.AssertEq(t, err.Error(), imgutil.ErrVariantUndefined(types.DockerManifestList, digest.Identifier()).Error())
-						h.AssertEq(t, variant, "")
-
-						osVersion, err := index.OSVersion(digest)
-						h.AssertEq(t, err.Error(), imgutil.ErrOSVersionUndefined(types.DockerManifestList, digest.Identifier()).Error())
-						h.AssertEq(t, osVersion, "")
-
-						features, err := index.Features(digest)
-						h.AssertEq(t, err.Error(), imgutil.ErrFeaturesUndefined(types.DockerManifestList, digest.Identifier()).Error())
-						h.AssertEq(t, features, []string(nil))
-
-						osFeatures, err := index.OSFeatures(digest)
-						h.AssertEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined(types.DockerManifestList, digest.Identifier()).Error())
-						h.AssertEq(t, osFeatures, []string(nil))
-
-						urls, err := index.URLs(digest)
-						h.AssertEq(t, err.Error(), imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier()).Error())
-						h.AssertEq(t, urls, []string(nil))
-
-						annotations, err := index.Annotations(digest)
+						annotations, err := idx.Annotations(digest)
 						h.AssertEq(t, err.Error(), imgutil.ErrAnnotationsUndefined(types.DockerManifestList, digest.Identifier()).Error())
 						h.AssertEq(t, annotations, map[string]string(nil))
 					})
@@ -1764,7 +1661,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						ref, err := name.ParseReference(
-							"alpine:latest",
+							"alpine:3.19.0",
 							name.WeakValidation,
 							name.Insecure,
 						)
@@ -1924,26 +1821,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						arch, err := index.Architecture(digest)
 						h.AssertNil(t, err)
 						h.AssertEq(t, arch, runtime.GOARCH)
-
-						variant, err := index.Variant(digest)
-						h.AssertEq(t, err.Error(), imgutil.ErrVariantUndefined(types.DockerManifestList, digest.Identifier()).Error())
-						h.AssertEq(t, variant, "")
-
-						osVersion, err := index.OSVersion(digest)
-						h.AssertEq(t, err.Error(), imgutil.ErrOSVersionUndefined(types.DockerManifestList, digest.Identifier()).Error())
-						h.AssertEq(t, osVersion, "")
-
-						features, err := index.Features(digest)
-						h.AssertEq(t, err.Error(), imgutil.ErrFeaturesUndefined(types.DockerManifestList, digest.Identifier()).Error())
-						h.AssertEq(t, features, []string(nil))
-
-						osFeatures, err := index.OSFeatures(digest)
-						h.AssertEq(t, err.Error(), imgutil.ErrOSFeaturesUndefined(types.DockerManifestList, digest.Identifier()).Error())
-						h.AssertEq(t, osFeatures, []string(nil))
-
-						urls, err := index.URLs(digest)
-						h.AssertEq(t, err.Error(), imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier()).Error())
-						h.AssertEq(t, urls, []string(nil))
 
 						annotations, err := index.Annotations(digest)
 						h.AssertEq(t, err.Error(), imgutil.ErrAnnotationsUndefined(types.DockerManifestList, digest.Identifier()).Error())
@@ -2504,14 +2381,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					ii, ok := idx.(*imgutil.ManifestHandler)
-					h.AssertEq(t, ok, true)
-
-					mfest, err := ii.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-
-					digest, err := name.NewDigest("some/index@" + mfest.Manifests[0].Digest.String())
+					digest, err := name.NewDigest("some/index@sha256:13b7e62e8df80264dbb747995705a986aa530415763a6c58f84a3ca8af9a5bcd")
 					h.AssertNil(t, err)
 
 					err = idx.SetOS(digest, "some-os")
@@ -2520,6 +2390,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					err = idx.Save()
 					h.AssertNil(t, err)
 
+					// locally saved image should also work as expected
 					indx, err := local.NewIndex(
 						"alpine:3.19.0",
 						index.WithInsecure(true),
@@ -2557,8 +2428,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					err = indx.SetAnnotations(digest, map[string]string{"some-key": "some-value"})
 					h.AssertNil(t, err)
 
-					// err = indx.Save()
-					// h.AssertNil(t, err)
+					h.AssertNil(t, indx.Save())
 
 					idx, err = local.NewIndex(
 						"alpine:3.19.0",
@@ -2582,13 +2452,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
-
-					ii, ok := idx.(*imgutil.ManifestHandler)
-					h.AssertEq(t, ok, true)
-
-					mfest, err := ii.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
 
 					digest, err := name.NewDigest("busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56", name.WeakValidation)
 					h.AssertNil(t, err)
@@ -2713,31 +2576,13 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, len(mfestSaved.Manifests), len(keys))
 
 					// linux/amd64
-					var imgRefStr1 string
-					for _, m := range mfestSaved.Manifests {
-						if m.Platform == nil {
-							m.Platform = &v1.Platform{}
-						}
-						if m.Platform.Architecture == "amd64" {
-							imgRefStr1 = "busybox@" + m.Digest.String()
-							break
-						}
-					}
+					var imgRefStr1 = "busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56"
 					h.AssertNotEq(t, imgRefStr1, "")
 					digest1, err := name.NewDigest(imgRefStr1, name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)
 
 					// linux/arm64
-					var imgRefStr2 string
-					for _, m := range mfestSaved.Manifests {
-						if m.Platform == nil {
-							m.Platform = &v1.Platform{}
-						}
-						if m.Platform.Architecture == "arm64" {
-							imgRefStr2 = "busybox@" + m.Digest.String()
-							break
-						}
-					}
+					var imgRefStr2 = "busybox@sha256:fed6b26ea319254ef0d6bae87482b5ab58b85250a7cc46d14c533e1f5c2556db"
 					h.AssertNotEq(t, imgRefStr2, "")
 					digest2, err := name.NewDigest(imgRefStr2, name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)
@@ -2990,17 +2835,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, len(mfestSaved.Manifests), len(keys))
 
 					// linux/amd64
-					var imgRefStr1 string
-					for _, m := range mfestSaved.Manifests {
-						if m.Platform == nil {
-							m.Platform = &v1.Platform{}
-						}
-						if m.Platform.Architecture == "amd64" {
-							imgRefStr1 = "busybox@" + m.Digest.String()
-							break
-						}
-					}
-					h.AssertNotEq(t, imgRefStr1, "")
+					var imgRefStr1 = "busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56"
 					digest, err := name.NewDigest(imgRefStr1, name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)
 
@@ -3116,20 +2951,8 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNotEq(t, mfestSaved, nil)
 					h.AssertEq(t, len(mfestSaved.Manifests), 1)
 
-					// linux/amd64
-					var imgRefStr1 string
-					for _, m := range mfestSaved.Manifests {
-						if m.Platform == nil {
-							m.Platform = &v1.Platform{}
-						}
-						if m.Platform.Architecture == "amd64" {
-							imgRefStr1 = "busybox@" + m.Digest.String()
-							break
-						}
-					}
-					h.AssertNotEq(t, imgRefStr1, "")
-					digest, err := name.NewDigest(imgRefStr1, name.Insecure, name.WeakValidation)
-					h.AssertNil(t, err)
+					digest, ok := ref.(name.Digest)
+					h.AssertEq(t, ok, true)
 
 					os, err := ii.OS(digest)
 					h.AssertNil(t, err)
@@ -3187,17 +3010,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithXDGRuntimePath(xdgPath),
 						index.WithManifestOnly(true),
 					)
-					h.AssertNil(t, err)
-
-					imgIdx, ok := idx.(*imgutil.ManifestHandler)
-					h.AssertEq(t, ok, true)
-
-					mfest, err := imgIdx.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-
-					hash1 := mfest.Manifests[len(mfest.Manifests)-1].Digest
-					digest1, err = name.NewDigest("alpine@"+hash1.String(), name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)
 
 					os, err := idx.OS(digest1)
@@ -3307,17 +3119,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					imgIdx, ok := idx.(*imgutil.ManifestHandler)
-					h.AssertEq(t, ok, true)
-
-					mfest, err := imgIdx.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-
-					hash1 := mfest.Manifests[len(mfest.Manifests)-1].Digest
-					digest1, err = name.NewDigest("alpine@"+hash1.String(), name.Insecure, name.WeakValidation)
-					h.AssertNil(t, err)
-
 					os, err := idx.OS(digest1)
 					h.AssertNil(t, err)
 					h.AssertEq(t, os, "linux")
@@ -3423,17 +3224,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithXDGRuntimePath(xdgPath),
 						index.WithManifestOnly(true),
 					)
-					h.AssertNil(t, err)
-
-					imgIdx, ok := idx.(*imgutil.ManifestHandler)
-					h.AssertEq(t, ok, true)
-
-					mfest, err := imgIdx.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-
-					hash1 := mfest.Manifests[len(mfest.Manifests)-1].Digest
-					digest1, err = name.NewDigest("alpine@"+hash1.String(), name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)
 
 					os, err := idx.OS(digest1)
@@ -3550,17 +3340,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					imgIdx, ok := idx.(*imgutil.ManifestHandler)
-					h.AssertEq(t, ok, true)
-
-					mfest, err := imgIdx.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-
-					hash1 := mfest.Manifests[len(mfest.Manifests)-1].Digest
-					digest1, err = name.NewDigest("alpine@"+hash1.String(), name.Insecure, name.WeakValidation)
-					h.AssertNil(t, err)
-
 					os, err := idx.OS(digest1)
 					h.AssertNil(t, err)
 					h.AssertEq(t, os, "linux")
@@ -3668,17 +3447,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithXDGRuntimePath(xdgPath),
 						index.WithManifestOnly(true),
 					)
-					h.AssertNil(t, err)
-
-					imgIdx, ok := layoutIdx.(*imgutil.ManifestHandler)
-					h.AssertEq(t, ok, true)
-
-					mfest, err := imgIdx.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-
-					hash1 := mfest.Manifests[len(mfest.Manifests)-1].Digest
-					digest1, err = name.NewDigest("alpine@"+hash1.String(), name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)
 
 					os, err := layoutIdx.OS(digest1)
@@ -3837,17 +3605,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithXDGRuntimePath(xdgPath),
 						index.WithManifestOnly(true),
 					)
-					h.AssertNil(t, err)
-
-					imgIdx, ok := idx.(*imgutil.ManifestHandler)
-					h.AssertEq(t, ok, true)
-
-					mfest, err := imgIdx.IndexManifest()
-					h.AssertNil(t, err)
-					h.AssertNotEq(t, mfest, nil)
-
-					hash1 := mfest.Manifests[len(mfest.Manifests)-1].Digest
-					digest2, err = name.NewDigest("alpine@"+hash1.String(), name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)
 
 					_, err = idx.OS(digest1)

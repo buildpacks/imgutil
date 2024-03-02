@@ -60,10 +60,11 @@ func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err
 		InsecureRegistry: idxOps.Insecure(),
 	}
 
-	// if !idxOps.ManifestOnly() {
-	// TODO: Add IndexHandler
-	// 	return imgutil.NewIndexHandler(imgIdx, idxOptions), nil
-	// }
+	if !idxOps.ManifestOnly() {
+		panic("not yet implemented")
+		// TODO: Add IndexHandler
+		// 	return imgutil.NewIndexHandler(imgIdx, idxOptions), nil
+	}
 
 	return imgutil.NewManifestHandler(imgIdx, idxOptions), nil
 }
