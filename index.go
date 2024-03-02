@@ -1814,6 +1814,8 @@ func addPlatformSpecificImages(i ImageIndex, ref name.Reference, platform v1.Pla
 	}
 }
 
+// Save IndexManifest locally.
+// Use it save manifest locally iff the manifest doesn't exist locally before
 func (h *ManifestHandler) save(layoutPath string) (path layout.Path, err error) {
 	// If the ImageIndex is not saved before Save the ImageIndex
 	mfest, err := h.IndexManifest()
@@ -1853,6 +1855,60 @@ func (h *ManifestHandler) save(layoutPath string) (path layout.Path, err error) 
 	return path, nil
 }
 
+// Annotate and Append Manifests to ImageIndex.
+func appendAnnotatedManifests(desc v1.Descriptor, imgDesc v1.Descriptor, path layout.Path, errs *SaveError) {
+	if len(desc.Annotations) != 0 && (imgDesc.MediaType == types.OCIImageIndex || imgDesc.MediaType == types.OCIManifestSchema1) {
+		if len(imgDesc.Annotations) == 0 {
+			imgDesc.Annotations = make(map[string]string, 0)
+		}
+
+		for k, v := range desc.Annotations {
+			imgDesc.Annotations[k] = v
+		}
+	}
+
+	if len(desc.URLs) != 0 {
+		imgDesc.URLs = append(imgDesc.URLs, desc.URLs...)
+	}
+
+	if p := desc.Platform; p != nil {
+		if imgDesc.Platform == nil {
+			imgDesc.Platform = &v1.Platform{}
+		}
+
+		if p.OS != "" {
+			imgDesc.Platform.OS = p.OS
+		}
+
+		if p.Architecture != "" {
+			imgDesc.Platform.Architecture = p.Architecture
+		}
+
+		if p.Variant != "" {
+			imgDesc.Platform.Variant = p.Variant
+		}
+
+		if p.OSVersion != "" {
+			imgDesc.Platform.OSVersion = p.OSVersion
+		}
+
+		if len(p.Features) != 0 {
+			imgDesc.Platform.Features = append(imgDesc.Platform.Features, p.Features...)
+		}
+
+		if len(p.OSFeatures) != 0 {
+			imgDesc.Platform.OSFeatures = append(imgDesc.Platform.OSFeatures, p.OSFeatures...)
+		}
+	}
+
+	path.RemoveDescriptors(match.Digests(imgDesc.Digest))
+	if err := path.AppendDescriptor(imgDesc); err != nil {
+		errs.Errors = append(errs.Errors, SaveDiagnostic{
+			Cause: err,
+		})
+	}
+}
+
 // Save will locally save the given ImageIndex.
 func (h *ManifestHandler) Save() error {
 	layoutPath := filepath.Join(h.Options.XdgPath, h.Options.Reponame)
@@ -1878,57 +1934,11 @@ func (h *ManifestHandler) Save() error {
 	for hash, desc := range h.Annotate.Instance {
 		// If the digest matches an Image added annotate the Image and Save Locally
 		if imgDesc, ok := h.Images[hash]; ok {
-			if len(desc.Annotations) != 0 {
-				if len(imgDesc.Annotations) == 0 {
-					imgDesc.Annotations = make(map[string]string, 0)
-				}
-
-				for k, v := range desc.Annotations {
-					imgDesc.Annotations[k] = v
-				}
+			if !imgDesc.MediaType.IsImage() && !imgDesc.MediaType.IsIndex() {
+				return ErrUnknownMediaType(imgDesc.MediaType)
 			}
 
-			if len(desc.URLs) != 0 {
-				imgDesc.URLs = append(imgDesc.URLs, desc.URLs...)
-			}
-
-			if p := desc.Platform; p != nil {
-				if imgDesc.Platform == nil {
-					imgDesc.Platform = &v1.Platform{}
-				}
-
-				if p.OS != "" {
-					imgDesc.Platform.OS = p.OS
-				}
-
-				if p.Architecture != "" {
-					imgDesc.Platform.Architecture = p.Architecture
-				}
-
-				if p.Variant != "" {
-					imgDesc.Platform.Variant = p.Variant
-				}
-
-				if p.OSVersion != "" {
-					imgDesc.Platform.OSVersion = p.OSVersion
-				}
-
-				if len(p.Features) != 0 {
-					imgDesc.Platform.Features = append(imgDesc.Platform.Features, p.Features...)
-				}
-
-				if len(p.OSFeatures) != 0 {
-					imgDesc.Platform.OSFeatures = append(imgDesc.Platform.OSFeatures, p.OSFeatures...)
-				}
-			}
-
-			path.RemoveDescriptors(match.Digests(imgDesc.Digest))
-			if err := path.AppendDescriptor(imgDesc); err != nil {
-				errs.Errors = append(errs.Errors, SaveDiagnostic{
-					Cause: err,
-				})
-			}
-
+			appendAnnotatedManifests(desc, imgDesc, path, &errs)
 			continue
 		}
 
@@ -1950,62 +1960,7 @@ func (h *ManifestHandler) Save() error {
 					return ErrUnknownMediaType(imgDesc.MediaType)
 				}
 
-				if len(desc.Annotations) != 0 && imgDesc.MediaType == types.OCIImageIndex || imgDesc.MediaType == types.OCIManifestSchema1 {
-					if len(imgDesc.Annotations) == 0 {
-						imgDesc.Annotations = desc.Annotations
-					}
-
-					for k, v := range desc.Annotations {
-						imgDesc.Annotations[k] = v
-					}
-				}
-
-				if len(desc.URLs) != 0 {
-					if len(imgDesc.URLs) == 0 {
-						imgDesc.URLs = make([]string, 0)
-					}
-
-					imgDesc.URLs = append(imgDesc.URLs, desc.URLs...)
-				}
-
-				if p := desc.Platform; p != nil {
-					if imgDesc.Platform == nil {
-						imgDesc.Platform = &v1.Platform{}
-					}
-
-					if p.OS != "" {
-						imgDesc.Platform.OS = p.OS
-					}
-
-					if p.Architecture != "" {
-						imgDesc.Platform.Architecture = p.Architecture
-					}
-
-					if p.Variant != "" {
-						imgDesc.Platform.Variant = p.Variant
-					}
-
-					if p.OSVersion != "" {
-						imgDesc.Platform.OSVersion = p.OSVersion
-					}
-
-					if len(p.Features) != 0 {
-						imgDesc.Platform.Features = append(imgDesc.Platform.Features, p.Features...)
-					}
-
-					if len(p.OSFeatures) != 0 {
-						imgDesc.Platform.OSFeatures = append(imgDesc.Platform.OSFeatures, p.OSFeatures...)
-					}
-				}
-
-				path.RemoveDescriptors(match.Digests(hash))
-				if err = path.AppendDescriptor(imgDesc); err != nil {
-					errs.Errors = append(errs.Errors, SaveDiagnostic{
-						ImageName: hash.String(),
-						Cause:     err,
-					})
-				}
-
+				appendAnnotatedManifests(desc, imgDesc, path, &errs)
 				break
 			}
 		}
