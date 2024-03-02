@@ -16,31 +16,6 @@ func TestNewIndex(t *testing.T) {
 }
 
 func testNewIndex(t *testing.T, when spec.G, it spec.S) {
-	when("#NewIndexHandler", func() {
-		it("should create with expected Index", func() {
-			ih := imgutil.NewIndexHandler(empty.Index, imgutil.IndexOptions{})
-			h.AssertEq(t, ih.ImageIndex, empty.Index)
-		})
-		it("should create with expected Options", func() {
-			ops := imgutil.IndexOptions{
-				XdgPath:          "xdgPath",
-				Reponame:         "some/repo",
-				InsecureRegistry: false,
-			}
-
-			ih := imgutil.NewIndexHandler(empty.Index, ops)
-			h.AssertEq(t, ih.Options.InsecureRegistry, ops.InsecureRegistry)
-			h.AssertEq(t, ih.Options.Reponame, ops.Reponame)
-			h.AssertEq(t, ih.Options.XdgPath, ops.XdgPath)
-			h.AssertEq(t, ih.Options.KeyChain, ops.KeyChain)
-		})
-		it("should create IndexHandlers with not Nil maps and slices", func() {
-			ih := imgutil.NewIndexHandler(empty.Index, imgutil.IndexOptions{})
-			h.AssertEq(t, len(ih.Annotate.Instance), 0)
-			h.AssertEq(t, len(ih.RemovedManifests), 0)
-			h.AssertEq(t, len(ih.Images), 0)
-		})
-	})
 	when("#NewManifestHandler", func() {
 		it("should create with expected Index", func() {
 			ih := imgutil.NewManifestHandler(empty.Index, imgutil.IndexOptions{})

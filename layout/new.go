@@ -56,7 +56,8 @@ func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err
 	}
 
 	if !idxOps.ManifestOnly() {
-		return imgutil.NewIndexHandler(imgIdx, idxOptions), nil
+		// TODO: Add IndexHandler
+		// return imgutil.NewIndexHandler(imgIdx, idxOptions), nil
 	}
 
 	return imgutil.NewManifestHandler(imgIdx, idxOptions), nil

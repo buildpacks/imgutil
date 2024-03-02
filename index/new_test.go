@@ -4,7 +4,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 
@@ -28,9 +27,9 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, os.RemoveAll(xdgPath))
 		})
 		it("should have expected indexOptions", func() {
-			idx, err = index.NewIndex("repo/name", index.WithInsecure(true), index.WithXDGRuntimePath(xdgPath))
+			idx, err = index.NewIndex("repo/name", index.WithInsecure(true), index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
 			h.AssertNil(t, err)
-			h.AssertEq(t, idx.(*imgutil.IndexHandler).Options.InsecureRegistry, true)
+			h.AssertEq(t, idx.(*imgutil.ManifestHandler).Options.InsecureRegistry, true)
 		})
 		it("should return an error when invalid repoName is passed", func() {
 			idx, err = index.NewIndex("invalid/repoName", index.WithInsecure(true), index.WithXDGRuntimePath(xdgPath))
@@ -42,25 +41,6 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 
 			_, ok := idx.(*imgutil.ManifestHandler)
 			h.AssertEq(t, ok, true)
-		})
-		it("should return IndexHandler", func() {
-			idx, err = index.NewIndex("repo/name", index.WithInsecure(true), index.WithXDGRuntimePath(xdgPath))
-			h.AssertNil(t, err)
-
-			_, ok := idx.(*imgutil.IndexHandler)
-			h.AssertEq(t, ok, true)
-		})
-		it("should return ImageIndex with expected format", func() {
-			idx, err := index.NewIndex("repo/name", index.WithFormat(types.DockerManifestList), index.WithXDGRuntimePath(xdgPath))
-			h.AssertNil(t, err)
-
-			imgIdx, ok := idx.(*imgutil.IndexHandler)
-			h.AssertEq(t, ok, true)
-
-			mfest, err := imgIdx.IndexManifest()
-			h.AssertNil(t, err)
-			h.AssertNotEq(t, mfest, nil)
-			h.AssertEq(t, mfest.MediaType, types.DockerManifestList)
 		})
 	})
 }

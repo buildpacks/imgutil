@@ -32,6 +32,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 				repoName,
 				index.WithFormat(types.OCIImageIndex),
 				index.WithXDGRuntimePath(xdgPath),
+				index.WithManifestOnly(true),
 			)
 			h.AssertNil(t, err)
 		})
@@ -42,7 +43,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			)
 			h.AssertNil(t, err)
 
-			imgIdx, ok := idx.(*imgutil.IndexHandler)
+			imgIdx, ok := idx.(*imgutil.ManifestHandler)
 			h.AssertEq(t, ok, true)
 			h.AssertEq(t, imgIdx.Options.Reponame, repoName)
 			h.AssertEq(t, imgIdx.Options.XdgPath, xdgPath)
@@ -76,7 +77,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			)
 			h.AssertNil(t, err)
 
-			imgIdx, ok := idx.(*imgutil.IndexHandler)
+			imgIdx, ok := idx.(*imgutil.ManifestHandler)
 			h.AssertEq(t, ok, true)
 
 			hash, err := v1.NewHash("sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b")
@@ -95,7 +96,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			)
 			h.AssertNil(t, err)
 
-			imgIdx, ok := idx.(*imgutil.IndexHandler)
+			imgIdx, ok := idx.(*imgutil.ManifestHandler)
 			h.AssertEq(t, ok, true)
 
 			hash, err := v1.NewHash("sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b")
