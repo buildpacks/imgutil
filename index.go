@@ -448,28 +448,6 @@ func (h *ManifestHandler) OS(digest name.Digest) (os string, err error) {
 	return os, ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 }
 
-func imageOS(img v1.Image, hash v1.Hash) (os string, err error) {
-	config, err := getConfigFile(img)
-	if err != nil {
-		return os, err
-	}
-
-	mfest, err := img.Manifest()
-	if err != nil {
-		return os, err
-	}
-
-	if mfest == nil {
-		return os, ErrManifestUndefined
-	}
-
-	if config.OS == "" {
-		return os, ErrOSUndefined(mfest.MediaType, hash.String())
-	}
-
-	return config.OS, nil
-}
-
 // Annotates existing Image by updating `OS` field in IndexManifest.
 // Returns an error if no Image/Index found with given Digest.
 func (h *ManifestHandler) SetOS(digest name.Digest, os string) error {
@@ -589,28 +567,6 @@ func (h *ManifestHandler) Architecture(digest name.Digest) (arch string, err err
 	return arch, ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 }
 
-func imageArch(img v1.Image, hash v1.Hash) (arch string, err error) {
-	config, err := getConfigFile(img)
-	if err != nil {
-		return arch, err
-	}
-
-	mfest, err := img.Manifest()
-	if err != nil {
-		return arch, err
-	}
-
-	if mfest == nil {
-		return arch, ErrManifestUndefined
-	}
-
-	if config.Architecture == "" {
-		return arch, ErrArchUndefined(mfest.MediaType, hash.String())
-	}
-
-	return config.Architecture, nil
-}
-
 // Annotates the `Architecture` of an Image.
 // Returns an error if no Image/Index found with given Digest.
 func (h *ManifestHandler) SetArchitecture(digest name.Digest, arch string) error {
@@ -723,28 +679,6 @@ func (h *ManifestHandler) Variant(digest name.Digest) (osVariant string, err err
 	return osVariant, ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 }
 
-func imageVariant(img v1.Image, hash v1.Hash) (osVariant string, err error) {
-	config, err := getConfigFile(img)
-	if err != nil {
-		return osVariant, err
-	}
-
-	mfest, err := img.Manifest()
-	if err != nil {
-		return osVariant, err
-	}
-
-	if mfest == nil {
-		return osVariant, ErrManifestUndefined
-	}
-
-	if config.Variant == "" {
-		return osVariant, ErrVariantUndefined(mfest.MediaType, hash.String())
-	}
-
-	return config.Variant, nil
-}
-
 // Annotates the `Variant` of an Image with given Digest.
 // Returns an error if no Image/Index found with given Digest.
 func (h *ManifestHandler) SetVariant(digest name.Digest, osVariant string) error {
@@ -853,28 +787,6 @@ func (h *ManifestHandler) OSVersion(digest name.Digest) (osVersion string, err e
 	}
 
 	return osVersion, ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
-}
-
-func imageOSVersion(img v1.Image, hash v1.Hash) (osVersion string, err error) {
-	config, err := getConfigFile(img)
-	if err != nil {
-		return osVersion, err
-	}
-
-	mfest, err := img.Manifest()
-	if err != nil {
-		return osVersion, err
-	}
-
-	if mfest == nil {
-		return osVersion, ErrManifestUndefined
-	}
-
-	if config.OSVersion == "" {
-		return osVersion, ErrOSVersionUndefined(mfest.MediaType, hash.String())
-	}
-
-	return config.OSVersion, nil
 }
 
 // Annotates the `OSVersion` of an Image with given Digest.
@@ -1011,33 +923,6 @@ func indexFeatures(i ImageIndex, digest name.Digest) (features []string, err err
 	}
 
 	return mfest.Subject.Platform.Features, nil
-}
-
-func imageFeatures(img v1.Image, hash v1.Hash) (features []string, err error) {
-	config, err := getConfigFile(img)
-	if err != nil {
-		return features, err
-	}
-
-	platform := config.Platform()
-	if platform == nil {
-		return features, ErrConfigFilePlatformUndefined
-	}
-
-	mfest, err := img.Manifest()
-	if err != nil {
-		return features, err
-	}
-
-	if mfest == nil {
-		return features, ErrManifestUndefined
-	}
-
-	if len(platform.Features) == 0 {
-		return features, ErrFeaturesUndefined(mfest.MediaType, hash.String())
-	}
-
-	return platform.Features, nil
 }
 
 // Annotates the `Features` of an Image with given Digest by appending to existsing Features if any.
@@ -1177,28 +1062,6 @@ func indexOSFeatures(i ImageIndex, digest name.Digest) (osFeatures []string, err
 	return mfest.Subject.Platform.OSFeatures, nil
 }
 
-func imageOSFeatures(img v1.Image, hash v1.Hash) (osFeatures []string, err error) {
-	config, err := getConfigFile(img)
-	if err != nil {
-		return osFeatures, err
-	}
-
-	mfest, err := img.Manifest()
-	if err != nil {
-		return osFeatures, err
-	}
-
-	if mfest == nil {
-		return osFeatures, ErrManifestUndefined
-	}
-
-	if len(config.OSFeatures) == 0 {
-		return osFeatures, ErrOSFeaturesUndefined(mfest.MediaType, hash.String())
-	}
-
-	return config.OSFeatures, nil
-}
-
 // Annotates the `OSFeatures` of an Image with given Digest by appending to existsing OSFeatures if any.
 //
 // Returns an error if no Image/Index found with given Digest.
@@ -1336,34 +1199,6 @@ func indexAnnotations(i ImageIndex, digest name.Digest) (annotations map[string]
 	}
 
 	return mfest.Annotations, types.OCIImageIndex, nil
-}
-
-func imageAnnotations(img v1.Image, hash v1.Hash) (annotations map[string]string, err error) {
-	mfest, err := img.Manifest()
-	if err != nil {
-		return annotations, err
-	}
-
-	if mfest == nil {
-		return annotations, ErrManifestUndefined
-	}
-
-	if len(mfest.Annotations) == 0 {
-		return annotations, ErrAnnotationsUndefined(mfest.MediaType, hash.String())
-	}
-
-	switch mfest.MediaType {
-	case types.DockerManifestSchema2,
-		types.DockerManifestSchema1,
-		types.DockerManifestSchema1Signed,
-		types.DockerManifestList:
-		return nil, ErrAnnotationsUndefined(mfest.MediaType, hash.String())
-	case types.OCIImageIndex,
-		types.OCIManifestSchema1:
-		return mfest.Annotations, nil
-	default:
-		return nil, ErrUnknownMediaType(mfest.MediaType)
-	}
 }
 
 // Annotates the `Annotations` of an Image with given Digest by appending to existsing Annotations if any.
@@ -1979,44 +1814,52 @@ func addPlatformSpecificImages(i ImageIndex, ref name.Reference, platform v1.Pla
 	}
 }
 
+func (h *ManifestHandler) save(layoutPath string) (path layout.Path, err error) {
+	// If the ImageIndex is not saved before Save the ImageIndex
+	mfest, err := h.IndexManifest()
+	if err != nil {
+		return path, err
+	}
+
+	if mfest == nil {
+		return path, ErrManifestUndefined
+	}
+
+	// Initially write an empty IndexManifest with expected MediaType
+	if mfest.MediaType == types.OCIImageIndex {
+		path, err = layout.Write(layoutPath, empty.Index)
+		if err != nil {
+			return path, err
+		}
+	} else {
+		path, err = layout.Write(layoutPath, EmptyDocker())
+		if err != nil {
+			return path, err
+		}
+	}
+
+	// loop over each digest and append assositated Image/ImageIndex
+	for _, d := range mfest.Manifests {
+		switch {
+		case d.MediaType.IsIndex(), d.MediaType.IsImage():
+			if err = path.AppendDescriptor(d); err != nil {
+				return path, err
+			}
+		default:
+			return path, ErrUnknownMediaType(d.MediaType)
+		}
+	}
+
+	return path, nil
+}
+
 // Save will locally save the given ImageIndex.
 func (h *ManifestHandler) Save() error {
 	layoutPath := filepath.Join(h.Options.XdgPath, h.Options.Reponame)
 	path, err := layout.FromPath(layoutPath)
 	if err != nil {
-		// If the ImageIndex is not saved before Save the ImageIndex
-		mfest, err := h.IndexManifest()
-		if err != nil {
+		if path, err = h.save(layoutPath); err != nil {
 			return err
-		}
-
-		if mfest == nil {
-			return ErrManifestUndefined
-		}
-
-		// Initially write an empty IndexManifest with expected MediaType
-		if mfest.MediaType == types.OCIImageIndex {
-			path, err = layout.Write(layoutPath, empty.Index)
-			if err != nil {
-				return err
-			}
-		} else {
-			path, err = layout.Write(layoutPath, EmptyDocker())
-			if err != nil {
-				return err
-			}
-		}
-
-		// loop over each digest and append assositated Image/ImageIndex
-		for _, d := range mfest.Manifests {
-			switch {
-			case d.MediaType.IsIndex(), d.MediaType.IsImage():
-				if err = path.AppendDescriptor(d); err != nil {
-					return err
-				}
-			default:
-				return ErrUnknownMediaType(d.MediaType)
-			}
 		}
 	}
 
@@ -2438,32 +2281,6 @@ func getImageURLs(i ImageIndex, hash v1.Hash) (urls []string, format types.Media
 	default:
 		return urls, types.DockerConfigJSON, ErrUnknownHandler
 	}
-}
-
-func imageURLs(img v1.Image) (urls []string, format types.MediaType, err error) {
-	mfest, err := img.Manifest()
-	if err != nil {
-		return urls, format, err
-	}
-
-	if len(mfest.Config.URLs) != 0 {
-		return mfest.Config.URLs, format, nil
-	}
-
-	if mfest.Subject == nil {
-		mfest.Subject = &v1.Descriptor{}
-	}
-
-	digest, err := img.Digest()
-	if err != nil {
-		return urls, mfest.MediaType, err
-	}
-
-	if len(mfest.Subject.URLs) == 0 {
-		return urls, format, ErrURLsUndefined(mfest.MediaType, digest.String())
-	}
-
-	return mfest.Subject.URLs, format, nil
 }
 
 func getIndexManifest(i ImageIndex, digest name.Digest) (mfest *v1.IndexManifest, err error) {
