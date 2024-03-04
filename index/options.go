@@ -9,10 +9,10 @@ import (
 type Option func(*Options) error
 
 type Options struct {
-	keychain               authn.Keychain
-	xdgPath, repoName      string
-	insecure, manifestOnly bool
-	format                 types.MediaType
+	keychain          authn.Keychain
+	xdgPath, repoName string
+	insecure          bool
+	format            types.MediaType
 }
 
 func (o *Options) Keychain() authn.Keychain {
@@ -33,10 +33,6 @@ func (o *Options) Insecure() bool {
 
 func (o *Options) Format() types.MediaType {
 	return o.format
-}
-
-func (o *Options) ManifestOnly() bool {
-	return o.manifestOnly
 }
 
 // Fetch Index from registry with keychain
@@ -86,14 +82,6 @@ func WithInsecure(insecure bool) Option {
 func WithFormat(format types.MediaType) Option {
 	return func(o *Options) error {
 		o.format = format
-		return nil
-	}
-}
-
-// A Handler to switch between `ManifestHandler` and `IndexHandler`
-func WithManifestOnly(manifestOnly bool) Option {
-	return func(o *Options) error {
-		o.manifestOnly = manifestOnly
 		return nil
 	}
 }

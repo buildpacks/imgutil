@@ -110,7 +110,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 					h.AssertNotEq(t, idx, v1.ImageIndex(nil))
@@ -154,7 +153,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -269,7 +267,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 					h.AssertNotEq(t, idx, v1.ImageIndex(nil))
 
@@ -312,7 +310,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -427,7 +424,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 					h.AssertNotEq(t, idx, v1.ImageIndex(nil))
 
@@ -470,7 +467,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -585,7 +581,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 					h.AssertNotEq(t, idx, v1.ImageIndex(nil))
 
@@ -631,7 +627,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -746,7 +741,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 					h.AssertNotEq(t, idx, v1.ImageIndex(nil))
 
@@ -792,7 +787,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -907,7 +901,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 					h.AssertNotEq(t, idx, v1.ImageIndex(nil))
 
@@ -953,7 +947,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -1030,7 +1023,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 							index.WithInsecure(true),
 							index.WithKeychain(authn.DefaultKeychain),
 							index.WithXDGRuntimePath(xdgPath),
-							index.WithManifestOnly(true),
 						)
 						h.AssertNil(t, err)
 
@@ -1067,7 +1059,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						)
 						h.AssertNil(t, err)
 
-						idx, err := remote.NewIndex("alpine:3.19.0", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+						idx, err := remote.NewIndex("alpine:3.19.0", index.WithXDGRuntimePath(xdgPath))
 						h.AssertNil(t, err)
 						h.AssertNotEq(t, idx, v1.ImageIndex(nil))
 
@@ -1119,7 +1111,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 							index.WithInsecure(true),
 							index.WithKeychain(authn.DefaultKeychain),
 							index.WithXDGRuntimePath(xdgPath),
-							index.WithManifestOnly(true),
 						)
 						h.AssertNil(t, err)
 
@@ -1205,7 +1196,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 							index.WithInsecure(true),
 							index.WithKeychain(authn.DefaultKeychain),
 							index.WithXDGRuntimePath(xdgPath),
-							index.WithManifestOnly(true),
 						)
 						h.AssertNil(t, err)
 
@@ -1244,7 +1234,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						)
 						h.AssertNil(t, err)
 
-						idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+						idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath))
 						h.AssertNil(t, err)
 						h.AssertNotEq(t, idx, v1.ImageIndex(nil))
 
@@ -1298,7 +1288,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 							index.WithInsecure(true),
 							index.WithKeychain(authn.DefaultKeychain),
 							index.WithXDGRuntimePath(xdgPath),
-							index.WithManifestOnly(true),
 						)
 						h.AssertNil(t, err)
 
@@ -1422,7 +1411,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx, err := remote.NewIndex("busybox:1.36-musl", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 					h.AssertNotEq(t, idx, v1.ImageIndex(nil))
 
@@ -1470,7 +1459,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -1517,16 +1505,15 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertEq(t, err.Error(), "GET https://index.docker.io/v2/unknown/index/manifests/latest: UNAUTHORIZED: authentication required; [map[Action:pull Class: Name:unknown/index Type:repository]]")
 				})
 				when("platform specific", func() {
 					it("should add platform specific image", func() {
-						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex), index.WithManifestOnly(true))
+						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 						h.AssertNil(t, err)
 
-						idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex), index.WithManifestOnly(true))
+						idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 						h.AssertNil(t, err)
 
 						ref, err := name.ParseReference(
@@ -1587,10 +1574,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertEq(t, annotations, map[string]string(nil))
 					})
 					it("should add annotations when WithAnnotations used for oci", func() {
-						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex), index.WithManifestOnly(true))
+						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 						h.AssertNil(t, err)
 
-						idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex), index.WithManifestOnly(true))
+						idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 						h.AssertNil(t, err)
 
 						ref, err := name.ParseReference(
@@ -1621,10 +1608,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertEq(t, v, "some-value")
 					})
 					it("should not add annotations when WithAnnotations used for docker", func() {
-						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList), index.WithManifestOnly(true))
+						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList))
 						h.AssertNil(t, err)
 
-						idx, err := local.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList), index.WithManifestOnly(true))
+						idx, err := local.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList))
 						h.AssertNil(t, err)
 
 						ref, err := name.ParseReference(
@@ -1654,10 +1641,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				when("target specific", func() {
 					it("should add target specific image", func() {
-						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex), index.WithManifestOnly(true))
+						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 						h.AssertNil(t, err)
 
-						idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex), index.WithManifestOnly(true))
+						idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 						h.AssertNil(t, err)
 
 						ref, err := name.ParseReference(
@@ -1714,10 +1701,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertEq(t, annotations, map[string]string(nil))
 					})
 					it("should add annotations when WithAnnotations used for oci", func() {
-						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex), index.WithManifestOnly(true))
+						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 						h.AssertNil(t, err)
 
-						idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex), index.WithManifestOnly(true))
+						idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 						h.AssertNil(t, err)
 
 						ref, err := name.ParseReference(
@@ -1782,10 +1769,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertEq(t, v, "some-value")
 					})
 					it("should not add annotations when WithAnnotations used for docker", func() {
-						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList), index.WithManifestOnly(true))
+						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList))
 						h.AssertNil(t, err)
 
-						idx, err := local.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList), index.WithManifestOnly(true))
+						idx, err := local.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList))
 						h.AssertNil(t, err)
 
 						ref, err := name.ParseReference(
@@ -1829,10 +1816,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				when("image specific", func() {
 					it("should not change the digest of the image when added", func() {
-						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex), index.WithManifestOnly(true))
+						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 						h.AssertNil(t, err)
 
-						idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex), index.WithManifestOnly(true))
+						idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 						h.AssertNil(t, err)
 
 						ref, err := name.ParseReference(
@@ -1893,10 +1880,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertEq(t, annotations, map[string]string(nil))
 					})
 					it("should annotate the annotations when Annotations provided for oci", func() {
-						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex), index.WithManifestOnly(true))
+						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 						h.AssertNil(t, err)
 
-						idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+						idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath))
 						h.AssertNil(t, err)
 
 						index := idx.(*imgutil.ManifestHandler)
@@ -1961,10 +1948,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertEq(t, v, "some-value")
 					})
 					it("should not annotate the annotations when Annotations provided for docker", func() {
-						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList), index.WithManifestOnly(true))
+						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList))
 						h.AssertNil(t, err)
 
-						idx, err := local.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList), index.WithManifestOnly(true))
+						idx, err := local.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList))
 						h.AssertNil(t, err)
 
 						ref, err := name.ParseReference(
@@ -2036,7 +2023,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 							index.WithKeychain(authn.DefaultKeychain),
 							index.WithXDGRuntimePath(xdgPath),
 							index.WithFormat(types.DockerManifestList),
-							index.WithManifestOnly(true),
 						)
 						h.AssertNil(t, err)
 
@@ -2044,7 +2030,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 							"some/image:tag",
 							index.WithKeychain(authn.DefaultKeychain),
 							index.WithXDGRuntimePath(xdgPath),
-							index.WithManifestOnly(true),
 						)
 						h.AssertNil(t, err)
 
@@ -2139,10 +2124,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertEq(t, annotations, map[string]string(nil))
 					})
 					it("should not ignore WithAnnotations for oci", func() {
-						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex), index.WithManifestOnly(true))
+						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 						h.AssertNil(t, err)
 
-						idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex), index.WithManifestOnly(true))
+						idx, err := layout.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 						h.AssertNil(t, err)
 
 						ref, err := name.ParseReference(
@@ -2246,10 +2231,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertEq(t, v, "some-value")
 					})
 					it("should ignore WithAnnotations for docker", func() {
-						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList), index.WithManifestOnly(true))
+						_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList))
 						h.AssertNil(t, err)
 
-						idx, err := local.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList), index.WithManifestOnly(true))
+						idx, err := local.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList))
 						h.AssertNil(t, err)
 
 						ref, err := name.ParseReference(
@@ -2355,7 +2340,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -2367,7 +2351,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 				})
@@ -2377,7 +2360,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -2396,7 +2378,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -2435,7 +2416,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -2449,7 +2429,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -2470,7 +2449,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -2483,11 +2461,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						"pack/imgutil",
 						index.WithXDGRuntimePath(xdgPath),
 						index.WithFormat(types.OCIImageIndex),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
-					idx1, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx1, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference("busybox:1.36-musl", name.Insecure, name.WeakValidation)
@@ -2508,7 +2485,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					err = idx1.Save()
 					h.AssertNil(t, err)
 
-					idx2, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx2, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ii2, ok := idx2.(*imgutil.ManifestHandler)
@@ -2533,11 +2510,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						"pack/imgutil",
 						index.WithXDGRuntimePath(xdgPath),
 						index.WithFormat(types.OCIImageIndex),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
-					idx1, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx1, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference("busybox:1.36-musl", name.Insecure, name.WeakValidation)
@@ -2564,7 +2540,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					err = idx1.Save()
 					h.AssertNil(t, err)
 
-					idx2, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx2, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ii2, ok := idx2.(*imgutil.ManifestHandler)
@@ -2622,11 +2598,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						"pack/imgutil",
 						index.WithXDGRuntimePath(xdgPath),
 						index.WithFormat(types.OCIImageIndex),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
-					idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference("busybox:1.36-musl", name.Insecure, name.WeakValidation)
@@ -2647,7 +2622,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					err = idx.Save()
 					h.AssertNil(t, err)
 
-					idx, err = layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx, err = layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ii, ok = idx.(*imgutil.ManifestHandler)
@@ -2675,11 +2650,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						"pack/imgutil",
 						index.WithXDGRuntimePath(xdgPath),
 						index.WithFormat(types.OCIImageIndex),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
-					idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference("busybox:1.36-musl", name.Insecure, name.WeakValidation)
@@ -2702,7 +2676,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					err = idx.Save()
 					h.AssertNil(t, err)
 
-					idx, err = layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx, err = layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ii, ok = idx.(*imgutil.ManifestHandler)
@@ -2737,11 +2711,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						"pack/imgutil",
 						index.WithXDGRuntimePath(xdgPath),
 						index.WithFormat(types.OCIImageIndex),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
-					idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference("busybox:1.36-musl", name.Insecure, name.WeakValidation)
@@ -2762,7 +2735,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					err = idx.Save()
 					h.AssertNil(t, err)
 
-					idx, err = layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx, err = layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ii, ok = idx.(*imgutil.ManifestHandler)
@@ -2791,11 +2764,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						"pack/imgutil",
 						index.WithXDGRuntimePath(xdgPath),
 						index.WithFormat(types.OCIImageIndex),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
-					idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference("busybox:1.36-musl", name.Insecure, name.WeakValidation)
@@ -2823,7 +2795,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					err = idx.Save()
 					h.AssertNil(t, err)
 
-					idx, err = layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx, err = layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ii, ok = idx.(*imgutil.ManifestHandler)
@@ -2859,11 +2831,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						"pack/imgutil",
 						index.WithXDGRuntimePath(xdgPath),
 						index.WithFormat(types.OCIImageIndex),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
-					idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference("busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56", name.Insecure, name.WeakValidation)
@@ -2884,7 +2855,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					err = idx.Save()
 					h.AssertNil(t, err)
 
-					idx, err = layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx, err = layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ii, ok = idx.(*imgutil.ManifestHandler)
@@ -2913,11 +2884,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						"pack/imgutil",
 						index.WithXDGRuntimePath(xdgPath),
 						index.WithFormat(types.OCIImageIndex),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
-					idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference("busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56", name.Insecure, name.WeakValidation)
@@ -2940,7 +2910,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					err = idx.Save()
 					h.AssertNil(t, err)
 
-					idx, err = layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+					idx, err = layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
 					ii, ok = idx.(*imgutil.ManifestHandler)
@@ -2974,7 +2944,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -3008,7 +2977,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -3082,7 +3050,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -3115,7 +3082,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -3189,7 +3155,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -3222,7 +3187,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -3303,7 +3267,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -3336,7 +3299,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -3412,7 +3374,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -3445,7 +3406,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -3521,7 +3481,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -3552,7 +3511,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -3569,7 +3527,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -3603,7 +3560,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithKeychain(authn.DefaultKeychain),
 						index.WithXDGRuntimePath(xdgPath),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -3710,10 +3666,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, err.Error(), imgutil.ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier()).Error())
 				})
 				it("should remove the image/index with the given digest", func() {
-					_, err := index.NewIndex("some/index", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex), index.WithManifestOnly(true))
+					_, err := index.NewIndex("some/index", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 					h.AssertNil(t, err)
 
-					idx, err := layout.NewIndex("some/index", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex), index.WithManifestOnly(true))
+					idx, err := layout.NewIndex("some/index", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 					h.AssertNil(t, err)
 
 					ref, err := name.ParseReference(
@@ -3747,7 +3703,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithXDGRuntimePath(xdgPath),
 						index.WithKeychain(authn.DefaultKeychain),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 
@@ -3763,7 +3718,6 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						index.WithInsecure(true),
 						index.WithXDGRuntimePath(xdgPath),
 						index.WithKeychain(authn.DefaultKeychain),
-						index.WithManifestOnly(true),
 					)
 					h.AssertNil(t, err)
 

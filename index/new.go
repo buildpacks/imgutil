@@ -29,25 +29,13 @@ func NewIndex(repoName string, ops ...Option) (idx imgutil.ImageIndex, err error
 	}
 
 	layoutPath := filepath.Join(idxOps.xdgPath, idxOps.repoName)
-	if !idxOps.manifestOnly {
-		switch idxOps.format {
-		case types.DockerManifestList:
-			// TODO: add IndexHandler
-			// idx = imgutil.NewIndexHandler(imgutil.EmptyDocker(), idxOptions)
-			// _, err = layout.Write(layoutPath, imgutil.EmptyDocker())
-		default:
-			// idx = imgutil.NewIndexHandler(empty.Index, idxOptions)
-			// _, err = layout.Write(layoutPath, empty.Index)
-		}
-	} else {
-		switch idxOps.format {
-		case types.DockerManifestList:
-			idx = imgutil.NewManifestHandler(imgutil.EmptyDocker(), idxOptions)
-			_, err = layout.Write(layoutPath, imgutil.EmptyDocker())
-		default:
-			idx = imgutil.NewManifestHandler(empty.Index, idxOptions)
-			_, err = layout.Write(layoutPath, empty.Index)
-		}
+	switch idxOps.format {
+	case types.DockerManifestList:
+		idx = imgutil.NewManifestHandler(imgutil.EmptyDocker(), idxOptions)
+		_, err = layout.Write(layoutPath, imgutil.EmptyDocker())
+	default:
+		idx = imgutil.NewManifestHandler(empty.Index, idxOptions)
+		_, err = layout.Write(layoutPath, empty.Index)
 	}
 
 	return idx, err

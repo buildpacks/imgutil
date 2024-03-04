@@ -104,16 +104,12 @@ var (
 		return fmt.Errorf("unsupported media type encountered in image: '%s'", format)
 	}
 	ErrNoImageFoundWithGivenPlatform = errors.New("no image found for specified platform")
-	ErrUnknownHandler                = errors.New(`unsupported image handler.
-	Supported handlers: ['ManifestHandler', 'IndexHandler']`)
 )
 
 var _ ImageIndex = (*ManifestHandler)(nil)
 
 // A Handler implementing ImageIndex.
-// It will create and Manipulate IndexManifest.
-//
-// Prefer `IndexHandler` if underlying Images should need to be manipulated
+// Creates and Manipulate IndexManifest.
 type ManifestHandler struct {
 	v1.ImageIndex
 	Annotate         Annotate

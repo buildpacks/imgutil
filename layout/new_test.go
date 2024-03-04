@@ -32,7 +32,6 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 				repoName,
 				index.WithFormat(types.OCIImageIndex),
 				index.WithXDGRuntimePath(xdgPath),
-				index.WithManifestOnly(true),
 			)
 			h.AssertNil(t, err)
 		})
@@ -40,7 +39,6 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			idx, err = layout.NewIndex(
 				repoName,
 				index.WithXDGRuntimePath(xdgPath),
-				index.WithManifestOnly(true),
 			)
 			h.AssertNil(t, err)
 
@@ -56,7 +54,6 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			idx, err = layout.NewIndex(
 				repoName+"Image",
 				index.WithXDGRuntimePath(xdgPath),
-				index.WithManifestOnly(true),
 			)
 			h.AssertNotEq(t, err, nil)
 			h.AssertNil(t, idx)
@@ -65,7 +62,6 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			idx, err = layout.NewIndex(
 				repoName,
 				index.WithXDGRuntimePath(xdgPath),
-				index.WithManifestOnly(true),
 			)
 			h.AssertNil(t, err)
 			h.AssertNotEq(t, idx, nil)
@@ -77,7 +73,6 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			idx, err = layout.NewIndex(
 				repoName,
 				index.WithXDGRuntimePath(xdgPath),
-				index.WithManifestOnly(true),
 			)
 			h.AssertNil(t, err)
 
@@ -97,7 +92,6 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			idx, err = layout.NewIndex(
 				repoName,
 				index.WithXDGRuntimePath(xdgPath),
-				index.WithManifestOnly(true),
 			)
 			h.AssertNil(t, err)
 

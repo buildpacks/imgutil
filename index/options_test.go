@@ -66,13 +66,5 @@ func testRemoteOptions(t *testing.T, when spec.G, it spec.S) {
 
 			h.AssertEq(t, ops.Format(), types.DockerManifestList)
 		})
-		it("should have expected manifestOnly", func() {
-			opts = append(opts, index.WithManifestOnly(true))
-			for _, op := range opts {
-				op(ops)
-			}
-
-			h.AssertEq(t, ops.ManifestOnly(), true)
-		})
 	})
 }

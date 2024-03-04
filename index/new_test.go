@@ -27,7 +27,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, os.RemoveAll(xdgPath))
 		})
 		it("should have expected indexOptions", func() {
-			idx, err = index.NewIndex("repo/name", index.WithInsecure(true), index.WithXDGRuntimePath(xdgPath), index.WithManifestOnly(true))
+			idx, err = index.NewIndex("repo/name", index.WithInsecure(true), index.WithXDGRuntimePath(xdgPath))
 			h.AssertNil(t, err)
 			h.AssertEq(t, idx.(*imgutil.ManifestHandler).Options.InsecureRegistry, true)
 		})
@@ -36,7 +36,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNotEq(t, err, nil)
 		})
 		it("should return ManifestHanler", func() {
-			idx, err = index.NewIndex("repo/name", index.WithInsecure(true), index.WithManifestOnly(true), index.WithXDGRuntimePath(xdgPath))
+			idx, err = index.NewIndex("repo/name", index.WithInsecure(true), index.WithXDGRuntimePath(xdgPath))
 			h.AssertNil(t, err)
 
 			_, ok := idx.(*imgutil.ManifestHandler)
