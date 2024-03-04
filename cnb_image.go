@@ -22,10 +22,13 @@ type CNBImageCore struct {
 	// required
 	v1.Image // the working image
 	// optional
-	createdAt           time.Time
-	preferredMediaTypes MediaTypes
-	preserveHistory     bool
-	previousImage       v1.Image
+	createdAt                    time.Time
+	preferredMediaTypes          MediaTypes
+	preserveHistory              bool
+	previousImage                v1.Image
+	os, arch, variant, osVersion string
+	features, osFeatures, urls   []string
+	annotations                  map[string]string
 }
 
 var _ v1.Image = &CNBImageCore{}
@@ -34,7 +37,11 @@ var _ v1.Image = &CNBImageCore{}
 
 // TBD Deprecated: Architecture
 func (i *CNBImageCore) Architecture() (string, error) {
-	configFile, err := getConfigFile(i.Image)
+	if i.arch != "" {
+		return i.arch, nil
+	}
+
+	configFile, err := GetConfigFile(i.Image)
 	if err != nil {
 		return "", err
 	}
@@ -43,7 +50,7 @@ func (i *CNBImageCore) Architecture() (string, error) {
 
 // TBD Deprecated: CreatedAt
 func (i *CNBImageCore) CreatedAt() (time.Time, error) {
-	configFile, err := getConfigFile(i.Image)
+	configFile, err := GetConfigFile(i.Image)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -52,7 +59,7 @@ func (i *CNBImageCore) CreatedAt() (time.Time, error) {
 
 // TBD Deprecated: Entrypoint
 func (i *CNBImageCore) Entrypoint() ([]string, error) {
-	configFile, err := getConfigFile(i.Image)
+	configFile, err := GetConfigFile(i.Image)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +67,7 @@ func (i *CNBImageCore) Entrypoint() ([]string, error) {
 }
 
 func (i *CNBImageCore) Env(key string) (string, error) {
-	configFile, err := getConfigFile(i.Image)
+	configFile, err := GetConfigFile(i.Image)
 	if err != nil {
 		return "", err
 	}
@@ -74,7 +81,7 @@ func (i *CNBImageCore) Env(key string) (string, error) {
 }
 
 func (i *CNBImageCore) GetAnnotateRefName() (string, error) {
-	manifest, err := getManifest(i.Image)
+	manifest, err := GetManifest(i.Image)
 	if err != nil {
 		return "", err
 	}
@@ -95,7 +102,7 @@ func (i *CNBImageCore) GetLayer(diffID string) (io.ReadCloser, error) {
 
 // TBD Deprecated: History
 func (i *CNBImageCore) History() ([]v1.History, error) {
-	configFile, err := getConfigFile(i.Image)
+	configFile, err := GetConfigFile(i.Image)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +111,7 @@ func (i *CNBImageCore) History() ([]v1.History, error) {
 
 // TBD Deprecated: Label
 func (i *CNBImageCore) Label(key string) (string, error) {
-	configFile, err := getConfigFile(i.Image)
+	configFile, err := GetConfigFile(i.Image)
 	if err != nil {
 		return "", err
 	}
@@ -113,7 +120,7 @@ func (i *CNBImageCore) Label(key string) (string, error) {
 
 // TBD Deprecated: Labels
 func (i *CNBImageCore) Labels() (map[string]string, error) {
-	configFile, err := getConfigFile(i.Image)
+	configFile, err := GetConfigFile(i.Image)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +134,11 @@ func (i *CNBImageCore) ManifestSize() (int64, error) {
 
 // TBD Deprecated: OS
 func (i *CNBImageCore) OS() (string, error) {
-	configFile, err := getConfigFile(i.Image)
+	if i.os != "" {
+		return i.os, nil
+	}
+
+	configFile, err := GetConfigFile(i.Image)
 	if err != nil {
 		return "", err
 	}
@@ -136,11 +147,76 @@ func (i *CNBImageCore) OS() (string, error) {
 
 // TBD Deprecated: OSVersion
 func (i *CNBImageCore) OSVersion() (string, error) {
-	configFile, err := getConfigFile(i.Image)
+	if i.osVersion != "" {
+		return i.osVersion, nil
+	}
+
+	configFile, err := GetConfigFile(i.Image)
 	if err != nil {
 		return "", err
 	}
 	return configFile.OSVersion, nil
+}
+
+func (i *CNBImageCore) OSFeatures() ([]string, error) {
+	if len(i.osFeatures) != 0 {
+		return i.osFeatures, nil
+	}
+
+	configFile, err := GetConfigFile(i.Image)
+	if err != nil {
+		return nil, err
+	}
+	return configFile.OSFeatures, nil
+}
+
+func (i *CNBImageCore) Features() ([]string, error) {
+	if len(i.features) != 0 {
+		return i.features, nil
+	}
+
+	mfest, err := GetManifest(i.Image)
+	if err != nil {
+		return nil, err
+	}
+
+	p := mfest.Config.Platform
+	if p == nil || len(p.Features) < 1 {
+		return nil, ErrFeaturesUndefined(i.preferredMediaTypes.ManifestType(), "")
+	}
+	return p.Features, nil
+}
+
+func (i *CNBImageCore) URLs() ([]string, error) {
+	if len(i.urls) != 0 {
+		return i.urls, nil
+	}
+
+	mfest, err := GetManifest(i.Image)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(mfest.Config.URLs) < 1 {
+		return nil, ErrURLsUndefined(i.preferredMediaTypes.ManifestType(), "")
+	}
+	return mfest.Config.URLs, nil
+}
+
+func (i *CNBImageCore) Annotations() (map[string]string, error) {
+	if len(i.annotations) != 0 {
+		return i.annotations, nil
+	}
+
+	mfest, err := GetManifest(i.Image)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(mfest.Annotations) < 1 {
+		return nil, ErrAnnotationsUndefined(i.preferredMediaTypes.ManifestType(), "")
+	}
+	return mfest.Annotations, nil
 }
 
 func (i *CNBImageCore) TopLayer() (string, error) {
@@ -171,7 +247,11 @@ func (i *CNBImageCore) Valid() bool {
 
 // TBD Deprecated: Variant
 func (i *CNBImageCore) Variant() (string, error) {
-	configFile, err := getConfigFile(i.Image)
+	if i.variant != "" {
+		return i.variant, nil
+	}
+
+	configFile, err := GetConfigFile(i.Image)
 	if err != nil {
 		return "", err
 	}
@@ -180,7 +260,7 @@ func (i *CNBImageCore) Variant() (string, error) {
 
 // TBD Deprecated: WorkingDir
 func (i *CNBImageCore) WorkingDir() (string, error) {
-	configFile, err := getConfigFile(i.Image)
+	configFile, err := GetConfigFile(i.Image)
 	if err != nil {
 		return "", err
 	}
@@ -188,7 +268,7 @@ func (i *CNBImageCore) WorkingDir() (string, error) {
 }
 
 func (i *CNBImageCore) AnnotateRefName(refName string) error {
-	manifest, err := getManifest(i.Image)
+	manifest, err := GetManifest(i.Image)
 	if err != nil {
 		return err
 	}
@@ -207,6 +287,7 @@ func (i *CNBImageCore) AnnotateRefName(refName string) error {
 
 // TBD Deprecated: SetArchitecture
 func (i *CNBImageCore) SetArchitecture(architecture string) error {
+	i.arch = architecture
 	return i.MutateConfigFile(func(c *v1.ConfigFile) {
 		c.Architecture = architecture
 	})
@@ -266,6 +347,7 @@ func (i *CNBImageCore) SetLabel(key, val string) error {
 }
 
 func (i *CNBImageCore) SetOS(osVal string) error {
+	i.os = osVal
 	return i.MutateConfigFile(func(c *v1.ConfigFile) {
 		c.OS = osVal
 	})
@@ -273,13 +355,43 @@ func (i *CNBImageCore) SetOS(osVal string) error {
 
 // TBD Deprecated: SetOSVersion
 func (i *CNBImageCore) SetOSVersion(osVersion string) error {
+	i.osVersion = osVersion
 	return i.MutateConfigFile(func(c *v1.ConfigFile) {
 		c.OSVersion = osVersion
 	})
 }
 
+func (i *CNBImageCore) SetOSFeatures(osFeatures []string) error {
+	i.osFeatures = append(i.osFeatures, osFeatures...)
+	return i.MutateConfigFile(func(c *v1.ConfigFile) {
+		c.OSFeatures = osFeatures
+	})
+}
+
+func (i *CNBImageCore) SetFeatures(features []string) (err error) {
+	i.features = append(i.features, features...)
+	return nil
+}
+
+func (i *CNBImageCore) SetURLs(urls []string) (err error) {
+	i.urls = append(i.urls, urls...)
+	return nil
+}
+
+func (i *CNBImageCore) SetAnnotations(annotations map[string]string) error {
+	if len(i.annotations) == 0 {
+		i.annotations = make(map[string]string)
+	}
+
+	for k, v := range annotations {
+		i.annotations[k] = v
+	}
+	return nil
+}
+
 // TBD Deprecated: SetVariant
 func (i *CNBImageCore) SetVariant(variant string) error {
+	i.variant = variant
 	return i.MutateConfigFile(func(c *v1.ConfigFile) {
 		c.Variant = variant
 	})
@@ -341,7 +453,7 @@ func (i *CNBImageCore) Rebase(baseTopLayerDiffID string, withNewBase Image) erro
 	}
 
 	// ensure new config matches provided image
-	newBaseConfigFile, err := getConfigFile(newBase)
+	newBaseConfigFile, err := GetConfigFile(newBase)
 	if err != nil {
 		return err
 	}
@@ -407,7 +519,7 @@ func getLayerIndex(forDiffID string, fromImage v1.Image) (int, error) {
 	if err != nil {
 		return -1, fmt.Errorf("failed to get layer hash: %w", err)
 	}
-	configFile, err := getConfigFile(fromImage)
+	configFile, err := GetConfigFile(fromImage)
 	if err != nil {
 		return -1, fmt.Errorf("failed to get config file: %w", err)
 	}
@@ -420,7 +532,7 @@ func getLayerIndex(forDiffID string, fromImage v1.Image) (int, error) {
 }
 
 func getHistory(forIndex int, fromImage v1.Image) (v1.History, error) {
-	configFile, err := getConfigFile(fromImage)
+	configFile, err := GetConfigFile(fromImage)
 	if err != nil {
 		return v1.History{}, err
 	}
@@ -459,7 +571,7 @@ func (i *CNBImageCore) ReuseLayerWithHistory(diffID string, history v1.History) 
 
 func (i *CNBImageCore) MutateConfigFile(withFunc func(c *v1.ConfigFile)) error {
 	// FIXME: put MutateConfigFile on the interface when `remote` and `layout` packages also support it.
-	configFile, err := getConfigFile(i.Image)
+	configFile, err := GetConfigFile(i.Image)
 	if err != nil {
 		return err
 	}
@@ -496,7 +608,7 @@ func (i *CNBImageCore) SetCreatedAtAndHistory() error {
 	return err
 }
 
-func getConfigFile(image v1.Image) (*v1.ConfigFile, error) {
+func GetConfigFile(image v1.Image) (*v1.ConfigFile, error) {
 	configFile, err := image.ConfigFile()
 	if err != nil {
 		return nil, err
@@ -507,7 +619,7 @@ func getConfigFile(image v1.Image) (*v1.ConfigFile, error) {
 	return configFile, nil
 }
 
-func getManifest(image v1.Image) (*v1.Manifest, error) {
+func GetManifest(image v1.Image) (*v1.Manifest, error) {
 	manifest, err := image.Manifest()
 	if err != nil {
 		return nil, err

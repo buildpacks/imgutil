@@ -42,7 +42,7 @@ func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err
 	desc, err := remote.Get(
 		ref,
 		remote.WithAuthFromKeychain(idxOps.Keychain()),
-		remote.WithTransport(getTransport(idxOps.Insecure())),
+		remote.WithTransport(imgutil.GetTransport(idxOps.Insecure())),
 	)
 	if err != nil {
 		return
@@ -272,7 +272,7 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 		image, err = remote.Image(ref,
 			remote.WithAuth(auth),
 			remote.WithPlatform(v1Platform),
-			remote.WithTransport(getTransport(reg.insecure)),
+			remote.WithTransport(imgutil.GetTransport(reg.insecure)),
 		)
 		if err != nil {
 			if err == io.EOF && i != maxRetries {

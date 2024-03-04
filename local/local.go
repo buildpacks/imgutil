@@ -148,6 +148,22 @@ func (i *Image) OSVersion() (string, error) {
 	return i.inspect.OsVersion, nil
 }
 
+func (i *Image) Features() ([]string, error) {
+	return nil, errors.New("not yet implemented")
+}
+
+func (i *Image) OSFeatures() ([]string, error) {
+	return nil, errors.New("not yet implemented")
+}
+
+func (i *Image) URLs() ([]string, error) {
+	return nil, errors.New("not yet implemented")
+}
+
+func (i *Image) Annotations() (map[string]string, error) {
+	return nil, errors.New("not yet implemented")
+}
+
 func (i *Image) TopLayer() (string, error) {
 	all := i.inspect.RootFS.Layers
 
@@ -244,6 +260,22 @@ func (i *Image) SetOSVersion(osVersion string) error {
 func (i *Image) SetVariant(v string) error {
 	i.inspect.Variant = v
 	return nil
+}
+
+func (i *Image) SetFeatures(features []string) error {
+	return errors.New("not yet implemented")
+}
+
+func (i *Image) SetOSFeatures(osFeatures []string) error {
+	return errors.New("not yet implemented")
+}
+
+func (i *Image) SetURLs(urls []string) error {
+	return errors.New("not yet implemented")
+}
+
+func (i *Image) SetAnnotations(annotations map[string]string) error {
+	return errors.New("not yet implemented")
 }
 
 func (i *Image) SetWorkingDir(dir string) error {

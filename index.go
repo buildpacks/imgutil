@@ -486,7 +486,7 @@ func (h *ManifestHandler) SetOS(digest name.Digest, os string) error {
 
 // Add requested OS to `Annotate`
 func (h *ManifestHandler) setImageOS(img v1.Image, hash v1.Hash, os string) error {
-	mfest, err := getManifest(img)
+	mfest, err := GetManifest(img)
 	if err != nil {
 		return err
 	}
@@ -567,7 +567,7 @@ func (h *ManifestHandler) SetArchitecture(digest name.Digest, arch string) error
 
 // Add request ARCH to `Annotate`
 func (h *ManifestHandler) setImageArch(img v1.Image, hash v1.Hash, arch string) error {
-	mfest, err := getManifest(img)
+	mfest, err := GetManifest(img)
 	if err != nil {
 		return err
 	}
@@ -648,7 +648,7 @@ func (h *ManifestHandler) SetVariant(digest name.Digest, osVariant string) error
 
 // Add requested OSVariant to `Annotate`.
 func (h *ManifestHandler) setImageVariant(img v1.Image, hash v1.Hash, osVariant string) error {
-	mfest, err := getManifest(img)
+	mfest, err := GetManifest(img)
 	if err != nil {
 		return err
 	}
@@ -729,7 +729,7 @@ func (h *ManifestHandler) SetOSVersion(digest name.Digest, osVersion string) err
 
 // Add requested OSVersion to `Annotate`
 func (h *ManifestHandler) setImageOSVersion(img v1.Image, hash v1.Hash, osVersion string) error {
-	mfest, err := getManifest(img)
+	mfest, err := GetManifest(img)
 	if err != nil {
 		return err
 	}
@@ -836,7 +836,7 @@ func (h *ManifestHandler) SetFeatures(digest name.Digest, features []string) err
 }
 
 func (h *ManifestHandler) setImageFeatures(img v1.Image, hash v1.Hash, features []string) error {
-	mfest, err := getManifest(img)
+	mfest, err := GetManifest(img)
 	if err != nil {
 		return err
 	}
@@ -944,7 +944,7 @@ func (h *ManifestHandler) SetOSFeatures(digest name.Digest, osFeatures []string)
 }
 
 func (h *ManifestHandler) setImageOSFeatures(img v1.Image, hash v1.Hash, osFeatures []string) error {
-	mfest, err := getManifest(img)
+	mfest, err := GetManifest(img)
 	if err != nil {
 		return err
 	}
@@ -1141,7 +1141,7 @@ func (h *ManifestHandler) SetURLs(digest name.Digest, urls []string) error {
 
 // Adds the requested URLs to `Annotate`.
 func (h *ManifestHandler) setImageURLs(img v1.Image, hash v1.Hash, urls []string) error {
-	mfest, err := getManifest(img)
+	mfest, err := GetManifest(img)
 	if err != nil {
 		return err
 	}
@@ -1168,7 +1168,7 @@ func (h *ManifestHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
 	desc, err := remote.Head(
 		ref,
 		remote.WithAuthFromKeychain(h.Options.KeyChain),
-		remote.WithTransport(getTransport(h.Options.Insecure())),
+		remote.WithTransport(GetTransport(h.Options.Insecure())),
 	)
 	if err != nil {
 		return err
@@ -1185,18 +1185,18 @@ func (h *ManifestHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
 		img, err := remote.Image(
 			ref,
 			remote.WithAuthFromKeychain(h.Options.KeyChain),
-			remote.WithTransport(getTransport(h.Options.Insecure())),
+			remote.WithTransport(GetTransport(h.Options.Insecure())),
 		)
 		if err != nil {
 			return err
 		}
 
-		mfest, err := getManifest(img)
+		mfest, err := GetManifest(img)
 		if err != nil {
 			return err
 		}
 
-		imgConfig, err := getConfigFile(img)
+		imgConfig, err := GetConfigFile(img)
 		if err != nil {
 			return err
 		}
@@ -1243,7 +1243,7 @@ func (h *ManifestHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
 			idx, err := remote.Index(
 				ref,
 				remote.WithAuthFromKeychain(h.Options.KeyChain),
-				remote.WithTransport(getTransport(h.Options.Insecure())),
+				remote.WithTransport(GetTransport(h.Options.Insecure())),
 			)
 			if err != nil {
 				return err
@@ -1430,7 +1430,7 @@ func (h *ManifestHandler) addIndexAddendum(annotations map[string]string, desc v
 			return err
 		}
 
-		mfest, err := getManifest(img)
+		mfest, err := GetManifest(img)
 		if err != nil {
 			return err
 		}
@@ -1480,7 +1480,7 @@ func (h *ManifestHandler) addPlatformSpecificImages(ref name.Reference, platform
 	desc, err := remote.Get(
 		ref,
 		remote.WithAuthFromKeychain(h.Options.KeyChain),
-		remote.WithTransport(getTransport(true)),
+		remote.WithTransport(GetTransport(true)),
 		remote.WithPlatform(platform),
 	)
 	if err != nil {
@@ -1497,12 +1497,12 @@ func (h *ManifestHandler) addPlatformSpecificImages(ref name.Reference, platform
 		return err
 	}
 
-	mfest, err := getManifest(img)
+	mfest, err := GetManifest(img)
 	if err != nil {
 		return err
 	}
 
-	imgConfig, err := getConfigFile(img)
+	imgConfig, err := GetConfigFile(img)
 	if err != nil {
 		return err
 	}
@@ -1565,7 +1565,7 @@ func (h *ManifestHandler) save(layoutPath string) (path layout.Path, err error) 
 		}
 	}
 
-	// loop over each digest and append assositated Image/ImageIndex
+	// loop over each digest and append Image/ImageIndex
 	for _, d := range mfest.Manifests {
 		switch {
 		case d.MediaType.IsIndex(), d.MediaType.IsImage():
@@ -1778,7 +1778,7 @@ func (h *ManifestHandler) Push(ops ...IndexPushOption) error {
 		ref,
 		taggableIndex,
 		remote.WithAuthFromKeychain(h.Options.KeyChain),
-		remote.WithTransport(getTransport(pushOps.Insecure)),
+		remote.WithTransport(GetTransport(pushOps.Insecure)),
 	)
 
 	if pushOps.Purge {
@@ -1814,7 +1814,7 @@ func parseReferenceToHash(ref name.Reference, options IndexOptions) (hash v1.Has
 			v,
 			remote.WithAuthFromKeychain(options.KeyChain),
 			remote.WithTransport(
-				getTransport(options.InsecureRegistry),
+				GetTransport(options.InsecureRegistry),
 			),
 		)
 		if err != nil {

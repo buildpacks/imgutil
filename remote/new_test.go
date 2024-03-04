@@ -34,6 +34,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 				index.WithInsecure(true),
 				index.WithKeychain(authn.DefaultKeychain),
 				index.WithXDGRuntimePath(xdgPath),
+				index.WithManifestOnly(true),
 			)
 			h.AssertNil(t, err)
 
@@ -49,6 +50,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 				index.WithInsecure(true),
 				index.WithKeychain(authn.DefaultKeychain),
 				index.WithXDGRuntimePath(xdgPath),
+				index.WithManifestOnly(true),
 			)
 			h.AssertEq(t, err.Error(), "could not parse reference: some/invalidImage")
 		})
@@ -58,6 +60,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 				index.WithInsecure(true),
 				index.WithKeychain(authn.DefaultKeychain),
 				index.WithXDGRuntimePath(xdgPath),
+				index.WithManifestOnly(true),
 			)
 			h.AssertNotEq(t, err, nil)
 		})
@@ -67,6 +70,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 				index.WithInsecure(true),
 				index.WithKeychain(authn.DefaultKeychain),
 				index.WithXDGRuntimePath(xdgPath),
+				index.WithManifestOnly(true),
 			)
 			h.AssertNil(t, err)
 
@@ -84,6 +88,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 				index.WithInsecure(true),
 				index.WithKeychain(authn.DefaultKeychain),
 				index.WithXDGRuntimePath(xdgPath),
+				index.WithManifestOnly(true),
 			)
 			h.AssertNil(t, err)
 
@@ -105,6 +110,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 				index.WithInsecure(true),
 				index.WithKeychain(authn.DefaultKeychain),
 				index.WithXDGRuntimePath(xdgPath),
+				index.WithManifestOnly(true),
 			)
 			h.AssertNil(t, err)
 

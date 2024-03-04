@@ -1175,16 +1175,44 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("Platform values are saved on disk in OCI layout format", func() {
-			image.SetArchitecture("amd64")
-			image.SetOS("linux")
-			image.SetOSVersion("1234")
+			var (
+				os         = "linux"
+				arch       = "amd64"
+				variant    = "some-variant"
+				osVersion  = "1234"
+				features   = []string{"some-features"}
+				osFeatures = []string{"some-osFeatures"}
+				urls       = []string{"some-urls"}
+				annos      = map[string]string{"some-key": "some-value"}
+			)
+			image.SetOS(os)
+			image.SetArchitecture(arch)
+			image.SetVariant(variant)
+			image.SetOSVersion(osVersion)
+			image.SetFeatures(features)
+			image.SetOSFeatures(osFeatures)
+			image.SetURLs(urls)
+			image.SetAnnotations(annos)
 
 			image.Save()
 
-			_, configFile := h.ReadManifestAndConfigFile(t, imagePath)
-			h.AssertEq(t, configFile.OS, "linux")
-			h.AssertEq(t, configFile.Architecture, "amd64")
-			h.AssertEq(t, configFile.OSVersion, "1234")
+			mfest, configFile := h.ReadManifestAndConfigFile(t, imagePath)
+			h.AssertEq(t, configFile.OS, os)
+			h.AssertEq(t, configFile.Architecture, arch)
+			h.AssertEq(t, configFile.Variant, variant)
+			h.AssertEq(t, configFile.OSVersion, osVersion)
+			h.AssertEq(t, configFile.OSFeatures, osFeatures)
+
+			h.AssertEq(t, mfest.Subject.Platform.OS, os)
+			h.AssertEq(t, mfest.Subject.Platform.Architecture, arch)
+			h.AssertEq(t, mfest.Subject.Platform.Variant, variant)
+			h.AssertEq(t, mfest.Subject.Platform.OSVersion, osVersion)
+			h.AssertEq(t, mfest.Subject.Platform.Features, features)
+			h.AssertEq(t, mfest.Subject.Platform.OSFeatures, osFeatures)
+			h.AssertEq(t, mfest.Subject.URLs, urls)
+			h.AssertEq(t, mfest.Subject.Annotations, annos)
+
+			h.AssertEq(t, mfest.Annotations, annos)
 		})
 
 		it("Default Platform values are saved on disk in OCI layout format", func() {

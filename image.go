@@ -14,6 +14,10 @@ type Image interface {
 	// getters
 
 	Architecture() (string, error)
+	Features() ([]string, error)
+	OSFeatures() ([]string, error)
+	URLs() ([]string, error)
+	Annotations() (map[string]string, error)
 	CreatedAt() (time.Time, error)
 	Entrypoint() ([]string, error)
 	Env(key string) (string, error)
@@ -56,6 +60,10 @@ type Image interface {
 	SetOS(string) error
 	SetOSVersion(string) error
 	SetVariant(string) error
+	SetFeatures([]string) error
+	SetOSFeatures([]string) error
+	SetURLs([]string) error
+	SetAnnotations(map[string]string) error
 	SetWorkingDir(string) error
 
 	// modifiers
@@ -87,7 +95,7 @@ type Platform struct {
 
 // OverrideHistoryIfNeeded zeroes out the history if the number of history entries doesn't match the number of layers.
 func OverrideHistoryIfNeeded(image v1.Image) (v1.Image, error) {
-	configFile, err := getConfigFile(image)
+	configFile, err := GetConfigFile(image)
 	if err != nil {
 		return nil, err
 	}

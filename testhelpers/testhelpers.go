@@ -45,14 +45,14 @@ func RandString(n int) string {
 }
 
 // AssertEq asserts deep equality (and provides a useful difference as a test failure)
-func AssertEq(t *testing.T, actual, expected interface{}) {
+func AssertEq(t *testing.T, actual, expected any) {
 	t.Helper()
 	if diff := cmp.Diff(actual, expected); diff != "" {
 		t.Fatal(diff)
 	}
 }
 
-func AssertNotEq(t *testing.T, v1, v2 interface{}) {
+func AssertNotEq(t *testing.T, v1, v2 any) {
 	t.Helper()
 
 	if diff := cmp.Diff(v1, v2); diff == "" {
@@ -109,10 +109,17 @@ func AssertError(t *testing.T, actual error, expected string) {
 	}
 }
 
-func AssertNil(t *testing.T, actual interface{}) {
+func AssertNil(t *testing.T, actual any) {
 	t.Helper()
 	if actual != nil {
 		t.Fatalf("Expected nil: %s", actual)
+	}
+}
+
+func AssertNotNil(t *testing.T, actual any) {
+	t.Helper()
+	if actual == nil {
+		t.Fatalf("Expected not nil: %s", actual)
 	}
 }
 
@@ -365,8 +372,28 @@ func FetchManifestImageConfigFile(t *testing.T, repoName string) *v1.ConfigFile 
 
 	configFile, err := gImg.ConfigFile()
 	AssertNil(t, err)
+	AssertNotEq(t, configFile, nil)
 
 	return configFile
+}
+
+func FetchImageManifest(t *testing.T, repoName string) *v1.Manifest {
+	t.Helper()
+
+	r, err := name.ParseReference(repoName, name.WeakValidation)
+	AssertNil(t, err)
+
+	auth, err := authn.DefaultKeychain.Resolve(r.Context().Registry)
+	AssertNil(t, err)
+
+	gImg, err := remote.Image(r, remote.WithTransport(http.DefaultTransport), remote.WithAuth(auth))
+	AssertNil(t, err)
+
+	mfest, err := gImg.Manifest()
+	AssertNil(t, err)
+	AssertNotEq(t, mfest, nil)
+
+	return mfest
 }
 
 func FileDiffID(t *testing.T, path string) string {

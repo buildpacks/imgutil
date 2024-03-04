@@ -146,7 +146,7 @@ func WithFormat(format types.MediaType) IndexPushOption {
 	}
 }
 
-func getTransport(insecure bool) http.RoundTripper {
+func GetTransport(insecure bool) http.RoundTripper {
 	// #nosec G402
 	if insecure {
 		return &http.Transport{

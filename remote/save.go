@@ -1,9 +1,7 @@
 package remote
 
 import (
-	"crypto/tls"
 	"fmt"
-	"net/http"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
@@ -71,6 +69,51 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 		}
 	}
 
+	i.image, err = imgutil.MutateManifest(i.image, func(mfest *v1.Manifest) {
+		config := mfest.Config
+		if len(i.annotations) != 0 {
+			mfest.Annotations = i.annotations
+			config.Annotations = i.annotations
+		}
+
+		if len(i.urls) != 0 {
+			config.URLs = append(config.URLs, i.urls...)
+		}
+
+		if config.Platform == nil {
+			config.Platform = &v1.Platform{}
+		}
+
+		if len(i.features) != 0 {
+			config.Platform.Features = append(config.Platform.Features, i.features...)
+		}
+
+		if len(i.osFeatures) != 0 {
+			config.Platform.OSFeatures = append(config.Platform.OSFeatures, i.osFeatures...)
+		}
+
+		if i.os != "" {
+			config.Platform.OS = i.os
+		}
+
+		if i.arch != "" {
+			config.Platform.Architecture = i.arch
+		}
+
+		if i.variant != "" {
+			config.Platform.Variant = i.variant
+		}
+
+		if i.osVersion != "" {
+			config.Platform.OSVersion = i.osVersion
+		}
+
+		mfest.Config = config
+	})
+	if err != nil {
+		return err
+	}
+
 	// save
 	var diagnostics []imgutil.SaveDiagnostic
 	for _, n := range allNames {
@@ -94,19 +137,6 @@ func (i *Image) doSave(imageName string) error {
 
 	return remote.Write(ref, i.image,
 		remote.WithAuth(auth),
-		remote.WithTransport(getTransport(reg.insecure)),
+		remote.WithTransport(imgutil.GetTransport(reg.insecure)),
 	)
-}
-
-func getTransport(insecure bool) http.RoundTripper {
-	// #nosec G402
-	if insecure {
-		return &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		}
-	}
-
-	return http.DefaultTransport
 }

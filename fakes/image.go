@@ -45,31 +45,32 @@ func NewImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
 }
 
 type Image struct {
-	deleted          bool
-	layers           []string
-	history          []v1.History
-	layersMap        map[string]string
-	prevLayersMap    map[string]string
-	reusedLayers     []string
-	labels           map[string]string
-	env              map[string]string
-	topLayerSha      string
-	os               string
-	osVersion        string
-	architecture     string
-	variant          string
-	identifier       imgutil.Identifier
-	name             string
-	entryPoint       []string
-	cmd              []string
-	base             string
-	createdAt        time.Time
-	layerDir         string
-	workingDir       string
-	savedNames       map[string]bool
-	manifestSize     int64
-	refName          string
-	savedAnnotations map[string]string
+	deleted                    bool
+	layers                     []string
+	history                    []v1.History
+	layersMap                  map[string]string
+	prevLayersMap              map[string]string
+	reusedLayers               []string
+	labels                     map[string]string
+	env                        map[string]string
+	topLayerSha                string
+	os                         string
+	osVersion                  string
+	architecture               string
+	variant                    string
+	identifier                 imgutil.Identifier
+	name                       string
+	entryPoint                 []string
+	cmd                        []string
+	base                       string
+	createdAt                  time.Time
+	layerDir                   string
+	workingDir                 string
+	savedNames                 map[string]bool
+	manifestSize               int64
+	refName                    string
+	savedAnnotations           map[string]string
+	features, osFeatures, urls []string
 }
 
 func (i *Image) CreatedAt() (time.Time, error) {
@@ -106,6 +107,22 @@ func (i *Image) Architecture() (string, error) {
 
 func (i *Image) Variant() (string, error) {
 	return i.variant, nil
+}
+
+func (i *Image) Features() ([]string, error) {
+	return i.features, nil
+}
+
+func (i *Image) OSFeatures() ([]string, error) {
+	return i.osFeatures, nil
+}
+
+func (i *Image) URLs() ([]string, error) {
+	return i.urls, nil
+}
+
+func (i *Image) Annotations() (map[string]string, error) {
+	return i.savedAnnotations, nil
 }
 
 func (i *Image) Rename(name string) {
@@ -173,6 +190,32 @@ func (i *Image) SetArchitecture(a string) error {
 
 func (i *Image) SetVariant(a string) error {
 	i.variant = a
+	return nil
+}
+
+func (i *Image) SetFeatures(features []string) error {
+	i.features = append(i.features, features...)
+	return nil
+}
+
+func (i *Image) SetOSFeatures(osFeatures []string) error {
+	i.osFeatures = append(i.osFeatures, osFeatures...)
+	return nil
+}
+
+func (i *Image) SetURLs(urls []string) error {
+	i.urls = append(i.urls, urls...)
+	return nil
+}
+
+func (i *Image) SetAnnotations(annos map[string]string) error {
+	if len(i.savedAnnotations) < 1 {
+		i.savedAnnotations = make(map[string]string)
+	}
+
+	for k, v := range annos {
+		i.savedAnnotations[k] = v
+	}
 	return nil
 }
 
