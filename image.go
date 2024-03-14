@@ -8,6 +8,7 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
 type Image interface {
@@ -82,7 +83,18 @@ type Image interface {
 	SaveAs(name string, additionalNames ...string) error
 	// SaveFile saves the image as a docker archive and provides the filesystem location
 	SaveFile() (string, error)
+
+	// misc
+	MediaType() (types.MediaType, error)
+	Digest() (v1.Hash, error)
 }
+
+const (
+	LOCAL       = "local"
+	LAYOUT      = "layout"
+	REMOTE      = "remote"
+	LOCALLAYOUT = "locallayout"
+)
 
 type Identifier fmt.Stringer
 

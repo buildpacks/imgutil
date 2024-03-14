@@ -27,7 +27,7 @@ func fakeIndex(t *testing.T, when spec.G, it spec.S) {
 		err        error
 	)
 	it.Before(func() {
-		fakeDigest, err = name.NewDigest("busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56", name.Insecure, name.WeakValidation)
+		fakeDigest, err = name.NewDigest("busybox@sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34", name.Insecure, name.WeakValidation)
 		h.AssertNil(t, err)
 	})
 	when("#NewIndex", func() {

@@ -79,7 +79,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			imgIdx, ok := idx.(*imgutil.ManifestHandler)
 			h.AssertEq(t, ok, true)
 
-			hash, err := v1.NewHash("sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b")
+			hash, err := v1.NewHash("sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a")
 			h.AssertNil(t, err)
 
 			_, err = imgIdx.ImageIndex.ImageIndex(hash)
@@ -98,7 +98,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			imgIdx, ok := idx.(*imgutil.ManifestHandler)
 			h.AssertEq(t, ok, true)
 
-			hash, err := v1.NewHash("sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b")
+			hash, err := v1.NewHash("sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a")
 			h.AssertNil(t, err)
 
 			_, err = imgIdx.ImageIndex.Image(hash)

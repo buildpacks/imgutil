@@ -572,6 +572,14 @@ func (i *Image) SetAnnotations(annos map[string]string) error {
 	return nil
 }
 
+func (i *Image) Digest() (v1.Hash, error) {
+	return i.image.Digest()
+}
+
+func (i *Image) MediaType() (types.MediaType, error) {
+	return i.image.MediaType()
+}
+
 func (i *Image) SetWorkingDir(dir string) error {
 	configFile, err := i.image.ConfigFile()
 	if err != nil {

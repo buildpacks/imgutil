@@ -44,7 +44,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, err.Error(), fmt.Errorf(`cannot parse hash: "%s"`, digest.Identifier()).Error())
 				})
 				it("should return an error if a removed image/index's #OS requested", func() {
-					digest, err := name.NewDigest("busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b", name.WeakValidation, name.Insecure)
+					digest, err := name.NewDigest("busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a", name.WeakValidation, name.Insecure)
 					h.AssertNil(t, err)
 
 					hash, err := v1.NewHash(digest.Identifier())
@@ -62,7 +62,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, os, "")
 				})
 				it("should return latest OS when os of the given digest annotated", func() {
-					digest, err := name.NewDigest("busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b", name.WeakValidation, name.Insecure)
+					digest, err := name.NewDigest("busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a", name.WeakValidation, name.Insecure)
 					h.AssertNil(t, err)
 
 					hash, err := v1.NewHash(digest.Identifier())
@@ -86,7 +86,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, os, "some-os")
 				})
 				it("should return an error when an image with the given digest doesn't exists", func() {
-					digest, err := name.NewDigest("busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b", name.WeakValidation, name.Insecure)
+					digest, err := name.NewDigest("busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a", name.WeakValidation, name.Insecure)
 					h.AssertNil(t, err)
 
 					idx := imgutil.ManifestHandler{
@@ -99,7 +99,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return expected os when os is not annotated before", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -128,7 +128,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error if a removed image/index's #SetOS requested", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -157,7 +157,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -172,7 +172,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("it should return an error when image/index with the given digest doesn't exists", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -195,7 +195,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error if a removed image/index's #Architecture requested", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -217,7 +217,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return latest Architecture when arch of the given digest annotated", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -245,7 +245,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error when an image with the given digest doesn't exists", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -261,7 +261,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return expected Architecture when arch is not annotated before", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -285,7 +285,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error if a removed image/index's #SetArchitecture requested", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -314,7 +314,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -329,7 +329,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("it should return an error when image/index with the given digest doesn't exists", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -352,7 +352,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error if a removed image/index's #Variant requested", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -374,7 +374,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return latest Variant when variant of the given digest annotated", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -402,7 +402,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error when an image with the given digest doesn't exists", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -418,7 +418,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return expected Variant when arch is not annotated before", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -442,7 +442,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error if a removed image/index's #SetVariant requested", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -471,7 +471,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -486,7 +486,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("it should return an error when image/index with the given digest doesn't exists", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -509,7 +509,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error if a removed image/index's #OSVersion requested", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -531,7 +531,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return latest OSVersion when osVersion of the given digest annotated", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -559,7 +559,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error when an image with the given digest doesn't exists", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -575,7 +575,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return expected OSVersion when arch is not annotated before", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -602,7 +602,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error if a removed image/index's #SetOSVersion requested", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -631,7 +631,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -646,7 +646,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("it should return an error when image/index with the given digest doesn't exists", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -669,7 +669,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error when a removed manifest's #Features is requested", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -691,7 +691,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return annotated Features when Features of the image/index is annotated", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -719,7 +719,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return error if the image/index with the given digest doesn't exists", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -735,7 +735,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return expected Features of the given image/index when image/index is not annotated", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -762,7 +762,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error when a removed manifest's #SetFeatures is requested", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -791,7 +791,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -806,7 +806,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error when no image/index with the given digest exists", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -829,7 +829,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error when a removed manifest's #OSFeatures is requested", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -851,7 +851,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return annotated OSFeatures when OSFeatures of the image/index is annotated", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -879,7 +879,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return the OSFeatures if the image/index with the given digest exists", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -895,7 +895,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return expected OSFeatures of the given image when image/index is not annotated", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -922,7 +922,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error when a removed manifest's #SetOSFeatures is requested", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -951,7 +951,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -966,7 +966,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error when no image/index with the given digest exists", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -1163,7 +1163,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					})
 					it("should return an error when a removed manifest's #Annotations is requested", func() {
 						digest, err := name.NewDigest(
-							"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+							"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 							name.WeakValidation,
 							name.Insecure,
 						)
@@ -1185,7 +1185,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					})
 					it("should return annotated Annotations when Annotations of the image/index is annotated", func() {
 						digest, err := name.NewDigest(
-							"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+							"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 							name.WeakValidation,
 							name.Insecure,
 						)
@@ -1212,7 +1212,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					})
 					it("should return the Annotations if the image/index with the given digest exists", func() {
 						digest, err := name.NewDigest(
-							"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+							"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 							name.WeakValidation,
 							name.Insecure,
 						)
@@ -1228,7 +1228,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					})
 					it("should return expected Annotations of the given image when image/index is not annotated", func() {
 						digest, err := name.NewDigest(
-							"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+							"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 							name.WeakValidation,
 							name.Insecure,
 						)
@@ -1261,7 +1261,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					})
 					it("should return an error if the image/index is removed", func() {
 						digest, err := name.NewDigest(
-							"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+							"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 							name.WeakValidation,
 							name.Insecure,
 						)
@@ -1292,7 +1292,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						digest, err := name.NewDigest(
-							"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+							"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 							name.WeakValidation,
 							name.Insecure,
 						)
@@ -1311,7 +1311,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					})
 					it("should return an error if the manifest with the given digest is neither image nor index", func() {
 						digest, err := name.NewDigest(
-							"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+							"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 							name.WeakValidation,
 							name.Insecure,
 						)
@@ -1337,7 +1337,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error when a removed manifest's #URLs is requested", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -1359,7 +1359,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return annotated URLs when URLs of the image/index is annotated", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -1389,7 +1389,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return the URLs if the image/index with the given digest exists", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -1405,7 +1405,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return expected URLs of the given image when image/index is not annotated", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -1435,7 +1435,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, err.Error(), fmt.Errorf(`cannot parse hash: "%s"`, digest.Identifier()).Error())
 				})
 				it("should return an error when a removed manifest's #SetURLs is requested", func() {
-					digest, err := name.NewDigest("busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b", name.WeakValidation, name.Insecure)
+					digest, err := name.NewDigest("busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a", name.WeakValidation, name.Insecure)
 					h.AssertNil(t, err)
 
 					hash, err := v1.NewHash(digest.Identifier())
@@ -1463,7 +1463,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -1482,7 +1482,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error when no image/index with the given digest exists", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -1597,7 +1597,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						)
 						h.AssertNil(t, err)
 
-						digest, err := name.NewDigest("busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56", name.WeakValidation, name.Insecure)
+						digest, err := name.NewDigest("busybox@sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34", name.WeakValidation, name.Insecure)
 						h.AssertNil(t, err)
 
 						annotations, err := idx.Annotations(digest)
@@ -2138,14 +2138,14 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						digest1, err := name.NewDigest(
-							"busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
+							"busybox@sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34",
 							name.WeakValidation,
 							name.Insecure,
 						)
 						h.AssertNil(t, err)
 
 						digest2, err := name.NewDigest(
-							"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+							"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 							name.WeakValidation,
 							name.Insecure,
 						)
@@ -2432,7 +2432,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					)
 					h.AssertNil(t, err)
 
-					digest, err := name.NewDigest("busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56", name.WeakValidation)
+					digest, err := name.NewDigest("busybox@sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34", name.WeakValidation)
 					h.AssertNil(t, err)
 
 					err = idx.Add(digest)
@@ -2497,7 +2497,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, len(mfestSaved.Manifests), 14)
 
 					// linux/amd64
-					imgRefStr := "busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56"
+					imgRefStr := "busybox@sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34"
 					digest, err := name.NewDigest(imgRefStr, name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)
 
@@ -2552,7 +2552,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, len(mfestSaved.Manifests), len(keys))
 
 					// linux/amd64
-					var imgRefStr1 = "busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56"
+					var imgRefStr1 = "busybox@sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34"
 					h.AssertNotEq(t, imgRefStr1, "")
 					digest1, err := name.NewDigest(imgRefStr1, name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)
@@ -2747,7 +2747,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, len(mfestSaved.Manifests), len(keys))
 
 					// linux/amd64
-					imgRefStr := "busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56"
+					imgRefStr := "busybox@sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34"
 					digest, err := name.NewDigest(imgRefStr, name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)
 
@@ -2807,7 +2807,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, len(mfestSaved.Manifests), len(keys))
 
 					// linux/amd64
-					var imgRefStr1 = "busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56"
+					var imgRefStr1 = "busybox@sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34"
 					digest, err := name.NewDigest(imgRefStr1, name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)
 
@@ -2837,7 +2837,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
-					ref, err := name.ParseReference("busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56", name.Insecure, name.WeakValidation)
+					ref, err := name.ParseReference("busybox@sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34", name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)
 
 					err = idx.Add(ref)
@@ -2867,7 +2867,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, len(mfestSaved.Manifests), 1)
 
 					// linux/amd64
-					imgRefStr := "busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56"
+					imgRefStr := "busybox@sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34"
 					digest, err := name.NewDigest(imgRefStr, name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)
 
@@ -2890,7 +2890,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					idx, err := layout.NewIndex("pack/imgutil", index.WithXDGRuntimePath(xdgPath))
 					h.AssertNil(t, err)
 
-					ref, err := name.ParseReference("busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56", name.Insecure, name.WeakValidation)
+					ref, err := name.ParseReference("busybox@sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34", name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)
 
 					err = idx.Add(ref, imgutil.WithAnnotations(map[string]string{
@@ -3160,7 +3160,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 
 					// linux/amd64
 					digest1, err := name.NewDigest(
-						"busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
+						"busybox@sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -3168,7 +3168,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 
 					// linux/arm/v6
 					digest2, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.Insecure,
 						name.WeakValidation,
 					)
@@ -3272,7 +3272,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 
 					// linux/arm/v6
 					digest1, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -3280,7 +3280,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 
 					// linux/amd64
 					digest2, err := name.NewDigest(
-						"busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
+						"busybox@sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34",
 						name.Insecure,
 						name.WeakValidation,
 					)
@@ -3379,7 +3379,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 
 					// linux/arm/v6
 					digest1, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -3387,7 +3387,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 
 					// linux/amd64
 					digest2, err := name.NewDigest(
-						"busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
+						"busybox@sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34",
 						name.Insecure,
 						name.WeakValidation,
 					)
@@ -3486,7 +3486,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 
 					// linux/arm/v6
 					digest1, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -3494,7 +3494,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 
 					// linux/amd64
 					digest2, err := name.NewDigest(
-						"busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
+						"busybox@sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34",
 						name.Insecure,
 						name.WeakValidation,
 					)
@@ -3532,7 +3532,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 
 					// linux/arm/v6
 					digest1, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -3540,7 +3540,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 
 					// linux/amd64
 					digest2, err := name.NewDigest(
-						"busybox@sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
+						"busybox@sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34",
 						name.Insecure,
 						name.WeakValidation,
 					)
@@ -3652,7 +3652,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 				it("should return an error when manifest with given digest doesn't exists", func() {
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)
@@ -3683,7 +3683,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					digest, err := name.NewDigest(
-						"busybox@sha256:b64a6a9cff5d2916ce4e5ab52254faa487ae93d9028c157c10d444aa3b5b7e4b",
+						"busybox@sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a",
 						name.WeakValidation,
 						name.Insecure,
 					)

@@ -17,6 +17,8 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/pkg/errors"
 
+	ggcrTypes "github.com/google/go-containerregistry/pkg/v1/types"
+
 	"github.com/buildpacks/imgutil"
 )
 
@@ -210,6 +212,14 @@ func (i *Image) SetCmd(cmd ...string) error {
 func (i *Image) SetEntrypoint(ep ...string) error {
 	i.inspect.Config.Entrypoint = ep
 	return nil
+}
+
+func (i *Image) Digest() (v1.Hash, error) {
+	return v1.NewHash(i.inspect.ID)
+}
+
+func (i *Image) MediaType() (ggcrTypes.MediaType, error) {
+	return ggcrTypes.DockerManifestSchema2, nil
 }
 
 func (i *Image) SetEnv(key, val string) error {

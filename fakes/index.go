@@ -968,7 +968,7 @@ func (i *randomIndex) ImageIndex(h v1.Hash) (v1.ImageIndex, error) {
 	return nil, fmt.Errorf("image not found: %v", h)
 }
 
-func (i *randomIndex) addImage(hash v1.Hash, format types.MediaType, byteSize, layers, count int64, options imgutil.AddOptions) (v1.Image, error) {
+func (i *randomIndex) addImage(hash v1.Hash, format types.MediaType, byteSize, layers, _ int64, options imgutil.AddOptions) (v1.Image, error) {
 	img, err := V1Image(byteSize, layers)
 	if err != nil {
 		return img, err
@@ -1016,7 +1016,7 @@ func randStr() (string, error) {
 	return base64.URLEncoding.EncodeToString(b)[:length], nil
 }
 
-func (i *randomIndex) addIndex(hash v1.Hash, format types.MediaType, byteSize, layers, count int64, ops imgutil.AddOptions) ([]v1.Image, error) {
+func (i *randomIndex) addIndex(hash v1.Hash, format types.MediaType, byteSize, layers, _ int64, ops imgutil.AddOptions) ([]v1.Image, error) {
 	switch {
 	case ops.All:
 		var images = make([]v1.Image, 0)

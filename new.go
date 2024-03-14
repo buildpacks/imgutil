@@ -194,9 +194,6 @@ func EnsureMediaTypesAndLayers(image v1.Image, requestedTypes MediaTypes, mutate
 
 	// (4) set layers with the right media type
 	additions := layersAddendum(layersToAdd, beforeHistory, requestedTypes.LayerType())
-	if err != nil {
-		return nil, false, err
-	}
 	retImage, err = mutate.Append(retImage, additions...)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to append layers: %w", err)

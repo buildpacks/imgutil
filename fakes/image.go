@@ -137,6 +137,14 @@ func (i *Image) Identifier() (imgutil.Identifier, error) {
 	return i.identifier, nil
 }
 
+func (i *Image) Digest() (v1.Hash, error) {
+	return v1.Hash{}, nil
+}
+
+func (i *Image) MediaType() (types.MediaType, error) {
+	return types.MediaType(""), nil
+}
+
 func (i *Image) Kind() string {
 	return ""
 }

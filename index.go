@@ -108,6 +108,44 @@ var (
 
 var _ ImageIndex = (*ManifestHandler)(nil)
 
+type StringSet struct {
+	items map[string]bool
+}
+
+func NewStringSet() *StringSet {
+	return &StringSet{items: make(map[string]bool)}
+}
+
+func (s *StringSet) Add(str string) {
+	if s == nil {
+		s = &StringSet{items: make(map[string]bool)}
+	}
+
+	s.items[str] = true
+}
+
+func (s *StringSet) Remove(str string) {
+	if s == nil {
+		s = &StringSet{items: make(map[string]bool)}
+	}
+
+	s.items[str] = false
+}
+
+func (s *StringSet) StringSlice() (slice []string) {
+	if s == nil {
+		s = &StringSet{items: make(map[string]bool)}
+	}
+
+	for i, ok := range s.items {
+		if ok {
+			slice = append(slice, i)
+		}
+	}
+
+	return slice
+}
+
 // A Handler implementing ImageIndex.
 // Creates and Manipulate IndexManifest.
 type ManifestHandler struct {
@@ -760,7 +798,12 @@ func (h *ManifestHandler) Features(digest name.Digest) (features []string, err e
 			return features, ErrFeaturesUndefined(desc.MediaType, hash.String())
 		}
 
-		return desc.Platform.Features, nil
+		var featuresSet = NewStringSet()
+		for _, f := range desc.Platform.Features {
+			featuresSet.Add(f)
+		}
+
+		return featuresSet.StringSlice(), nil
 	}
 
 	if desc, ok := h.Images[hash]; ok {
@@ -868,7 +911,12 @@ func (h *ManifestHandler) OSFeatures(digest name.Digest) (osFeatures []string, e
 			return osFeatures, ErrOSFeaturesUndefined(desc.MediaType, digest.Identifier())
 		}
 
-		return desc.Platform.OSFeatures, nil
+		var osFeaturesSet = NewStringSet()
+		for _, s := range desc.Platform.OSFeatures {
+			osFeaturesSet.Add(s)
+		}
+
+		return osFeaturesSet.StringSlice(), nil
 	}
 
 	if desc, ok := h.Images[hash]; ok {
@@ -1088,7 +1136,11 @@ func (h *ManifestHandler) URLs(digest name.Digest) (urls []string, err error) {
 	}
 
 	if urls, err = h.Annotate.URLs(hash); err == nil {
-		return
+		var urlSet = NewStringSet()
+		for _, s := range urls {
+			urlSet.Add(s)
+		}
+		return urlSet.StringSlice(), nil
 	}
 
 	urls, err = h.getIndexURLs(hash)
@@ -1175,6 +1227,46 @@ func (h *ManifestHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
 	}
 
 	layoutPath := filepath.Join(h.Options.XdgPath, h.Options.Reponame)
+	path, pathErr := layout.FromPath(layoutPath)
+	if addOps.Local {
+		if pathErr != nil {
+			return pathErr
+		}
+		img := addOps.Image
+		os, _ := img.OS()
+		arch, _ := img.Architecture()
+		variant, _ := img.Variant()
+		osVersion, _ := img.OSVersion()
+		features, _ := img.Features()
+		osFeatures, _ := img.OSFeatures()
+		urls, _ := img.URLs()
+		annos, _ := img.Annotations()
+		size, _ := img.ManifestSize()
+		mediaType, err := img.MediaType()
+		digest, _ := img.Digest()
+		if err != nil {
+			return err
+		}
+
+		desc := v1.Descriptor{
+			MediaType:   mediaType,
+			Size:        size,
+			Digest:      digest,
+			URLs:        urls,
+			Annotations: annos,
+			Platform: &v1.Platform{
+				OS:           os,
+				Architecture: arch,
+				Variant:      variant,
+				OSVersion:    osVersion,
+				Features:     features,
+				OSFeatures:   osFeatures,
+			},
+		}
+
+		return path.AppendDescriptor(desc)
+	}
+
 	switch {
 	case desc.MediaType.IsImage():
 		// Get the Full Image from remote if the given Reference refers an Image
@@ -1223,8 +1315,7 @@ func (h *ManifestHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
 			}
 		}
 
-		path, err := layout.FromPath(layoutPath)
-		if err != nil {
+		if pathErr != nil {
 			path, err = layout.Write(layoutPath, h.ImageIndex)
 			if err != nil {
 				return err
@@ -1255,8 +1346,6 @@ func (h *ManifestHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
 
 			wg.Wait()
 
-			layoutPath := filepath.Join(h.Options.XdgPath, h.Options.Reponame)
-			path, err := layout.FromPath(layoutPath)
 			if err != nil {
 				// if the ImageIndex is not saved till now for some reason Save the ImageIndex locally to append Images
 				err = h.Save()

@@ -76,7 +76,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			mfest, err := imgIx.IndexManifest()
 			h.AssertNil(t, err)
 			h.AssertNotEq(t, mfest, nil)
-			h.AssertEq(t, len(mfest.Manifests), 14)
+			h.AssertEq(t, len(mfest.Manifests), 8)
 		})
 		it("should able to call #ImageIndex", func() {
 			idx, err := remote.NewIndex(
@@ -92,7 +92,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 
 			// linux/amd64
 			hash1, err := v1.NewHash(
-				"sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
+				"sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34",
 			)
 			h.AssertNil(t, err)
 
@@ -113,7 +113,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 
 			// linux/amd64
 			hash1, err := v1.NewHash(
-				"sha256:d4707523ce6e12afdbe9a3be5ad69027150a834870ca0933baf7516dd1fe0f56",
+				"sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34",
 			)
 			h.AssertNil(t, err)
 

@@ -34,6 +34,8 @@ type AddOptions struct {
 	OS, Arch, Variant, OSVersion string
 	Features, OSFeatures         []string
 	Annotations                  map[string]string
+	Local                        bool
+	Image                        Image
 }
 
 type PushOptions struct {

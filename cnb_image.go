@@ -10,6 +10,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/google/go-containerregistry/pkg/v1/validate"
 )
 
@@ -395,6 +396,14 @@ func (i *CNBImageCore) SetVariant(variant string) error {
 	return i.MutateConfigFile(func(c *v1.ConfigFile) {
 		c.Variant = variant
 	})
+}
+
+func (i *CNBImageCore) Digest() (v1.Hash, error) {
+	return i.Image.Digest()
+}
+
+func (i *CNBImageCore) MediaType() (types.MediaType, error) {
+	return i.Image.MediaType()
 }
 
 // TBD Deprecated: SetWorkingDir
