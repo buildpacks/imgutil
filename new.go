@@ -113,7 +113,7 @@ func (t MediaTypes) LayerType() types.MediaType {
 	}
 }
 
-func emptyV1(withPlatform Platform, withMediaTypes MediaTypes) (v1.Image, error) {
+func emptyV1(withPlatform v1.Platform, withMediaTypes MediaTypes) (v1.Image, error) {
 	configFile := &v1.ConfigFile{
 		Architecture: withPlatform.Architecture,
 		History:      []v1.History{},
@@ -255,7 +255,7 @@ func NormalizedHistory(history []v1.History, nLayers int) []v1.History {
 }
 
 func prepareNewWindowsImageIfNeeded(image *CNBImageCore) error {
-	configFile, err := GetConfigFile(image)
+	configFile, err := getConfigFile(image)
 	if err != nil {
 		return err
 	}

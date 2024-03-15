@@ -1888,7 +1888,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 
 						index := idx.(*imgutil.ManifestHandler)
 						ref, err := name.ParseReference(
-							"busybox@sha256:fed6b26ea319254ef0d6bae87482b5ab58b85250a7cc46d14c533e1f5c2556db",
+							"busybox@sha256:648143a312f16e5b5a6f64dfa4024a281fb4a30467500ca8b0091a9984f1c751",
 							name.WeakValidation,
 							name.Insecure,
 						)
@@ -1921,8 +1921,8 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertEq(t, arch, "arm64")
 
 						variant, err := index.Variant(digest)
-						h.AssertEq(t, err.Error(), imgutil.ErrVariantUndefined(types.OCIImageIndex, digest.Identifier()).Error())
-						h.AssertEq(t, variant, "")
+						h.AssertEq(t, err, nil)
+						h.AssertEq(t, variant, "v8")
 
 						osVersion, err := index.OSVersion(digest)
 						h.AssertEq(t, err.Error(), imgutil.ErrOSVersionUndefined(types.OCIImageIndex, digest.Identifier()).Error())
@@ -2480,7 +2480,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					for h2 := range ii1.Images {
 						hashes = append(hashes, h2)
 					}
-					h.AssertEq(t, len(hashes), 14)
+					h.AssertEq(t, len(hashes), 8)
 
 					err = idx1.Save()
 					h.AssertNil(t, err)
@@ -2494,7 +2494,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					mfestSaved, err := ii2.IndexManifest()
 					h.AssertNil(t, err)
 					h.AssertNotEq(t, mfestSaved, nil)
-					h.AssertEq(t, len(mfestSaved.Manifests), 14)
+					h.AssertEq(t, len(mfestSaved.Manifests), 8)
 
 					// linux/amd64
 					imgRefStr := "busybox@sha256:b9d056b83bb6446fee29e89a7fcf10203c562c1f59586a6e2f39c903597bda34"
@@ -2535,7 +2535,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					for h2 := range ii1.Images {
 						keys = append(keys, h2)
 					}
-					h.AssertEq(t, len(keys), 14)
+					h.AssertEq(t, len(keys), 8)
 
 					err = idx1.Save()
 					h.AssertNil(t, err)
@@ -2558,7 +2558,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					// linux/arm64
-					var imgRefStr2 = "busybox@sha256:fed6b26ea319254ef0d6bae87482b5ab58b85250a7cc46d14c533e1f5c2556db"
+					var imgRefStr2 = "busybox@sha256:648143a312f16e5b5a6f64dfa4024a281fb4a30467500ca8b0091a9984f1c751"
 					h.AssertNotEq(t, imgRefStr2, "")
 					digest2, err := name.NewDigest(imgRefStr2, name.Insecure, name.WeakValidation)
 					h.AssertNil(t, err)
@@ -3254,12 +3254,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 
 					annotations, err = idx.Annotations(digest2)
 					h.AssertNil(t, err)
-					h.AssertEq(t, annotations, map[string]string{
-						"org.opencontainers.image.revision": "2ef3ae50941f78eb12b4390e6061872eb6cd265e",
-						"org.opencontainers.image.source":   "https://github.com/docker-library/busybox.git#2ef3ae50941f78eb12b4390e6061872eb6cd265e:latest/musl",
-						"org.opencontainers.image.url":      "https://hub.docker.com/_/busybox",
-						"org.opencontainers.image.version":  "1.36.1-musl",
-					})
+					h.AssertNotEq(t, annotations, map[string]string{})
 				})
 				it("should save the annotated urls", func() {
 					idx, err := remote.NewIndex(

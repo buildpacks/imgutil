@@ -13,7 +13,7 @@ func MutateManifest(i v1.Image, withFunc func(c *v1.Manifest)) (v1.Image, error)
 		return nil, err
 	}
 
-	mfest, err := GetManifest(i)
+	mfest, err := getManifest(i)
 	if err != nil {
 		return nil, err
 	}

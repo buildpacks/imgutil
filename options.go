@@ -16,7 +16,7 @@ type ImageOptions struct {
 	Config                *v1.Config
 	CreatedAt             time.Time
 	MediaTypes            MediaTypes
-	Platform              Platform
+	Platform              v1.Platform
 	PreserveDigest        bool
 	PreserveHistory       bool
 	WithoutLayers         bool // only relevant for layout images
@@ -76,6 +76,14 @@ func WithAll(all bool) IndexAddOption {
 func WithOS(os string) IndexAddOption {
 	return func(a *AddOptions) {
 		a.OS = os
+	}
+}
+
+// Add a Local image to Index
+func WithLocalImage(image Image) IndexAddOption {
+	return func(a *AddOptions) {
+		a.Local = true
+		a.Image = image
 	}
 }
 

@@ -119,7 +119,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				img, err := remote.NewImage(
 					newTestImageName(),
 					authn.DefaultKeychain,
-					remote.WithDefaultPlatform(imgutil.Platform{
+					remote.WithDefaultPlatform(v1.Platform{
 						Architecture: "arm",
 						OS:           "windows",
 						OSVersion:    "10.0.17763.316",
@@ -151,7 +151,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				img, err := remote.NewImage(
 					newTestImageName(),
 					authn.DefaultKeychain,
-					remote.WithDefaultPlatform(imgutil.Platform{
+					remote.WithDefaultPlatform(v1.Platform{
 						Architecture: "arm",
 						OS:           "linux",
 					}),
@@ -310,7 +310,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 								repoName,
 								authn.DefaultKeychain,
 								remote.FromBaseImage(windowsImageManifestName),
-								remote.WithDefaultPlatform(imgutil.Platform{
+								remote.WithDefaultPlatform(v1.Platform{
 									Architecture: "amd64",
 									OS:           "windows",
 									OSVersion:    "10.0.17763.1397",
@@ -341,7 +341,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 								repoName,
 								authn.DefaultKeychain,
 								remote.FromBaseImage(windowsImageManifestName),
-								remote.WithDefaultPlatform(imgutil.Platform{
+								remote.WithDefaultPlatform(v1.Platform{
 									OS:           "linux",
 									Architecture: "arm",
 								}),
@@ -372,7 +372,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 								repoName,
 								authn.DefaultKeychain,
 								remote.FromBaseImage(manifestListName),
-								remote.WithDefaultPlatform(imgutil.Platform{
+								remote.WithDefaultPlatform(v1.Platform{
 									OS:           "linux",
 									Architecture: "amd64",
 								}),
@@ -397,7 +397,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 								repoName,
 								authn.DefaultKeychain,
 								remote.FromBaseImage(manifestListName),
-								remote.WithDefaultPlatform(imgutil.Platform{
+								remote.WithDefaultPlatform(v1.Platform{
 									OS:           "windows",
 									Architecture: "arm",
 								}),
@@ -432,7 +432,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							repoName,
 							authn.DefaultKeychain,
 							remote.FromBaseImage("some-bad-repo-name"),
-							remote.WithDefaultPlatform(imgutil.Platform{
+							remote.WithDefaultPlatform(v1.Platform{
 								Architecture: "arm",
 								OS:           "linux",
 							}),
@@ -461,7 +461,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							repoName,
 							authn.DefaultKeychain,
 							remote.FromBaseImage("some-bad-repo-name"),
-							remote.WithDefaultPlatform(imgutil.Platform{
+							remote.WithDefaultPlatform(v1.Platform{
 								Architecture: "arm",
 								OS:           "windows",
 								OSVersion:    "10.0.99999.9999",
@@ -518,7 +518,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							repoName,
 							authn.DefaultKeychain,
 							remote.WithPreviousImage(manifestListName),
-							remote.WithDefaultPlatform(imgutil.Platform{
+							remote.WithDefaultPlatform(v1.Platform{
 								OS:           "windows",
 								Architecture: "amd64",
 							}),

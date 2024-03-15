@@ -520,7 +520,7 @@ func (h *ManifestHandler) SetOS(digest name.Digest, os string) error {
 
 // Add requested OS to `Annotate`
 func (h *ManifestHandler) setImageOS(img v1.Image, hash v1.Hash, os string) error {
-	mfest, err := GetManifest(img)
+	mfest, err := getManifest(img)
 	if err != nil {
 		return err
 	}
@@ -601,7 +601,7 @@ func (h *ManifestHandler) SetArchitecture(digest name.Digest, arch string) error
 
 // Add request ARCH to `Annotate`
 func (h *ManifestHandler) setImageArch(img v1.Image, hash v1.Hash, arch string) error {
-	mfest, err := GetManifest(img)
+	mfest, err := getManifest(img)
 	if err != nil {
 		return err
 	}
@@ -682,7 +682,7 @@ func (h *ManifestHandler) SetVariant(digest name.Digest, osVariant string) error
 
 // Add requested OSVariant to `Annotate`.
 func (h *ManifestHandler) setImageVariant(img v1.Image, hash v1.Hash, osVariant string) error {
-	mfest, err := GetManifest(img)
+	mfest, err := getManifest(img)
 	if err != nil {
 		return err
 	}
@@ -763,7 +763,7 @@ func (h *ManifestHandler) SetOSVersion(digest name.Digest, osVersion string) err
 
 // Add requested OSVersion to `Annotate`
 func (h *ManifestHandler) setImageOSVersion(img v1.Image, hash v1.Hash, osVersion string) error {
-	mfest, err := GetManifest(img)
+	mfest, err := getManifest(img)
 	if err != nil {
 		return err
 	}
@@ -875,7 +875,7 @@ func (h *ManifestHandler) SetFeatures(digest name.Digest, features []string) err
 }
 
 func (h *ManifestHandler) setImageFeatures(img v1.Image, hash v1.Hash, features []string) error {
-	mfest, err := GetManifest(img)
+	mfest, err := getManifest(img)
 	if err != nil {
 		return err
 	}
@@ -988,7 +988,7 @@ func (h *ManifestHandler) SetOSFeatures(digest name.Digest, osFeatures []string)
 }
 
 func (h *ManifestHandler) setImageOSFeatures(img v1.Image, hash v1.Hash, osFeatures []string) error {
-	mfest, err := GetManifest(img)
+	mfest, err := getManifest(img)
 	if err != nil {
 		return err
 	}
@@ -1189,7 +1189,7 @@ func (h *ManifestHandler) SetURLs(digest name.Digest, urls []string) error {
 
 // Adds the requested URLs to `Annotate`.
 func (h *ManifestHandler) setImageURLs(img v1.Image, hash v1.Hash, urls []string) error {
-	mfest, err := GetManifest(img)
+	mfest, err := getManifest(img)
 	if err != nil {
 		return err
 	}
@@ -1279,12 +1279,12 @@ func (h *ManifestHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
 			return err
 		}
 
-		mfest, err := GetManifest(img)
+		mfest, err := getManifest(img)
 		if err != nil {
 			return err
 		}
 
-		imgConfig, err := GetConfigFile(img)
+		imgConfig, err := getConfigFile(img)
 		if err != nil {
 			return err
 		}
@@ -1515,7 +1515,7 @@ func (h *ManifestHandler) addIndexAddendum(annotations map[string]string, desc v
 			return err
 		}
 
-		mfest, err := GetManifest(img)
+		mfest, err := getManifest(img)
 		if err != nil {
 			return err
 		}
@@ -1582,12 +1582,12 @@ func (h *ManifestHandler) addPlatformSpecificImages(ref name.Reference, platform
 		return err
 	}
 
-	mfest, err := GetManifest(img)
+	mfest, err := getManifest(img)
 	if err != nil {
 		return err
 	}
 
-	imgConfig, err := GetConfigFile(img)
+	imgConfig, err := getConfigFile(img)
 	if err != nil {
 		return err
 	}

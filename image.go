@@ -107,7 +107,7 @@ type Platform struct {
 
 // OverrideHistoryIfNeeded zeroes out the history if the number of history entries doesn't match the number of layers.
 func OverrideHistoryIfNeeded(image v1.Image) (v1.Image, error) {
-	configFile, err := GetConfigFile(image)
+	configFile, err := getConfigFile(image)
 	if err != nil {
 		return nil, err
 	}

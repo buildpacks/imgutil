@@ -73,7 +73,7 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 	}
 
 	platform := defaultPlatform()
-	if (imageOpts.platform != imgutil.Platform{}) {
+	if !platform.Satisfies(imageOpts.platform) {
 		platform = imageOpts.platform
 	}
 
@@ -133,19 +133,21 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 	return ri, nil
 }
 
-func defaultPlatform() imgutil.Platform {
-	return imgutil.Platform{
+func defaultPlatform() v1.Platform {
+	return v1.Platform{
 		OS:           "linux",
 		Architecture: runtime.GOARCH,
 	}
 }
 
-func emptyImage(platform imgutil.Platform) (v1.Image, error) {
+func emptyImage(platform v1.Platform) (v1.Image, error) {
 	cfg := &v1.ConfigFile{
 		Architecture: platform.Architecture,
 		History:      []v1.History{},
 		OS:           platform.OS,
 		OSVersion:    platform.OSVersion,
+		Variant:      platform.Variant,
+		OSFeatures:   platform.OSFeatures,
 		RootFS: v1.RootFS{
 			Type:    "layers",
 			DiffIDs: []v1.Hash{},
@@ -185,7 +187,7 @@ func prepareNewWindowsImage(ri *Image) error {
 	return nil
 }
 
-func processPreviousImageOption(ri *Image, prevImageRepoName string, platform imgutil.Platform) error {
+func processPreviousImageOption(ri *Image, prevImageRepoName string, platform v1.Platform) error {
 	reg := getRegistry(prevImageRepoName, ri.registrySettings)
 
 	prevImage, err := NewV1Image(prevImageRepoName, ri.keychain, WithV1DefaultPlatform(platform), WithV1RegistrySetting(reg.insecure))
@@ -232,7 +234,7 @@ func NewV1Image(baseImageRepoName string, keychain authn.Keychain, ops ...V1Imag
 	}
 
 	platform := defaultPlatform()
-	if (imageOpts.platform != imgutil.Platform{}) {
+	if !platform.Satisfies(imageOpts.platform) {
 		platform = imageOpts.platform
 	}
 
@@ -248,16 +250,10 @@ func NewV1Image(baseImageRepoName string, keychain authn.Keychain, ops ...V1Imag
 	return baseImage, nil
 }
 
-func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platform, reg registrySetting) (v1.Image, error) {
+func newV1Image(keychain authn.Keychain, repoName string, platform v1.Platform, reg registrySetting) (v1.Image, error) {
 	ref, auth, err := referenceForRepoName(keychain, repoName, reg.insecure)
 	if err != nil {
 		return nil, err
-	}
-
-	v1Platform := v1.Platform{
-		Architecture: platform.Architecture,
-		OS:           platform.OS,
-		OSVersion:    platform.OSVersion,
 	}
 
 	var image v1.Image
@@ -265,7 +261,7 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 		time.Sleep(100 * time.Duration(i) * time.Millisecond) // wait if retrying
 		image, err = remote.Image(ref,
 			remote.WithAuth(auth),
-			remote.WithPlatform(v1Platform),
+			remote.WithPlatform(platform),
 			remote.WithTransport(imgutil.GetTransport(reg.insecure)),
 		)
 		if err != nil {
@@ -307,7 +303,7 @@ func referenceForRepoName(keychain authn.Keychain, ref string, insecure bool) (n
 	return r, auth, nil
 }
 
-func processBaseImageOption(ri *Image, baseImageRepoName string, platform imgutil.Platform) error {
+func processBaseImageOption(ri *Image, baseImageRepoName string, platform v1.Platform) error {
 	reg := getRegistry(baseImageRepoName, ri.registrySettings)
 	var err error
 	ri.image, err = NewV1Image(baseImageRepoName, ri.keychain, WithV1DefaultPlatform(platform), WithV1RegistrySetting(reg.insecure))
