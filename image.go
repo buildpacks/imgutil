@@ -11,14 +11,41 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
-type Image interface {
-	// getters
+type EditableImage interface {
+	// Getters
 
+	OS() (string, error)
 	Architecture() (string, error)
+	Variant() (string, error)
+	OSVersion() (string, error)
 	Features() ([]string, error)
 	OSFeatures() ([]string, error)
 	URLs() ([]string, error)
 	Annotations() (map[string]string, error)
+
+	// Setters
+
+	SetOS(string) error
+	SetArchitecture(string) error
+	SetVariant(string) error
+	SetOSVersion(string) error
+	SetFeatures([]string) error
+	SetOSFeatures([]string) error
+	SetURLs([]string) error
+	SetAnnotations(map[string]string) error
+
+	// misc
+
+	MediaType() (types.MediaType, error)
+	Digest() (v1.Hash, error)
+	// ManifestSize returns the size of the manifest. If a manifest doesn't exist, it returns 0.
+	ManifestSize() (int64, error)
+}
+
+type Image interface {
+	EditableImage
+	// getters
+
 	CreatedAt() (time.Time, error)
 	Entrypoint() ([]string, error)
 	Env(key string) (string, error)
@@ -34,17 +61,12 @@ type Image interface {
 	Kind() string
 	Label(string) (string, error)
 	Labels() (map[string]string, error)
-	// ManifestSize returns the size of the manifest. If a manifest doesn't exist, it returns 0.
-	ManifestSize() (int64, error)
 	Name() string
-	OS() (string, error)
-	OSVersion() (string, error)
 	// TopLayer returns the diff id for the top layer
 	TopLayer() (string, error)
 	UnderlyingImage() v1.Image
 	// Valid returns true if the image is well-formed (e.g. all manifest layers exist on the registry).
 	Valid() bool
-	Variant() (string, error)
 	WorkingDir() (string, error)
 
 	// setters
@@ -52,19 +74,11 @@ type Image interface {
 	// AnnotateRefName set a value for the `org.opencontainers.image.ref.name` annotation
 	AnnotateRefName(refName string) error
 	Rename(name string)
-	SetArchitecture(string) error
 	SetCmd(...string) error
 	SetEntrypoint(...string) error
 	SetEnv(string, string) error
 	SetHistory([]v1.History) error
 	SetLabel(string, string) error
-	SetOS(string) error
-	SetOSVersion(string) error
-	SetVariant(string) error
-	SetFeatures([]string) error
-	SetOSFeatures([]string) error
-	SetURLs([]string) error
-	SetAnnotations(map[string]string) error
 	SetWorkingDir(string) error
 
 	// modifiers
@@ -83,10 +97,6 @@ type Image interface {
 	SaveAs(name string, additionalNames ...string) error
 	// SaveFile saves the image as a docker archive and provides the filesystem location
 	SaveFile() (string, error)
-
-	// misc
-	MediaType() (types.MediaType, error)
-	Digest() (v1.Hash, error)
 }
 
 const (

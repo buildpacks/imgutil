@@ -35,7 +35,7 @@ type AddOptions struct {
 	Features, OSFeatures         []string
 	Annotations                  map[string]string
 	Local                        bool
-	Image                        Image
+	Image                        EditableImage
 }
 
 type PushOptions struct {
@@ -80,7 +80,7 @@ func WithOS(os string) IndexAddOption {
 }
 
 // Add a Local image to Index
-func WithLocalImage(image Image) IndexAddOption {
+func WithLocalImage(image EditableImage) IndexAddOption {
 	return func(a *AddOptions) {
 		a.Local = true
 		a.Image = image
