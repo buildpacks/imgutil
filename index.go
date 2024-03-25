@@ -1209,23 +1209,6 @@ func (h *ManifestHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
 		op(addOps)
 	}
 
-	// Fetch Descriptor of the given reference.
-	//
-	// This call is returns a v1.Descriptor with `Size`, `MediaType`, `Digest` fields only!!
-	// This is a light weight call used for checking MediaType of given Reference
-	desc, err := remote.Head(
-		ref,
-		remote.WithAuthFromKeychain(h.Options.KeyChain),
-		remote.WithTransport(GetTransport(h.Options.Insecure())),
-	)
-	if err != nil {
-		return err
-	}
-
-	if desc == nil {
-		return ErrManifestUndefined
-	}
-
 	layoutPath := filepath.Join(h.Options.XdgPath, h.Options.Reponame)
 	path, pathErr := layout.FromPath(layoutPath)
 	if addOps.Local {
@@ -1265,6 +1248,23 @@ func (h *ManifestHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
 		}
 
 		return path.AppendDescriptor(desc)
+	}
+
+	// Fetch Descriptor of the given reference.
+	//
+	// This call is returns a v1.Descriptor with `Size`, `MediaType`, `Digest` fields only!!
+	// This is a light weight call used for checking MediaType of given Reference
+	desc, err := remote.Head(
+		ref,
+		remote.WithAuthFromKeychain(h.Options.KeyChain),
+		remote.WithTransport(GetTransport(h.Options.Insecure())),
+	)
+	if err != nil {
+		return err
+	}
+
+	if desc == nil {
+		return ErrManifestUndefined
 	}
 
 	switch {
