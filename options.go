@@ -40,7 +40,10 @@ type AddOptions struct {
 
 type PushOptions struct {
 	Insecure, Purge bool
-	Format          types.MediaType
+	// The Format the Index should be. One of Docker or OCI
+	Format types.MediaType
+	// Tags with which the index should be pushed to registry
+	Tags []string
 }
 
 type IndexOptions struct {
@@ -152,6 +155,14 @@ func WithFormat(format types.MediaType) IndexPushOption {
 			return ErrUnknownMediaType(format)
 		}
 		a.Format = format
+		return nil
+	}
+}
+
+// Push the Index with given format
+func WithTags(tags ...string) IndexPushOption {
+	return func(a *PushOptions) error {
+		a.Tags = tags
 		return nil
 	}
 }

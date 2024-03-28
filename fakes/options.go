@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math/rand"
 
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
@@ -31,6 +32,7 @@ type Option func(opts *options)
 type options struct {
 	source    rand.Source
 	withIndex bool
+	withHash  v1.Hash
 
 	// TODO opens the door to add this in the future
 	// algorithm digest.Algorithm
@@ -72,5 +74,11 @@ func WithSource(source rand.Source) Option {
 func WithIndex(withIndex bool) Option {
 	return func(opts *options) {
 		opts.withIndex = withIndex
+	}
+}
+
+func WithHash(hash v1.Hash) Option {
+	return func(opts *options) {
+		opts.withHash = hash
 	}
 }

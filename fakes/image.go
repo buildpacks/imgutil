@@ -3,12 +3,11 @@ package fakes
 import (
 	"archive/tar"
 	"bytes"
-	"crypto"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,6 +43,8 @@ func NewImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
 	}
 }
 
+var ERRLayerNotFound = errors.New("layer with given diff id not found")
+
 type Image struct {
 	deleted                    bool
 	layers                     []string
@@ -71,6 +72,245 @@ type Image struct {
 	refName                    string
 	savedAnnotations           map[string]string
 	features, osFeatures, urls []string
+}
+
+func mapToStringSlice(data map[string]string) []string {
+	var stringSlice []string
+	for key, value := range data {
+		keyValue := fmt.Sprintf("%s=%s", key, value)
+		stringSlice = append(stringSlice, keyValue)
+	}
+	return stringSlice
+}
+
+// ConfigFile implements v1.Image.
+func (i *Image) ConfigFile() (*v1.ConfigFile, error) {
+	var hashes = make([]v1.Hash, 0)
+
+	for _, layer := range i.layers {
+		hash, err := v1.NewHash(layer)
+		if err != nil {
+			return nil, err
+		}
+
+		hashes = append(hashes, hash)
+	}
+	return &v1.ConfigFile{
+		Architecture:  i.architecture,
+		OS:            i.os,
+		OSVersion:     i.osVersion,
+		Variant:       i.variant,
+		OSFeatures:    i.osFeatures,
+		History:       i.history,
+		Created:       v1.Time{Time: i.createdAt},
+		Author:        "buildpacks",
+		Container:     "containerd",
+		DockerVersion: "25.0",
+		RootFS: v1.RootFS{
+			DiffIDs: hashes,
+		},
+		Config: v1.Config{
+			Cmd:         i.cmd,
+			Env:         mapToStringSlice(i.env),
+			ArgsEscaped: true,
+			Image:       i.identifier.String(),
+			WorkingDir:  i.workingDir,
+			Labels:      i.labels,
+			User:        "cnb",
+		},
+	}, nil
+}
+
+// ConfigName implements v1.Image.
+func (i *Image) ConfigName() (v1.Hash, error) {
+	c, err := i.ConfigFile()
+	if err != nil {
+		return v1.Hash{}, err
+	}
+
+	return v1.NewHash(c.Config.Image)
+}
+
+// LayerByDiffID implements v1.Image.
+func (i *Image) LayerByDiffID(hash v1.Hash) (v1.Layer, error) {
+	c, err := i.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, diffId := range c.RootFS.DiffIDs {
+		if hash == diffId {
+			return Layer(1024, types.DockerLayer, WithHash(hash))
+		}
+	}
+
+	return nil, ERRLayerNotFound
+}
+
+// LayerByDigest implements v1.Image.
+func (i *Image) LayerByDigest(hash v1.Hash) (v1.Layer, error) {
+	for _, layer := range i.layers {
+		if h, err := v1.NewHash(layer); err == nil {
+			return Layer(1024, types.DockerLayer, WithHash(h))
+		}
+	}
+
+	return nil, ERRLayerNotFound
+}
+
+// Layers implements v1.Image.
+func (i *Image) Layers() (layers []v1.Layer, err error) {
+	for _, layer := range i.layers {
+		hash, err := v1.NewHash(layer)
+		if err != nil {
+			return nil, err
+		}
+
+		l, err := Layer(1024, types.DockerLayer, WithHash(hash))
+		if err != nil {
+			return layers, err
+		}
+		layers = append(layers, l)
+	}
+
+	return layers, err
+}
+
+type FakeConfigFile struct {
+	v1.ConfigFile
+}
+
+func NewFakeConfigFile(config v1.ConfigFile) FakeConfigFile {
+	return FakeConfigFile{
+		ConfigFile: config,
+	}
+}
+
+func (c FakeConfigFile) RawManifest() ([]byte, error) {
+	return json.Marshal(c.ConfigFile)
+}
+
+type FakeManifest struct {
+	v1.Manifest
+}
+
+func NewFakeManifest(mfest v1.Manifest) FakeManifest {
+	return FakeManifest{
+		Manifest: mfest,
+	}
+}
+
+func (c FakeManifest) RawManifest() ([]byte, error) {
+	return json.Marshal(c.Manifest)
+}
+
+func (i *Image) ConfigFileToV1Desc(config v1.ConfigFile) (desc v1.Descriptor, err error) {
+	fakeConfig := NewFakeConfigFile(config)
+	size, err := partial.Size(fakeConfig)
+	if err != nil {
+		return desc, err
+	}
+
+	digest, err := partial.Digest(fakeConfig)
+	if err != nil {
+		return desc, err
+	}
+
+	return v1.Descriptor{
+		MediaType:   types.DockerConfigJSON,
+		Size:        size,
+		Digest:      digest,
+		URLs:        i.urls,
+		Annotations: i.savedAnnotations,
+		Platform: &v1.Platform{
+			OS:           i.os,
+			Architecture: i.architecture,
+			Variant:      i.variant,
+			OSVersion:    i.osVersion,
+			Features:     i.features,
+			OSFeatures:   i.osFeatures,
+		},
+	}, nil
+}
+
+// Manifest implements v1.Image.
+func (i *Image) Manifest() (*v1.Manifest, error) {
+	layers, err := i.Layers()
+	if err != nil {
+		return nil, err
+	}
+
+	var layerDesc = make([]v1.Descriptor, 0)
+	for _, layer := range layers {
+		desc := v1.Descriptor{}
+		if desc.Digest, err = layer.Digest(); err != nil {
+			return nil, err
+		}
+
+		if desc.MediaType, err = layer.MediaType(); err != nil {
+			return nil, err
+		}
+
+		if desc.Size, err = layer.Size(); err != nil {
+			return nil, err
+		}
+
+		layerDesc = append(layerDesc, desc)
+	}
+
+	cfgFile, err := i.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+
+	configDesc, err := i.ConfigFileToV1Desc(*cfgFile)
+	if err != nil {
+		return nil, err
+	}
+
+	manifest := &v1.Manifest{
+		SchemaVersion: 1,
+		MediaType:     types.DockerManifestList,
+		Layers:        layerDesc,
+		Config:        configDesc,
+		Subject:       &configDesc,
+		Annotations:   i.savedAnnotations,
+	}
+
+	return manifest, nil
+}
+
+// RawConfigFile implements v1.Image.
+func (i *Image) RawConfigFile() ([]byte, error) {
+	config, err := i.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(config)
+}
+
+// RawManifest implements v1.Image.
+func (i *Image) RawManifest() ([]byte, error) {
+	mfest, err := i.Manifest()
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(mfest)
+}
+
+// Size implements v1.Image.
+func (i *Image) Size() (int64, error) {
+	mfest, err := i.Manifest()
+	if err != nil {
+		return 0, err
+	}
+	if mfest == nil {
+		return 0, imgutil.ErrManifestUndefined
+	}
+
+	return partial.Size(NewFakeManifest(*mfest))
 }
 
 func (i *Image) CreatedAt() (time.Time, error) {
@@ -603,44 +843,4 @@ func V1Image(byteSize, layers int64, options ...Option) (v1.Image, error) {
 	}
 
 	return mutate.Append(empty.Image, adds...)
-}
-
-// Layer returns a layer with pseudo-randomly generated content.
-func Layer(byteSize int64, mt types.MediaType, options ...Option) (v1.Layer, error) {
-	o := getOptions(options)
-	rng := rand.New(o.source) //nolint:gosec
-
-	fileName := fmt.Sprintf("random_file_%d.txt", rng.Int())
-
-	// Hash the contents as we write it out to the buffer.
-	var b bytes.Buffer
-	hasher := crypto.SHA256.New()
-	mw := io.MultiWriter(&b, hasher)
-
-	// Write a single file with a random name and random contents.
-	tw := tar.NewWriter(mw)
-	if err := tw.WriteHeader(&tar.Header{
-		Name:     fileName,
-		Size:     byteSize,
-		Typeflag: tar.TypeReg,
-	}); err != nil {
-		return nil, err
-	}
-	if _, err := io.CopyN(tw, rng, byteSize); err != nil {
-		return nil, err
-	}
-	if err := tw.Close(); err != nil {
-		return nil, err
-	}
-
-	h := v1.Hash{
-		Algorithm: "sha256",
-		Hex:       hex.EncodeToString(hasher.Sum(make([]byte, 0, hasher.Size()))),
-	}
-
-	return partial.UncompressedToLayer(&uncompressedLayer{
-		diffID:    h,
-		mediaType: mt,
-		content:   b.Bytes(),
-	})
 }

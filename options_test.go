@@ -91,27 +91,30 @@ func testIndexOptions(t *testing.T, when spec.G, it spec.S) {
 		})
 		it("#WithInsecure", func() {
 			op := imgutil.WithInsecure(true)
-			err := op(pushOptions)
-			h.AssertNil(t, err)
-			h.AssertNotEq(t, pushOptions, imgutil.PushOptions{})
+			h.AssertNil(t, op(pushOptions))
+			h.AssertEq(t, pushOptions.Insecure, true)
 		})
 		it("#WithPurge", func() {
 			op := imgutil.WithPurge(true)
-			err := op(pushOptions)
-			h.AssertNil(t, err)
-			h.AssertNotEq(t, pushOptions, imgutil.PushOptions{})
+			h.AssertNil(t, op(pushOptions))
+			h.AssertEq(t, pushOptions.Purge, true)
 		})
 		it("#WithFormat", func() {
-			op := imgutil.WithFormat(types.OCIImageIndex)
-			err := op(pushOptions)
-			h.AssertNil(t, err)
-			h.AssertNotEq(t, pushOptions, imgutil.PushOptions{})
+			format := types.OCIImageIndex
+			op := imgutil.WithFormat(format)
+			h.AssertNil(t, op(pushOptions))
+			h.AssertEq(t, pushOptions.Format, format)
 		})
 		it("#WithFormat error", func() {
 			op := imgutil.WithFormat(types.OCIConfigJSON)
-			err := op(pushOptions)
-			h.AssertNotEq(t, err, nil)
+			h.AssertNotEq(t, op(pushOptions), nil)
 			h.AssertEq(t, pushOptions.Format, types.MediaType(""))
+		})
+		it("#WithTags", func() {
+			tags := []string{"latest", "0.0.1", "1.0.0"}
+			op := imgutil.WithTags(tags...)
+			h.AssertNil(t, op(pushOptions))
+			h.AssertEq(t, pushOptions.Tags, tags)
 		})
 	})
 }
