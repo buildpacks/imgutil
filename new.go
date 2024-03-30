@@ -301,7 +301,17 @@ func NewManifestHandler(ii v1.ImageIndex, ops IndexOptions) *ManifestHandler {
 	}
 }
 
-func EmptyDocker() v1.ImageIndex {
+func NewEmptyDockerIndex() v1.ImageIndex {
 	idx := empty.Index
 	return mutate.IndexMediaType(idx, types.DockerManifestList)
+}
+
+func NewStringSet() *StringSet {
+	return &StringSet{items: make(map[string]bool)}
+}
+
+func NewTaggableIndex(mfest v1.IndexManifest) *TaggableIndex {
+	return &TaggableIndex{
+		IndexManifest: mfest,
+	}
 }

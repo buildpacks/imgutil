@@ -13,41 +13,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
-// Any ImageIndex with RawManifest method.
-type TaggableIndex struct {
-	v1.IndexManifest
-}
-
-// Returns the bytes of IndexManifest.
-func (t *TaggableIndex) RawManifest() ([]byte, error) {
-	return json.Marshal(t.IndexManifest)
-}
-
-// Returns the Digest of the IndexManifest if present.
-// Else generate a new Digest.
-func (t *TaggableIndex) Digest() (v1.Hash, error) {
-	if t.IndexManifest.Subject != nil && t.IndexManifest.Subject.Digest != (v1.Hash{}) {
-		return t.IndexManifest.Subject.Digest, nil
-	}
-
-	return partial.Digest(t)
-}
-
-// Returns the MediaType of the IndexManifest.
-func (t *TaggableIndex) MediaType() (types.MediaType, error) {
-	return t.IndexManifest.MediaType, nil
-}
-
-// Returns the Size of IndexManifest if present.
-// Calculate the Size of empty.
-func (t *TaggableIndex) Size() (int64, error) {
-	if t.IndexManifest.Subject != nil && t.IndexManifest.Subject.Size != 0 {
-		return t.IndexManifest.Subject.Size, nil
-	}
-
-	return partial.Size(t)
-}
-
 func MutateManifest(i v1.Image, withFunc func(c *v1.Manifest)) (v1.Image, error) {
 	// FIXME: put MutateManifest on the interface when `remote` and `layout` packages also support it.
 	digest, err := i.Digest()
@@ -84,12 +49,43 @@ func MutateManifest(i v1.Image, withFunc func(c *v1.Manifest)) (v1.Image, error)
 	return mutate.Subject(i, mfest.Config).(v1.Image), err
 }
 
-type StringSet struct {
-	items map[string]bool
+// Any ImageIndex with RawManifest method.
+type TaggableIndex struct {
+	v1.IndexManifest
 }
 
-func NewStringSet() *StringSet {
-	return &StringSet{items: make(map[string]bool)}
+// Returns the bytes of IndexManifest.
+func (t *TaggableIndex) RawManifest() ([]byte, error) {
+	return json.Marshal(t.IndexManifest)
+}
+
+// Returns the Digest of the IndexManifest if present.
+// Else generate a new Digest.
+func (t *TaggableIndex) Digest() (v1.Hash, error) {
+	if t.IndexManifest.Subject != nil && t.IndexManifest.Subject.Digest != (v1.Hash{}) {
+		return t.IndexManifest.Subject.Digest, nil
+	}
+
+	return partial.Digest(t)
+}
+
+// Returns the MediaType of the IndexManifest.
+func (t *TaggableIndex) MediaType() (types.MediaType, error) {
+	return t.IndexManifest.MediaType, nil
+}
+
+// Returns the Size of IndexManifest if present.
+// Calculate the Size of empty.
+func (t *TaggableIndex) Size() (int64, error) {
+	if t.IndexManifest.Subject != nil && t.IndexManifest.Subject.Size != 0 {
+		return t.IndexManifest.Subject.Size, nil
+	}
+
+	return partial.Size(t)
+}
+
+type StringSet struct {
+	items map[string]bool
 }
 
 func (s *StringSet) Add(str string) {
@@ -519,4 +515,15 @@ func getIndexManifest(ii v1.ImageIndex) (mfest *v1.IndexManifest, err error) {
 	}
 
 	return mfest, err
+}
+
+func indexMediaType(format types.MediaType) string {
+	switch format {
+	case types.DockerManifestList, types.DockerManifestSchema2:
+		return "Docker"
+	case types.OCIImageIndex, types.OCIManifestSchema1:
+		return "OCI"
+	default:
+		return "UNKNOWN"
+	}
 }

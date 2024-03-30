@@ -53,17 +53,6 @@ type ImageIndex interface {
 	Delete() error
 }
 
-func indexMediaType(format types.MediaType) string {
-	switch format {
-	case types.DockerManifestList, types.DockerManifestSchema2:
-		return "Docker"
-	case types.OCIImageIndex, types.OCIManifestSchema1:
-		return "OCI"
-	default:
-		return "UNKNOWN"
-	}
-}
-
 var (
 	ErrOSUndefined = func(format types.MediaType, digest string) error {
 		return fmt.Errorf("Image os is undefined for %s ImageIndex (digest: %s)", indexMediaType(format), digest)
@@ -1298,7 +1287,7 @@ func (h *ManifestHandler) save(layoutPath string) (path layout.Path, err error) 
 			return path, err
 		}
 	} else {
-		path, err = layout.Write(layoutPath, EmptyDocker())
+		path, err = layout.Write(layoutPath, NewEmptyDockerIndex())
 		if err != nil {
 			return path, err
 		}
