@@ -291,13 +291,17 @@ func prepareNewWindowsImageIfNeeded(image *CNBImageCore) error {
 
 func NewManifestHandler(ii v1.ImageIndex, ops IndexOptions) *ManifestHandler {
 	return &ManifestHandler{
-		ImageIndex: ii,
-		Options:    ops,
-		Annotate: Annotate{
-			Instance: make(map[v1.Hash]v1.Descriptor),
-		},
+		ImageIndex:       ii,
+		Options:          ops,
+		Annotate:         NewAnnotate(),
 		RemovedManifests: make([]v1.Hash, 0),
 		Images:           make(map[v1.Hash]v1.Descriptor),
+	}
+}
+
+func NewAnnotate() Annotate {
+	return Annotate{
+		Instance: make(map[v1.Hash]v1.Descriptor),
 	}
 }
 
@@ -310,7 +314,7 @@ func NewStringSet() *StringSet {
 	return &StringSet{items: make(map[string]bool)}
 }
 
-func NewTaggableIndex(mfest v1.IndexManifest) *TaggableIndex {
+func NewTaggableIndex(mfest *v1.IndexManifest) *TaggableIndex {
 	return &TaggableIndex{
 		IndexManifest: mfest,
 	}

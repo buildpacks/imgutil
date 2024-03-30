@@ -51,7 +51,7 @@ func MutateManifest(i v1.Image, withFunc func(c *v1.Manifest)) (v1.Image, error)
 
 // Any ImageIndex with RawManifest method.
 type TaggableIndex struct {
-	v1.IndexManifest
+	*v1.IndexManifest
 }
 
 // Returns the bytes of IndexManifest.

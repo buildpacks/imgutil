@@ -1,6 +1,7 @@
 package imgutil
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"golang.org/x/sync/errgroup"
 )
 
 // An Interface with list of Methods required for creation and manipulation of v1.IndexManifest
@@ -107,9 +109,8 @@ type ManifestHandler struct {
 }
 
 func (h *ManifestHandler) getHash(digest name.Digest) (hash v1.Hash, err error) {
-	hash, err = v1.NewHash(digest.Identifier())
-	if err != nil {
-		return
+	if hash, err = v1.NewHash(digest.Identifier()); err != nil {
+		return hash, err
 	}
 
 	// if any image is removed with given hash return an error
@@ -131,7 +132,7 @@ func (h *ManifestHandler) OS(digest name.Digest) (os string, err error) {
 
 	// if image is manipulated before return last manipulated value
 	if os, err = h.Annotate.OS(hash); err == nil {
-		return
+		return os, nil
 	}
 
 	getOS := func(desc v1.Descriptor) (os string, err error) {
@@ -223,7 +224,7 @@ func (h *ManifestHandler) Architecture(digest name.Digest) (arch string, err err
 	}
 
 	if arch, err = h.Annotate.Architecture(hash); err == nil {
-		return
+		return arch, nil
 	}
 
 	getArch := func(desc v1.Descriptor) (arch string, err error) {
@@ -304,7 +305,7 @@ func (h *ManifestHandler) Variant(digest name.Digest) (osVariant string, err err
 	}
 
 	if osVariant, err = h.Annotate.Variant(hash); err == nil {
-		return
+		return osVariant, err
 	}
 
 	getVariant := func(desc v1.Descriptor) (osVariant string, err error) {
@@ -385,7 +386,7 @@ func (h *ManifestHandler) OSVersion(digest name.Digest) (osVersion string, err e
 	}
 
 	if osVersion, err = h.Annotate.OSVersion(hash); err == nil {
-		return
+		return osVersion, nil
 	}
 
 	getOSVersion := func(desc v1.Descriptor) (osVersion string, err error) {
@@ -466,11 +467,11 @@ func (h *ManifestHandler) Features(digest name.Digest) (features []string, err e
 	}
 
 	if features, err = h.Annotate.Features(hash); err == nil {
-		return
+		return features, nil
 	}
 
 	if features, err = h.indexFeatures(digest); err == nil {
-		return
+		return features, nil
 	}
 
 	getFeatures := func(desc v1.Descriptor) (features []string, err error) {
@@ -578,12 +579,12 @@ func (h *ManifestHandler) OSFeatures(digest name.Digest) (osFeatures []string, e
 	}
 
 	if osFeatures, err = h.Annotate.OSFeatures(hash); err == nil {
-		return
+		return osFeatures, nil
 	}
 
 	osFeatures, err = h.indexOSFeatures(digest)
 	if err == nil {
-		return
+		return osFeatures, nil
 	}
 
 	getOSFeatures := func(desc v1.Descriptor) (osFeatures []string, err error) {
@@ -625,7 +626,7 @@ func (h *ManifestHandler) OSFeatures(digest name.Digest) (osFeatures []string, e
 func (h *ManifestHandler) indexOSFeatures(digest name.Digest) (osFeatures []string, err error) {
 	mfest, err := h.getIndexManifest(digest)
 	if err != nil {
-		return
+		return osFeatures, err
 	}
 
 	if mfest.Subject == nil {
@@ -698,10 +699,11 @@ func (h *ManifestHandler) Annotations(digest name.Digest) (annotations map[strin
 			types.DockerManifestSchema1,
 			types.DockerManifestSchema1Signed,
 			types.DockerManifestList:
+			// Docker Manifest doesn't support annotations
 			return nil, ErrAnnotationsUndefined(format, digest.Identifier())
 		case types.OCIManifestSchema1,
 			types.OCIImageIndex:
-			if len(annos) < 1 {
+			if len(annos) == 0 {
 				return nil, ErrAnnotationsUndefined(format, digest.Identifier())
 			}
 
@@ -827,14 +829,13 @@ func (h *ManifestHandler) URLs(digest name.Digest) (urls []string, err error) {
 		return urlSet.StringSlice(), nil
 	}
 
-	urls, err = h.getIndexURLs(hash)
-	if err == nil {
-		return
+	if urls, err = h.getIndexURLs(hash); err == nil {
+		return urls, nil
 	}
 
 	urls, format, err := h.getImageURLs(hash)
 	if err == nil {
-		return
+		return urls, nil
 	}
 
 	if err == ErrURLsUndefined(format, digest.Identifier()) {
@@ -900,17 +901,19 @@ func (h *ManifestHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
 			return pathErr
 		}
 		img := addOps.Image
-		os, _ := img.OS()
-		arch, _ := img.Architecture()
-		variant, _ := img.Variant()
-		osVersion, _ := img.OSVersion()
-		features, _ := img.Features()
-		osFeatures, _ := img.OSFeatures()
-		urls, _ := img.URLs()
-		annos, _ := img.Annotations()
-		size, _ := img.ManifestSize()
-		mediaType, err := img.MediaType()
-		digest, _ := img.Digest()
+		var (
+			os, _          = img.OS()
+			arch, _        = img.Architecture()
+			variant, _     = img.Variant()
+			osVersion, _   = img.OSVersion()
+			features, _    = img.Features()
+			osFeatures, _  = img.OSFeatures()
+			urls, _        = img.URLs()
+			annos, _       = img.Annotations()
+			size, _        = img.ManifestSize()
+			mediaType, err = img.MediaType()
+			digest, _      = img.Digest()
+		)
 		if err != nil {
 			return err
 		}
@@ -1020,20 +1023,16 @@ func (h *ManifestHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
 				return err
 			}
 
-			var wg sync.WaitGroup
 			var iMap sync.Map
 			errs := SaveError{}
 			// Add all the Images from Nested ImageIndexes
-			if err = h.addAllImages(idx, addOps.Annotations, &wg, &iMap); err != nil {
+			if err = h.addAllImages(idx, addOps.Annotations, &iMap); err != nil {
 				return err
 			}
 
-			wg.Wait()
-
 			if err != nil {
 				// if the ImageIndex is not saved till now for some reason Save the ImageIndex locally to append Images
-				err = h.Save()
-				if err != nil {
+				if err = h.Save(); err != nil {
 					return err
 				}
 			}
@@ -1052,8 +1051,7 @@ func (h *ManifestHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
 				h.Images[digest] = desc
 
 				// Append All the Images within the nested ImageIndexes
-				err = path.AppendDescriptor(desc)
-				if err != nil {
+				if err = path.AppendDescriptor(desc); err != nil {
 					errs.Errors = append(errs.Errors, SaveDiagnostic{
 						Cause: err,
 					})
@@ -1115,35 +1113,24 @@ func (h *ManifestHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
 	}
 }
 
-func (h *ManifestHandler) addAllImages(idx v1.ImageIndex, annotations map[string]string, wg *sync.WaitGroup, imageMap *sync.Map) error {
+func (h *ManifestHandler) addAllImages(idx v1.ImageIndex, annotations map[string]string, imageMap *sync.Map) error {
 	mfest, err := getIndexManifest(idx)
 	if err != nil {
 		return err
 	}
 
-	errs := SaveError{}
+	var errs, _ = errgroup.WithContext(context.Background())
 	for _, desc := range mfest.Manifests {
-		wg.Add(1)
-		go func(desc v1.Descriptor) {
-			defer wg.Done()
-			err = h.addIndexAddendum(annotations, desc, idx, wg, imageMap)
-			if err != nil {
-				errs.Errors = append(errs.Errors, SaveDiagnostic{
-					ImageName: desc.Digest.String(),
-					Cause:     err,
-				})
-			}
-		}(desc)
+		desc := desc
+		errs.Go(func() error {
+			return h.addIndexAddendum(annotations, desc, idx, imageMap)
+		})
 	}
 
-	if len(errs.Errors) != 0 {
-		return errs
-	}
-
-	return nil
+	return errs.Wait()
 }
 
-func (h *ManifestHandler) addIndexAddendum(annotations map[string]string, desc v1.Descriptor, idx v1.ImageIndex, wg *sync.WaitGroup, iMap *sync.Map) error {
+func (h *ManifestHandler) addIndexAddendum(annotations map[string]string, desc v1.Descriptor, idx v1.ImageIndex, iMap *sync.Map) error {
 	switch {
 	case desc.MediaType.IsIndex():
 		ii, err := idx.ImageIndex(desc.Digest)
@@ -1151,7 +1138,7 @@ func (h *ManifestHandler) addIndexAddendum(annotations map[string]string, desc v
 			return err
 		}
 
-		return h.addAllImages(ii, annotations, wg, iMap)
+		return h.addAllImages(ii, annotations, iMap)
 	case desc.MediaType.IsImage():
 		img, err := idx.Image(desc.Digest)
 		if err != nil {
@@ -1169,8 +1156,7 @@ func (h *ManifestHandler) addIndexAddendum(annotations map[string]string, desc v
 		}
 
 		platform := v1.Platform{}
-		err = updatePlatform(imgConfig, &platform)
-		if err != nil {
+		if err = updatePlatform(imgConfig, &platform); err != nil {
 			return err
 		}
 
@@ -1262,8 +1248,7 @@ func (h *ManifestHandler) addPlatformSpecificImages(ref name.Reference, platform
 	layoutPath := filepath.Join(h.Options.XdgPath, h.Options.Reponame)
 	path, err := layout.FromPath(layoutPath)
 	if err != nil {
-		path, err = layout.Write(layoutPath, h.ImageIndex)
-		if err != nil {
+		if path, err = layout.Write(layoutPath, h.ImageIndex); err != nil {
 			return err
 		}
 	}
@@ -1282,13 +1267,11 @@ func (h *ManifestHandler) save(layoutPath string) (path layout.Path, err error) 
 
 	// Initially write an empty IndexManifest with expected MediaType
 	if mfest.MediaType == types.OCIImageIndex {
-		path, err = layout.Write(layoutPath, empty.Index)
-		if err != nil {
+		if path, err = layout.Write(layoutPath, empty.Index); err != nil {
 			return path, err
 		}
 	} else {
-		path, err = layout.Write(layoutPath, NewEmptyDockerIndex())
-		if err != nil {
+		if path, err = layout.Write(layoutPath, NewEmptyDockerIndex()); err != nil {
 			return path, err
 		}
 	}
@@ -1324,8 +1307,7 @@ func (h *ManifestHandler) Save() error {
 	}
 
 	// Remove all the Annotated Images/ImageIndexes from local ImageIndex to avoid duplicate Images with same Digest
-	err = path.RemoveDescriptors(match.Digests(hashes...))
-	if err != nil {
+	if err = path.RemoveDescriptors(match.Digests(hashes...)); err != nil {
 		return err
 	}
 
@@ -1394,8 +1376,7 @@ func (h *ManifestHandler) Push(ops ...IndexPushOption) error {
 
 	var pushOps = &PushOptions{}
 	for _, op := range ops {
-		err := op(pushOps)
-		if err != nil {
+		if err := op(pushOps); err != nil {
 			return err
 		}
 	}
@@ -1424,8 +1405,7 @@ func (h *ManifestHandler) Push(ops ...IndexPushOption) error {
 		return err
 	}
 
-	h.ImageIndex, err = path.ImageIndex()
-	if err != nil {
+	if h.ImageIndex, err = path.ImageIndex(); err != nil {
 		return err
 	}
 
@@ -1443,10 +1423,7 @@ func (h *ManifestHandler) Push(ops ...IndexPushOption) error {
 		return err
 	}
 
-	taggableIndex := &TaggableIndex{
-		IndexManifest: *mfest,
-	}
-
+	var taggableIndex = NewTaggableIndex(mfest)
 	multiWriteTagables := map[name.Reference]remote.Taggable{
 		ref: taggableIndex,
 	}
@@ -1588,8 +1565,7 @@ func (h *ManifestHandler) getIndexManifest(digest name.Digest) (mfest *v1.IndexM
 		return
 	}
 
-	mfest, err = getIndexManifest(h.ImageIndex)
-	if err != nil {
+	if mfest, err = getIndexManifest(h.ImageIndex); err != nil {
 		return mfest, err
 	}
 

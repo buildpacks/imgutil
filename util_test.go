@@ -124,7 +124,7 @@ func testUtils(t *testing.T, when spec.G, it spec.S) {
 			}
 		)
 		it.Before(func() {
-			taggableIndex = imgutil.NewTaggableIndex(indexManifest)
+			taggableIndex = imgutil.NewTaggableIndex(&indexManifest)
 		})
 		it("should return RawManifest in expected format", func() {
 			mfestBytes, err := taggableIndex.RawManifest()
