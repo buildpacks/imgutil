@@ -182,6 +182,7 @@ func testUtils(t *testing.T, when spec.G, it spec.S) {
 			h.AssertEq(t, stringSet.StringSlice(), items)
 		})
 		it("should not support duplicates", func() {
+			stringSet := imgutil.NewStringSet()
 			item1 := "item1"
 			item2 := "item2"
 			items := []string{item1, item2, item1}
