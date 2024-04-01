@@ -3,7 +3,6 @@ package locallayout
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/image"
@@ -48,7 +47,7 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...func(*imgutil.I
 		baseIdentifier = processBase.identifier
 		store = processBase.layerStore
 	} else {
-		store = &Store{dockerClient: dockerClient, downloadOnce: &sync.Once{}}
+		store = NewStore(dockerClient)
 	}
 
 	cnbImage, err := imgutil.NewCNBImage(*options)
@@ -108,7 +107,7 @@ func processImageOption(repoName string, dockerClient DockerClient, downloadLaye
 	if inspect == nil {
 		return imageResult{}, nil
 	}
-	layerStore := &Store{dockerClient: dockerClient, downloadOnce: &sync.Once{}}
+	layerStore := NewStore(dockerClient)
 	image, err := newV1ImageFacadeFromInspect(*inspect, history, layerStore, downloadLayersOnAccess)
 	if err != nil {
 		return imageResult{}, err

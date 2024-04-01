@@ -31,8 +31,16 @@ type Store struct {
 	// required
 	dockerClient DockerClient
 	// optional
-	downloadOnce *sync.Once
-	onDiskLayers []v1.Layer
+	downloadOnce         *sync.Once
+	onDiskLayersByDiffID map[v1.Hash]annotatedLayer
+}
+
+func NewStore(dockerClient DockerClient) *Store {
+	return &Store{
+		dockerClient:         dockerClient,
+		downloadOnce:         &sync.Once{},
+		onDiskLayersByDiffID: make(map[v1.Hash]annotatedLayer),
+	}
 }
 
 // DockerClient is subset of client.CommonAPIClient required by this package.
@@ -220,7 +228,7 @@ func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer) (string, error) {
 	}
 	withName := fmt.Sprintf("/%s.tar", layerDiffID.String())
 
-	uncompressedSize, err := getLayerSize(layer) // FIXME: this degrades performance compared to `local` package
+	uncompressedSize, err := getLayerSize(layer, s.onDiskLayersByDiffID)
 	if err != nil {
 		return "", err
 	}
@@ -241,9 +249,21 @@ func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer) (string, error) {
 	return withName, nil
 }
 
-// FIXME: this is a hack because the daemon expects uncompressed layer size and a v1.Layer reports compressed layer size;
-// when we send OCI layout tars we should be able to remove this method and get improved performance
-func getLayerSize(layer v1.Layer) (int64, error) {
+// getLayerSize returns the uncompressed layer size.
+// This is needed because the daemon expects uncompressed layer size and a v1.Layer reports compressed layer size;
+// in a future where we send OCI layout tars to the daemon we should be able to remove this method
+// and the need to track layers individually.
+func getLayerSize(layer v1.Layer, knownLayers map[v1.Hash]annotatedLayer) (int64, error) {
+	diffID, err := layer.DiffID()
+	if err != nil {
+		return 0, err
+	}
+	knownLayer, layerFound := knownLayers[diffID]
+	if layerFound {
+		return knownLayer.uncompressedSize, nil
+	}
+	// If layer was not seen previously, we need to read it to get the uncompressed size
+	// In practice, we should not get here
 	layerReader, err := layer.Uncompressed()
 	if err != nil {
 		return 0, err
@@ -401,12 +421,21 @@ func (s *Store) doDownloadLayersFor(identifier string) error {
 		return err
 	}
 
-	for idx := range configFile.RootFS.DiffIDs {
-		layer, err := tarball.LayerFromFile(filepath.Join(tmpDir, manifest[0].Layers[idx]))
+	for idx, diffID := range configFile.RootFS.DiffIDs {
+		layerPath := filepath.Join(tmpDir, manifest[0].Layers[idx])
+		layer, err := tarball.LayerFromFile(layerPath)
 		if err != nil {
 			return err
 		}
-		s.onDiskLayers = append(s.onDiskLayers, layer)
+		hash, err := v1.NewHash(diffID)
+		if err != nil {
+			return err
+		}
+		fi, err := os.Stat(layerPath)
+		if err != nil {
+			return err
+		}
+		addLayer(layer, hash, fi.Size(), s.onDiskLayersByDiffID)
 	}
 	return nil
 }
@@ -476,22 +505,29 @@ func cleanPath(dest, header string) (string, error) {
 }
 
 func (s *Store) LayerByDiffID(h v1.Hash) (v1.Layer, error) {
-	layer := findLayer(h, s.onDiskLayers)
+	layer := findLayer(h, s.onDiskLayersByDiffID)
 	if layer == nil {
 		return nil, fmt.Errorf("failed to find layer with diff ID %q", h.String())
 	}
 	return layer, nil
 }
 
-func findLayer(withHash v1.Hash, inLayers []v1.Layer) v1.Layer {
-	for _, layer := range inLayers {
-		layerHash, err := layer.DiffID()
-		if err != nil {
-			continue
-		}
-		if layerHash.String() == withHash.String() {
-			return layer
-		}
+type annotatedLayer struct {
+	layer            v1.Layer
+	uncompressedSize int64
+}
+
+func addLayer(layer v1.Layer, withHash v1.Hash, withSize int64, toLayers map[v1.Hash]annotatedLayer) {
+	toLayers[withHash] = annotatedLayer{
+		layer:            layer,
+		uncompressedSize: withSize,
 	}
-	return nil
+}
+
+func findLayer(withHash v1.Hash, inLayers map[v1.Hash]annotatedLayer) v1.Layer {
+	aLayer, layerFound := inLayers[withHash]
+	if !layerFound {
+		return nil
+	}
+	return aLayer.layer
 }
