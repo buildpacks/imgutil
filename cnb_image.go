@@ -305,17 +305,22 @@ func (i *CNBImageCore) AddLayerWithDiffID(path, _ string) error {
 }
 
 func (i *CNBImageCore) AddLayerWithDiffIDAndHistory(path, _ string, history v1.History) error {
+	layer, err := tarball.LayerFromFile(path)
+	if err != nil {
+		return err
+	}
+	return i.AddLayerWithHistory(layer, history)
+}
+
+func (i *CNBImageCore) AddLayerWithHistory(layer v1.Layer, history v1.History) error {
+	var err error
 	// ensure existing history
-	if err := i.MutateConfigFile(func(c *v1.ConfigFile) {
+	if err = i.MutateConfigFile(func(c *v1.ConfigFile) {
 		c.History = NormalizedHistory(c.History, len(c.RootFS.DiffIDs))
 	}); err != nil {
 		return err
 	}
 
-	layer, err := tarball.LayerFromFile(path)
-	if err != nil {
-		return err
-	}
 	if !i.preserveHistory {
 		history = emptyHistory
 	}

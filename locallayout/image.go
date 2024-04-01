@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 
 	"github.com/buildpacks/imgutil"
 )
@@ -88,6 +90,49 @@ func (i *Image) SetOS(osVal string) error {
 		return errors.New("invalid os: must match the daemon")
 	}
 	return i.CNBImageCore.SetOS(osVal)
+}
+
+var emptyHistory = v1.History{Created: v1.Time{Time: imgutil.NormalizedDateTime}}
+
+func (i *Image) AddLayer(path string) error {
+	layer, err := i.addLayer(path)
+	if err != nil {
+		return err
+	}
+	return i.AddLayerWithHistory(layer, emptyHistory)
+}
+
+func (i *Image) AddLayerWithDiffID(path, _ string) error {
+	layer, err := i.addLayer(path)
+	if err != nil {
+		return err
+	}
+	return i.AddLayerWithHistory(layer, emptyHistory)
+}
+
+func (i *Image) AddLayerWithDiffIDAndHistory(path, _ string, history v1.History) error {
+	layer, err := i.addLayer(path)
+	if err != nil {
+		return err
+	}
+	return i.AddLayerWithHistory(layer, history)
+}
+
+func (i *Image) addLayer(fromPath string) (v1.Layer, error) {
+	layer, err := tarball.LayerFromFile(fromPath)
+	if err != nil {
+		return nil, err
+	}
+	diffID, err := layer.DiffID()
+	if err != nil {
+		return nil, err
+	}
+	fi, err := os.Stat(fromPath)
+	if err != nil {
+		return nil, err
+	}
+	i.store.addLayer(layer, diffID, fi.Size())
+	return layer, nil
 }
 
 func (i *Image) Rebase(baseTopLayerDiffID string, withNewBase imgutil.Image) error {

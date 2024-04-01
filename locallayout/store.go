@@ -252,7 +252,7 @@ func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer) (string, error) {
 	}
 	withName := fmt.Sprintf("/%s.tar", layerDiffID.String())
 
-	uncompressedSize, err := getLayerSize(layer, s.onDiskLayersByDiffID)
+	uncompressedSize, err := s.getLayerSize(layer)
 	if err != nil {
 		return "", err
 	}
@@ -277,12 +277,12 @@ func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer) (string, error) {
 // This is needed because the daemon expects uncompressed layer size and a v1.Layer reports compressed layer size;
 // in a future where we send OCI layout tars to the daemon we should be able to remove this method
 // and the need to track layers individually.
-func getLayerSize(layer v1.Layer, knownLayers map[v1.Hash]annotatedLayer) (int64, error) {
+func (s *Store) getLayerSize(layer v1.Layer) (int64, error) {
 	diffID, err := layer.DiffID()
 	if err != nil {
 		return 0, err
 	}
-	knownLayer, layerFound := knownLayers[diffID]
+	knownLayer, layerFound := s.onDiskLayersByDiffID[diffID]
 	if layerFound {
 		return knownLayer.uncompressedSize, nil
 	}
@@ -459,7 +459,7 @@ func (s *Store) doDownloadLayersFor(identifier string) error {
 		if err != nil {
 			return err
 		}
-		addLayer(layer, hash, fi.Size(), s.onDiskLayersByDiffID)
+		s.addLayer(layer, hash, fi.Size())
 	}
 	return nil
 }
@@ -529,7 +529,7 @@ func cleanPath(dest, header string) (string, error) {
 }
 
 func (s *Store) LayerByDiffID(h v1.Hash) (v1.Layer, error) {
-	layer := findLayer(h, s.onDiskLayersByDiffID)
+	layer := s.findLayer(h)
 	if layer == nil {
 		return nil, fmt.Errorf("failed to find layer with diff ID %q", h.String())
 	}
@@ -541,15 +541,15 @@ type annotatedLayer struct {
 	uncompressedSize int64
 }
 
-func addLayer(layer v1.Layer, withHash v1.Hash, withSize int64, toLayers map[v1.Hash]annotatedLayer) {
-	toLayers[withHash] = annotatedLayer{
+func (s *Store) addLayer(layer v1.Layer, withHash v1.Hash, withSize int64) {
+	s.onDiskLayersByDiffID[withHash] = annotatedLayer{
 		layer:            layer,
 		uncompressedSize: withSize,
 	}
 }
 
-func findLayer(withHash v1.Hash, inLayers map[v1.Hash]annotatedLayer) v1.Layer {
-	aLayer, layerFound := inLayers[withHash]
+func (s *Store) findLayer(withHash v1.Hash) v1.Layer {
+	aLayer, layerFound := s.onDiskLayersByDiffID[withHash]
 	if !layerFound {
 		return nil
 	}
