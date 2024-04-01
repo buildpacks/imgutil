@@ -76,10 +76,19 @@ func (s *Store) Delete(identifier string) error {
 
 func (s *Store) Save(image *Image, withName string, withAdditionalNames ...string) (string, error) {
 	withName = tryNormalizing(withName)
+	var (
+		inspect types.ImageInspect
+		err     error
+	)
 
 	// save
-	inspect, err := s.doSave(image, withName)
-	if err != nil {
+	canOmitBaseLayers := !usesContainerdStorage(s.dockerClient)
+	if canOmitBaseLayers {
+		// During the first save attempt some layers may be excluded.
+		// The docker daemon allows this if the given set of layers already exists in the daemon in the given order.
+		inspect, err = s.doSave(image, withName)
+	}
+	if !canOmitBaseLayers || err != nil {
 		if err = image.ensureLayers(); err != nil {
 			return "", err
 		}
@@ -114,6 +123,21 @@ func tryNormalizing(name string) string {
 		return name
 	}
 	return t.Name() // returns valid 'name:tag' appending 'latest', if missing tag
+}
+
+func usesContainerdStorage(docker DockerClient) bool {
+	info, err := docker.Info(context.Background())
+	if err != nil {
+		return false
+	}
+
+	for _, driverStatus := range info.DriverStatus {
+		if driverStatus[0] == "driver-type" && driverStatus[1] == "io.containerd.snapshotter.v1" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (s *Store) doSave(image v1.Image, withName string) (types.ImageInspect, error) {
