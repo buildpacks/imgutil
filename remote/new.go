@@ -38,6 +38,10 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...func(*imgutil.Ima
 	if err != nil {
 		return nil, err
 	}
+	options.MediaTypes = imgutil.GetPreferredMediaTypes(*options)
+	if options.BaseImage != nil {
+		options.BaseImage, _, err = imgutil.EnsureMediaTypesAndLayers(options.BaseImage, options.MediaTypes, imgutil.PreserveLayers)
+	}
 
 	cnbImage, err := imgutil.NewCNBImage(*options)
 	if err != nil {
@@ -159,6 +163,7 @@ func emptyImage(platform imgutil.Platform) (v1.Image, error) {
 // NewV1Image returns a new v1.Image.
 // It exists to provide library users (such as pack) an easy way to construct a v1.Image with configurable options
 // (such as platform and insecure registry).
+// FIXME: this function can be deprecated in favor of remote.NewImage as this now also implements the v1.Image interface
 func NewV1Image(baseImageRepoName string, keychain authn.Keychain, ops ...func(*imgutil.ImageOptions)) (v1.Image, error) {
 	options := &imgutil.ImageOptions{}
 	for _, op := range ops {

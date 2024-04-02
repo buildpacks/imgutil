@@ -577,6 +577,37 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, img.Save())
 				h.AssertOCIMediaTypes(t, img.UnderlyingImage()) // after saving
 			})
+
+			when("using a base image", func() {
+				it("sets the requested media types", func() {
+					baseImageName := newTestImageName()
+					baseImage, err := remote.NewImage(
+						baseImageName,
+						authn.DefaultKeychain,
+						remote.WithMediaTypes(imgutil.DockerTypes),
+					)
+					h.AssertNil(t, err)
+					h.AssertNil(t, baseImage.Save())
+
+					img, err := remote.NewImage(
+						newTestImageName(),
+						authn.DefaultKeychain,
+						remote.WithMediaTypes(imgutil.OCITypes),
+						remote.FromBaseImage(baseImageName),
+					)
+					h.AssertNil(t, err)
+					h.AssertOCIMediaTypes(t, img.UnderlyingImage()) // before saving
+					// add a random layer
+					newLayerPath, err := h.CreateSingleFileLayerTar("/new-layer.txt", "new-layer", "linux")
+					h.AssertNil(t, err)
+					defer os.Remove(newLayerPath)
+					err = img.AddLayer(newLayerPath)
+					h.AssertNil(t, err)
+					h.AssertOCIMediaTypes(t, img.UnderlyingImage()) // after adding a layer
+					h.AssertNil(t, img.Save())
+					h.AssertOCIMediaTypes(t, img.UnderlyingImage()) // after saving
+				})
+			})
 		})
 
 		when("#WithConfig", func() {

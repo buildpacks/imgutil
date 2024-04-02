@@ -42,7 +42,7 @@ func newV1ImageFacadeFromInspect(dockerInspect types.ImageInspect, history []ima
 		Variant:       dockerInspect.Variant,   // FIXME: this should come from options.Platform
 	}
 	layersToSet := newEmptyLayerListFrom(configFile, downloadLayersOnAccess, withStore, dockerInspect.ID)
-	return imageFrom(layersToSet, configFile, imgutil.DockerTypes)
+	return imageFrom(layersToSet, configFile, imgutil.DockerTypes) // FIXME: this should be configurable with options.MediaTypes
 }
 
 func imageFrom(layers []v1.Layer, configFile *v1.ConfigFile, requestedTypes imgutil.MediaTypes) (v1.Image, error) {
