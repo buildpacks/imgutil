@@ -70,7 +70,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			it("sets sensible defaults from daemon for all required fields", func() {
 				// os, architecture, and rootfs are required per https://github.com/opencontainers/image-spec/blob/master/config.md
-				img, err := local.NewImage(newTestImageName(), dockerClient)
+				img, err := local.NewImage(newTestImageName(), dockerClient, local.WithDefaultPlatform(v1.Platform{OS: "linux", Architecture: "amd64"}))
 				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
 
@@ -103,7 +103,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				img, err := local.NewImage(
 					newTestImageName(),
 					dockerClient,
-					local.WithDefaultPlatform(imgutil.Platform{
+					local.WithDefaultPlatform(v1.Platform{
 						Architecture: expectedArmArch,
 						OS:           daemonOS,
 						OSVersion:    expectedOSVersion,
@@ -273,7 +273,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							newTestImageName(),
 							dockerClient,
 							local.FromBaseImage(armBaseImageName),
-							local.WithDefaultPlatform(imgutil.Platform{
+							local.WithDefaultPlatform(v1.Platform{
 								Architecture: "not-an-arch",
 								OSVersion:    "10.0.99999.9999",
 							}),
@@ -298,7 +298,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							newTestImageName(),
 							dockerClient,
 							local.FromBaseImage("some-bad-repo-name"),
-							local.WithDefaultPlatform(imgutil.Platform{
+							local.WithDefaultPlatform(v1.Platform{
 								Architecture: "arm64",
 								OS:           daemonOS,
 								OSVersion:    "10.0.99999.9999",
@@ -372,7 +372,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						newTestImageName(),
 						dockerClient,
 						local.WithPreviousImage(armBaseImageName),
-						local.WithDefaultPlatform(imgutil.Platform{
+						local.WithDefaultPlatform(v1.Platform{
 							Architecture: "some-fake-os",
 						}),
 					)

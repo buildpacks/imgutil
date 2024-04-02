@@ -119,7 +119,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				img, err := remote.NewImage(
 					newTestImageName(),
 					authn.DefaultKeychain,
-					remote.WithDefaultPlatform(imgutil.Platform{
+					remote.WithDefaultPlatform(v1.Platform{
 						Architecture: "arm",
 						OS:           "windows",
 						OSVersion:    "10.0.17763.316",
@@ -151,7 +151,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				img, err := remote.NewImage(
 					newTestImageName(),
 					authn.DefaultKeychain,
-					remote.WithDefaultPlatform(imgutil.Platform{
+					remote.WithDefaultPlatform(v1.Platform{
 						Architecture: "arm",
 						OS:           "linux",
 					}),
@@ -310,7 +310,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 								repoName,
 								authn.DefaultKeychain,
 								remote.FromBaseImage(windowsImageManifestName),
-								remote.WithDefaultPlatform(imgutil.Platform{
+								remote.WithDefaultPlatform(v1.Platform{
 									Architecture: "amd64",
 									OS:           "windows",
 									OSVersion:    "10.0.17763.1397",
@@ -341,7 +341,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 								repoName,
 								authn.DefaultKeychain,
 								remote.FromBaseImage(windowsImageManifestName),
-								remote.WithDefaultPlatform(imgutil.Platform{
+								remote.WithDefaultPlatform(v1.Platform{
 									OS:           "linux",
 									Architecture: "arm",
 								}),
@@ -372,7 +372,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 								repoName,
 								authn.DefaultKeychain,
 								remote.FromBaseImage(manifestListName),
-								remote.WithDefaultPlatform(imgutil.Platform{
+								remote.WithDefaultPlatform(v1.Platform{
 									OS:           "linux",
 									Architecture: "amd64",
 								}),
@@ -397,7 +397,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 								repoName,
 								authn.DefaultKeychain,
 								remote.FromBaseImage(manifestListName),
-								remote.WithDefaultPlatform(imgutil.Platform{
+								remote.WithDefaultPlatform(v1.Platform{
 									OS:           "windows",
 									Architecture: "arm",
 								}),
@@ -432,7 +432,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							repoName,
 							authn.DefaultKeychain,
 							remote.FromBaseImage("some-bad-repo-name"),
-							remote.WithDefaultPlatform(imgutil.Platform{
+							remote.WithDefaultPlatform(v1.Platform{
 								Architecture: "arm",
 								OS:           "linux",
 							}),
@@ -461,7 +461,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							repoName,
 							authn.DefaultKeychain,
 							remote.FromBaseImage("some-bad-repo-name"),
-							remote.WithDefaultPlatform(imgutil.Platform{
+							remote.WithDefaultPlatform(v1.Platform{
 								Architecture: "arm",
 								OS:           "windows",
 								OSVersion:    "10.0.99999.9999",
@@ -518,7 +518,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							repoName,
 							authn.DefaultKeychain,
 							remote.WithPreviousImage(manifestListName),
-							remote.WithDefaultPlatform(imgutil.Platform{
+							remote.WithDefaultPlatform(v1.Platform{
 								OS:           "windows",
 								Architecture: "amd64",
 							}),
@@ -1129,24 +1129,52 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
-	when("#SetOS #SetOSVersion #SetArchitecture", func() {
+	when("#SetOS #SetOSVersion #SetArchitecture #SetVariant #SetFeatures #SetOSFeatures #SetURLs #SetAnnotations", func() {
 		it("sets the os/arch", func() {
+			var (
+				os         = "foobaros"
+				arch       = "arm64"
+				osVersion  = "1.2.3.4"
+				variant    = "some-variant"
+				features   = []string{"some-features"}
+				osFeatures = []string{"some-osFeatures"}
+				urls       = []string{"some-urls"}
+				annos      = map[string]string{"some-key": "some-value"}
+			)
 			img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 			h.AssertNil(t, err)
 
-			err = img.SetOS("foobaros")
+			err = img.SetOS(os)
 			h.AssertNil(t, err)
-			err = img.SetOSVersion("1.2.3.4")
+			err = img.SetOSVersion(osVersion)
 			h.AssertNil(t, err)
-			err = img.SetArchitecture("arm64")
+			err = img.SetArchitecture(arch)
 			h.AssertNil(t, err)
+			h.AssertNil(t, img.SetVariant(variant))
+			h.AssertNil(t, img.SetOSFeatures(osFeatures))
+			h.AssertNil(t, img.SetAnnotations(annos))
+			h.AssertNil(t, img.SetFeatures(features))
+			h.AssertNil(t, img.SetURLs(urls))
 
 			h.AssertNil(t, img.Save())
 
 			configFile := h.FetchManifestImageConfigFile(t, repoName)
-			h.AssertEq(t, configFile.OS, "foobaros")
-			h.AssertEq(t, configFile.OSVersion, "1.2.3.4")
-			h.AssertEq(t, configFile.Architecture, "arm64")
+			h.AssertEq(t, configFile.OS, os)
+			h.AssertEq(t, configFile.OSVersion, osVersion)
+			h.AssertEq(t, configFile.Architecture, arch)
+			h.AssertEq(t, configFile.Variant, variant)
+			h.AssertEq(t, configFile.OSFeatures, osFeatures)
+
+			mfest := h.FetchImageManifest(t, repoName)
+
+			h.AssertEq(t, mfest.Subject.Platform.OS, os)
+			h.AssertEq(t, mfest.Subject.Platform.Architecture, arch)
+			h.AssertEq(t, mfest.Subject.Platform.Variant, variant)
+			h.AssertEq(t, mfest.Subject.Platform.OSVersion, osVersion)
+			h.AssertEq(t, mfest.Subject.Platform.Features, features)
+			h.AssertEq(t, mfest.Subject.Platform.OSFeatures, osFeatures)
+			h.AssertEq(t, mfest.Subject.URLs, urls)
+			h.AssertEq(t, mfest.Annotations, map[string]string{"some-key": "some-value"})
 		})
 	})
 

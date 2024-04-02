@@ -64,9 +64,6 @@ func imageFrom(layers []v1.Layer, configFile *v1.ConfigFile, requestedTypes imgu
 	retImage = mutate.ConfigMediaType(retImage, configType)
 	// (3) set layers with the right media type
 	additions := layersAddendum(layers, beforeHistory, requestedTypes.LayerType())
-	if err != nil {
-		return nil, err
-	}
 	retImage, err = mutate.Append(retImage, additions...)
 	if err != nil {
 		return nil, err

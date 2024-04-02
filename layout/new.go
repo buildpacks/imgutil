@@ -2,11 +2,61 @@ package layout
 
 import (
 	"fmt"
+	"path/filepath"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/layout"
+	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
+	"github.com/buildpacks/imgutil/index"
 )
+
+// NewIndex will return a local OCI ImageIndex that can be modified and saved to a registry
+func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err error) {
+	var idxOps = &index.Options{}
+	ops = append(ops, index.WithRepoName(repoName))
+
+	for _, op := range ops {
+		err = op(idxOps)
+		if err != nil {
+			return idx, err
+		}
+	}
+
+	path, err := layout.FromPath(filepath.Join(idxOps.XDGRuntimePath(), idxOps.RepoName()))
+	if err != nil {
+		return idx, err
+	}
+
+	imgIdx, err := path.ImageIndex()
+	if err != nil {
+		return idx, err
+	}
+
+	mfest, err := imgIdx.IndexManifest()
+	if err != nil {
+		return idx, err
+	}
+
+	if mfest == nil {
+		return idx, imgutil.ErrManifestUndefined
+	}
+
+	if mfest.MediaType != types.OCIImageIndex {
+		return nil, errors.New("no oci image index found")
+	}
+
+	idxOptions := imgutil.IndexOptions{
+		KeyChain:         idxOps.Keychain(),
+		XdgPath:          idxOps.XDGRuntimePath(),
+		Reponame:         idxOps.RepoName(),
+		InsecureRegistry: idxOps.Insecure(),
+	}
+
+	return imgutil.NewManifestHandler(imgIdx, idxOptions), nil
+}
 
 func NewImage(path string, ops ...ImageOption) (*Image, error) {
 	options := &imgutil.ImageOptions{}
@@ -58,12 +108,12 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 	}, nil
 }
 
-func processDefaultPlatformOption(requestedPlatform imgutil.Platform) imgutil.Platform {
-	var emptyPlatform imgutil.Platform
-	if requestedPlatform != emptyPlatform {
+func processDefaultPlatformOption(requestedPlatform v1.Platform) v1.Platform {
+	var emptyPlatform v1.Platform
+	if emptyPlatform.Satisfies(requestedPlatform) {
 		return requestedPlatform
 	}
-	return imgutil.Platform{
+	return v1.Platform{
 		OS:           "linux",
 		Architecture: "amd64",
 	}
@@ -72,7 +122,7 @@ func processDefaultPlatformOption(requestedPlatform imgutil.Platform) imgutil.Pl
 // newImageFromPath creates a layout image from the given path.
 // * If an image index for multiple platforms exists, it will try to select the image according to the platform provided.
 // * If the image does not exist, then nothing is returned.
-func newImageFromPath(path string, withPlatform imgutil.Platform) (v1.Image, error) {
+func newImageFromPath(path string, withPlatform v1.Platform) (v1.Image, error) {
 	if !imageExists(path) {
 		return nil, nil
 	}
@@ -94,7 +144,7 @@ func newImageFromPath(path string, withPlatform imgutil.Platform) (v1.Image, err
 
 // imageFromIndex creates a v1.Image from the given Image Index, selecting the image manifest
 // that matches the given OS and architecture.
-func imageFromIndex(index v1.ImageIndex, platform imgutil.Platform) (v1.Image, error) {
+func imageFromIndex(index v1.ImageIndex, platform v1.Platform) (v1.Image, error) {
 	manifestList, err := index.IndexManifest()
 	if err != nil {
 		return nil, err

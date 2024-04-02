@@ -17,6 +17,8 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/pkg/errors"
 
+	ggcrTypes "github.com/google/go-containerregistry/pkg/v1/types"
+
 	"github.com/buildpacks/imgutil"
 )
 
@@ -148,6 +150,22 @@ func (i *Image) OSVersion() (string, error) {
 	return i.inspect.OsVersion, nil
 }
 
+func (i *Image) Features() ([]string, error) {
+	return nil, errors.New("not yet implemented")
+}
+
+func (i *Image) OSFeatures() ([]string, error) {
+	return nil, errors.New("not yet implemented")
+}
+
+func (i *Image) URLs() ([]string, error) {
+	return nil, errors.New("not yet implemented")
+}
+
+func (i *Image) Annotations() (map[string]string, error) {
+	return nil, errors.New("not yet implemented")
+}
+
 func (i *Image) TopLayer() (string, error) {
 	all := i.inspect.RootFS.Layers
 
@@ -194,6 +212,14 @@ func (i *Image) SetCmd(cmd ...string) error {
 func (i *Image) SetEntrypoint(ep ...string) error {
 	i.inspect.Config.Entrypoint = ep
 	return nil
+}
+
+func (i *Image) Digest() (v1.Hash, error) {
+	return v1.NewHash(i.inspect.ID)
+}
+
+func (i *Image) MediaType() (ggcrTypes.MediaType, error) {
+	return ggcrTypes.DockerManifestSchema2, nil
 }
 
 func (i *Image) SetEnv(key, val string) error {
@@ -244,6 +270,22 @@ func (i *Image) SetOSVersion(osVersion string) error {
 func (i *Image) SetVariant(v string) error {
 	i.inspect.Variant = v
 	return nil
+}
+
+func (i *Image) SetFeatures(features []string) error {
+	return errors.New("not yet implemented")
+}
+
+func (i *Image) SetOSFeatures(osFeatures []string) error {
+	return errors.New("not yet implemented")
+}
+
+func (i *Image) SetURLs(urls []string) error {
+	return errors.New("not yet implemented")
+}
+
+func (i *Image) SetAnnotations(annotations map[string]string) error {
+	return errors.New("not yet implemented")
 }
 
 func (i *Image) SetWorkingDir(dir string) error {

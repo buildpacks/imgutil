@@ -113,7 +113,7 @@ func (t MediaTypes) LayerType() types.MediaType {
 	}
 }
 
-func emptyV1(withPlatform Platform, withMediaTypes MediaTypes) (v1.Image, error) {
+func emptyV1(withPlatform v1.Platform, withMediaTypes MediaTypes) (v1.Image, error) {
 	configFile := &v1.ConfigFile{
 		Architecture: withPlatform.Architecture,
 		History:      []v1.History{},
@@ -194,9 +194,6 @@ func EnsureMediaTypesAndLayers(image v1.Image, requestedTypes MediaTypes, mutate
 
 	// (4) set layers with the right media type
 	additions := layersAddendum(layersToAdd, beforeHistory, requestedTypes.LayerType())
-	if err != nil {
-		return nil, false, err
-	}
 	retImage, err = mutate.Append(retImage, additions...)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to append layers: %w", err)
@@ -290,4 +287,35 @@ func prepareNewWindowsImageIfNeeded(image *CNBImageCore) error {
 		return fmt.Errorf("adding base layer to image: %w", err)
 	}
 	return nil
+}
+
+func NewManifestHandler(ii v1.ImageIndex, ops IndexOptions) *ManifestHandler {
+	return &ManifestHandler{
+		ImageIndex:       ii,
+		Options:          ops,
+		Annotate:         NewAnnotate(),
+		RemovedManifests: make([]v1.Hash, 0),
+		Images:           make(map[v1.Hash]v1.Descriptor),
+	}
+}
+
+func NewAnnotate() Annotate {
+	return Annotate{
+		Instance: make(map[v1.Hash]v1.Descriptor),
+	}
+}
+
+func NewEmptyDockerIndex() v1.ImageIndex {
+	idx := empty.Index
+	return mutate.IndexMediaType(idx, types.DockerManifestList)
+}
+
+func NewStringSet() *StringSet {
+	return &StringSet{items: make(map[string]bool)}
+}
+
+func NewTaggableIndex(mfest *v1.IndexManifest) *TaggableIndex {
+	return &TaggableIndex{
+		IndexManifest: mfest,
+	}
 }

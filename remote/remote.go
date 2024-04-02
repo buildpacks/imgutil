@@ -24,16 +24,19 @@ import (
 const maxRetries = 2
 
 type Image struct {
-	keychain            authn.Keychain
-	repoName            string
-	image               v1.Image
-	prevLayers          []v1.Layer
-	prevHistory         []v1.History
-	createdAt           time.Time
-	addEmptyLayerOnSave bool
-	withHistory         bool
-	registrySettings    map[string]registrySetting
-	requestedMediaTypes imgutil.MediaTypes
+	keychain                     authn.Keychain
+	repoName                     string
+	image                        v1.Image
+	prevLayers                   []v1.Layer
+	prevHistory                  []v1.History
+	createdAt                    time.Time
+	addEmptyLayerOnSave          bool
+	withHistory                  bool
+	registrySettings             map[string]registrySetting
+	requestedMediaTypes          imgutil.MediaTypes
+	os, arch, variant, osVersion string
+	features, osFeatures, urls   []string
+	annotations                  map[string]string
 }
 
 type registrySetting struct {
@@ -43,6 +46,10 @@ type registrySetting struct {
 // getters
 
 func (i *Image) Architecture() (string, error) {
+	if i.arch != "" {
+		return i.arch, nil
+	}
+
 	cfg, err := i.image.ConfigFile()
 	if err != nil {
 		return "", errors.Wrapf(err, "getting config file for image %q", i.repoName)
@@ -104,7 +111,7 @@ func (i *Image) found() (*v1.Descriptor, error) {
 	if err != nil {
 		return nil, err
 	}
-	return remote.Head(ref, remote.WithAuth(auth), remote.WithTransport(getTransport(reg.insecure)))
+	return remote.Head(ref, remote.WithAuth(auth), remote.WithTransport(imgutil.GetTransport(reg.insecure)))
 }
 
 func (i *Image) Valid() bool {
@@ -117,7 +124,7 @@ func (i *Image) valid() error {
 	if err != nil {
 		return err
 	}
-	desc, err := remote.Get(ref, remote.WithAuth(auth), remote.WithTransport(getTransport(reg.insecure)))
+	desc, err := remote.Get(ref, remote.WithAuth(auth), remote.WithTransport(imgutil.GetTransport(reg.insecure)))
 	if err != nil {
 		return err
 	}
@@ -220,6 +227,10 @@ func (i *Image) Name() string {
 }
 
 func (i *Image) OS() (string, error) {
+	if i.os != "" {
+		return i.os, nil
+	}
+
 	cfg, err := i.image.ConfigFile()
 	if err != nil {
 		return "", errors.Wrapf(err, "getting config file for image %q", i.repoName)
@@ -234,6 +245,10 @@ func (i *Image) OS() (string, error) {
 }
 
 func (i *Image) OSVersion() (string, error) {
+	if i.osVersion != "" {
+		return i.osVersion, nil
+	}
+
 	cfg, err := i.image.ConfigFile()
 	if err != nil {
 		return "", errors.Wrapf(err, "getting config file for image %q", i.repoName)
@@ -242,6 +257,113 @@ func (i *Image) OSVersion() (string, error) {
 		return "", fmt.Errorf("missing config for image %q", i.repoName)
 	}
 	return cfg.OSVersion, nil
+}
+
+func (i *Image) Features() (features []string, err error) {
+	if len(i.features) != 0 {
+		return i.features, nil
+	}
+
+	mfest, err := i.image.Manifest()
+	if err != nil {
+		return features, errors.Wrapf(err, "getting image manifest for image %q", i.repoName)
+	}
+	if mfest == nil {
+		return features, fmt.Errorf("missing manifest for image %q", i.repoName)
+	}
+
+	p := mfest.Config.Platform
+	if p == nil {
+		p = &v1.Platform{}
+	}
+
+	subject := mfest.Subject
+	if subject == nil {
+		subject = &v1.Descriptor{}
+	}
+
+	subjectPlatform := subject.Platform
+	if subjectPlatform == nil {
+		subjectPlatform = &v1.Platform{}
+	}
+
+	switch {
+	case len(p.Features) != 0:
+		return p.Features, nil
+	case len(subjectPlatform.Features) != 0:
+		return subjectPlatform.Features, nil
+	default:
+		return features, imgutil.ErrFeaturesUndefined(i.requestedMediaTypes.ManifestType(), i.repoName)
+	}
+}
+
+func (i *Image) OSFeatures() (osFeatures []string, err error) {
+	if len(i.osFeatures) != 0 {
+		return i.osFeatures, nil
+	}
+
+	cfg, err := i.image.ConfigFile()
+	if err != nil {
+		return osFeatures, errors.Wrapf(err, "getting config file for image %q", i.repoName)
+	}
+	if cfg == nil {
+		return osFeatures, fmt.Errorf("missing config for image %q", i.repoName)
+	}
+	if len(cfg.OSFeatures) < 1 {
+		return osFeatures, imgutil.ErrFeaturesUndefined(i.requestedMediaTypes.ManifestType(), i.repoName)
+	}
+
+	return cfg.OSFeatures, nil
+}
+
+func (i *Image) URLs() (urls []string, err error) {
+	if len(i.urls) != 0 {
+		return i.urls, nil
+	}
+
+	mfest, err := i.image.Manifest()
+	if err != nil {
+		return urls, err
+	}
+
+	if mfest == nil {
+		return urls, imgutil.ErrManifestUndefined
+	}
+
+	subject := mfest.Subject
+	if subject == nil {
+		subject = &v1.Descriptor{}
+	}
+
+	switch {
+	case len(mfest.Config.URLs) != 0:
+		return mfest.Config.URLs, nil
+	case len(subject.URLs) != 0:
+		return subject.URLs, nil
+	default:
+		return urls, imgutil.ErrURLsUndefined(i.requestedMediaTypes.ManifestType(), i.repoName)
+	}
+}
+
+func (i *Image) Annotations() (annos map[string]string, err error) {
+	if len(i.annotations) != 0 {
+		return i.annotations, nil
+	}
+
+	mfest, err := i.image.Manifest()
+	if err != nil {
+		return annos, err
+	}
+
+	if mfest == nil {
+		return annos, imgutil.ErrManifestUndefined
+	}
+
+	if len(mfest.Annotations) < 1 {
+		return annos, imgutil.ErrAnnotationsUndefined(i.requestedMediaTypes.ManifestType(), i.repoName)
+	}
+
+	return mfest.Annotations, nil
 }
 
 func (i *Image) TopLayer() (string, error) {
@@ -261,6 +383,10 @@ func (i *Image) TopLayer() (string, error) {
 }
 
 func (i *Image) Variant() (string, error) {
+	if i.variant != "" {
+		return i.variant, nil
+	}
+
 	cfg, err := i.image.ConfigFile()
 	if err != nil {
 		return "", errors.Wrapf(err, "getting config file for image %q", i.repoName)
@@ -294,6 +420,7 @@ func (i *Image) Rename(name string) {
 }
 
 func (i *Image) SetArchitecture(architecture string) error {
+	i.arch = architecture
 	configFile, err := i.image.ConfigFile()
 	if err != nil {
 		return err
@@ -376,6 +503,7 @@ func (i *Image) SetLabel(key, val string) error {
 }
 
 func (i *Image) SetOS(osVal string) error {
+	i.os = osVal
 	configFile, err := i.image.ConfigFile()
 	if err != nil {
 		return err
@@ -386,6 +514,7 @@ func (i *Image) SetOS(osVal string) error {
 }
 
 func (i *Image) SetOSVersion(osVersion string) error {
+	i.osVersion = osVersion
 	configFile, err := i.image.ConfigFile()
 	if err != nil {
 		return err
@@ -396,6 +525,7 @@ func (i *Image) SetOSVersion(osVersion string) error {
 }
 
 func (i *Image) SetVariant(variant string) error {
+	i.variant = variant
 	configFile, err := i.image.ConfigFile()
 	if err != nil {
 		return err
@@ -403,6 +533,51 @@ func (i *Image) SetVariant(variant string) error {
 	configFile.Variant = variant
 	i.image, err = mutate.ConfigFile(i.image, configFile)
 	return err
+}
+
+func (i *Image) SetOSFeatures(osFeatures []string) error {
+	i.osFeatures = append(i.osFeatures, osFeatures...)
+	configFile, err := i.image.ConfigFile()
+	if err != nil {
+		return err
+	}
+
+	if configFile == nil {
+		return imgutil.ErrConfigFileUndefined
+	}
+
+	configFile.OSFeatures = osFeatures
+	i.image, err = mutate.ConfigFile(i.image, configFile)
+	return err
+}
+
+func (i *Image) SetFeatures(features []string) error {
+	i.features = append(i.features, features...)
+	return nil
+}
+
+func (i *Image) SetURLs(urls []string) error {
+	i.urls = append(i.urls, urls...)
+	return nil
+}
+
+func (i *Image) SetAnnotations(annos map[string]string) error {
+	if len(i.annotations) == 0 {
+		i.annotations = make(map[string]string)
+	}
+
+	for k, v := range annos {
+		i.annotations[k] = v
+	}
+	return nil
+}
+
+func (i *Image) Digest() (v1.Hash, error) {
+	return i.image.Digest()
+}
+
+func (i *Image) MediaType() (types.MediaType, error) {
+	return i.image.MediaType()
 }
 
 func (i *Image) SetWorkingDir(dir string) error {
@@ -458,7 +633,7 @@ func (i *Image) Delete() error {
 	if err != nil {
 		return err
 	}
-	return remote.Delete(ref, remote.WithAuth(auth), remote.WithTransport(getTransport(reg.insecure)))
+	return remote.Delete(ref, remote.WithAuth(auth), remote.WithTransport(imgutil.GetTransport(reg.insecure)))
 }
 
 func (i *Image) Rebase(baseTopLayer string, newBase imgutil.Image) error {

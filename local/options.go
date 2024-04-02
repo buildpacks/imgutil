@@ -4,14 +4,13 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
-
-	"github.com/buildpacks/imgutil"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 )
 
 type ImageOption func(*options) error
 
 type options struct {
-	platform          imgutil.Platform
+	platform          v1.Platform
 	baseImageRepoName string
 	prevImageRepoName string
 	withHistory       bool
@@ -46,7 +45,7 @@ func WithConfig(config *container.Config) ImageOption {
 
 // WithDefaultPlatform provides Architecture/OS/OSVersion defaults for the new image.
 // Defaults for a new image are ignored when FromBaseImage returns an image.
-func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
+func WithDefaultPlatform(platform v1.Platform) ImageOption {
 	return func(i *options) error {
 		i.platform = platform
 		return nil
