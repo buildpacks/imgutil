@@ -40,16 +40,8 @@ func (i *Image) Found() bool {
 
 func (i *Image) Identifier() (imgutil.Identifier, error) {
 	return IDIdentifier{
-		id: strings.TrimPrefix(i.lastIdentifier, "sha256:"),
+		ImageID: strings.TrimPrefix(i.lastIdentifier, "sha256:"),
 	}, nil
-}
-
-type IDIdentifier struct {
-	id string
-}
-
-func (i IDIdentifier) String() string {
-	return i.id
 }
 
 // GetLayer returns an io.ReadCloser with uncompressed layer data.
