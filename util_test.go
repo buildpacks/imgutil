@@ -178,6 +178,7 @@ func testUtils(t *testing.T, when spec.G, it spec.S) {
 			for _, item := range items {
 				stringSet.Add(item)
 			}
+			h.AssertEq(t, len(stringSet.StringSlice()), 3)
 			h.AssertContains(t, stringSet.StringSlice(), items...)
 		})
 		it("should not support duplicates", func() {
@@ -188,8 +189,8 @@ func testUtils(t *testing.T, when spec.G, it spec.S) {
 			for _, item := range items {
 				stringSet.Add(item)
 			}
-
-			h.AssertEq(t, stringSet.StringSlice(), []string{item1, item2})
+			h.AssertEq(t, len(stringSet.StringSlice()), 2)
+			h.AssertContains(t, stringSet.StringSlice(), []string{item1, item2}...)
 		})
 	})
 	when("Annotate", func() {
