@@ -29,6 +29,7 @@ const (
 	readOnlyImage     = "image-readable"
 	writeOnlyImage    = "image-writable"
 	inaccessibleImage = "image-inaccessible"
+	someSHA           = "sha256:aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f"
 )
 
 func newTestImageName(providedPrefix ...string) string {
@@ -1523,9 +1524,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				img.Rename(repoName)
 
-				err = img.ReuseLayer("some-bad-sha")
+				err = img.ReuseLayer(someSHA)
 
-				h.AssertError(t, err, `previous image did not have layer with diff id "some-bad-sha"`)
+				h.AssertError(t, err, fmt.Sprintf("failed to find diffID %s in config file", someSHA))
 			})
 
 			when("there is history", func() {

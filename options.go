@@ -13,11 +13,25 @@ type ImageOptions struct {
 	CreatedAt             time.Time
 	MediaTypes            MediaTypes
 	Platform              Platform
-	PreserveDigest        bool
 	PreserveHistory       bool
-	WithoutLayers         bool // only relevant for layout images
+	LayoutOptions
+	RemoteOptions
 
-	// These options are specified in each implementation's image constructor
+	// These options must be specified in each implementation's image constructor
 	BaseImage     v1.Image
 	PreviousImage v1.Image
+}
+
+type LayoutOptions struct {
+	PreserveDigest bool
+	WithoutLayers  bool
+}
+
+type RemoteOptions struct {
+	RegistrySettings    map[string]RegistrySetting
+	AddEmptyLayerOnSave bool
+}
+
+type RegistrySetting struct {
+	Insecure bool
 }

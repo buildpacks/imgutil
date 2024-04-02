@@ -8,132 +8,83 @@ import (
 	"github.com/buildpacks/imgutil"
 )
 
-type ImageOption func(*options) error
-
-type options struct {
-	platform            imgutil.Platform
-	baseImageRepoName   string
-	prevImageRepoName   string
-	createdAt           time.Time
-	addEmptyLayerOnSave bool
-	withHistory         bool
-	registrySettings    map[string]registrySetting
-	mediaTypes          imgutil.MediaTypes
-	config              *v1.Config
-}
-
-// AddEmptyLayerOnSave (remote only) adds an empty layer before saving if the image has no layer at all.
+// AddEmptyLayerOnSave adds an empty layer before saving if the image has no layers at all.
 // This option is useful when exporting to registries that do not allow saving an image without layers,
-// for example: gcr.io
-func AddEmptyLayerOnSave() ImageOption {
-	return func(opts *options) error {
-		opts.addEmptyLayerOnSave = true
-		return nil
+// for example: gcr.io.
+func AddEmptyLayerOnSave() func(*imgutil.ImageOptions) {
+	return func(o *imgutil.ImageOptions) {
+		o.AddEmptyLayerOnSave = true
 	}
 }
 
-// FromBaseImage loads an existing image as the config and layers for the new image.
-// Ignored if image is not found.
-func FromBaseImage(imageName string) ImageOption {
-	return func(opts *options) error {
-		opts.baseImageRepoName = imageName
-		return nil
+// FromBaseImage loads the provided image as the manifest, config, and layers for the working image.
+// If the image is not found, it does nothing.
+func FromBaseImage(name string) func(*imgutil.ImageOptions) {
+	return func(o *imgutil.ImageOptions) {
+		o.BaseImageRepoName = name
 	}
 }
 
-// WithCreatedAt lets a caller set the created at timestamp for the image.
-// Defaults for a new image is imgutil.NormalizedDateTime
-func WithCreatedAt(createdAt time.Time) ImageOption {
-	return func(opts *options) error {
-		opts.createdAt = createdAt
-		return nil
+// WithConfig lets a caller provided a `config` object for the working image.
+func WithConfig(c *v1.Config) func(*imgutil.ImageOptions) {
+	return func(o *imgutil.ImageOptions) {
+		o.Config = c
 	}
 }
 
-func WithConfig(config *v1.Config) ImageOption {
-	return func(opts *options) error {
-		opts.config = config
-		return nil
+// WithCreatedAt lets a caller set the "created at" timestamp for the working image when saved.
+// If not provided, the default is imgutil.NormalizedDateTime.
+func WithCreatedAt(t time.Time) func(*imgutil.ImageOptions) {
+	return func(o *imgutil.ImageOptions) {
+		o.CreatedAt = t
 	}
 }
 
-// WithDefaultPlatform provides Architecture/OS/OSVersion defaults for the new image.
-// Defaults for a new image are ignored when FromBaseImage returns an image.
-// FromBaseImage and WithPreviousImage will use the platform to choose an image from a manifest list.
-func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
-	return func(opts *options) error {
-		opts.platform = platform
-		return nil
+// WithDefaultPlatform provides the default Architecture/OS/OSVersion if no base image is provided,
+// or if the provided image inputs (base and previous) are manifest lists.
+func WithDefaultPlatform(p imgutil.Platform) func(*imgutil.ImageOptions) {
+	return func(o *imgutil.ImageOptions) {
+		o.Platform = p
 	}
 }
 
 // WithHistory if provided will configure the image to preserve history when saved
 // (including any history from the base image if valid).
-func WithHistory() ImageOption {
-	return func(opts *options) error {
-		opts.withHistory = true
-		return nil
+func WithHistory() func(*imgutil.ImageOptions) {
+	return func(o *imgutil.ImageOptions) {
+		o.PreserveHistory = true
 	}
 }
 
-// WithMediaTypes lets a caller set the desired media types for the image manifest and config files,
-// including the layers referenced in the manifest, to be either OCI media types or Docker media types.
-func WithMediaTypes(requested imgutil.MediaTypes) ImageOption {
-	return func(i *options) error {
-		i.mediaTypes = requested
-		return nil
+// WithMediaTypes lets a caller set the desired media types for the manifest and config (including layers referenced in the manifest)
+// to be either OCI media types or Docker media types.
+func WithMediaTypes(m imgutil.MediaTypes) func(*imgutil.ImageOptions) {
+	return func(o *imgutil.ImageOptions) {
+		o.MediaTypes = m
 	}
 }
 
-// WithPreviousImage loads an existing image as a source for reusable layers.
+// WithPreviousImage loads an existing image as the source for reusable layers.
 // Use with ReuseLayer().
-// Ignored if image is not found.
-func WithPreviousImage(imageName string) ImageOption {
-	return func(opts *options) error {
-		opts.prevImageRepoName = imageName
-		return nil
+// If the image is not found, it does nothing.
+func WithPreviousImage(name string) func(*imgutil.ImageOptions) {
+	return func(o *imgutil.ImageOptions) {
+		o.PreviousImageRepoName = name
 	}
 }
 
-// WithRegistrySetting (remote only) registers options to use when accessing images in a registry in order to construct
-// the image. The referenced images could include the base image, a previous image, or the image itself.
-// insecure parameter allows image references to be fetched without TLS.
-func WithRegistrySetting(repository string, insecure bool) ImageOption {
-	return func(opts *options) error {
-		if len(opts.registrySettings) == 0 {
-			opts.registrySettings = make(map[string]registrySetting)
+// WithRegistrySetting (remote only) registers options to use
+// when accessing images in a registry
+// in order to construct the image.
+// The referenced images could include the base image, a previous image, or the image itself.
+// The insecure parameter allows image references to be fetched without TLS.
+func WithRegistrySetting(repository string, insecure bool) func(*imgutil.ImageOptions) {
+	return func(o *imgutil.ImageOptions) {
+		if o.RegistrySettings == nil {
+			o.RegistrySettings = make(map[string]imgutil.RegistrySetting)
 		}
-
-		opts.registrySettings[repository] = registrySetting{
-			insecure: insecure,
+		o.RegistrySettings[repository] = imgutil.RegistrySetting{
+			Insecure: insecure,
 		}
-
-		return nil
-	}
-}
-
-// v1Options is used to configure the behavior when a v1.Image is created
-type v1Options struct {
-	platform        imgutil.Platform
-	registrySetting registrySetting
-}
-
-type V1ImageOption func(*v1Options) error
-
-// WithV1DefaultPlatform provides Architecture/OS/OSVersion defaults for the new v1.Image.
-func WithV1DefaultPlatform(platform imgutil.Platform) V1ImageOption {
-	return func(opts *v1Options) error {
-		opts.platform = platform
-		return nil
-	}
-}
-
-// WithV1RegistrySetting registers options to use when accessing images in a registry in order to construct a v1.Image.
-func WithV1RegistrySetting(insecure bool) V1ImageOption {
-	return func(opts *v1Options) error {
-		opts.registrySetting = registrySetting{
-			insecure: insecure,
-		}
-		return nil
 	}
 }

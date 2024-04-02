@@ -108,12 +108,12 @@ func processImageOption(repoName string, dockerClient DockerClient, downloadLaye
 		return imageResult{}, nil
 	}
 	layerStore := NewStore(dockerClient)
-	image, err := newV1ImageFacadeFromInspect(*inspect, history, layerStore, downloadLayersOnAccess)
+	v1Image, err := newV1ImageFacadeFromInspect(*inspect, history, layerStore, downloadLayersOnAccess)
 	if err != nil {
 		return imageResult{}, err
 	}
 	return imageResult{
-		image:      image,
+		image:      v1Image,
 		identifier: inspect.ID,
 		layerStore: layerStore,
 	}, nil
