@@ -1,4 +1,4 @@
-package locallayout
+package local
 
 import (
 	"archive/tar"
@@ -283,14 +283,14 @@ func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer) (string, error) {
 // in a future where we send OCI layout tars to the daemon we should be able to remove this method
 // and the need to track layers individually.
 func (s *Store) getLayerSize(layer v1.Layer) (int64, error) {
-	diffID, err := layer.DiffID()
-	if err != nil {
-		return 0, err
-	}
-	knownLayer, layerFound := s.onDiskLayersByDiffID[diffID]
-	if layerFound {
-		return knownLayer.uncompressedSize, nil
-	}
+	//diffID, err := layer.DiffID()
+	//if err != nil {
+	//	return 0, err
+	//}
+	//knownLayer, layerFound := s.onDiskLayersByDiffID[diffID]
+	//if layerFound {
+	//	return knownLayer.uncompressedSize, nil
+	//}
 	// If layer was not seen previously, we need to read it to get the uncompressed size
 	// In practice, we should not get here
 	layerReader, err := layer.Uncompressed()

@@ -1,4 +1,4 @@
-package locallayout
+package local
 
 import (
 	"bytes"

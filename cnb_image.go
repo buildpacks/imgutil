@@ -17,7 +17,7 @@ import (
 // Specific implementations may choose to override certain methods, and will need to supply the methods that are omitted,
 // such as Identifier() and Found().
 // The working image could be any v1.Image,
-// but in practice will start off as a pointer to a locallayout.v1ImageFacade (or similar).
+// but in practice will start off as a pointer to a local.v1ImageFacade (or similar).
 type CNBImageCore struct {
 	// required
 	v1.Image // the working image
