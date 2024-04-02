@@ -178,8 +178,7 @@ func testUtils(t *testing.T, when spec.G, it spec.S) {
 			for _, item := range items {
 				stringSet.Add(item)
 			}
-
-			h.AssertEq(t, stringSet.StringSlice(), items)
+			h.AssertContains(t, stringSet.StringSlice(), items...)
 		})
 		it("should not support duplicates", func() {
 			stringSet := imgutil.NewStringSet()

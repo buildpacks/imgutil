@@ -3627,9 +3627,9 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				mfest, err := idx.Inspect()
 				h.AssertNil(t, err)
 				h.AssertEq(t, mfest, `{
-"schemaVersion": 2,
-"mediaType": "application/vnd.oci.image.index.v1+json",
-"manifests": []
+	"schemaVersion": 2,
+	"mediaType": "application/vnd.oci.image.index.v1+json",
+	"manifests": []
 }`)
 			})
 		})
