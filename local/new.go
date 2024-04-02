@@ -21,31 +21,31 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...func(*imgutil.I
 	}
 
 	var err error
-	options.Platform, err = processDefaultPlatformOption(options.Platform, dockerClient)
+	options.Platform, err = processPlatformOption(options.Platform, dockerClient)
 	if err != nil {
 		return nil, err
 	}
 
-	processPrevious, err := processImageOption(options.PreviousImageRepoName, dockerClient, true)
+	previousImage, err := processImageOption(options.PreviousImageRepoName, dockerClient, true)
 	if err != nil {
 		return nil, err
 	}
-	if processPrevious.image != nil {
-		options.PreviousImage = processPrevious.image
+	if previousImage.image != nil {
+		options.PreviousImage = previousImage.image
 	}
 
 	var (
 		baseIdentifier string
 		store          *Store
 	)
-	processBase, err := processImageOption(options.BaseImageRepoName, dockerClient, false)
+	baseImage, err := processImageOption(options.BaseImageRepoName, dockerClient, false)
 	if err != nil {
 		return nil, err
 	}
-	if processBase.image != nil {
-		options.BaseImage = processBase.image
-		baseIdentifier = processBase.identifier
-		store = processBase.layerStore
+	if baseImage.image != nil {
+		options.BaseImage = baseImage.image
+		baseIdentifier = baseImage.identifier
+		store = baseImage.layerStore
 	} else {
 		store = NewStore(dockerClient)
 	}
@@ -64,7 +64,18 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...func(*imgutil.I
 	}, nil
 }
 
-func processDefaultPlatformOption(requestedPlatform imgutil.Platform, dockerClient DockerClient) (imgutil.Platform, error) {
+func defaultPlatform(dockerClient DockerClient) (imgutil.Platform, error) {
+	daemonInfo, err := dockerClient.ServerVersion(context.Background())
+	if err != nil {
+		return imgutil.Platform{}, err
+	}
+	return imgutil.Platform{
+		OS:           daemonInfo.Os,
+		Architecture: daemonInfo.Arch,
+	}, nil
+}
+
+func processPlatformOption(requestedPlatform imgutil.Platform, dockerClient DockerClient) (imgutil.Platform, error) {
 	dockerPlatform, err := defaultPlatform(dockerClient)
 	if err != nil {
 		return imgutil.Platform{}, err
@@ -77,17 +88,6 @@ func processDefaultPlatformOption(requestedPlatform imgutil.Platform, dockerClie
 			fmt.Errorf("invalid os: platform os %q must match the daemon os %q", requestedPlatform.OS, dockerPlatform.OS)
 	}
 	return requestedPlatform, nil
-}
-
-func defaultPlatform(dockerClient DockerClient) (imgutil.Platform, error) {
-	daemonInfo, err := dockerClient.ServerVersion(context.Background())
-	if err != nil {
-		return imgutil.Platform{}, err
-	}
-	return imgutil.Platform{
-		OS:           daemonInfo.Os,
-		Architecture: daemonInfo.Arch,
-	}, nil
 }
 
 type imageResult struct {
