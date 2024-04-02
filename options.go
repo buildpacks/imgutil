@@ -31,10 +31,10 @@ type IndexPushOption func(*PushOptions) error
 
 type AddOptions struct {
 	All                          bool
+	Local                        bool
 	OS, Arch, Variant, OSVersion string
 	Features, OSFeatures         []string
 	Annotations                  map[string]string
-	Local                        bool
 	Image                        EditableImage
 }
 

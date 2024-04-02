@@ -33,7 +33,6 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 		if annos, _ := i.Annotations(); len(annos) != 0 {
 			mfest.Annotations = annos
 			config.Annotations = annos
-
 		}
 
 		if urls, _ := i.URLs(); len(urls) != 0 {

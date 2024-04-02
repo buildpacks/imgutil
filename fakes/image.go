@@ -43,7 +43,7 @@ func NewImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
 	}
 }
 
-var ERRLayerNotFound = errors.New("layer with given diff id not found")
+var ErrLayerNotFound = errors.New("layer with given diff id not found")
 
 type Image struct {
 	deleted                    bool
@@ -138,13 +138,13 @@ func (i *Image) LayerByDiffID(hash v1.Hash) (v1.Layer, error) {
 		return nil, err
 	}
 
-	for _, diffId := range c.RootFS.DiffIDs {
-		if hash == diffId {
+	for _, diffID := range c.RootFS.DiffIDs {
+		if hash == diffID {
 			return Layer(1024, types.DockerLayer, WithHash(hash))
 		}
 	}
 
-	return nil, ERRLayerNotFound
+	return nil, ErrLayerNotFound
 }
 
 // LayerByDigest implements v1.Image.
@@ -155,7 +155,7 @@ func (i *Image) LayerByDigest(hash v1.Hash) (v1.Layer, error) {
 		}
 	}
 
-	return nil, ERRLayerNotFound
+	return nil, ErrLayerNotFound
 }
 
 // Layers implements v1.Image.

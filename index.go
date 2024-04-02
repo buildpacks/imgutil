@@ -1570,6 +1570,7 @@ func (h *ManifestHandler) getIndexManifest(digest name.Digest) (mfest *v1.IndexM
 	}
 
 	for _, desc := range mfest.Manifests {
+		desc := desc
 		if desc.Digest == hash {
 			return &v1.IndexManifest{
 				MediaType: desc.MediaType,

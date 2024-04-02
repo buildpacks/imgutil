@@ -458,7 +458,7 @@ func (i *Index) SetFeatures(digest name.Digest, features []string) error {
 		desc.Platform = &v1.Platform{}
 	}
 	platform := desc.Platform
-	platform.Features = append(desc.Platform.Features, features...)
+	platform.Features = append(platform.Features, features...)
 	desc.Platform = platform
 	i.Annotate[hash] = desc
 	return nil
@@ -484,7 +484,7 @@ func (i *Index) SetOSFeatures(digest name.Digest, osFeatures []string) error {
 		desc.Platform = &v1.Platform{}
 	}
 	platform := desc.Platform
-	platform.OSFeatures = append(desc.Platform.OSFeatures, osFeatures...)
+	platform.OSFeatures = append(platform.OSFeatures, osFeatures...)
 	desc.Platform = platform
 	i.Annotate[hash] = desc
 	return nil
