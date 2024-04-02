@@ -1607,7 +1607,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#ReuseLayer", func() {
 		var (
-			prevImage     imgutil.Image
+			prevImage     *local.Image
 			prevImageName = newTestImageName()
 			repoName      = newTestImageName()
 			prevLayer1SHA string
@@ -1774,7 +1774,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#ReuseLayerWithHistory", func() {
 		var (
-			prevImage     imgutil.Image
+			prevImage     *local.Image
 			prevImageName = newTestImageName()
 			repoName      = newTestImageName()
 			prevLayer1SHA string
