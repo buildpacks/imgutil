@@ -15,7 +15,7 @@ import (
 )
 
 func TestUtils(t *testing.T) {
-	spec.Run(t, "Utils", testUtils, spec.Sequential(), spec.Report(report.Terminal{}))
+	spec.Run(t, "Utils", testUtils, spec.Parallel(), spec.Report(report.Terminal{}))
 }
 
 type FakeIndentifier struct {

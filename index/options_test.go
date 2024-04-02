@@ -12,7 +12,7 @@ import (
 )
 
 func TestRemoteOptions(t *testing.T) {
-	spec.Run(t, "RemoteNew", testRemoteOptions, spec.Sequential(), spec.Report(report.Terminal{}))
+	spec.Run(t, "RemoteNew", testRemoteOptions, spec.Parallel(), spec.Report(report.Terminal{}))
 }
 
 func testRemoteOptions(t *testing.T, when spec.G, it spec.S) {

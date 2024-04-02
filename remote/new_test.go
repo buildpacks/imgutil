@@ -16,13 +16,26 @@ import (
 )
 
 func TestRemoteNew(t *testing.T) {
-	spec.Run(t, "RemoteNew", testRemoteNew, spec.Sequential(), spec.Report(report.Terminal{}))
+	spec.Run(t, "RemoteNew", testRemoteNew, spec.Parallel(), spec.Report(report.Terminal{}))
 }
 
 func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 	var (
-		xdgPath = "xdgPath"
+		xdgPath string
+		err     error
 	)
+
+	it.Before(func() {
+		// creates the directory to save all the OCI images on disk
+		xdgPath, err = os.MkdirTemp("", "image-indexes")
+		h.AssertNil(t, err)
+	})
+
+	it.After(func() {
+		err := os.RemoveAll(xdgPath)
+		h.AssertNil(t, err)
+	})
+
 	when("#NewIndex", func() {
 		it.After(func() {
 			err := os.RemoveAll(xdgPath)
