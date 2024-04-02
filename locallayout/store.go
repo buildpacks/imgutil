@@ -35,14 +35,6 @@ type Store struct {
 	onDiskLayersByDiffID map[v1.Hash]annotatedLayer
 }
 
-func NewStore(dockerClient DockerClient) *Store {
-	return &Store{
-		dockerClient:         dockerClient,
-		downloadOnce:         &sync.Once{},
-		onDiskLayersByDiffID: make(map[v1.Hash]annotatedLayer),
-	}
-}
-
 // DockerClient is subset of client.CommonAPIClient required by this package.
 type DockerClient interface {
 	ImageHistory(ctx context.Context, image string) ([]image.HistoryResponseItem, error)
@@ -53,6 +45,19 @@ type DockerClient interface {
 	ImageTag(ctx context.Context, image, ref string) error
 	Info(ctx context.Context) (types.Info, error)
 	ServerVersion(ctx context.Context) (types.Version, error)
+}
+
+type annotatedLayer struct {
+	layer            v1.Layer
+	uncompressedSize int64
+}
+
+func NewStore(dockerClient DockerClient) *Store {
+	return &Store{
+		dockerClient:         dockerClient,
+		downloadOnce:         &sync.Once{},
+		onDiskLayersByDiffID: make(map[v1.Hash]annotatedLayer),
+	}
 }
 
 // images
@@ -459,7 +464,7 @@ func (s *Store) doDownloadLayersFor(identifier string) error {
 		if err != nil {
 			return err
 		}
-		s.addLayer(layer, hash, fi.Size())
+		s.AddLayer(layer, hash, fi.Size())
 	}
 	return nil
 }
@@ -536,22 +541,17 @@ func (s *Store) LayerByDiffID(h v1.Hash) (v1.Layer, error) {
 	return layer, nil
 }
 
-type annotatedLayer struct {
-	layer            v1.Layer
-	uncompressedSize int64
-}
-
-func (s *Store) addLayer(layer v1.Layer, withHash v1.Hash, withSize int64) {
-	s.onDiskLayersByDiffID[withHash] = annotatedLayer{
-		layer:            layer,
-		uncompressedSize: withSize,
-	}
-}
-
 func (s *Store) findLayer(withHash v1.Hash) v1.Layer {
 	aLayer, layerFound := s.onDiskLayersByDiffID[withHash]
 	if !layerFound {
 		return nil
 	}
 	return aLayer.layer
+}
+
+func (s *Store) AddLayer(layer v1.Layer, withDiffID v1.Hash, withSize int64) {
+	s.onDiskLayersByDiffID[withDiffID] = annotatedLayer{
+		layer:            layer,
+		uncompressedSize: withSize,
+	}
 }

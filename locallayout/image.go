@@ -131,7 +131,7 @@ func (i *Image) addLayer(fromPath string) (v1.Layer, error) {
 	if err != nil {
 		return nil, err
 	}
-	i.store.addLayer(layer, diffID, fi.Size())
+	i.store.AddLayer(layer, diffID, fi.Size())
 	return layer, nil
 }
 
