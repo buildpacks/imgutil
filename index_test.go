@@ -3,6 +3,7 @@ package imgutil_test
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 
@@ -23,18 +24,27 @@ import (
 )
 
 func TestIndex(t *testing.T) {
-	spec.Run(t, "Index", testIndex, spec.Sequential(), spec.Report(report.Terminal{}))
+	spec.Run(t, "Index", testIndex, spec.Parallel(), spec.Report(report.Terminal{}))
 }
 
 func testIndex(t *testing.T, when spec.G, it spec.S) {
 	var (
-		xdgPath = "xdgPath"
+		xdgPath string
+		err     error
 	)
+
+	it.Before(func() {
+		// creates the directory to save all the OCI images on disk
+		xdgPath, err = os.MkdirTemp("", "image-indexes")
+		h.AssertNil(t, err)
+	})
+
+	it.After(func() {
+		err := os.RemoveAll(xdgPath)
+		h.AssertNil(t, err)
+	})
+
 	when("#ManifestHandler", func() {
-		it.After(func() {
-			err := os.RemoveAll(xdgPath)
-			h.AssertNil(t, err)
-		})
 		when("#OS", func() {
 			it("should return an error when invalid digest provided", func() {
 				digest := name.Digest{}
@@ -3716,7 +3726,8 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 
 				err = idx.Delete()
-				h.AssertEq(t, err.Error(), "stat xdgPath/busybox:1.36-musl: no such file or directory")
+				localPath := filepath.Join(xdgPath, "busybox:1.36-musl")
+				h.AssertEq(t, err.Error(), fmt.Sprintf("stat %s: no such file or directory", localPath))
 			})
 		})
 	})
