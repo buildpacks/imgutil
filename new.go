@@ -113,7 +113,7 @@ func (t MediaTypes) LayerType() types.MediaType {
 	}
 }
 
-func emptyV1(withPlatform v1.Platform, withMediaTypes MediaTypes) (v1.Image, error) {
+func emptyV1(withPlatform Platform, withMediaTypes MediaTypes) (v1.Image, error) {
 	configFile := &v1.ConfigFile{
 		Architecture: withPlatform.Architecture,
 		History:      []v1.History{},

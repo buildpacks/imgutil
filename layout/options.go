@@ -43,7 +43,7 @@ func WithConfig(c *v1.Config) func(*imgutil.ImageOptions) {
 
 // WithDefaultPlatform provides the default Architecture/OS/OSVersion if no base image is provided,
 // or if the provided image inputs (base and previous) are manifest lists.
-func WithDefaultPlatform(p v1.Platform) func(*imgutil.ImageOptions) {
+func WithDefaultPlatform(p imgutil.Platform) func(*imgutil.ImageOptions) {
 	return func(o *imgutil.ImageOptions) {
 		o.Platform = p
 	}

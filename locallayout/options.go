@@ -26,7 +26,7 @@ func WithCreatedAt(t time.Time) func(*imgutil.ImageOptions) {
 	}
 }
 
-func WithDefaultPlatform(p v1.Platform) func(*imgutil.ImageOptions) {
+func WithDefaultPlatform(p imgutil.Platform) func(*imgutil.ImageOptions) {
 	return func(o *imgutil.ImageOptions) {
 		o.Platform = p
 	}

@@ -11,7 +11,7 @@ import (
 type ImageOption func(*options) error
 
 type options struct {
-	platform            v1.Platform
+	platform            imgutil.Platform
 	baseImageRepoName   string
 	prevImageRepoName   string
 	createdAt           time.Time
@@ -60,9 +60,9 @@ func WithConfig(config *v1.Config) ImageOption {
 // WithDefaultPlatform provides Architecture/OS/OSVersion defaults for the new image.
 // Defaults for a new image are ignored when FromBaseImage returns an image.
 // FromBaseImage and WithPreviousImage will use the platform to choose an image from a manifest list.
-func WithDefaultPlatform(platform v1.Platform) ImageOption {
+func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	return func(opts *options) error {
-		platform.DeepCopyInto(&opts.platform)
+		opts.platform = platform
 		return nil
 	}
 }
@@ -114,14 +114,14 @@ func WithRegistrySetting(repository string, insecure bool) ImageOption {
 
 // v1Options is used to configure the behavior when a v1.Image is created
 type v1Options struct {
-	platform        v1.Platform
+	platform        imgutil.Platform
 	registrySetting registrySetting
 }
 
 type V1ImageOption func(*v1Options) error
 
 // WithV1DefaultPlatform provides Architecture/OS/OSVersion defaults for the new v1.Image.
-func WithV1DefaultPlatform(platform v1.Platform) V1ImageOption {
+func WithV1DefaultPlatform(platform imgutil.Platform) V1ImageOption {
 	return func(opts *v1Options) error {
 		opts.platform = platform
 		return nil

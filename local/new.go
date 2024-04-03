@@ -84,7 +84,7 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...ImageOption) (*
 		return nil, err
 	}
 
-	if !platform.Satisfies(imageOpts.platform) {
+	if (imageOpts.platform != imgutil.Platform{}) {
 		if err := validatePlatformOption(platform, imageOpts.platform); err != nil {
 			return nil, err
 		}
@@ -134,19 +134,19 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...ImageOption) (*
 	return image, nil
 }
 
-func defaultPlatform(dockerClient DockerClient) (v1.Platform, error) {
+func defaultPlatform(dockerClient DockerClient) (imgutil.Platform, error) {
 	versionInfo, err := dockerClient.ServerVersion(context.Background())
 	if err != nil {
-		return v1.Platform{}, err
+		return imgutil.Platform{}, err
 	}
 
-	return v1.Platform{
+	return imgutil.Platform{
 		OS:           versionInfo.Os,
 		Architecture: versionInfo.Arch,
 	}, nil
 }
 
-func validatePlatformOption(defaultPlatform v1.Platform, optionPlatform v1.Platform) error {
+func validatePlatformOption(defaultPlatform imgutil.Platform, optionPlatform imgutil.Platform) error {
 	if optionPlatform.OS != "" && optionPlatform.OS != defaultPlatform.OS {
 		return fmt.Errorf("invalid os: platform os %q must match the daemon os %q", optionPlatform.OS, defaultPlatform.OS)
 	}
@@ -154,17 +154,16 @@ func validatePlatformOption(defaultPlatform v1.Platform, optionPlatform v1.Platf
 	return nil
 }
 
-func defaultInspect(platform v1.Platform) types.ImageInspect {
+func defaultInspect(platform imgutil.Platform) types.ImageInspect {
 	return types.ImageInspect{
 		Os:           platform.OS,
 		Architecture: platform.Architecture,
 		OsVersion:    platform.OSVersion,
-		Variant:      platform.Variant,
 		Config:       &container.Config{},
 	}
 }
 
-func processPreviousImageOption(image *Image, prevImageRepoName string, platform v1.Platform, dockerClient DockerClient) error {
+func processPreviousImageOption(image *Image, prevImageRepoName string, platform imgutil.Platform, dockerClient DockerClient) error {
 	inspect, err := inspectOptionalImage(dockerClient, prevImageRepoName, platform)
 	if err != nil {
 		return err
@@ -191,7 +190,7 @@ func processPreviousImageOption(image *Image, prevImageRepoName string, platform
 	return nil
 }
 
-func inspectOptionalImage(docker DockerClient, imageName string, platform v1.Platform) (types.ImageInspect, error) {
+func inspectOptionalImage(docker DockerClient, imageName string, platform imgutil.Platform) (types.ImageInspect, error) {
 	var (
 		err     error
 		inspect types.ImageInspect
@@ -220,7 +219,7 @@ func historyOptionalImage(docker DockerClient, imageName string) ([]image.Histor
 	return history, nil
 }
 
-func processBaseImageOption(image *Image, baseImageRepoName string, platform v1.Platform, dockerClient DockerClient) error {
+func processBaseImageOption(image *Image, baseImageRepoName string, platform imgutil.Platform, dockerClient DockerClient) error {
 	inspect, err := inspectOptionalImage(dockerClient, baseImageRepoName, platform)
 	if err != nil {
 		return err
