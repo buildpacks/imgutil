@@ -65,30 +65,29 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...func(*imgutil.I
 	}, nil
 }
 
-func processDefaultPlatformOption(requestedPlatform v1.Platform, dockerClient DockerClient) (v1.Platform, error) {
+func processDefaultPlatformOption(requestedPlatform imgutil.Platform, dockerClient DockerClient) (imgutil.Platform, error) {
 	dockerPlatform, err := defaultPlatform(dockerClient)
 	if err != nil {
-		return v1.Platform{}, err
+		return imgutil.Platform{}, err
 	}
-	if dockerPlatform.Satisfies(requestedPlatform) {
+	if (requestedPlatform == imgutil.Platform{}) {
 		return dockerPlatform, nil
 	}
 	if requestedPlatform.OS != "" && requestedPlatform.OS != dockerPlatform.OS {
-		return v1.Platform{},
+		return imgutil.Platform{},
 			fmt.Errorf("invalid os: platform os %q must match the daemon os %q", requestedPlatform.OS, dockerPlatform.OS)
 	}
 	return requestedPlatform, nil
 }
 
-func defaultPlatform(dockerClient DockerClient) (v1.Platform, error) {
+func defaultPlatform(dockerClient DockerClient) (imgutil.Platform, error) {
 	daemonInfo, err := dockerClient.ServerVersion(context.Background())
 	if err != nil {
-		return v1.Platform{}, err
+		return imgutil.Platform{}, err
 	}
-	return v1.Platform{
+	return imgutil.Platform{
 		OS:           daemonInfo.Os,
 		Architecture: daemonInfo.Arch,
-		OSVersion:    daemonInfo.Version,
 	}, nil
 }
 

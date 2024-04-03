@@ -16,7 +16,7 @@ type ImageOptions struct {
 	Config                *v1.Config
 	CreatedAt             time.Time
 	MediaTypes            MediaTypes
-	Platform              v1.Platform
+	Platform              Platform
 	PreserveDigest        bool
 	PreserveHistory       bool
 	WithoutLayers         bool // only relevant for layout images

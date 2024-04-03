@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -37,6 +38,7 @@ type Image struct {
 	os, arch, variant, osVersion string
 	features, osFeatures, urls   []string
 	annotations                  map[string]string
+	mutex                        sync.Mutex
 }
 
 type registrySetting struct {

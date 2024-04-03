@@ -57,7 +57,7 @@ func testUtils(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, err)
 			h.AssertNotNil(t, exptConfig)
 
-			img, err := imgutil.MutateManifest(img, func(c *v1.Manifest) {
+			img, err := imgutil.MutateManifest(img, func(c *v1.Manifest) (mutateSubject, mutateAnnotations bool) {
 				c.Annotations = annotations
 				c.Config.URLs = urls
 				c.Config.Platform.OS = os
@@ -66,6 +66,7 @@ func testUtils(t *testing.T, when spec.G, it spec.S) {
 				c.Config.Platform.OSVersion = osVersion
 				c.Config.Platform.Features = features
 				c.Config.Platform.OSFeatures = osFeatures
+				return true, true
 			})
 
 			h.AssertNil(t, err)

@@ -108,12 +108,12 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 	}, nil
 }
 
-func processDefaultPlatformOption(requestedPlatform v1.Platform) v1.Platform {
-	var emptyPlatform v1.Platform
-	if emptyPlatform.Satisfies(requestedPlatform) {
+func processDefaultPlatformOption(requestedPlatform imgutil.Platform) imgutil.Platform {
+	var emptyPlatform imgutil.Platform
+	if requestedPlatform != emptyPlatform {
 		return requestedPlatform
 	}
-	return v1.Platform{
+	return imgutil.Platform{
 		OS:           "linux",
 		Architecture: "amd64",
 	}
@@ -122,7 +122,7 @@ func processDefaultPlatformOption(requestedPlatform v1.Platform) v1.Platform {
 // newImageFromPath creates a layout image from the given path.
 // * If an image index for multiple platforms exists, it will try to select the image according to the platform provided.
 // * If the image does not exist, then nothing is returned.
-func newImageFromPath(path string, withPlatform v1.Platform) (v1.Image, error) {
+func newImageFromPath(path string, withPlatform imgutil.Platform) (v1.Image, error) {
 	if !imageExists(path) {
 		return nil, nil
 	}
@@ -144,7 +144,7 @@ func newImageFromPath(path string, withPlatform v1.Platform) (v1.Image, error) {
 
 // imageFromIndex creates a v1.Image from the given Image Index, selecting the image manifest
 // that matches the given OS and architecture.
-func imageFromIndex(index v1.ImageIndex, platform v1.Platform) (v1.Image, error) {
+func imageFromIndex(index v1.ImageIndex, platform imgutil.Platform) (v1.Image, error) {
 	manifestList, err := index.IndexManifest()
 	if err != nil {
 		return nil, err

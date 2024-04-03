@@ -28,49 +28,26 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 		ops = append(ops, WithoutLayers())
 	}
 
-	i.Image, err = imgutil.MutateManifest(i, func(mfest *v1.Manifest) {
-		config := mfest.Config
-		if annos, _ := i.Annotations(); len(annos) != 0 {
-			mfest.Annotations = annos
-			config.Annotations = annos
-		}
+	if !i.preserveDigest {
+		i.Image, err = imgutil.MutateManifest(i.Image, func(mfest *v1.Manifest) (mutateSubject, mutateAnnotations bool) {
+			i.mutex.TryLock()
+			defer i.mutex.Unlock()
+			var (
+				os, _          = i.OS()
+				arch, _        = i.Architecture()
+				variant, _     = i.Variant()
+				osVersion, _   = i.OSVersion()
+				features, _    = i.Features()
+				osFeatures, _  = i.OSFeatures()
+				urls, _        = i.URLs()
+				annotations, _ = i.Annotations()
+			)
 
-		if urls, _ := i.URLs(); len(urls) != 0 {
-			config.URLs = append(config.URLs, urls...)
+			return imgutil.MutateManifestFn(mfest, os, arch, variant, osVersion, features, osFeatures, urls, annotations)
+		})
+		if err != nil {
+			return err
 		}
-
-		if config.Platform == nil {
-			config.Platform = &v1.Platform{}
-		}
-
-		if features, _ := i.Features(); len(features) != 0 {
-			config.Platform.Features = append(config.Platform.Features, features...)
-		}
-
-		if osFeatures, _ := i.OSFeatures(); len(osFeatures) != 0 {
-			config.Platform.OSFeatures = append(config.Platform.OSFeatures, osFeatures...)
-		}
-
-		if os, _ := i.OS(); os != "" {
-			config.Platform.OS = os
-		}
-
-		if arch, _ := i.Architecture(); arch != "" {
-			config.Platform.Architecture = arch
-		}
-
-		if variant, _ := i.Variant(); variant != "" {
-			config.Platform.Variant = variant
-		}
-
-		if osVersion, _ := i.OSVersion(); osVersion != "" {
-			config.Platform.OSVersion = osVersion
-		}
-
-		mfest.Config = config
-	})
-	if err != nil {
-		return err
 	}
 
 	var (

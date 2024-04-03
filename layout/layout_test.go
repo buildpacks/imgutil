@@ -70,7 +70,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				img, err := layout.NewImage(imagePath)
 				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
-
 				os, err := img.OS()
 				h.AssertNil(t, err)
 				h.AssertEq(t, os, "linux")
@@ -91,7 +90,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it("sets all platform required fields for windows", func() {
 				img, err := layout.NewImage(
 					imagePath,
-					layout.WithDefaultPlatform(v1.Platform{
+					layout.WithDefaultPlatform(imgutil.Platform{
 						Architecture: "arm",
 						OS:           "windows",
 						OSVersion:    "10.0.17763.316",
@@ -120,7 +119,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it("sets all platform required fields for linux", func() {
 				img, err := layout.NewImage(
 					imagePath,
-					layout.WithDefaultPlatform(v1.Platform{
+					layout.WithDefaultPlatform(imgutil.Platform{
 						Architecture: "arm",
 						OS:           "linux",
 					}),
@@ -1155,7 +1154,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#Platform", func() {
-		var platform v1.Platform
+		var platform imgutil.Platform
 		var image *layout.Image
 
 		it.Before(func() {
@@ -1163,7 +1162,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			image, err = layout.NewImage(imagePath)
 			h.AssertNil(t, err)
 
-			platform = v1.Platform{
+			platform = imgutil.Platform{
 				Architecture: "amd64",
 				OS:           "linux",
 				OSVersion:    "5678",
@@ -1222,9 +1221,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			image.Save()
 
 			_, configFile := h.ReadManifestAndConfigFile(t, imagePath)
-			h.AssertEq(t, configFile.OS, "linux")
-			h.AssertEq(t, configFile.Architecture, "amd64")
-			h.AssertEq(t, configFile.OSVersion, "5678")
+			h.AssertEq(t, configFile.OS, platform.OS)
+			h.AssertEq(t, configFile.Architecture, platform.Architecture)
+			h.AssertEq(t, configFile.OSVersion, platform.OSVersion)
 		})
 	})
 

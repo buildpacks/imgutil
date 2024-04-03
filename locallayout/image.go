@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 
@@ -18,6 +19,7 @@ type Image struct {
 	store          *Store
 	lastIdentifier string
 	daemonOS       string
+	mutex          sync.Mutex
 }
 
 func (i *Image) Kind() string {

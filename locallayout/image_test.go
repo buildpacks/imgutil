@@ -100,7 +100,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				img, err := local.NewImage(
 					newTestImageName(),
 					dockerClient,
-					local.WithDefaultPlatform(v1.Platform{
+					local.WithDefaultPlatform(imgutil.Platform{
 						Architecture: expectedArmArch,
 						OS:           daemonOS,
 						OSVersion:    expectedOSVersion,
@@ -270,7 +270,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							newTestImageName(),
 							dockerClient,
 							local.FromBaseImage(armBaseImageName),
-							local.WithDefaultPlatform(v1.Platform{
+							local.WithDefaultPlatform(imgutil.Platform{
 								Architecture: "not-an-arch",
 								OSVersion:    "10.0.99999.9999",
 							}),
@@ -295,7 +295,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							newTestImageName(),
 							dockerClient,
 							local.FromBaseImage("some-bad-repo-name"),
-							local.WithDefaultPlatform(v1.Platform{
+							local.WithDefaultPlatform(imgutil.Platform{
 								Architecture: "arm64",
 								OS:           daemonOS,
 								OSVersion:    "10.0.99999.9999",
@@ -369,7 +369,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						newTestImageName(),
 						dockerClient,
 						local.WithPreviousImage(armBaseImageName),
-						local.WithDefaultPlatform(v1.Platform{
+						local.WithDefaultPlatform(imgutil.Platform{
 							Architecture: "some-fake-os",
 						}),
 					)
