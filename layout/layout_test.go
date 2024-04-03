@@ -22,12 +22,12 @@ import (
 
 // FIXME: relevant tests in this file should be moved into new_test.go and save_test.go to mirror the implementation
 func TestLayout(t *testing.T) {
-	spec.Run(t, "Image", testImage, spec.Sequential(), spec.Report(report.Terminal{}))
+	spec.Run(t, "Image", testImage, spec.Parallel(), spec.Report(report.Terminal{}))
 }
 
 func testImage(t *testing.T, when spec.G, it spec.S) {
 	var (
-		testImage           v1.Image
+		remoteBaseImage     v1.Image
 		tmpDir              string
 		testDataDir         string
 		imagePath           string
@@ -38,10 +38,13 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 	it.Before(func() {
 		// creates a v1.Image from a remote repository
-		testImage = h.RemoteRunnableBaseImage(t)
+		remoteBaseImage = h.RemoteRunnableBaseImage(t)
 
 		// creates the directory to save all the OCI images on disk
-		tmpDir, err = os.MkdirTemp("", "layout")
+		tmpDir, err = os.MkdirTemp("", "layout-test-files")
+		h.AssertNil(t, err)
+
+		imagePath, err = os.MkdirTemp("", "layout-test-image")
 		h.AssertNil(t, err)
 
 		// global directory and paths
@@ -53,17 +56,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	it.After(func() {
 		// removes all images created
 		os.RemoveAll(tmpDir)
+		os.RemoveAll(imagePath)
 	})
 
 	when("#NewImage", func() {
-		it.Before(func() {
-			imagePath = filepath.Join(tmpDir, "new-image")
-		})
-
-		it.After(func() {
-			os.RemoveAll(imagePath)
-		})
-
 		when("no base image or platform is given", func() {
 			it("sets sensible defaults for all required fields", func() {
 				// os, architecture, and rootfs are required per https://github.com/opencontainers/image-spec/blob/master/config.md
@@ -146,13 +142,13 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				when("base image is provided", func() {
 					it.Before(func() {
 						var opts []remote.Option
-						testImage = h.RemoteImage(t, "arm64v8/busybox@sha256:50edf1d080946c6a76989d1c3b0e753b62f7d9b5f5e66e88bef23ebbd1e9709c", opts)
+						remoteBaseImage = h.RemoteImage(t, "arm64v8/busybox@sha256:50edf1d080946c6a76989d1c3b0e753b62f7d9b5f5e66e88bef23ebbd1e9709c", opts)
 					})
 
 					it("sets the initial state from a linux/arm base image", func() {
 						existingLayerSha := "sha256:5a0b973aa300cd2650869fd76d8546b361fcd6dfc77bd37b9d4f082cca9874e4"
 
-						img, err := layout.NewImage(imagePath, layout.FromBaseImage(testImage), layout.WithMediaTypes(imgutil.OCITypes))
+						img, err := layout.NewImage(imagePath, layout.FromBaseImage(remoteBaseImage), layout.WithMediaTypes(imgutil.OCITypes))
 						h.AssertNil(t, err)
 						h.AssertOCIMediaTypes(t, img)
 
@@ -308,14 +304,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it.Before(func() {
 				// value from testdata/layout/my-previous-image config.RootFS.DiffIDs
 				layerDiffID = "sha256:ebc931a4ab83b0c934f2436c975cca387bc1bcebd1a5ced12824ff7592f317ea"
-				imagePath = filepath.Join(tmpDir, "save-from-previous-image")
 				previousImagePath = filepath.Join(testDataDir, "my-previous-image")
 			})
 
 			when("previous image exists", func() {
 				when("previous image is not sparse", func() {
 					it.Before(func() {
-						imagePath = filepath.Join(tmpDir, "save-from-previous-image")
 						previousImagePath = filepath.Join(testDataDir, "my-previous-image")
 					})
 
@@ -330,7 +324,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				when("previous image is sparse", func() {
 					it.Before(func() {
-						imagePath = filepath.Join(tmpDir, "save-from-previous-sparse-image")
 						previousImagePath = filepath.Join(testDataDir, "my-previous-sparse-image")
 					})
 
@@ -361,13 +354,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		var image *layout.Image
 
 		it.Before(func() {
-			imagePath = filepath.Join(tmpDir, "working-dir-image")
 			image, err = layout.NewImage(imagePath)
 			h.AssertNil(t, err)
-		})
-
-		it.After(func() {
-			os.RemoveAll(imagePath)
 		})
 
 		it("working dir is saved on disk in OCI layout format", func() {
@@ -396,13 +384,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		var image *layout.Image
 
 		it.Before(func() {
-			imagePath = filepath.Join(tmpDir, "entry-point-image")
 			image, err = layout.NewImage(imagePath)
 			h.AssertNil(t, err)
-		})
-
-		it.After(func() {
-			os.RemoveAll(imagePath)
 		})
 
 		it("entrypoint added is saved on disk in OCI layout format", func() {
@@ -433,13 +416,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		var image *layout.Image
 
 		it.Before(func() {
-			imagePath = filepath.Join(tmpDir, "labels-image")
 			image, err = layout.NewImage(imagePath)
 			h.AssertNil(t, err)
-		})
-
-		it.After(func() {
-			os.RemoveAll(imagePath)
 		})
 
 		it("label added is saved on disk in OCI layout format", func() {
@@ -486,13 +464,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		var image *layout.Image
 
 		it.Before(func() {
-			imagePath = filepath.Join(tmpDir, "env-image")
 			image, err = layout.NewImage(imagePath)
 			h.AssertNil(t, err)
-		})
-
-		it.After(func() {
-			os.RemoveAll(imagePath)
 		})
 
 		it("environment variable added is saved on disk in OCI layout format", func() {
@@ -527,14 +500,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#CreatedAt", func() {
-		it.Before(func() {
-			imagePath = filepath.Join(tmpDir, "new-created-at-image")
-		})
-
-		it.After(func() {
-			os.RemoveAll(imagePath)
-		})
-
 		it("returns the containers created at time", func() {
 			img, err := layout.NewImage(imagePath, layout.FromBaseImagePath(fullBaseImagePath))
 			h.AssertNil(t, err)
@@ -549,14 +514,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#SetLabel", func() {
-		it.Before(func() {
-			imagePath = filepath.Join(tmpDir, "new-set-label-image")
-		})
-
-		it.After(func() {
-			os.RemoveAll(imagePath)
-		})
-
 		when("image exists", func() {
 			it("sets label on img object", func() {
 				img, err := layout.NewImage(imagePath)
@@ -592,19 +549,14 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#RemoveLabel", func() {
-		it.Before(func() {
-			imagePath = filepath.Join(tmpDir, "new-remove-label-image")
-		})
-
-		it.After(func() {
-			os.RemoveAll(imagePath)
-		})
-
 		when("image exists", func() {
-			var baseImageNamePath = filepath.Join(tmpDir, "my-base-image")
+			var baseImageNamePath string
 
 			it.Before(func() {
-				baseImage, err := layout.NewImage(baseImageNamePath, layout.FromBaseImage(testImage))
+				baseImageNamePath, err = os.MkdirTemp("", "layout-base-image")
+				h.AssertNil(t, err)
+
+				baseImage, err := layout.NewImage(baseImageNamePath, layout.FromBaseImage(remoteBaseImage))
 				h.AssertNil(t, err)
 				h.AssertNil(t, baseImage.SetLabel("custom.label", "new-val"))
 				h.AssertNil(t, baseImage.Save())
@@ -649,15 +601,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#SetCmd", func() {
 		var image *layout.Image
-
 		it.Before(func() {
-			imagePath = filepath.Join(tmpDir, "set-cmd-image")
 			image, err = layout.NewImage(imagePath)
 			h.AssertNil(t, err)
-		})
-
-		it.After(func() {
-			os.RemoveAll(imagePath)
 		})
 
 		it("CMD is added and saved on disk in OCI layout format", func() {
@@ -676,12 +622,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#TopLayer", func() {
-		it.Before(func() {
-			imagePath = filepath.Join(tmpDir, "top-layer-from-base-image-path")
-		})
-		it.After(func() {
-			os.RemoveAll(imagePath)
-		})
 		when("sparse image was saved on disk in OCI layout format", func() {
 			it("Top layer DiffID from base image", func() {
 				image, err := layout.NewImage(imagePath, layout.FromBaseImagePath(sparseBaseImagePath))
@@ -698,18 +638,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#Save", func() {
-		it.After(func() {
-			os.RemoveAll(imagePath)
-		})
-
 		when("#FromBaseImage with full image", func() {
-			it.Before(func() {
-				imagePath = filepath.Join(tmpDir, "save-from-base-image")
-			})
-
 			when("additional names are provided", func() {
 				it("creates an image and save it to both path provided", func() {
-					image, err := layout.NewImage(imagePath, layout.FromBaseImage(testImage))
+					image, err := layout.NewImage(imagePath, layout.FromBaseImage(remoteBaseImage))
 					h.AssertNil(t, err)
 
 					anotherPath := filepath.Join(tmpDir, "another-save-from-base-image")
@@ -731,7 +663,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			when("no additional names are provided", func() {
 				it("creates an image with all the layers from the underlying image", func() {
-					image, err := layout.NewImage(imagePath, layout.FromBaseImage(testImage))
+					image, err := layout.NewImage(imagePath, layout.FromBaseImage(remoteBaseImage))
 					h.AssertNil(t, err)
 
 					// save on disk in OCI
@@ -750,10 +682,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("#FromBaseImagePath", func() {
-			it.Before(func() {
-				imagePath = filepath.Join(tmpDir, "save-from-base-image-path")
-			})
-
 			when("full image was saved on disk in OCI layout format", func() {
 				when("a new layer was added", func() {
 					it("image is saved on disk with all the layers", func() {
@@ -839,17 +767,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			it.Before(func() {
 				// value from testdata/layout/my-previous-image config.RootFS.DiffIDs
 				prevImageLayerDiffID = "sha256:ebc931a4ab83b0c934f2436c975cca387bc1bcebd1a5ced12824ff7592f317ea"
-				imagePath = filepath.Join(tmpDir, "save-from-previous-image")
 				previousImagePath = filepath.Join(testDataDir, "my-previous-image")
-			})
-
-			it.After(func() {
-				os.RemoveAll(imagePath)
 			})
 
 			when("previous image is not sparse", func() {
 				it.Before(func() {
-					imagePath = filepath.Join(tmpDir, "save-from-previous-image")
 					previousImagePath = filepath.Join(testDataDir, "my-previous-image")
 				})
 
@@ -996,7 +918,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			when("previous image is sparse", func() {
 				it.Before(func() {
-					imagePath = filepath.Join(tmpDir, "save-from-previous-sparse-image")
 					previousImagePath = filepath.Join(testDataDir, "my-previous-sparse-image")
 				})
 
@@ -1030,19 +951,14 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		var image *layout.Image
 
 		it.Before(func() {
-			imagePath = filepath.Join(tmpDir, "found-image")
 			image, err = layout.NewImage(imagePath)
 			h.AssertNil(t, err)
 		})
 
-		it.After(func() {
-			os.RemoveAll(imagePath)
-		})
-
 		when("image doesn't exist on disk", func() {
 			it.Before(func() {
-				imagePath = filepath.Join(tmpDir, "non-exist-image")
-				image, err = layout.NewImage(imagePath)
+				localPath := filepath.Join(tmpDir, "non-exist-image")
+				image, err = layout.NewImage(localPath)
 				h.AssertNil(t, err)
 			})
 
@@ -1055,14 +971,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 		when("image exists on disk", func() {
 			it.Before(func() {
-				imagePath = filepath.Join(testDataDir, "my-previous-image")
-				image, err = layout.NewImage(imagePath)
+				localPath := filepath.Join(testDataDir, "my-previous-image")
+				image, err = layout.NewImage(localPath)
 				h.AssertNil(t, err)
-			})
-
-			it.After(func() {
-				// We don't want to delete testdata/my-previous-image
-				imagePath = ""
 			})
 
 			it("returns true", func() {
@@ -1077,19 +988,14 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		var image *layout.Image
 
 		it.Before(func() {
-			imagePath = filepath.Join(tmpDir, "found-image")
 			image, err = layout.NewImage(imagePath)
 			h.AssertNil(t, err)
 		})
 
-		it.After(func() {
-			os.RemoveAll(imagePath)
-		})
-
 		when("image doesn't exist on disk", func() {
 			it.Before(func() {
-				imagePath = filepath.Join(tmpDir, "non-exist-image")
-				image, err = layout.NewImage(imagePath)
+				localPath := filepath.Join(tmpDir, "non-exist-image")
+				image, err = layout.NewImage(localPath)
 				h.AssertNil(t, err)
 			})
 
@@ -1102,14 +1008,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 		when("image exists on disk", func() {
 			it.Before(func() {
-				imagePath = filepath.Join(testDataDir, "my-previous-image")
-				image, err = layout.NewImage(imagePath)
+				localPath := filepath.Join(testDataDir, "my-previous-image")
+				image, err = layout.NewImage(localPath)
 				h.AssertNil(t, err)
-			})
-
-			it.After(func() {
-				// We don't want to delete testdata/my-previous-image
-				imagePath = ""
 			})
 
 			it("returns true", func() {
@@ -1124,7 +1025,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		var image *layout.Image
 
 		it.Before(func() {
-			imagePath = filepath.Join(tmpDir, "delete-image")
 			image, err = layout.NewImage(imagePath)
 			h.AssertNil(t, err)
 
@@ -1136,10 +1036,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertTrue(t, func() bool {
 				return image.Found()
 			})
-		})
-
-		it.After(func() {
-			os.RemoveAll(imagePath)
 		})
 
 		it("images is deleted from disk", func() {
@@ -1158,7 +1054,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		var image *layout.Image
 
 		it.Before(func() {
-			imagePath = filepath.Join(tmpDir, "feature-image")
 			image, err = layout.NewImage(imagePath)
 			h.AssertNil(t, err)
 
@@ -1167,10 +1062,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				OS:           "linux",
 				OSVersion:    "5678",
 			}
-		})
-
-		it.After(func() {
-			os.RemoveAll(imagePath)
 		})
 
 		it("Platform values are saved on disk in OCI layout format", func() {
@@ -1228,13 +1119,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#GetLayer", func() {
-		it.Before(func() {
-			imagePath = filepath.Join(tmpDir, "get-layer-from-base-image-path")
-		})
-		it.After(func() {
-			os.RemoveAll(imagePath)
-		})
-
 		when("sparse image was saved on disk in OCI layout format", func() {
 			it("Get layer from sparse base image", func() {
 				image, err := layout.NewImage(imagePath, layout.FromBaseImagePath(sparseBaseImagePath))

@@ -16,7 +16,7 @@ import (
 )
 
 func TestImage(t *testing.T) {
-	spec.Run(t, "LayoutSparseImage", testImage, spec.Report(report.Terminal{}))
+	spec.Run(t, "LayoutSparseImage", testImage, spec.Parallel(), spec.Report(report.Terminal{}))
 }
 
 func testImage(t *testing.T, when spec.G, it spec.S) {
