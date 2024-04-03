@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -40,7 +41,7 @@ func newV1ImageFacadeFromInspect(dockerInspect types.ImageInspect, history []ima
 		OSVersion:     dockerInspect.OsVersion,
 		Variant:       dockerInspect.Variant,
 	}
-	layersToSet := newEmptyLayerListFrom(configFile, dockerInspect.ID, withStore, downloadLayersOnAccess)
+	layersToSet := newEmptyLayerListFrom(configFile, downloadLayersOnAccess, withStore, dockerInspect.ID)
 	return imageFrom(layersToSet, configFile, imgutil.DockerTypes)
 }
 
@@ -182,79 +183,114 @@ func toV1Config(dockerCfg *container.Config) v1.Config {
 var _ v1.Layer = &v1LayerFacade{}
 
 type v1LayerFacade struct {
-	diffID v1.Hash
-	store  *Store
-	// for downloading layers from the daemon as needed
-	downloadOnAccess bool
-	imageIdentifier  string
+	diffID       v1.Hash
+	uncompressed func() (io.ReadCloser, error)
+	size         func() (int64, error)
 }
 
-func newEmptyLayerListFrom(configFile *v1.ConfigFile, withImageIdentifier string, withStore *Store, downloadOnAccess bool) []v1.Layer {
+func newEmptyLayer(diffID v1.Hash, store *Store, imageID string) *v1LayerFacade {
+	return &v1LayerFacade{
+		diffID: diffID,
+		uncompressed: func() (io.ReadCloser, error) {
+			layer, err := store.LayerByDiffID(diffID)
+			if err == nil {
+				return layer.Uncompressed()
+			}
+			return io.NopCloser(bytes.NewReader([]byte{})), nil
+		},
+		size: func() (int64, error) {
+			layer, err := store.LayerByDiffID(diffID)
+			if err == nil {
+				return layer.Size()
+			}
+			return -1, nil
+		},
+	}
+}
+
+func newDownloadableEmptyLayer(diffID v1.Hash, store *Store, imageID string) *v1LayerFacade {
+	return &v1LayerFacade{
+		diffID: diffID,
+		uncompressed: func() (io.ReadCloser, error) {
+			layer, err := store.LayerByDiffID(diffID)
+			if err == nil {
+				return layer.Uncompressed()
+			}
+			if err = store.downloadLayersFor(imageID); err != nil {
+				return nil, err
+			}
+			layer, err = store.LayerByDiffID(diffID)
+			if err == nil {
+				return layer.Uncompressed()
+			}
+			return nil, err
+		},
+		size: func() (int64, error) {
+			layer, err := store.LayerByDiffID(diffID)
+			if err == nil {
+				return layer.Size()
+			}
+			if err = store.downloadLayersFor(imageID); err != nil {
+				return -1, err
+			}
+			layer, err = store.LayerByDiffID(diffID)
+			if err == nil {
+				return layer.Size()
+			}
+			return -1, err
+		},
+	}
+}
+
+func newPopulatedLayer(diffID v1.Hash, fromPath string, sentinelSize int64) *v1LayerFacade {
+	return &v1LayerFacade{
+		diffID: diffID,
+		uncompressed: func() (io.ReadCloser, error) {
+			f, err := os.Open(fromPath)
+			if err != nil {
+				return nil, err
+			}
+			return f, nil
+		},
+		size: func() (int64, error) {
+			return sentinelSize, nil
+		},
+	}
+}
+
+func newEmptyLayerListFrom(configFile *v1.ConfigFile, downloadOnAccess bool, withStore *Store, withImageIdentifier string) []v1.Layer {
 	layers := make([]v1.Layer, len(configFile.RootFS.DiffIDs))
 	for idx, diffID := range configFile.RootFS.DiffIDs {
-		layers[idx] = &v1LayerFacade{
-			diffID:           diffID,
-			store:            withStore,
-			downloadOnAccess: downloadOnAccess,
-			imageIdentifier:  withImageIdentifier,
+		if downloadOnAccess {
+			layers[idx] = newDownloadableEmptyLayer(diffID, withStore, withImageIdentifier)
+		} else {
+			layers[idx] = newEmptyLayer(diffID, withStore, withImageIdentifier)
 		}
 	}
 	return layers
 }
 
-func (l v1LayerFacade) Compressed() (io.ReadCloser, error) {
+func (l *v1LayerFacade) Compressed() (io.ReadCloser, error) {
 	return io.NopCloser(bytes.NewReader([]byte{})), nil
 }
 
-func (l v1LayerFacade) DiffID() (v1.Hash, error) {
+func (l *v1LayerFacade) DiffID() (v1.Hash, error) {
 	return l.diffID, nil
 }
 
-func (l v1LayerFacade) Digest() (v1.Hash, error) {
+func (l *v1LayerFacade) Digest() (v1.Hash, error) {
 	return v1.Hash{}, nil
 }
 
-func (l v1LayerFacade) Uncompressed() (io.ReadCloser, error) {
-	layer, err := l.store.LayerByDiffID(l.diffID)
-	if err == nil {
-		return layer.Uncompressed()
-	}
-	if !l.downloadOnAccess {
-		return io.NopCloser(bytes.NewReader([]byte{})), nil
-	}
-	if err = l.store.downloadLayersFor(l.imageIdentifier); err != nil {
-		return nil, err
-	}
-	layer, err = l.store.LayerByDiffID(l.diffID)
-	if err != nil {
-		return io.NopCloser(bytes.NewReader([]byte{})), nil
-	}
-	return layer.Uncompressed()
+func (l *v1LayerFacade) Uncompressed() (io.ReadCloser, error) {
+	return l.uncompressed()
 }
 
 // Size returns a sentinel value indicating if the layer has data.
-func (l v1LayerFacade) Size() (int64, error) {
-	layer, err := l.store.LayerByDiffID(l.diffID)
-	if err == nil {
-		return layer.Size()
-	}
-	if !l.downloadOnAccess {
-		return -1, nil
-	}
-	if err = l.store.downloadLayersFor(l.imageIdentifier); err != nil {
-		return -1, err
-	}
-	layer, err = l.store.LayerByDiffID(l.diffID)
-	if err != nil {
-		return -1, nil
-	}
-	return layer.Size()
+func (l *v1LayerFacade) Size() (int64, error) {
+	return l.size()
 }
 
-func (l v1LayerFacade) MediaType() (v1types.MediaType, error) {
-	layer, err := l.store.LayerByDiffID(l.diffID)
-	if err != nil {
-		return v1types.OCILayer, nil
-	}
-	return layer.MediaType()
+func (l *v1LayerFacade) MediaType() (v1types.MediaType, error) {
+	return v1types.DockerLayer, nil
 }

@@ -87,33 +87,45 @@ func (i *Image) SetOS(osVal string) error {
 var emptyHistory = v1.History{Created: v1.Time{Time: imgutil.NormalizedDateTime}}
 
 func (i *Image) AddLayer(path string) error {
-	layer, err := i.addLayer(path)
+	layer, err := i.addLayer(path, "")
 	if err != nil {
 		return err
 	}
 	return i.AddLayerWithHistory(layer, emptyHistory)
 }
 
-func (i *Image) AddLayerWithDiffID(path, _ string) error {
-	layer, err := i.addLayer(path)
+func (i *Image) AddLayerWithDiffID(path, diffID string) error {
+	layer, err := i.addLayer(path, diffID)
 	if err != nil {
 		return err
 	}
 	return i.AddLayerWithHistory(layer, emptyHistory)
 }
 
-func (i *Image) AddLayerWithDiffIDAndHistory(path, _ string, history v1.History) error {
-	layer, err := i.addLayer(path)
+func (i *Image) AddLayerWithDiffIDAndHistory(path, diffID string, history v1.History) error {
+	layer, err := i.addLayer(path, diffID)
 	if err != nil {
 		return err
 	}
 	return i.AddLayerWithHistory(layer, history)
 }
 
-func (i *Image) addLayer(fromPath string) (v1.Layer, error) {
-	layer, err := tarball.LayerFromFile(fromPath)
-	if err != nil {
-		return nil, err
+func (i *Image) addLayer(fromPath, withOptionalDiffID string) (v1.Layer, error) {
+	var (
+		layer v1.Layer
+		err   error
+	)
+	if withOptionalDiffID != "" {
+		diffID, err := v1.NewHash(withOptionalDiffID)
+		if err != nil {
+			return nil, err
+		}
+		layer = newPopulatedLayer(diffID, fromPath, 1)
+	} else {
+		layer, err = tarball.LayerFromFile(fromPath)
+		if err != nil {
+			return nil, err
+		}
 	}
 	diffID, err := layer.DiffID()
 	if err != nil {

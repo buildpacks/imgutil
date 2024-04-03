@@ -18,7 +18,6 @@ import (
 	"github.com/docker/docker/pkg/jsonmessage"
 	registryName "github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/buildpacks/imgutil"
@@ -452,14 +451,11 @@ func (s *Store) doDownloadLayersFor(identifier string) error {
 
 	for idx, diffID := range configFile.RootFS.DiffIDs {
 		layerPath := filepath.Join(tmpDir, manifest[0].Layers[idx])
-		layer, err := tarball.LayerFromFile(layerPath)
-		if err != nil {
-			return err
-		}
 		hash, err := v1.NewHash(diffID)
 		if err != nil {
 			return err
 		}
+		layer := newPopulatedLayer(hash, layerPath, 1)
 		fi, err := os.Stat(layerPath)
 		if err != nil {
 			return err
