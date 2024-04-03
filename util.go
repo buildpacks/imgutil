@@ -2,6 +2,7 @@ package imgutil
 
 import (
 	"encoding/json"
+	"slices"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -13,7 +14,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
-func MutateManifest(i v1.Image, withFunc func(c *v1.Manifest)) (v1.Image, error) {
+func MutateManifest(i v1.Image, withFunc func(c *v1.Manifest) (mutateSubject, mutateAnnoations bool)) (v1.Image, error) {
 	// FIXME: put MutateManifest on the interface when `remote` and `layout` packages also support it.
 	digest, err := i.Digest()
 	if err != nil {
@@ -25,6 +26,7 @@ func MutateManifest(i v1.Image, withFunc func(c *v1.Manifest)) (v1.Image, error)
 		return nil, err
 	}
 
+	mfest = mfest.DeepCopy()
 	config := mfest.Config
 	config.Digest = digest
 	config.MediaType = mfest.MediaType
@@ -40,13 +42,101 @@ func MutateManifest(i v1.Image, withFunc func(c *v1.Manifest)) (v1.Image, error)
 
 	config.Platform = p
 	mfest.Config = config
+	if len(mfest.Annotations) == 0 {
+		mfest.Annotations = make(map[string]string)
+	}
 
-	withFunc(mfest)
-	if len(mfest.Annotations) != 0 {
+	if len(mfest.Config.Annotations) == 0 {
+		mfest.Config.Annotations = make(map[string]string)
+	}
+
+	mutateSub, mutateAnnos := withFunc(mfest)
+	if mutateAnnos {
 		i = mutate.Annotations(i, mfest.Annotations).(v1.Image)
 	}
 
-	return mutate.Subject(i, mfest.Config).(v1.Image), err
+	if mutateSub {
+		i = mutate.Subject(i, mfest.Config).(v1.Image)
+	}
+
+	return i, err
+}
+
+func MutateManifestFn(mfest *v1.Manifest, os, arch, variant, osVersion string, features, osFeatures, urls []string, annotations map[string]string) (mutateSubject, mutateAnnotations bool) {
+	config := mfest.Config
+	if len(annotations) != 0 && !(MapContains(mfest.Annotations, annotations) || MapContains(config.Annotations, annotations)) {
+		mutateAnnotations = true
+		for k, v := range annotations {
+			mfest.Annotations[k] = v
+			config.Annotations[k] = v
+		}
+	}
+
+	if len(urls) != 0 && !SliceContains(config.URLs, urls) {
+		mutateSubject = true
+		stringSet := NewStringSet()
+		for _, value := range config.URLs {
+			stringSet.Add(value)
+		}
+		for _, value := range urls {
+			stringSet.Add(value)
+		}
+
+		config.URLs = stringSet.StringSlice()
+	}
+
+	if config.Platform == nil {
+		config.Platform = &v1.Platform{}
+	}
+
+	if len(features) != 0 && !SliceContains(config.Platform.Features, features) {
+		mutateSubject = true
+		stringSet := NewStringSet()
+		for _, value := range config.Platform.Features {
+			stringSet.Add(value)
+		}
+		for _, value := range features {
+			stringSet.Add(value)
+		}
+
+		config.Platform.Features = stringSet.StringSlice()
+	}
+
+	if len(osFeatures) != 0 && !SliceContains(config.Platform.OSFeatures, osFeatures) {
+		mutateSubject = true
+		stringSet := NewStringSet()
+		for _, value := range config.Platform.OSFeatures {
+			stringSet.Add(value)
+		}
+		for _, value := range osFeatures {
+			stringSet.Add(value)
+		}
+
+		config.Platform.OSFeatures = stringSet.StringSlice()
+	}
+
+	if os != "" && config.Platform.OS != os {
+		mutateSubject = true
+		config.Platform.OS = os
+	}
+
+	if arch != "" && config.Platform.Architecture != arch {
+		mutateSubject = true
+		config.Platform.Architecture = arch
+	}
+
+	if variant != "" && config.Platform.Variant != variant {
+		mutateSubject = true
+		config.Platform.Variant = variant
+	}
+
+	if osVersion != "" && config.Platform.OSVersion != osVersion {
+		mutateSubject = true
+		config.Platform.OSVersion = osVersion
+	}
+
+	mfest.Config = config
+	return mutateSubject, mutateAnnotations
 }
 
 // Any ImageIndex with RawManifest method.
@@ -526,4 +616,23 @@ func indexMediaType(format types.MediaType) string {
 	default:
 		return "UNKNOWN"
 	}
+}
+
+func MapContains(src, target map[string]string) bool {
+	for targetKey, targetValue := range target {
+		if value := src[targetKey]; targetValue == value {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func SliceContains(src, target []string) bool {
+	for _, value := range target {
+		if ok := slices.Contains[[]string, string](src, value); !ok {
+			return false
+		}
+	}
+	return true
 }

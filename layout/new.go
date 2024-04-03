@@ -110,7 +110,7 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 
 func processDefaultPlatformOption(requestedPlatform v1.Platform) v1.Platform {
 	var emptyPlatform v1.Platform
-	if emptyPlatform.Satisfies(requestedPlatform) {
+	if requestedPlatform.Satisfies(emptyPlatform) && (requestedPlatform.OS != "" || requestedPlatform.Architecture != "") {
 		return requestedPlatform
 	}
 	return v1.Platform{

@@ -70,7 +70,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				img, err := layout.NewImage(imagePath)
 				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
-
 				os, err := img.OS()
 				h.AssertNil(t, err)
 				h.AssertEq(t, os, "linux")
@@ -1222,9 +1221,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			image.Save()
 
 			_, configFile := h.ReadManifestAndConfigFile(t, imagePath)
-			h.AssertEq(t, configFile.OS, "linux")
-			h.AssertEq(t, configFile.Architecture, "amd64")
-			h.AssertEq(t, configFile.OSVersion, "5678")
+			h.AssertEq(t, configFile.OS, platform.OS)
+			h.AssertEq(t, configFile.Architecture, platform.Architecture)
+			h.AssertEq(t, configFile.OSVersion, platform.OSVersion)
 		})
 	})
 

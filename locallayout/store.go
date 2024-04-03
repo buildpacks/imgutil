@@ -311,46 +311,21 @@ func (s *Store) SaveFile(image *Image, withName string) (string, error) {
 		return "", err
 	}
 
-	image.Image, err = imgutil.MutateManifest(*image, func(mfest *v1.Manifest) {
-		config := mfest.Config
-		if annos, _ := image.Annotations(); len(annos) != 0 {
-			mfest.Annotations = annos
-			config.Annotations = annos
-		}
+	image.Image, err = imgutil.MutateManifest(image.Image, func(mfest *v1.Manifest) (mutateSubject, mutateAnnotations bool) {
+		image.mutex.TryLock()
+		defer image.mutex.Unlock()
+		var (
+			os, _          = image.OS()
+			arch, _        = image.Architecture()
+			variant, _     = image.Variant()
+			osVersion, _   = image.OSVersion()
+			features, _    = image.Features()
+			osFeatures, _  = image.OSFeatures()
+			urls, _        = image.URLs()
+			annotations, _ = image.Annotations()
+		)
 
-		if urls, _ := image.URLs(); len(urls) != 0 {
-			config.URLs = append(config.URLs, urls...)
-		}
-
-		if config.Platform == nil {
-			config.Platform = &v1.Platform{}
-		}
-
-		if features, _ := image.Features(); len(features) != 0 {
-			config.Platform.Features = append(config.Platform.Features, features...)
-		}
-
-		if osFeatures, _ := image.OSFeatures(); len(osFeatures) != 0 {
-			config.Platform.OSFeatures = append(config.Platform.OSFeatures, osFeatures...)
-		}
-
-		if os, _ := image.OS(); os != "" {
-			config.Platform.OS = os
-		}
-
-		if arch, _ := image.Architecture(); arch != "" {
-			config.Platform.Architecture = arch
-		}
-
-		if variant, _ := image.Variant(); variant != "" {
-			config.Platform.Variant = variant
-		}
-
-		if osVersion, _ := image.OSVersion(); osVersion != "" {
-			config.Platform.OSVersion = osVersion
-		}
-
-		mfest.Config = config
+		return imgutil.MutateManifestFn(mfest, os, arch, variant, osVersion, features, osFeatures, urls, annotations)
 	})
 	if err != nil {
 		return "", err
