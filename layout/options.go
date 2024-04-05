@@ -26,18 +26,18 @@ func FromBaseImagePath(name string) func(*imgutil.ImageOptions) {
 	}
 }
 
+// WithConfig lets a caller provided a `config` object for the working image.
+func WithConfig(c *v1.Config) func(*imgutil.ImageOptions) {
+	return func(o *imgutil.ImageOptions) {
+		o.Config = c
+	}
+}
+
 // WithCreatedAt lets a caller set the "created at" timestamp for the working image when saved.
 // If not provided, the default is imgutil.NormalizedDateTime.
 func WithCreatedAt(t time.Time) func(*imgutil.ImageOptions) {
 	return func(o *imgutil.ImageOptions) {
 		o.CreatedAt = t
-	}
-}
-
-// WithConfig lets a caller provided a `config` object for the working image.
-func WithConfig(c *v1.Config) func(*imgutil.ImageOptions) {
-	return func(o *imgutil.ImageOptions) {
-		o.Config = c
 	}
 }
 
