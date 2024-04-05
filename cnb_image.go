@@ -17,7 +17,7 @@ import (
 // Specific implementations may choose to override certain methods, and will need to supply the methods that are omitted,
 // such as Identifier() and Found().
 // The working image could be any v1.Image,
-// but in practice will start off as a pointer to a locallayout.v1ImageFacade (or similar).
+// but in practice will start off as a pointer to a local.v1ImageFacade (or similar).
 type CNBImageCore struct {
 	// required
 	v1.Image // the working image
@@ -305,17 +305,22 @@ func (i *CNBImageCore) AddLayerWithDiffID(path, _ string) error {
 }
 
 func (i *CNBImageCore) AddLayerWithDiffIDAndHistory(path, _ string, history v1.History) error {
+	layer, err := tarball.LayerFromFile(path)
+	if err != nil {
+		return err
+	}
+	return i.AddLayerWithHistory(layer, history)
+}
+
+func (i *CNBImageCore) AddLayerWithHistory(layer v1.Layer, history v1.History) error {
+	var err error
 	// ensure existing history
-	if err := i.MutateConfigFile(func(c *v1.ConfigFile) {
+	if err = i.MutateConfigFile(func(c *v1.ConfigFile) {
 		c.History = NormalizedHistory(c.History, len(c.RootFS.DiffIDs))
 	}); err != nil {
 		return err
 	}
 
-	layer, err := tarball.LayerFromFile(path)
-	if err != nil {
-		return err
-	}
 	if !i.preserveHistory {
 		history = emptyHistory
 	}
@@ -393,11 +398,11 @@ func (i *CNBImageCore) ReuseLayer(diffID string) error {
 	}
 	idx, err := getLayerIndex(diffID, i.previousImage)
 	if err != nil {
-		return fmt.Errorf("failed to get layer index: %w", err)
+		return fmt.Errorf("failed to get index for previous image layer: %w", err)
 	}
 	previousHistory, err := getHistory(idx, i.previousImage)
 	if err != nil {
-		return fmt.Errorf("failed to get history: %w", err)
+		return fmt.Errorf("failed to get history for previous image layer: %w", err)
 	}
 	return i.ReuseLayerWithHistory(diffID, previousHistory)
 }
@@ -424,7 +429,8 @@ func getHistory(forIndex int, fromImage v1.Image) (v1.History, error) {
 	if err != nil {
 		return v1.History{}, err
 	}
-	if len(configFile.History) <= forIndex {
+	history := NormalizedHistory(configFile.History, len(configFile.RootFS.DiffIDs))
+	if len(history) <= forIndex {
 		return v1.History{}, fmt.Errorf("wanted history at index %d; history has length %d", forIndex, len(configFile.History))
 	}
 	return configFile.History[forIndex], nil
