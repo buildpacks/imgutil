@@ -17,7 +17,7 @@ import (
 // Specific implementations may choose to override certain methods, and will need to supply the methods that are omitted,
 // such as Identifier() and Found().
 // The working image could be any v1.Image,
-// but in practice will start off as a pointer to a locallayout.v1ImageFacade (or similar).
+// but in practice will start off as a pointer to a local.v1ImageFacade (or similar).
 type CNBImageCore struct {
 	// required
 	v1.Image // the working image
@@ -305,17 +305,22 @@ func (i *CNBImageCore) AddLayerWithDiffID(path, _ string) error {
 }
 
 func (i *CNBImageCore) AddLayerWithDiffIDAndHistory(path, _ string, history v1.History) error {
+	layer, err := tarball.LayerFromFile(path)
+	if err != nil {
+		return err
+	}
+	return i.AddLayerWithHistory(layer, history)
+}
+
+func (i *CNBImageCore) AddLayerWithHistory(layer v1.Layer, history v1.History) error {
+	var err error
 	// ensure existing history
-	if err := i.MutateConfigFile(func(c *v1.ConfigFile) {
+	if err = i.MutateConfigFile(func(c *v1.ConfigFile) {
 		c.History = NormalizedHistory(c.History, len(c.RootFS.DiffIDs))
 	}); err != nil {
 		return err
 	}
 
-	layer, err := tarball.LayerFromFile(path)
-	if err != nil {
-		return err
-	}
 	if !i.preserveHistory {
 		history = emptyHistory
 	}

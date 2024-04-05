@@ -25,7 +25,7 @@ type Image interface {
 	History() ([]v1.History, error)
 	Identifier() (Identifier, error)
 	// Kind exposes the type of image that backs the imgutil.Image implementation.
-	// It could be `local`, `locallayout`, `remote`, or `layout`.
+	// It could be `local`, `remote`, or `layout`.
 	Kind() string
 	Label(string) (string, error)
 	Labels() (map[string]string, error)
