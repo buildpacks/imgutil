@@ -1,14 +1,16 @@
 package local
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/tarball"
 
 	"github.com/buildpacks/imgutil"
 )
@@ -60,19 +62,35 @@ func (i *Image) GetLayer(diffID string) (io.ReadCloser, error) {
 			return layer.Uncompressed()
 		}
 	}
+	configFile, err := i.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+	if !contains(configFile.RootFS.DiffIDs, layerHash) {
+		return nil, fmt.Errorf("image %q does not contain layer with diff ID %q", i.Name(), layerHash.String())
+	}
 	if err = i.ensureLayers(); err != nil {
 		return nil, err
 	}
 	layer, err = i.LayerByDiffID(layerHash)
 	if err != nil {
-		return nil, fmt.Errorf("image %q does not contain layer with diff ID %q", i.Name(), layerHash.String())
+		return nil, err
 	}
 	return layer.Uncompressed()
 }
 
+func contains(diffIDs []v1.Hash, hash v1.Hash) bool {
+	for _, diffID := range diffIDs {
+		if diffID.String() == hash.String() {
+			return true
+		}
+	}
+	return false
+}
+
 func (i *Image) ensureLayers() error {
 	if err := i.store.downloadLayersFor(i.lastIdentifier); err != nil {
-		return fmt.Errorf("fetching base layers: %w", err)
+		return fmt.Errorf("failed to fetch base layers: %w", err)
 	}
 	return nil
 }
@@ -87,15 +105,32 @@ func (i *Image) SetOS(osVal string) error {
 var emptyHistory = v1.History{Created: v1.Time{Time: imgutil.NormalizedDateTime}}
 
 func (i *Image) AddLayer(path string) error {
-	layer, err := i.addLayer(path, "")
+	diffID, err := calculateChecksum(path)
+	if err != nil {
+		return err
+	}
+	layer, err := i.addLayerToStore(path, diffID)
 	if err != nil {
 		return err
 	}
 	return i.AddLayerWithHistory(layer, emptyHistory)
 }
 
+func calculateChecksum(path string) (string, error) {
+	f, err := os.Open(filepath.Clean(path))
+	if err != nil {
+		return "", fmt.Errorf("failed to open layer at path %s: %w", path, err)
+	}
+	defer f.Close()
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, f); err != nil {
+		return "", fmt.Errorf("failed to calculate checksum for layer at path %s: %w", path, err)
+	}
+	return "sha256:" + hex.EncodeToString(hasher.Sum(make([]byte, 0, hasher.Size()))), nil
+}
+
 func (i *Image) AddLayerWithDiffID(path, diffID string) error {
-	layer, err := i.addLayer(path, diffID)
+	layer, err := i.addLayerToStore(path, diffID)
 	if err != nil {
 		return err
 	}
@@ -103,31 +138,23 @@ func (i *Image) AddLayerWithDiffID(path, diffID string) error {
 }
 
 func (i *Image) AddLayerWithDiffIDAndHistory(path, diffID string, history v1.History) error {
-	layer, err := i.addLayer(path, diffID)
+	layer, err := i.addLayerToStore(path, diffID)
 	if err != nil {
 		return err
 	}
 	return i.AddLayerWithHistory(layer, history)
 }
 
-func (i *Image) addLayer(fromPath, withOptionalDiffID string) (v1.Layer, error) {
+func (i *Image) addLayerToStore(fromPath, withDiffID string) (v1.Layer, error) {
 	var (
 		layer v1.Layer
 		err   error
 	)
-	if withOptionalDiffID != "" {
-		diffID, err := v1.NewHash(withOptionalDiffID)
-		if err != nil {
-			return nil, err
-		}
-		layer = newPopulatedLayer(diffID, fromPath, 1)
-	} else {
-		layer, err = tarball.LayerFromFile(fromPath)
-		if err != nil {
-			return nil, err
-		}
+	diffID, err := v1.NewHash(withDiffID)
+	if err != nil {
+		return nil, err
 	}
-	diffID, err := layer.DiffID()
+	layer = newPopulatedLayer(diffID, fromPath, 1)
 	if err != nil {
 		return nil, err
 	}
