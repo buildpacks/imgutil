@@ -398,11 +398,11 @@ func (i *CNBImageCore) ReuseLayer(diffID string) error {
 	}
 	idx, err := getLayerIndex(diffID, i.previousImage)
 	if err != nil {
-		return fmt.Errorf("failed to get layer index: %w", err)
+		return fmt.Errorf("failed to get index for previous image layer: %w", err)
 	}
 	previousHistory, err := getHistory(idx, i.previousImage)
 	if err != nil {
-		return fmt.Errorf("failed to get history: %w", err)
+		return fmt.Errorf("failed to get history for previous image layer: %w", err)
 	}
 	return i.ReuseLayerWithHistory(diffID, previousHistory)
 }
@@ -429,7 +429,8 @@ func getHistory(forIndex int, fromImage v1.Image) (v1.History, error) {
 	if err != nil {
 		return v1.History{}, err
 	}
-	if len(configFile.History) <= forIndex {
+	history := NormalizedHistory(configFile.History, len(configFile.RootFS.DiffIDs))
+	if len(history) <= forIndex {
 		return v1.History{}, fmt.Errorf("wanted history at index %d; history has length %d", forIndex, len(configFile.History))
 	}
 	return configFile.History[forIndex], nil

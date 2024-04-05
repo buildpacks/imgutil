@@ -7,7 +7,6 @@ import (
 	"time"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/mutate"
 )
 
 type Image interface {
@@ -83,16 +82,6 @@ type Platform struct {
 	Architecture string
 	OS           string
 	OSVersion    string
-}
-
-// OverrideHistoryIfNeeded zeroes out the history if the number of history entries doesn't match the number of layers.
-func OverrideHistoryIfNeeded(image v1.Image) (v1.Image, error) {
-	configFile, err := getConfigFile(image)
-	if err != nil {
-		return nil, err
-	}
-	configFile.History = NormalizedHistory(configFile.History, len(configFile.RootFS.DiffIDs))
-	return mutate.ConfigFile(image, configFile)
 }
 
 type SaveDiagnostic struct {
