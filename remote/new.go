@@ -41,6 +41,9 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...func(*imgutil.Ima
 	options.MediaTypes = imgutil.GetPreferredMediaTypes(*options)
 	if options.BaseImage != nil {
 		options.BaseImage, _, err = imgutil.EnsureMediaTypesAndLayers(options.BaseImage, options.MediaTypes, imgutil.PreserveLayers)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	cnbImage, err := imgutil.NewCNBImage(*options)
