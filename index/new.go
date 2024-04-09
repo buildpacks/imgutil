@@ -28,7 +28,7 @@ func NewIndex(repoName string, ops ...Option) (idx imgutil.ImageIndex, err error
 		InsecureRegistry: idxOps.insecure,
 	}
 
-	layoutPath := filepath.Join(idxOps.xdgPath, idxOps.repoName)
+	layoutPath := filepath.Join(idxOps.xdgPath, imgutil.MakeFileSafeName(idxOps.repoName))
 	switch idxOps.format {
 	case types.DockerManifestList:
 		idx = imgutil.NewManifestHandler(imgutil.NewEmptyDockerIndex(), idxOptions)

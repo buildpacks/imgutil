@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -894,7 +895,7 @@ func (h *ManifestHandler) Add(ref name.Reference, ops ...IndexAddOption) error {
 		op(addOps)
 	}
 
-	layoutPath := filepath.Join(h.Options.XdgPath, h.Options.Reponame)
+	layoutPath := filepath.Join(h.Options.XdgPath, MakeFileSafeName(h.Options.Reponame))
 	path, pathErr := layout.FromPath(layoutPath)
 	if addOps.Local {
 		if pathErr != nil {
@@ -1245,7 +1246,7 @@ func (h *ManifestHandler) addPlatformSpecificImages(ref name.Reference, platform
 
 	h.Images[digest] = *config
 
-	layoutPath := filepath.Join(h.Options.XdgPath, h.Options.Reponame)
+	layoutPath := filepath.Join(h.Options.XdgPath, MakeFileSafeName(h.Options.Reponame))
 	path, err := layout.FromPath(layoutPath)
 	if err != nil {
 		if path, err = layout.Write(layoutPath, h.ImageIndex); err != nil {
@@ -1293,7 +1294,7 @@ func (h *ManifestHandler) save(layoutPath string) (path layout.Path, err error) 
 
 // Save will locally save the given ImageIndex.
 func (h *ManifestHandler) Save() error {
-	layoutPath := filepath.Join(h.Options.XdgPath, h.Options.Reponame)
+	layoutPath := filepath.Join(h.Options.XdgPath, MakeFileSafeName(h.Options.Reponame))
 	path, err := layout.FromPath(layoutPath)
 	if err != nil {
 		if path, err = h.save(layoutPath); err != nil {
@@ -1399,7 +1400,7 @@ func (h *ManifestHandler) Push(ops ...IndexPushOption) error {
 		}
 	}
 
-	layoutPath := filepath.Join(h.Options.XdgPath, h.Options.Reponame)
+	layoutPath := filepath.Join(h.Options.XdgPath, MakeFileSafeName(h.Options.Reponame))
 	path, err := layout.FromPath(layoutPath)
 	if err != nil {
 		return err
@@ -1501,7 +1502,7 @@ func (h *ManifestHandler) Remove(ref name.Reference) (err error) {
 
 // Remove ImageIndex from local filesystem if exists.
 func (h *ManifestHandler) Delete() error {
-	layoutPath := filepath.Join(h.Options.XdgPath, h.Options.Reponame)
+	layoutPath := filepath.Join(h.Options.XdgPath, MakeFileSafeName(h.Options.Reponame))
 	if _, err := os.Stat(layoutPath); err != nil {
 		return err
 	}
@@ -1580,4 +1581,12 @@ func (h *ManifestHandler) getIndexManifest(digest name.Digest) (mfest *v1.IndexM
 	}
 
 	return nil, ErrNoImageOrIndexFoundWithGivenDigest(hash.String())
+}
+
+// Change a reference name string into a valid file name
+// Ex: cnbs/sample-package:hello-multiarch-universe
+// to cnbs_sample-package-hello-multiarch-universe
+func MakeFileSafeName(ref string) string {
+	fileName := strings.ReplaceAll(ref, ":", "-")
+	return strings.ReplaceAll(fileName, "/", "_")
 }

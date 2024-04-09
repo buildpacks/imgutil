@@ -81,7 +81,7 @@ func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err
 		}
 	}
 
-	path, err := layout.FromPath(filepath.Join(idxOps.XDGRuntimePath(), idxOps.RepoName()))
+	path, err := layout.FromPath(filepath.Join(idxOps.XDGRuntimePath(), imgutil.MakeFileSafeName(idxOps.RepoName())))
 	if err != nil {
 		return idx, err
 	}

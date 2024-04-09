@@ -3726,7 +3726,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 
 				err = idx.Delete()
-				localPath := filepath.Join(xdgPath, "busybox:1.36-musl")
+				localPath := filepath.Join(xdgPath, imgutil.MakeFileSafeName("busybox:1.36-musl"))
 				h.AssertEq(t, err.Error(), fmt.Sprintf("stat %s: no such file or directory", localPath))
 			})
 		})
