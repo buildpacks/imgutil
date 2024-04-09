@@ -2618,6 +2618,11 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				h.AssertEq(t, v, "some-value")
 			})
 			it("should save platform specific added image", func() {
+				if runtime.GOOS == "windows" {
+					// TODO we need to prepare a registry image for windows
+					t.Skip("busybox is not available for windows")
+				}
+				
 				_, err := index.NewIndex(
 					"pack/imgutil",
 					index.WithXDGRuntimePath(xdgPath),
@@ -3746,8 +3751,11 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 
 				err = idx.Delete()
 				localPath := filepath.Join(xdgPath, imgutil.MakeFileSafeName("busybox:1.36-musl"))
-				fmt.Println(err.Error())
-				h.AssertEq(t, err.Error(), fmt.Sprintf("stat %s: no such file or directory", localPath))
+				if runtime.GOOS != "windows" {
+					h.AssertEq(t, err.Error(), fmt.Sprintf("stat %s: no such file or directory", localPath))
+				} else {
+					h.AssertEq(t, err.Error(), fmt.Sprintf("CreateFile %s: The system cannot find the file specified.", localPath))
+				}
 			})
 		})
 	})
