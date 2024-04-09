@@ -1650,6 +1650,11 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 			when("target specific", func() {
 				it("should add target specific image", func() {
+					if runtime.GOOS == "windows" {
+						// TODO we need to prepare a registry image for windows
+						t.Skip("alpine is not available for windows")
+					}
+
 					_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 					h.AssertNil(t, err)
 
@@ -1710,6 +1715,11 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, annotations, map[string]string(nil))
 				})
 				it("should add annotations when WithAnnotations used for oci", func() {
+					if runtime.GOOS == "windows" {
+						// TODO we need to prepare a registry image for windows
+						t.Skip("busybox is not available for windows")
+					}
+
 					_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.OCIImageIndex))
 					h.AssertNil(t, err)
 
@@ -1778,6 +1788,11 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, v, "some-value")
 				})
 				it("should not add annotations when WithAnnotations used for docker", func() {
+					if runtime.GOOS == "windows" {
+						// TODO we need to prepare a registry image for windows
+						t.Skip("alpine is not available for windows")
+					}
+
 					_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList))
 					h.AssertNil(t, err)
 
@@ -2655,6 +2670,10 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 				h.AssertEq(t, arch, runtime.GOARCH)
 			})
 			it("should save platform specific added image with annotations", func() {
+				if runtime.GOOS == "windows" {
+					// TODO we need to prepare a registry image for windows
+					t.Skip("busybox is not available for windows")
+				}
 				_, err := index.NewIndex(
 					"pack/imgutil",
 					index.WithXDGRuntimePath(xdgPath),
@@ -3727,6 +3746,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 
 				err = idx.Delete()
 				localPath := filepath.Join(xdgPath, imgutil.MakeFileSafeName("busybox:1.36-musl"))
+				fmt.Println(err.Error())
 				h.AssertEq(t, err.Error(), fmt.Sprintf("stat %s: no such file or directory", localPath))
 			})
 		})
