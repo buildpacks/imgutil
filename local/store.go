@@ -14,6 +14,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/system"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
 	registryName "github.com/google/go-containerregistry/pkg/name"
@@ -39,10 +40,10 @@ type DockerClient interface {
 	ImageHistory(ctx context.Context, image string) ([]image.HistoryResponseItem, error)
 	ImageInspectWithRaw(ctx context.Context, image string) (types.ImageInspect, []byte, error)
 	ImageLoad(ctx context.Context, input io.Reader, quiet bool) (types.ImageLoadResponse, error)
-	ImageRemove(ctx context.Context, image string, options types.ImageRemoveOptions) ([]types.ImageDeleteResponseItem, error)
+	ImageRemove(ctx context.Context, image string, options types.ImageRemoveOptions) ([]image.DeleteResponse, error)
 	ImageSave(ctx context.Context, images []string) (io.ReadCloser, error)
 	ImageTag(ctx context.Context, image, ref string) error
-	Info(ctx context.Context) (types.Info, error)
+	Info(ctx context.Context) (system.Info, error)
 	ServerVersion(ctx context.Context) (types.Version, error)
 }
 
@@ -499,11 +500,11 @@ func untar(r io.Reader, dest string) error {
 			if err != nil {
 				return err
 			}
-			if _, err := io.Copy(fh, tr); err != nil {
-				fh.Close()
+			defer fh.Close()
+			_, err = io.Copy(fh, tr) // #nosec G110
+			if err != nil {
 				return err
-			} // #nosec G110
-			fh.Close()
+			}
 		case tar.TypeSymlink:
 			_, err := os.Stat(filepath.Dir(path))
 			if os.IsNotExist(err) {

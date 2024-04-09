@@ -203,7 +203,7 @@ func DockerRmi(dockerCli dockercli.CommonAPIClient, repoNames ...string) error {
 }
 
 // PushImage pushes an image to a registry, optionally using credentials from any set DOCKER_CONFIG
-func PushImage(t *testing.T, dockerCli dockercli.CommonAPIClient, refStr string) {
+func PushImage(t *testing.T, _ dockercli.CommonAPIClient, refStr string) {
 	t.Helper()
 	Run(t, exec.Command("docker", "push", refStr)) // #nosec G204
 }

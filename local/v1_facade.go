@@ -31,7 +31,7 @@ func newV1ImageFacadeFromInspect(dockerInspect types.ImageInspect, history []ima
 	configFile := &v1.ConfigFile{
 		Architecture:  dockerInspect.Architecture, // FIXME: this should come from options.Platform
 		Author:        dockerInspect.Author,
-		Container:     dockerInspect.Container,
+		Container:     dockerInspect.Container, //nolint
 		Created:       toV1Time(dockerInspect.Created),
 		DockerVersion: dockerInspect.DockerVersion,
 		History:       imgutil.NormalizedHistory(toV1History(history), len(dockerInspect.RootFS.Layers)),
@@ -174,7 +174,6 @@ func toV1Config(dockerCfg *container.Config) v1.Config {
 		ExposedPorts:    exposedPorts,
 		ArgsEscaped:     dockerCfg.ArgsEscaped,
 		NetworkDisabled: dockerCfg.NetworkDisabled,
-		MacAddress:      dockerCfg.MacAddress,
 		StopSignal:      dockerCfg.StopSignal,
 		Shell:           dockerCfg.Shell,
 	}
@@ -188,7 +187,7 @@ type v1LayerFacade struct {
 	size         func() (int64, error)
 }
 
-func newEmptyLayer(diffID v1.Hash, store *Store, imageID string) *v1LayerFacade {
+func newEmptyLayer(diffID v1.Hash, store *Store) *v1LayerFacade {
 	return &v1LayerFacade{
 		diffID: diffID,
 		uncompressed: func() (io.ReadCloser, error) {
@@ -264,7 +263,7 @@ func newEmptyLayerListFrom(configFile *v1.ConfigFile, downloadOnAccess bool, wit
 		if downloadOnAccess {
 			layers[idx] = newDownloadableEmptyLayer(diffID, withStore, withImageIdentifier)
 		} else {
-			layers[idx] = newEmptyLayer(diffID, withStore, withImageIdentifier)
+			layers[idx] = newEmptyLayer(diffID, withStore)
 		}
 	}
 	return layers
