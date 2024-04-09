@@ -1,4 +1,4 @@
-package locallayout
+package local
 
 import (
 	"archive/tar"
@@ -18,7 +18,6 @@ import (
 	"github.com/docker/docker/pkg/jsonmessage"
 	registryName "github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/buildpacks/imgutil"
@@ -31,8 +30,8 @@ type Store struct {
 	// required
 	dockerClient DockerClient
 	// optional
-	downloadOnce *sync.Once
-	onDiskLayers []v1.Layer
+	downloadOnce         *sync.Once
+	onDiskLayersByDiffID map[v1.Hash]annotatedLayer
 }
 
 // DockerClient is subset of client.CommonAPIClient required by this package.
@@ -45,6 +44,19 @@ type DockerClient interface {
 	ImageTag(ctx context.Context, image, ref string) error
 	Info(ctx context.Context) (types.Info, error)
 	ServerVersion(ctx context.Context) (types.Version, error)
+}
+
+type annotatedLayer struct {
+	layer            v1.Layer
+	uncompressedSize int64
+}
+
+func NewStore(dockerClient DockerClient) *Store {
+	return &Store{
+		dockerClient:         dockerClient,
+		downloadOnce:         &sync.Once{},
+		onDiskLayersByDiffID: make(map[v1.Hash]annotatedLayer),
+	}
 }
 
 // images
@@ -68,10 +80,19 @@ func (s *Store) Delete(identifier string) error {
 
 func (s *Store) Save(image *Image, withName string, withAdditionalNames ...string) (string, error) {
 	withName = tryNormalizing(withName)
+	var (
+		inspect types.ImageInspect
+		err     error
+	)
 
 	// save
-	inspect, err := s.doSave(image, withName)
-	if err != nil {
+	canOmitBaseLayers := !usesContainerdStorage(s.dockerClient)
+	if canOmitBaseLayers {
+		// During the first save attempt some layers may be excluded.
+		// The docker daemon allows this if the given set of layers already exists in the daemon in the given order.
+		inspect, err = s.doSave(image, withName)
+	}
+	if !canOmitBaseLayers || err != nil {
 		if err = image.ensureLayers(); err != nil {
 			return "", err
 		}
@@ -106,6 +127,21 @@ func tryNormalizing(name string) string {
 		return name
 	}
 	return t.Name() // returns valid 'name:tag' appending 'latest', if missing tag
+}
+
+func usesContainerdStorage(docker DockerClient) bool {
+	info, err := docker.Info(context.Background())
+	if err != nil {
+		return false
+	}
+
+	for _, driverStatus := range info.DriverStatus {
+		if driverStatus[0] == "driver-type" && driverStatus[1] == "io.containerd.snapshotter.v1" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (s *Store) doSave(image v1.Image, withName string) (types.ImageInspect, error) {
@@ -220,7 +256,7 @@ func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer) (string, error) {
 	}
 	withName := fmt.Sprintf("/%s.tar", layerDiffID.String())
 
-	uncompressedSize, err := getLayerSize(layer) // FIXME: this degrades performance compared to `local` package
+	uncompressedSize, err := s.getLayerSize(layer)
 	if err != nil {
 		return "", err
 	}
@@ -241,9 +277,21 @@ func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer) (string, error) {
 	return withName, nil
 }
 
-// FIXME: this is a hack because the daemon expects uncompressed layer size and a v1.Layer reports compressed layer size;
-// when we send OCI layout tars we should be able to remove this method and get improved performance
-func getLayerSize(layer v1.Layer) (int64, error) {
+// getLayerSize returns the uncompressed layer size.
+// This is needed because the daemon expects uncompressed layer size and a v1.Layer reports compressed layer size;
+// in a future where we send OCI layout tars to the daemon we should be able to remove this method
+// and the need to track layers individually.
+func (s *Store) getLayerSize(layer v1.Layer) (int64, error) {
+	diffID, err := layer.DiffID()
+	if err != nil {
+		return 0, err
+	}
+	knownLayer, layerFound := s.onDiskLayersByDiffID[diffID]
+	if layerFound {
+		return knownLayer.uncompressedSize, nil
+	}
+	// If layer was not seen previously, we need to read it to get the uncompressed size
+	// In practice, we should not get here
 	layerReader, err := layer.Uncompressed()
 	if err != nil {
 		return 0, err
@@ -421,12 +469,18 @@ func (s *Store) doDownloadLayersFor(identifier string) error {
 		return err
 	}
 
-	for idx := range configFile.RootFS.DiffIDs {
-		layer, err := tarball.LayerFromFile(filepath.Join(tmpDir, manifest[0].Layers[idx]))
+	for idx, diffID := range configFile.RootFS.DiffIDs {
+		layerPath := filepath.Join(tmpDir, manifest[0].Layers[idx])
+		hash, err := v1.NewHash(diffID)
 		if err != nil {
 			return err
 		}
-		s.onDiskLayers = append(s.onDiskLayers, layer)
+		layer := newPopulatedLayer(hash, layerPath, 1)
+		fi, err := os.Stat(layerPath)
+		if err != nil {
+			return err
+		}
+		s.AddLayer(layer, hash, fi.Size())
 	}
 	return nil
 }
@@ -496,22 +550,24 @@ func cleanPath(dest, header string) (string, error) {
 }
 
 func (s *Store) LayerByDiffID(h v1.Hash) (v1.Layer, error) {
-	layer := findLayer(h, s.onDiskLayers)
+	layer := s.findLayer(h)
 	if layer == nil {
 		return nil, fmt.Errorf("failed to find layer with diff ID %q", h.String())
 	}
 	return layer, nil
 }
 
-func findLayer(withHash v1.Hash, inLayers []v1.Layer) v1.Layer {
-	for _, layer := range inLayers {
-		layerHash, err := layer.DiffID()
-		if err != nil {
-			continue
-		}
-		if layerHash.String() == withHash.String() {
-			return layer
-		}
+func (s *Store) findLayer(withHash v1.Hash) v1.Layer {
+	aLayer, layerFound := s.onDiskLayersByDiffID[withHash]
+	if !layerFound {
+		return nil
 	}
-	return nil
+	return aLayer.layer
+}
+
+func (s *Store) AddLayer(layer v1.Layer, withDiffID v1.Hash, withSize int64) {
+	s.onDiskLayersByDiffID[withDiffID] = annotatedLayer{
+		layer:            layer,
+		uncompressedSize: withSize,
+	}
 }

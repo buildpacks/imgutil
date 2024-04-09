@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -19,14 +18,15 @@ import (
 	"github.com/sclevine/spec/report"
 
 	"github.com/buildpacks/imgutil"
-	"github.com/buildpacks/imgutil/local"
+	local "github.com/buildpacks/imgutil/local"
 	"github.com/buildpacks/imgutil/remote"
 	h "github.com/buildpacks/imgutil/testhelpers"
 )
 
+const someSHA = "sha256:aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f"
+
 var localTestRegistry *h.DockerRegistry
 
-// FIXME: relevant tests in this file should be moved into new_test.go and save_test.go to mirror the implementation
 func TestLocal(t *testing.T) {
 	localTestRegistry = h.NewDockerRegistry()
 	localTestRegistry.Start(t)
@@ -51,13 +51,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		var err error
 		dockerClient = h.DockerCli(t)
 
-		versionInfo, err := dockerClient.ServerVersion(context.TODO())
+		daemonInfo, err := dockerClient.ServerVersion(context.TODO())
 		h.AssertNil(t, err)
 
-		daemonOS = versionInfo.Os
-		daemonArchitecture = versionInfo.Arch
+		daemonOS = daemonInfo.Os
+		daemonArchitecture = daemonInfo.Arch
 		runnableBaseImageName = h.RunnableBaseImage(daemonOS)
-
 		h.PullIfMissing(t, dockerClient, runnableBaseImageName)
 	})
 
@@ -81,11 +80,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
 				h.AssertNil(t, err)
 
-				versionInfo, err := dockerClient.ServerVersion(context.TODO())
+				daemonInfo, err := dockerClient.ServerVersion(context.TODO())
 				h.AssertNil(t, err)
 
-				h.AssertEq(t, inspect.Os, versionInfo.Os)
-				h.AssertEq(t, inspect.Architecture, versionInfo.Arch)
+				h.AssertEq(t, inspect.Os, daemonInfo.Os)
+				h.AssertEq(t, inspect.Architecture, daemonInfo.Arch)
 				h.AssertEq(t, inspect.RootFS.Type, "layers")
 			})
 		})
@@ -396,7 +395,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("#WithConfig", func() {
-			var config = &container.Config{Entrypoint: []string{"some-entrypoint"}}
+			var config = &v1.Config{Entrypoint: []string{"some-entrypoint"}}
 
 			it("sets the image config", func() {
 				localImage, err := local.NewImage(newTestImageName(), dockerClient, local.WithConfig(config))
@@ -782,6 +781,14 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				label := inspect.Config.Labels["new"]
 				h.AssertEq(t, strings.TrimSpace(label), "label")
 			})
+		})
+	})
+
+	when("#Kind", func() {
+		it("returns local", func() {
+			img, err := local.NewImage(newTestImageName(), dockerClient)
+			h.AssertNil(t, err)
+			h.AssertEq(t, img.Kind(), "local")
 		})
 	})
 
@@ -1576,11 +1583,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					img, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(repoName))
 					h.AssertNil(t, err)
 					h.AssertNil(t, err)
-					_, err = img.GetLayer("not-exist")
+					_, err = img.GetLayer(someSHA)
 					h.AssertError(
 						t,
 						err,
-						fmt.Sprintf(`image %q does not contain layer with diff ID "not-exist"`, repoName),
+						fmt.Sprintf(`image %q does not contain layer with diff ID "%s"`, repoName, someSHA),
 					)
 				})
 			})
@@ -1591,9 +1598,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				image, err := local.NewImage("not-exist", dockerClient)
 				h.AssertNil(t, err)
 
-				readCloser, err := image.GetLayer("some-layer")
+				readCloser, err := image.GetLayer(someSHA)
 				h.AssertNil(t, readCloser)
-				h.AssertError(t, err, `image "not-exist" does not contain layer with diff ID "some-layer"`)
+				h.AssertError(t, err, fmt.Sprintf("image %q does not contain layer with diff ID %q", "not-exist", someSHA))
 			})
 		})
 	})
@@ -1674,6 +1681,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		it("does not download the old image if layers are directly above (performance)", func() {
+			// FIXME: npa: not sure this test validates what is claimed in the `it`; it looks like even the `local` package
+			// always downloads the previous image layers whenever `ReuseLayer` is called.
 			img, err := local.NewImage(
 				repoName,
 				dockerClient,
@@ -2048,6 +2057,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			_, err = dockerClient.ImageLoad(context.TODO(), f, true)
 			h.AssertNil(t, err)
+			f.Close()
 			defer h.DockerRmi(dockerClient, img.Name())
 
 			inspect, _, err := dockerClient.ImageInspectWithRaw(context.TODO(), img.Name())
@@ -2057,6 +2067,19 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				rc, err := img.GetLayer(diffID)
 				h.AssertNil(t, err)
 				rc.Close()
+			}
+
+			f, err = os.Open(path)
+			h.AssertNil(t, err)
+			defer f.Close()
+			tr := tar.NewReader(f)
+			for {
+				hdr, err := tr.Next()
+				if err == io.EOF {
+					break
+				}
+				h.AssertNil(t, err)
+				h.AssertNotEq(t, strings.Contains(hdr.Name, "blank_"), true)
 			}
 		}
 

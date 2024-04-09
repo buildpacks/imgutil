@@ -64,7 +64,7 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 		op(options)
 	}
 
-	options.Platform = processDefaultPlatformOption(options.Platform)
+	options.Platform = processPlatformOption(options.Platform)
 
 	var err error
 
@@ -108,7 +108,7 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 	}, nil
 }
 
-func processDefaultPlatformOption(requestedPlatform imgutil.Platform) imgutil.Platform {
+func processPlatformOption(requestedPlatform imgutil.Platform) imgutil.Platform {
 	var emptyPlatform imgutil.Platform
 	if requestedPlatform != emptyPlatform {
 		return requestedPlatform

@@ -275,7 +275,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertDockerMediaTypes(t, img) // after saving
 			})
 
-			when("using a sparse image", func() {
+			when("using a (sparse) base image", func() {
 				it("sets the requested media types", func() {
 					img, err := layout.NewImage(
 						imagePath,
