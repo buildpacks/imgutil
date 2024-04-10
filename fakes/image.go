@@ -150,8 +150,10 @@ func (i *Image) LayerByDiffID(hash v1.Hash) (v1.Layer, error) {
 // LayerByDigest implements v1.Image.
 func (i *Image) LayerByDigest(hash v1.Hash) (v1.Layer, error) {
 	for _, layer := range i.layers {
-		if h, err := v1.NewHash(layer); err == nil {
-			return Layer(1024, types.DockerLayer, WithHash(h))
+		if hash.String() == layer {
+			if h, err := v1.NewHash(layer); err == nil {
+				return Layer(1024, types.DockerLayer, WithHash(h))
+			}
 		}
 	}
 

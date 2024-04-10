@@ -182,11 +182,10 @@ func WithTags(tags ...string) IndexPushOption {
 }
 
 func GetTransport(insecure bool) http.RoundTripper {
-	// #nosec G402
 	if insecure {
 		return &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: insecure,
+				InsecureSkipVerify: true, // #nosec G402
 			},
 		}
 	}
