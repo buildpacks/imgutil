@@ -154,6 +154,10 @@ func (i *CNBImageCore) OSFeatures() ([]string, error) {
 }
 
 func (i *CNBImageCore) Features() ([]string, error) {
+	if len(i.features) != 0 {
+		return i.features, nil
+	}
+
 	mfest, err := getManifest(i.Image)
 	if err != nil {
 		return nil, err
@@ -167,6 +171,10 @@ func (i *CNBImageCore) Features() ([]string, error) {
 }
 
 func (i *CNBImageCore) URLs() ([]string, error) {
+	if len(i.urls) != 0 {
+		return i.urls, nil
+	}
+
 	mfest, err := getManifest(i.Image)
 	if err != nil {
 		return nil, err

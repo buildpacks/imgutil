@@ -1064,7 +1064,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			}
 		})
 
-		it("Platform values are saved on disk in OCI layout format", func() {
+		it.Focus("Platform values are saved on disk in OCI layout format", func() {
 			var (
 				os         = "linux"
 				arch       = "amd64"
