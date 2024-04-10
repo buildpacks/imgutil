@@ -146,7 +146,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 
-		when("#FromBaseImage", func() {
+		when("#FromBaseImageInstance", func() {
 			when("no platform is specified", func() {
 				when("base image is provided", func() {
 					it.Before(func() {
@@ -157,7 +157,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					it("sets the initial state from a linux/arm base image", func() {
 						existingLayerSha := "sha256:5a0b973aa300cd2650869fd76d8546b361fcd6dfc77bd37b9d4f082cca9874e4"
 
-						img, err := layout.NewImage(imagePath, layout.FromBaseImage(testImage), layout.WithMediaTypes(imgutil.OCITypes))
+						img, err := layout.NewImage(imagePath, layout.FromBaseImageInstance(testImage), layout.WithMediaTypes(imgutil.OCITypes))
 						h.AssertNil(t, err)
 						h.AssertOCIMediaTypes(t, img)
 
@@ -181,7 +181,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				when("base image does not exist", func() {
 					it("returns an empty image", func() {
-						img, err := layout.NewImage(imagePath, layout.FromBaseImage(nil))
+						img, err := layout.NewImage(imagePath, layout.FromBaseImageInstance(nil))
 						h.AssertNil(t, err)
 						h.AssertOCIMediaTypes(t, img)
 
@@ -584,7 +584,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				testImgPath := filepath.Join(tmpDir, "new-test-image")
 				testImg, err := layout.NewImage(
 					testImgPath,
-					layout.FromBaseImage(img),
+					layout.FromBaseImageInstance(img),
 				)
 				h.AssertNil(t, err)
 
@@ -609,7 +609,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			var baseImageNamePath = filepath.Join(tmpDir, "my-base-image")
 
 			it.Before(func() {
-				baseImage, err := layout.NewImage(baseImageNamePath, layout.FromBaseImage(testImage))
+				baseImage, err := layout.NewImage(baseImageNamePath, layout.FromBaseImageInstance(testImage))
 				h.AssertNil(t, err)
 				h.AssertNil(t, baseImage.SetLabel("custom.label", "new-val"))
 				h.AssertNil(t, baseImage.Save())
@@ -641,7 +641,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				testImgPath := filepath.Join(tmpDir, "new-test-image")
 				testImg, err := layout.NewImage(
 					testImgPath,
-					layout.FromBaseImage(img),
+					layout.FromBaseImageInstance(img),
 				)
 				h.AssertNil(t, err)
 
@@ -707,14 +707,14 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			os.RemoveAll(imagePath)
 		})
 
-		when("#FromBaseImage with full image", func() {
+		when("#FromBaseImageInstance with full image", func() {
 			it.Before(func() {
 				imagePath = filepath.Join(tmpDir, "save-from-base-image")
 			})
 
 			when("additional names are provided", func() {
 				it("creates an image and save it to both path provided", func() {
-					image, err := layout.NewImage(imagePath, layout.FromBaseImage(testImage))
+					image, err := layout.NewImage(imagePath, layout.FromBaseImageInstance(testImage))
 					h.AssertNil(t, err)
 
 					anotherPath := filepath.Join(tmpDir, "another-save-from-base-image")
@@ -736,7 +736,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			when("no additional names are provided", func() {
 				it("creates an image with all the layers from the underlying image", func() {
-					image, err := layout.NewImage(imagePath, layout.FromBaseImage(testImage))
+					image, err := layout.NewImage(imagePath, layout.FromBaseImageInstance(testImage))
 					h.AssertNil(t, err)
 
 					// save on disk in OCI
