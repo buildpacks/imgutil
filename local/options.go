@@ -8,8 +8,6 @@ import (
 	"github.com/buildpacks/imgutil"
 )
 
-type ImageOption func(o *imgutil.ImageOptions)
-
 // FIXME: the following functions are defined in this package for backwards compatibility,
 // and should eventually be deprecated.
 

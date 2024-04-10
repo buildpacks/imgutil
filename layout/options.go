@@ -8,8 +8,6 @@ import (
 	"github.com/buildpacks/imgutil"
 )
 
-type ImageOption func(*imgutil.ImageOptions)
-
 // FromBaseImageInstance loads the provided image as the manifest, config, and layers for the working image.
 // If the image is not found, it does nothing.
 func FromBaseImageInstance(image v1.Image) func(*imgutil.ImageOptions) {

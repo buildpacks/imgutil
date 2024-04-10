@@ -8,8 +8,6 @@ import (
 	"github.com/buildpacks/imgutil"
 )
 
-type ImageOption func(o *imgutil.ImageOptions)
-
 // AddEmptyLayerOnSave adds an empty layer before saving if the image has no layers at all.
 // This option is useful when exporting to registries that do not allow saving an image without layers,
 // for example: gcr.io.
