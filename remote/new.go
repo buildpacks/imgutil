@@ -28,13 +28,13 @@ func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err
 	for _, op := range ops {
 		err = op(idxOps)
 		if err != nil {
-			return
+			return idx, err
 		}
 	}
 
 	ref, err := name.ParseReference(idxOps.RepoName(), name.WeakValidation, name.Insecure)
 	if err != nil {
-		return
+		return idx, err
 	}
 
 	desc, err := remote.Get(
@@ -43,7 +43,7 @@ func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err
 		remote.WithTransport(imgutil.GetTransport(idxOps.Insecure())),
 	)
 	if err != nil {
-		return
+		return idx, err
 	}
 
 	imgIdx, err := desc.ImageIndex()

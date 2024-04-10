@@ -186,7 +186,7 @@ func GetTransport(insecure bool) http.RoundTripper {
 	if insecure {
 		return &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
+				InsecureSkipVerify: insecure,
 			},
 		}
 	}

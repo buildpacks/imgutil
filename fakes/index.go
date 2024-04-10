@@ -775,7 +775,7 @@ func (i *Index) Save() error {
 	return nil
 }
 
-func (i *Index) Push(ops ...imgutil.IndexPushOption) error {
+func (i *Index) Push(_ ...imgutil.IndexPushOption) error {
 	if i.isDeleted {
 		return imgutil.ErrNoImageOrIndexFoundWithGivenDigest("")
 	}
