@@ -22,13 +22,12 @@ type CNBImageCore struct {
 	// required
 	v1.Image // the working image
 	// optional
-	createdAt                    time.Time
-	preferredMediaTypes          MediaTypes
-	preserveHistory              bool
-	previousImage                v1.Image
-	os, arch, variant, osVersion string
-	features, osFeatures, urls   []string
-	annotations                  map[string]string
+	createdAt           time.Time
+	preferredMediaTypes MediaTypes
+	preserveHistory     bool
+	previousImage       v1.Image
+	features, urls      []string
+	annotations         map[string]string
 }
 
 var _ v1.Image = &CNBImageCore{}
@@ -37,10 +36,6 @@ var _ v1.Image = &CNBImageCore{}
 
 // TBD Deprecated: Architecture
 func (i *CNBImageCore) Architecture() (string, error) {
-	if i.arch != "" {
-		return i.arch, nil
-	}
-
 	configFile, err := getConfigFile(i.Image)
 	if err != nil {
 		return "", err
@@ -134,10 +129,6 @@ func (i *CNBImageCore) ManifestSize() (int64, error) {
 
 // TBD Deprecated: OS
 func (i *CNBImageCore) OS() (string, error) {
-	if i.os != "" {
-		return i.os, nil
-	}
-
 	configFile, err := getConfigFile(i.Image)
 	if err != nil {
 		return "", err
@@ -147,10 +138,6 @@ func (i *CNBImageCore) OS() (string, error) {
 
 // TBD Deprecated: OSVersion
 func (i *CNBImageCore) OSVersion() (string, error) {
-	if i.osVersion != "" {
-		return i.osVersion, nil
-	}
-
 	configFile, err := getConfigFile(i.Image)
 	if err != nil {
 		return "", err
@@ -159,10 +146,6 @@ func (i *CNBImageCore) OSVersion() (string, error) {
 }
 
 func (i *CNBImageCore) OSFeatures() ([]string, error) {
-	if len(i.osFeatures) != 0 {
-		return i.osFeatures, nil
-	}
-
 	configFile, err := getConfigFile(i.Image)
 	if err != nil {
 		return nil, err
@@ -171,10 +154,6 @@ func (i *CNBImageCore) OSFeatures() ([]string, error) {
 }
 
 func (i *CNBImageCore) Features() ([]string, error) {
-	if len(i.features) != 0 {
-		return i.features, nil
-	}
-
 	mfest, err := getManifest(i.Image)
 	if err != nil {
 		return nil, err
@@ -188,10 +167,6 @@ func (i *CNBImageCore) Features() ([]string, error) {
 }
 
 func (i *CNBImageCore) URLs() ([]string, error) {
-	if len(i.urls) != 0 {
-		return i.urls, nil
-	}
-
 	mfest, err := getManifest(i.Image)
 	if err != nil {
 		return nil, err
@@ -247,10 +222,6 @@ func (i *CNBImageCore) Valid() bool {
 
 // TBD Deprecated: Variant
 func (i *CNBImageCore) Variant() (string, error) {
-	if i.variant != "" {
-		return i.variant, nil
-	}
-
 	configFile, err := getConfigFile(i.Image)
 	if err != nil {
 		return "", err
@@ -285,9 +256,19 @@ func (i *CNBImageCore) AnnotateRefName(refName string) error {
 	return nil
 }
 
+func (i *CNBImageCore) SetAnnotations(annotations map[string]string) error {
+	if len(i.annotations) == 0 {
+		i.annotations = make(map[string]string)
+	}
+
+	for k, v := range annotations {
+		i.annotations[k] = v
+	}
+	return nil
+}
+
 // TBD Deprecated: SetArchitecture
 func (i *CNBImageCore) SetArchitecture(architecture string) error {
-	i.arch = architecture
 	return i.MutateConfigFile(func(c *v1.ConfigFile) {
 		c.Architecture = architecture
 	})
@@ -330,6 +311,11 @@ func (i *CNBImageCore) SetEnv(key, val string) error {
 	})
 }
 
+func (i *CNBImageCore) SetFeatures(features []string) (err error) {
+	i.features = append(i.features, features...)
+	return nil
+}
+
 // TBD Deprecated: SetHistory
 func (i *CNBImageCore) SetHistory(histories []v1.History) error {
 	return i.MutateConfigFile(func(c *v1.ConfigFile) {
@@ -347,30 +333,22 @@ func (i *CNBImageCore) SetLabel(key, val string) error {
 }
 
 func (i *CNBImageCore) SetOS(osVal string) error {
-	i.os = osVal
 	return i.MutateConfigFile(func(c *v1.ConfigFile) {
 		c.OS = osVal
 	})
 }
 
-// TBD Deprecated: SetOSVersion
-func (i *CNBImageCore) SetOSVersion(osVersion string) error {
-	i.osVersion = osVersion
-	return i.MutateConfigFile(func(c *v1.ConfigFile) {
-		c.OSVersion = osVersion
-	})
-}
-
 func (i *CNBImageCore) SetOSFeatures(osFeatures []string) error {
-	i.osFeatures = append(i.osFeatures, osFeatures...)
 	return i.MutateConfigFile(func(c *v1.ConfigFile) {
 		c.OSFeatures = osFeatures
 	})
 }
 
-func (i *CNBImageCore) SetFeatures(features []string) (err error) {
-	i.features = append(i.features, features...)
-	return nil
+// TBD Deprecated: SetOSVersion
+func (i *CNBImageCore) SetOSVersion(osVersion string) error {
+	return i.MutateConfigFile(func(c *v1.ConfigFile) {
+		c.OSVersion = osVersion
+	})
 }
 
 func (i *CNBImageCore) SetURLs(urls []string) (err error) {
@@ -378,20 +356,8 @@ func (i *CNBImageCore) SetURLs(urls []string) (err error) {
 	return nil
 }
 
-func (i *CNBImageCore) SetAnnotations(annotations map[string]string) error {
-	if len(i.annotations) == 0 {
-		i.annotations = make(map[string]string)
-	}
-
-	for k, v := range annotations {
-		i.annotations[k] = v
-	}
-	return nil
-}
-
 // TBD Deprecated: SetVariant
 func (i *CNBImageCore) SetVariant(variant string) error {
-	i.variant = variant
 	return i.MutateConfigFile(func(c *v1.ConfigFile) {
 		c.Variant = variant
 	})

@@ -2259,7 +2259,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						// TODO we need to prepare a registry image for windows
 						t.Skip("alpine is not available for windows")
 					}
-					
+
 					_, err := index.NewIndex("some/image:tag", index.WithXDGRuntimePath(xdgPath), index.WithFormat(types.DockerManifestList))
 					h.AssertNil(t, err)
 
