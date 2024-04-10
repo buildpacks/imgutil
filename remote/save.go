@@ -66,11 +66,10 @@ func (i *Image) doSave(imageName string) error {
 }
 
 func getTransport(insecure bool) http.RoundTripper {
-	// #nosec G402
 	if insecure {
 		return &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
+				InsecureSkipVerify: true, // #nosec G402
 			},
 		}
 	}

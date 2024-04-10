@@ -1920,7 +1920,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 
 				h.AssertEq(t, inspect.Created, imgutil.NormalizedDateTime.Format(time.RFC3339))
-				h.AssertEq(t, inspect.Container, "")
+				h.AssertEq(t, inspect.Container, "") //nolint
 
 				history, err := dockerClient.ImageHistory(context.TODO(), repoName)
 				h.AssertNil(t, err)
@@ -1950,7 +1950,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					h.AssertEq(t, inspect.Created, expectedTime.Format(time.RFC3339))
-					h.AssertEq(t, inspect.Container, "")
+					h.AssertEq(t, inspect.Container, "") //nolint
 
 					history, err := dockerClient.ImageHistory(context.TODO(), repoName)
 					h.AssertNil(t, err)

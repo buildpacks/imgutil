@@ -121,7 +121,7 @@ func (i *Image) UnderlyingImage() v1.Image {
 	return nil
 }
 
-func (i *Image) Rebase(baseTopLayer string, newBase imgutil.Image) error {
+func (i *Image) Rebase(_ string, newBase imgutil.Image) error {
 	i.base = newBase.Name()
 	return nil
 }

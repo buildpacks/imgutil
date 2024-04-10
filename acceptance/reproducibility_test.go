@@ -43,7 +43,7 @@ func TestAcceptance(t *testing.T) {
 	spec.Run(t, "Reproducibility", testReproducibility, spec.Sequential(), spec.Report(report.Terminal{}))
 }
 
-func testReproducibility(t *testing.T, when spec.G, it spec.S) {
+func testReproducibility(t *testing.T, _ spec.G, it spec.S) {
 	var (
 		imageName1, imageName2 string
 		layer1, layer2         string
