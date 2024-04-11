@@ -48,7 +48,7 @@ func WithInsecure(insecure bool) PushOption {
 func UsingFormat(format types.MediaType) PushOption {
 	return func(a *imgutil.IndexPushOptions) error {
 		if !format.IsIndex() {
-			return ErrUnknownMediaType(format)
+			return imgutil.ErrUnknownMediaType(format)
 		}
 		a.Format = format
 		return nil

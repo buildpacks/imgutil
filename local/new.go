@@ -98,7 +98,7 @@ func NewIndex(repoName string, ops ...Option) (idx *ImageIndex, err error) {
 	}
 
 	if mfest == nil {
-		return idx, index.ErrManifestUndefined
+		return idx, imgutil.ErrManifestUndefined
 	}
 
 	if mfest.MediaType != ggcrTypes.DockerManifestList {

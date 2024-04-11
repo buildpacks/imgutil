@@ -11,7 +11,6 @@ import (
 
 	"github.com/buildpacks/imgutil"
 	"github.com/buildpacks/imgutil/fakes"
-	"github.com/buildpacks/imgutil/index"
 	h "github.com/buildpacks/imgutil/testhelpers"
 )
 
@@ -228,11 +227,11 @@ func testUtils(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 	when("annotate", func() {
-		annotate := index.Annotate{
+		annotate := imgutil.Annotate{
 			Instance: map[v1.Hash]v1.Descriptor{},
 		}
 		it.Before(func() {
-			annotate = index.Annotate{
+			annotate = imgutil.Annotate{
 				Instance: map[v1.Hash]v1.Descriptor{},
 			}
 		})
