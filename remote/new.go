@@ -20,47 +20,6 @@ import (
 	"github.com/buildpacks/imgutil/index"
 )
 
-// NewIndex returns a new ImageIndex from the registry that can be modified and saved to local file system
-func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err error) {
-	var idxOps = &index.Options{}
-	ops = append(ops, index.WithRepoName(repoName))
-
-	for _, op := range ops {
-		err = op(idxOps)
-		if err != nil {
-			return idx, err
-		}
-	}
-
-	ref, err := name.ParseReference(idxOps.RepoName(), name.WeakValidation, name.Insecure)
-	if err != nil {
-		return idx, err
-	}
-
-	desc, err := remote.Get(
-		ref,
-		remote.WithAuthFromKeychain(idxOps.Keychain()),
-		remote.WithTransport(imgutil.GetTransport(idxOps.Insecure())),
-	)
-	if err != nil {
-		return idx, err
-	}
-
-	imgIdx, err := desc.ImageIndex()
-	if err != nil {
-		return idx, err
-	}
-
-	idxOptions := imgutil.IndexOptions{
-		KeyChain:         idxOps.Keychain(),
-		XdgPath:          idxOps.XDGRuntimePath(),
-		Reponame:         idxOps.RepoName(),
-		InsecureRegistry: idxOps.Insecure(),
-	}
-
-	return imgutil.NewManifestHandler(imgIdx, idxOptions), nil
-}
-
 // NewImage returns a new image that can be modified and saved to an OCI image registry.
 func NewImage(repoName string, keychain authn.Keychain, ops ...func(*imgutil.ImageOptions)) (*Image, error) {
 	options := &imgutil.ImageOptions{}
@@ -99,6 +58,48 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...func(*imgutil.Ima
 		keychain:            keychain,
 		addEmptyLayerOnSave: options.AddEmptyLayerOnSave,
 		registrySettings:    options.RegistrySettings,
+	}, nil
+}
+
+// NewIndex returns a new ImageIndex from the registry that can be modified and saved to local file system
+func NewIndex(repoName string, ops ...Option) (idx *ImageIndex, err error) {
+	var idxOps = &imgutil.IndexOptions{}
+	for _, op := range ops {
+		if err = op(idxOps); err != nil {
+			return idx, err
+		}
+	}
+
+	if err = index.ValidateRepoName(repoName, idxOps); err != nil {
+		return idx, err
+	}
+
+	ref, err := name.ParseReference(idxOps.Reponame, name.WeakValidation, name.Insecure)
+	if err != nil {
+		return idx, err
+	}
+
+	desc, err := remote.Get(
+		ref,
+		remote.WithAuthFromKeychain(idxOps.KeyChain),
+		remote.WithTransport(imgutil.GetTransport(idxOps.Insecure)),
+	)
+	if err != nil {
+		return idx, err
+	}
+
+	imgIdx, err := desc.ImageIndex()
+	if err != nil {
+		return idx, err
+	}
+
+	cnbIndex, err := imgutil.NewCNBIndex(imgIdx, *idxOps)
+	if err != nil {
+		return idx, err
+	}
+
+	return &ImageIndex{
+		CNBIndex: cnbIndex,
 	}, nil
 }
 

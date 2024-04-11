@@ -40,10 +40,7 @@ type RegistrySetting struct {
 	Insecure bool
 }
 
-type IndexAddOption func(*AddOptions)
-type IndexPushOption func(*PushOptions) error
-
-type AddOptions struct {
+type IndexAddOptions struct {
 	All                          bool
 	Local                        bool
 	OS, Arch, Variant, OSVersion string
@@ -52,133 +49,26 @@ type AddOptions struct {
 	Image                        EditableImage
 }
 
-type PushOptions struct {
-	Insecure, Purge bool
-	// The Format the Index should be. One of Docker or OCI
-	Format types.MediaType
-	// Tags with which the index should be pushed to registry
-	Tags []string
+type IndexPushOptions struct {
+	IndexFormatOptions
+	IndexRemoteOptions
+	Purge bool
+	Tags  []string // Tags with which the index should be pushed to registry
+}
+
+type IndexFormatOptions struct {
+	Format types.MediaType // The Format the Index should be. One of Docker or OCI
+}
+
+type IndexRemoteOptions struct {
+	Insecure bool
 }
 
 type IndexOptions struct {
+	IndexFormatOptions
+	IndexRemoteOptions
 	KeyChain          authn.Keychain
 	XdgPath, Reponame string
-	InsecureRegistry  bool
-}
-
-func (o *IndexOptions) Keychain() authn.Keychain {
-	return o.KeyChain
-}
-
-func (o *IndexOptions) XDGRuntimePath() string {
-	return o.XdgPath
-}
-
-func (o *IndexOptions) RepoName() string {
-	return o.Reponame
-}
-
-func (o *IndexOptions) Insecure() bool {
-	return o.InsecureRegistry
-}
-
-// Add all images within the index
-func WithAll(all bool) IndexAddOption {
-	return func(a *AddOptions) {
-		a.All = all
-	}
-}
-
-// Add a single image from index with given OS
-func WithOS(os string) IndexAddOption {
-	return func(a *AddOptions) {
-		a.OS = os
-	}
-}
-
-// Add a Local image to Index
-func WithLocalImage(image EditableImage) IndexAddOption {
-	return func(a *AddOptions) {
-		a.Local = true
-		a.Image = image
-	}
-}
-
-// Add a single image from index with given Architecture
-func WithArchitecture(arch string) IndexAddOption {
-	return func(a *AddOptions) {
-		a.Arch = arch
-	}
-}
-
-// Add a single image from index with given Variant
-func WithVariant(variant string) IndexAddOption {
-	return func(a *AddOptions) {
-		a.Variant = variant
-	}
-}
-
-// Add a single image from index with given OSVersion
-func WithOSVersion(osVersion string) IndexAddOption {
-	return func(a *AddOptions) {
-		a.OSVersion = osVersion
-	}
-}
-
-// Add a single image from index with given Features
-func WithFeatures(features []string) IndexAddOption {
-	return func(a *AddOptions) {
-		a.Features = features
-	}
-}
-
-// Add a single image from index with given OSFeatures
-func WithOSFeatures(osFeatures []string) IndexAddOption {
-	return func(a *AddOptions) {
-		a.OSFeatures = osFeatures
-	}
-}
-
-// Add a single image from index with given Annotations
-func WithAnnotations(annotations map[string]string) IndexAddOption {
-	return func(a *AddOptions) {
-		a.Annotations = annotations
-	}
-}
-
-// Push index to Insecure Registry
-func WithInsecure(insecure bool) IndexPushOption {
-	return func(a *PushOptions) error {
-		a.Insecure = insecure
-		return nil
-	}
-}
-
-// If true, Deletes index from local filesystem after pushing to registry
-func WithPurge(purge bool) IndexPushOption {
-	return func(a *PushOptions) error {
-		a.Purge = purge
-		return nil
-	}
-}
-
-// Push the Index with given format
-func WithFormat(format types.MediaType) IndexPushOption {
-	return func(a *PushOptions) error {
-		if !format.IsIndex() {
-			return ErrUnknownMediaType(format)
-		}
-		a.Format = format
-		return nil
-	}
-}
-
-// Push the Index with given format
-func WithTags(tags ...string) IndexPushOption {
-	return func(a *PushOptions) error {
-		a.Tags = tags
-		return nil
-	}
 }
 
 func GetTransport(insecure bool) http.RoundTripper {

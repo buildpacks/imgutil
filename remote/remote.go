@@ -154,3 +154,9 @@ func (i *Image) CheckReadWriteAccess() (bool, error) {
 	}
 	return true, nil
 }
+
+var _ imgutil.ImageIndex = (*ImageIndex)(nil)
+
+type ImageIndex struct {
+	*imgutil.CNBIndex
+}

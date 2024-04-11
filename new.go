@@ -255,7 +255,7 @@ func NormalizedHistory(history []v1.History, nLayers int) []v1.History {
 }
 
 func prepareNewWindowsImageIfNeeded(image *CNBImageCore) error {
-	configFile, err := getConfigFile(image)
+	configFile, err := GetConfigFile(image)
 	if err != nil {
 		return err
 	}
@@ -289,29 +289,25 @@ func prepareNewWindowsImageIfNeeded(image *CNBImageCore) error {
 	return nil
 }
 
-func NewManifestHandler(ii v1.ImageIndex, ops IndexOptions) *ManifestHandler {
-	return &ManifestHandler{
-		ImageIndex:       ii,
-		Options:          ops,
-		Annotate:         NewAnnotate(),
-		RemovedManifests: make([]v1.Hash, 0),
-		Images:           make(map[v1.Hash]v1.Descriptor),
+func NewCNBIndex(v1Index v1.ImageIndex, ops IndexOptions) (*CNBIndex, error) {
+	index := &CNBIndex{
+		ImageIndex:       v1Index,
+		Insecure:         ops.Insecure,
+		RepoName:         ops.Reponame,
+		XdgPath:          ops.XdgPath,
+		KeyChain:         ops.KeyChain,
+		Format:           ops.Format,
+		annotate:         NewAnnotate(),
+		removedManifests: make([]v1.Hash, 0),
+		images:           make(map[v1.Hash]v1.Descriptor),
 	}
+	return index, nil
 }
 
 func NewAnnotate() Annotate {
 	return Annotate{
 		Instance: make(map[v1.Hash]v1.Descriptor),
 	}
-}
-
-func NewEmptyDockerIndex() v1.ImageIndex {
-	idx := empty.Index
-	return mutate.IndexMediaType(idx, types.DockerManifestList)
-}
-
-func NewStringSet() *StringSet {
-	return &StringSet{items: make(map[string]bool)}
 }
 
 func NewTaggableIndex(mfest *v1.IndexManifest) *TaggableIndex {

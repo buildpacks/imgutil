@@ -70,18 +70,19 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...func(*imgutil.I
 }
 
 // NewIndex will return a new local Docker ImageIndex that can be modified and saved to a registry
-func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err error) {
-	var idxOps = &index.Options{}
-	ops = append(ops, index.WithRepoName(repoName))
-
+func NewIndex(repoName string, ops ...Option) (idx *ImageIndex, err error) {
+	var idxOps = &imgutil.IndexOptions{}
 	for _, op := range ops {
-		err = op(idxOps)
-		if err != nil {
+		if err = op(idxOps); err != nil {
 			return idx, err
 		}
 	}
 
-	path, err := layout.FromPath(filepath.Join(idxOps.XDGRuntimePath(), imgutil.MakeFileSafeName(idxOps.RepoName())))
+	if err = index.ValidateRepoName(repoName, idxOps); err != nil {
+		return idx, err
+	}
+
+	path, err := layout.FromPath(filepath.Join(idxOps.XdgPath, imgutil.MakeFileSafeName(repoName)))
 	if err != nil {
 		return idx, err
 	}
@@ -97,21 +98,21 @@ func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err
 	}
 
 	if mfest == nil {
-		return idx, imgutil.ErrManifestUndefined
+		return idx, index.ErrManifestUndefined
 	}
 
 	if mfest.MediaType != ggcrTypes.DockerManifestList {
 		return nil, errors.New("no docker image index found")
 	}
 
-	idxOptions := imgutil.IndexOptions{
-		KeyChain:         idxOps.Keychain(),
-		XdgPath:          idxOps.XDGRuntimePath(),
-		Reponame:         idxOps.RepoName(),
-		InsecureRegistry: idxOps.Insecure(),
+	cnbIndex, err := imgutil.NewCNBIndex(imgIdx, *idxOps)
+	if err != nil {
+		return idx, err
 	}
 
-	return imgutil.NewManifestHandler(imgIdx, idxOptions), nil
+	return &ImageIndex{
+		CNBIndex: cnbIndex,
+	}, nil
 }
 
 func defaultPlatform(dockerClient DockerClient) (imgutil.Platform, error) {

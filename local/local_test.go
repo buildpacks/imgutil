@@ -14,18 +14,23 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	ggcrTypes "github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 
 	"github.com/buildpacks/imgutil"
-	local "github.com/buildpacks/imgutil/local"
+	"github.com/buildpacks/imgutil/index"
+	"github.com/buildpacks/imgutil/local"
 	"github.com/buildpacks/imgutil/remote"
 	h "github.com/buildpacks/imgutil/testhelpers"
 )
 
 const someSHA = "sha256:aec070645fe53ee3b3763059376134f058cc337247c978add178b6ccdfb0019f"
 
-var localTestRegistry *h.DockerRegistry
+var (
+	localTestRegistry *h.DockerRegistry
+	repoName          = "some/index"
+)
 
 func TestLocal(t *testing.T) {
 	localTestRegistry = h.NewDockerRegistry()
@@ -33,6 +38,7 @@ func TestLocal(t *testing.T) {
 	defer localTestRegistry.Stop(t)
 
 	spec.Run(t, "Image", testImage, spec.Sequential(), spec.Report(report.Terminal{}))
+	spec.Run(t, "Index", testIndex, spec.Parallel(), spec.Report(report.Terminal{}))
 }
 
 func newTestImageName() string {
@@ -2244,6 +2250,101 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, origImg.Found(), false)
 				})
 			})
+		})
+	})
+}
+
+func testIndex(t *testing.T, when spec.G, it spec.S) {
+	var (
+		idx     imgutil.ImageIndex
+		xdgPath string
+		err     error
+	)
+
+	it.Before(func() {
+		// creates the directory to save all the OCI images on disk
+		xdgPath, err = os.MkdirTemp("", "image-indexes")
+		h.AssertNil(t, err)
+	})
+
+	it.After(func() {
+		err := os.RemoveAll(xdgPath)
+		h.AssertNil(t, err)
+	})
+
+	when("#NewIndex", func() {
+		it.Before(func() {
+			idx, err = index.NewIndex(
+				repoName,
+				index.WithFormat(ggcrTypes.DockerManifestList),
+				index.WithXDGRuntimePath(xdgPath),
+			)
+			h.AssertNil(t, err)
+		})
+		it("should have expected indexOptions", func() {
+			idx, err = local.NewIndex(
+				repoName,
+				local.WithXDGRuntimePath(xdgPath),
+			)
+			h.AssertNil(t, err)
+
+			imgIdx, ok := idx.(*local.ImageIndex)
+			h.AssertEq(t, ok, true)
+			h.AssertEq(t, imgIdx.RepoName, repoName)
+			h.AssertEq(t, imgIdx.XdgPath, xdgPath)
+
+			err = idx.Delete()
+			h.AssertNil(t, err)
+		})
+		it("should return an error when invalid repoName is passed", func() {
+			idx, err = local.NewIndex(
+				repoName+"Image",
+				local.WithXDGRuntimePath(xdgPath),
+			)
+			h.AssertNotNil(t, err)
+		})
+		it("should return ImageIndex with expected output", func() {
+			idx, err = local.NewIndex(
+				repoName,
+				local.WithXDGRuntimePath(xdgPath),
+			)
+			h.AssertNil(t, err)
+			h.AssertNotEq(t, idx, nil)
+
+			err = idx.Delete()
+			h.AssertNil(t, err)
+		})
+		it("should able to call #ImageIndex", func() {
+			idx, err = local.NewIndex(
+				repoName,
+				local.WithXDGRuntimePath(xdgPath),
+			)
+			h.AssertNil(t, err)
+
+			imgIdx, ok := idx.(*local.ImageIndex)
+			h.AssertEq(t, ok, true)
+
+			_, err = imgIdx.ImageIndex.ImageIndex(v1.Hash{})
+			h.AssertNotEq(t, err.Error(), "empty index")
+
+			err = idx.Delete()
+			h.AssertNil(t, err)
+		})
+		it("should able to call #Image", func() {
+			idx, err = local.NewIndex(
+				repoName,
+				local.WithXDGRuntimePath(xdgPath),
+			)
+			h.AssertNil(t, err)
+
+			imgIdx, ok := idx.(*local.ImageIndex)
+			h.AssertEq(t, ok, true)
+
+			_, err = imgIdx.Image(v1.Hash{})
+			h.AssertNotEq(t, err.Error(), "empty index")
+
+			err = idx.Delete()
+			h.AssertNil(t, err)
 		})
 	})
 }

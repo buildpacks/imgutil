@@ -11,6 +11,7 @@ import (
 
 	"github.com/buildpacks/imgutil"
 	"github.com/buildpacks/imgutil/fakes"
+	"github.com/buildpacks/imgutil/index"
 	h "github.com/buildpacks/imgutil/testhelpers"
 )
 
@@ -153,53 +154,85 @@ func testUtils(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 	when("#StringSet", func() {
-		var (
-			stringSet *imgutil.StringSet
-		)
-		it.Before(func() {
-			stringSet = imgutil.NewStringSet()
+		when("#NewStringSet", func() {
+			it("should return not nil StringSet instance", func() {
+				stringSet := imgutil.NewStringSet()
+				h.AssertNotNil(t, stringSet)
+				h.AssertEq(t, stringSet.StringSlice(), []string(nil))
+			})
 		})
-		it("should add items", func() {
-			item := "item1"
-			stringSet.Add(item)
 
-			h.AssertEq(t, stringSet.StringSlice(), []string{item})
-		})
-		it("should remove item", func() {
-			item := "item1"
-			stringSet.Add(item)
-
-			h.AssertEq(t, stringSet.StringSlice(), []string{item})
-
-			stringSet.Remove(item)
-			h.AssertEq(t, stringSet.StringSlice(), []string(nil))
-		})
-		it("should return added items", func() {
-			items := []string{"item1", "item2", "item3"}
-			for _, item := range items {
+		when("#Add", func() {
+			var (
+				stringSet *imgutil.StringSet
+			)
+			it.Before(func() {
+				stringSet = imgutil.NewStringSet()
+			})
+			it("should add items", func() {
+				item := "item1"
 				stringSet.Add(item)
-			}
-			h.AssertEq(t, len(stringSet.StringSlice()), 3)
-			h.AssertContains(t, stringSet.StringSlice(), items...)
+
+				h.AssertEq(t, stringSet.StringSlice(), []string{item})
+			})
+			it("should return added items", func() {
+				items := []string{"item1", "item2", "item3"}
+				for _, item := range items {
+					stringSet.Add(item)
+				}
+				h.AssertEq(t, len(stringSet.StringSlice()), 3)
+				h.AssertContains(t, stringSet.StringSlice(), items...)
+			})
+			it("should not support duplicates", func() {
+				stringSet := imgutil.NewStringSet()
+				item1 := "item1"
+				item2 := "item2"
+				items := []string{item1, item2, item1}
+				for _, item := range items {
+					stringSet.Add(item)
+				}
+				h.AssertEq(t, len(stringSet.StringSlice()), 2)
+				h.AssertContains(t, stringSet.StringSlice(), []string{item1, item2}...)
+			})
 		})
-		it("should not support duplicates", func() {
-			stringSet := imgutil.NewStringSet()
-			item1 := "item1"
-			item2 := "item2"
-			items := []string{item1, item2, item1}
-			for _, item := range items {
+
+		when("#Remove", func() {
+			var (
+				stringSet *imgutil.StringSet
+				item      string
+			)
+			it.Before(func() {
+				stringSet = imgutil.NewStringSet()
+				item = "item1"
 				stringSet.Add(item)
-			}
-			h.AssertEq(t, len(stringSet.StringSlice()), 2)
-			h.AssertContains(t, stringSet.StringSlice(), []string{item1, item2}...)
+				h.AssertEq(t, stringSet.StringSlice(), []string{item})
+			})
+			it("should remove item", func() {
+				stringSet.Remove(item)
+				h.AssertEq(t, stringSet.StringSlice(), []string(nil))
+			})
 		})
 	})
-	when("Annotate", func() {
-		annotate := imgutil.Annotate{
+	when("#NewEmptyDockerIndex", func() {
+		it("should return an empty docker index", func() {
+			idx := imgutil.NewEmptyDockerIndex()
+			h.AssertNotNil(t, idx)
+
+			digest, err := idx.Digest()
+			h.AssertNil(t, err)
+			h.AssertNotEq(t, digest, v1.Hash{})
+
+			format, err := idx.MediaType()
+			h.AssertNil(t, err)
+			h.AssertEq(t, format, types.DockerManifestList)
+		})
+	})
+	when("annotate", func() {
+		annotate := index.Annotate{
 			Instance: map[v1.Hash]v1.Descriptor{},
 		}
 		it.Before(func() {
-			annotate = imgutil.Annotate{
+			annotate = index.Annotate{
 				Instance: map[v1.Hash]v1.Descriptor{},
 			}
 		})

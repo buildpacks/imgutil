@@ -4,59 +4,14 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
-	"github.com/buildpacks/imgutil/index"
 )
-
-// NewIndex will return a local OCI ImageIndex that can be modified and saved to a registry
-func NewIndex(repoName string, ops ...index.Option) (idx imgutil.ImageIndex, err error) {
-	var idxOps = &index.Options{}
-	ops = append(ops, index.WithRepoName(repoName))
-
-	for _, op := range ops {
-		err = op(idxOps)
-		if err != nil {
-			return idx, err
-		}
-	}
-
-	path, err := layout.FromPath(filepath.Join(idxOps.XDGRuntimePath(), imgutil.MakeFileSafeName(idxOps.RepoName())))
-	if err != nil {
-		return idx, err
-	}
-
-	imgIdx, err := path.ImageIndex()
-	if err != nil {
-		return idx, err
-	}
-
-	mfest, err := imgIdx.IndexManifest()
-	if err != nil {
-		return idx, err
-	}
-
-	if mfest == nil {
-		return idx, imgutil.ErrManifestUndefined
-	}
-
-	if mfest.MediaType != types.OCIImageIndex {
-		return nil, errors.New("no oci image index found")
-	}
-
-	idxOptions := imgutil.IndexOptions{
-		KeyChain:         idxOps.Keychain(),
-		XdgPath:          idxOps.XDGRuntimePath(),
-		Reponame:         idxOps.RepoName(),
-		InsecureRegistry: idxOps.Insecure(),
-	}
-
-	return imgutil.NewManifestHandler(imgIdx, idxOptions), nil
-}
 
 func NewImage(path string, ops ...ImageOption) (*Image, error) {
 	options := &imgutil.ImageOptions{}
@@ -108,6 +63,52 @@ func NewImage(path string, ops ...ImageOption) (*Image, error) {
 	}, nil
 }
 
+// NewIndex will return an OCI ImageIndex saved on disk using OCI media Types. It can be modified and saved to a registry
+func NewIndex(repoName, path string, ops ...Option) (idx *ImageIndex, err error) {
+	var idxOps = &imgutil.IndexOptions{}
+	for _, op := range ops {
+		if err = op(idxOps); err != nil {
+			return idx, err
+		}
+	}
+
+	if err = validateRepoName(repoName, idxOps); err != nil {
+		return idx, err
+	}
+
+	// TODO validate path exists
+	layoutPath, err := layout.FromPath(filepath.Join(path, imgutil.MakeFileSafeName(repoName)))
+	if err != nil {
+		return idx, err
+	}
+
+	imgIdx, err := layoutPath.ImageIndex()
+	if err != nil {
+		return idx, err
+	}
+
+	mfest, err := imgIdx.IndexManifest()
+	if err != nil {
+		return idx, err
+	}
+
+	if mfest == nil {
+		return idx, errors.New("encountered unexpected error while parsing image: manifest or index manifest is nil")
+	}
+
+	if mfest.MediaType != types.OCIImageIndex {
+		return nil, errors.New("no oci image index found")
+	}
+	idxOps.XdgPath = path
+	cnbIndex, err := imgutil.NewCNBIndex(imgIdx, *idxOps)
+	if err != nil {
+		return idx, err
+	}
+	return &ImageIndex{
+		CNBIndex: cnbIndex,
+	}, nil
+}
+
 func processPlatformOption(requestedPlatform imgutil.Platform) imgutil.Platform {
 	var emptyPlatform imgutil.Platform
 	if requestedPlatform != emptyPlatform {
@@ -144,8 +145,8 @@ func newImageFromPath(path string, withPlatform imgutil.Platform) (v1.Image, err
 
 // imageFromIndex creates a v1.Image from the given Image Index, selecting the image manifest
 // that matches the given OS and architecture.
-func imageFromIndex(index v1.ImageIndex, platform imgutil.Platform) (v1.Image, error) {
-	manifestList, err := index.IndexManifest()
+func imageFromIndex(v1Index v1.ImageIndex, platform imgutil.Platform) (v1.Image, error) {
+	manifestList, err := v1Index.IndexManifest()
 	if err != nil {
 		return nil, err
 	}
@@ -168,5 +169,22 @@ func imageFromIndex(index v1.ImageIndex, platform imgutil.Platform) (v1.Image, e
 		return nil, fmt.Errorf("failed to find manifest matching platform %v", platform)
 	}
 
-	return index.Image(manifest.Digest)
+	return v1Index.Image(manifest.Digest)
+}
+
+// TODO move this code to something more generic
+func validateRepoName(repoName string, o *imgutil.IndexOptions) error {
+	if o.Insecure {
+		_, err := name.ParseReference(repoName, name.Insecure, name.WeakValidation)
+		if err != nil {
+			return err
+		}
+	} else {
+		_, err := name.ParseReference(repoName, name.WeakValidation)
+		if err != nil {
+			return err
+		}
+	}
+	o.Reponame = repoName
+	return nil
 }

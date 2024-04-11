@@ -15,15 +15,15 @@ import (
 	h "github.com/buildpacks/imgutil/testhelpers"
 )
 
-func TestRemoteNew(t *testing.T) {
-	spec.Run(t, "RemoteNew", testRemoteNew, spec.Parallel(), spec.Report(report.Terminal{}))
+func TestLayoutNewImageIndex(t *testing.T) {
+	spec.Run(t, "LayoutNewImageIndex", testLayoutNewImageIndex, spec.Parallel(), spec.Report(report.Terminal{}))
 }
 
 var (
 	repoName = "some/index"
 )
 
-func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
+func testLayoutNewImageIndex(t *testing.T, when spec.G, it spec.S) {
 	var (
 		idx     imgutil.ImageIndex
 		xdgPath string
@@ -53,14 +53,14 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 		it("should have expected indexOptions", func() {
 			idx, err = layout.NewIndex(
 				repoName,
-				index.WithXDGRuntimePath(xdgPath),
+				xdgPath,
 			)
 			h.AssertNil(t, err)
 
-			imgIdx, ok := idx.(*imgutil.ManifestHandler)
+			imgIdx, ok := idx.(*layout.ImageIndex)
 			h.AssertEq(t, ok, true)
-			h.AssertEq(t, imgIdx.Options.Reponame, repoName)
-			h.AssertEq(t, imgIdx.Options.XdgPath, xdgPath)
+			h.AssertEq(t, imgIdx.RepoName, repoName)
+			h.AssertEq(t, imgIdx.XdgPath, xdgPath)
 
 			err = idx.Delete()
 			h.AssertNil(t, err)
@@ -68,18 +68,17 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 		it("should return an error when invalid repoName is passed", func() {
 			idx, err = layout.NewIndex(
 				repoName+"Image",
-				index.WithXDGRuntimePath(xdgPath),
+				xdgPath,
 			)
-			h.AssertNotEq(t, err, nil)
-			h.AssertNil(t, idx)
+			h.AssertNotNil(t, err)
 		})
 		it("should return ImageIndex with expected output", func() {
 			idx, err = layout.NewIndex(
 				repoName,
-				index.WithXDGRuntimePath(xdgPath),
+				xdgPath,
 			)
 			h.AssertNil(t, err)
-			h.AssertNotEq(t, idx, nil)
+			h.AssertNotNil(t, idx)
 
 			err = idx.Delete()
 			h.AssertNil(t, err)
@@ -87,11 +86,11 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 		it("should able to call #ImageIndex", func() {
 			idx, err = layout.NewIndex(
 				repoName,
-				index.WithXDGRuntimePath(xdgPath),
+				xdgPath,
 			)
 			h.AssertNil(t, err)
 
-			imgIdx, ok := idx.(*imgutil.ManifestHandler)
+			imgIdx, ok := idx.(*layout.ImageIndex)
 			h.AssertEq(t, ok, true)
 
 			hash, err := v1.NewHash("sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a")
@@ -106,11 +105,11 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 		it("should able to call #Image", func() {
 			idx, err = layout.NewIndex(
 				repoName,
-				index.WithXDGRuntimePath(xdgPath),
+				xdgPath,
 			)
 			h.AssertNil(t, err)
 
-			imgIdx, ok := idx.(*imgutil.ManifestHandler)
+			imgIdx, ok := idx.(*layout.ImageIndex)
 			h.AssertEq(t, ok, true)
 
 			hash, err := v1.NewHash("sha256:0bcc1b827b855c65eaf6e031e894e682b6170160b8a676e1df7527a19d51fb1a")

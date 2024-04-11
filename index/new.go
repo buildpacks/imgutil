@@ -11,32 +11,40 @@ import (
 )
 
 // NewIndex will return a New Empty ImageIndex that can be modified and saved to a registry
-func NewIndex(repoName string, ops ...Option) (idx imgutil.ImageIndex, err error) {
-	var idxOps = &Options{}
-	ops = append(ops, WithRepoName(repoName))
+func NewIndex(repoName string, ops ...Option) (idx *ImageIndex, err error) {
+	var idxOps = &imgutil.IndexOptions{}
 	for _, op := range ops {
-		err = op(idxOps)
-		if err != nil {
-			return
+		if err = op(idxOps); err != nil {
+			return idx, err
 		}
 	}
 
-	idxOptions := imgutil.IndexOptions{
-		KeyChain:         idxOps.keychain,
-		XdgPath:          idxOps.xdgPath,
-		Reponame:         idxOps.repoName,
-		InsecureRegistry: idxOps.insecure,
+	if err = ValidateRepoName(repoName, idxOps); err != nil {
+		return idx, err
 	}
 
-	layoutPath := filepath.Join(idxOps.xdgPath, imgutil.MakeFileSafeName(idxOps.repoName))
-	switch idxOps.format {
+	layoutPath := filepath.Join(idxOps.XdgPath, imgutil.MakeFileSafeName(repoName))
+
+	var cnbIndex *imgutil.CNBIndex
+	switch idxOps.Format {
 	case types.DockerManifestList:
-		idx = imgutil.NewManifestHandler(imgutil.NewEmptyDockerIndex(), idxOptions)
+		cnbIndex, err = imgutil.NewCNBIndex(imgutil.NewEmptyDockerIndex(), *idxOps)
+		if err != nil {
+			return idx, err
+		}
+		// TODO I don't think we should write into disk during creation
 		_, err = layout.Write(layoutPath, imgutil.NewEmptyDockerIndex())
 	default:
-		idx = imgutil.NewManifestHandler(empty.Index, idxOptions)
+		cnbIndex, err = imgutil.NewCNBIndex(imgutil.NewEmptyDockerIndex(), *idxOps)
+		if err != nil {
+			return idx, err
+		}
+		// TODO I don't think we should write into disk during creation
 		_, err = layout.Write(layoutPath, empty.Index)
 	}
 
+	idx = &ImageIndex{
+		CNBIndex: cnbIndex,
+	}
 	return idx, err
 }

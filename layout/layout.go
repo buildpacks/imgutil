@@ -11,6 +11,7 @@ import (
 )
 
 var _ imgutil.Image = (*Image)(nil)
+var _ imgutil.ImageIndex = (*ImageIndex)(nil)
 
 type Image struct {
 	*imgutil.CNBImageCore
@@ -70,4 +71,8 @@ func (i *Image) Identifier() (imgutil.Identifier, error) {
 
 func (i *Image) Delete() error {
 	return os.RemoveAll(i.repoPath)
+}
+
+type ImageIndex struct {
+	*imgutil.CNBIndex
 }

@@ -165,7 +165,7 @@ func (i *CNBImageCore) Features() ([]string, error) {
 
 	p := mfest.Config.Platform
 	if p == nil || len(p.Features) < 1 {
-		return nil, ErrFeaturesUndefined(i.preferredMediaTypes.ManifestType(), "")
+		return nil, fmt.Errorf("image features is undefined for %s ImageIndex", i.preferredMediaTypes.ManifestType())
 	}
 	return p.Features, nil
 }
@@ -181,7 +181,7 @@ func (i *CNBImageCore) URLs() ([]string, error) {
 	}
 
 	if len(mfest.Config.URLs) < 1 {
-		return nil, ErrURLsUndefined(i.preferredMediaTypes.ManifestType(), "")
+		return nil, fmt.Errorf("image urls is undefined for %s ImageIndex", i.preferredMediaTypes.ManifestType())
 	}
 	return mfest.Config.URLs, nil
 }
@@ -197,7 +197,7 @@ func (i *CNBImageCore) Annotations() (map[string]string, error) {
 	}
 
 	if len(mfest.Annotations) < 1 {
-		return nil, ErrAnnotationsUndefined(i.preferredMediaTypes.ManifestType(), "")
+		return nil, fmt.Errorf("image annotations is undefined for %s ImageIndex", i.preferredMediaTypes.ManifestType())
 	}
 	return mfest.Annotations, nil
 }
@@ -424,7 +424,7 @@ func (i *CNBImageCore) AddLayerWithHistory(layer v1.Layer, history v1.History) e
 }
 
 func (i *CNBImageCore) Rebase(baseTopLayerDiffID string, withNewBase Image) error {
-	newBase := withNewBase.UnderlyingImage() // FIXME: when all imgutil.Images are v1.Images, we can remove this part
+	newBase := withNewBase.UnderlyingImage() // FIXME: when all imgutil.images are v1.images, we can remove this part
 	var err error
 	i.Image, err = mutate.Rebase(i.Image, i.newV1ImageFacade(baseTopLayerDiffID), newBase)
 	if err != nil {
@@ -594,7 +594,7 @@ func getConfigFile(image v1.Image) (*v1.ConfigFile, error) {
 		return nil, err
 	}
 	if configFile == nil {
-		return nil, ErrConfigFileUndefined
+		return nil, errors.New("missing config file")
 	}
 	return configFile, nil
 }
@@ -605,7 +605,7 @@ func getManifest(image v1.Image) (*v1.Manifest, error) {
 		return nil, err
 	}
 	if manifest == nil {
-		return nil, ErrManifestUndefined
+		return nil, errors.New("missing manifest")
 	}
 	return manifest, nil
 }

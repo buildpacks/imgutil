@@ -309,7 +309,7 @@ func (i *Image) Size() (int64, error) {
 		return 0, err
 	}
 	if mfest == nil {
-		return 0, imgutil.ErrManifestUndefined
+		return 0, errors.New("encountered unexpected error while parsing image: manifest or index manifest is nil")
 	}
 
 	return partial.Size(NewFakeManifest(*mfest))
