@@ -424,7 +424,7 @@ func (i *CNBImageCore) AddLayerWithHistory(layer v1.Layer, history v1.History) e
 }
 
 func (i *CNBImageCore) Rebase(baseTopLayerDiffID string, withNewBase Image) error {
-	newBase := withNewBase.UnderlyingImage() // FIXME: when all imgutil.images are v1.images, we can remove this part
+	newBase := withNewBase.UnderlyingImage() // FIXME: when all imgutil.Images are v1.Images, we can remove this part
 	var err error
 	i.Image, err = mutate.Rebase(i.Image, i.newV1ImageFacade(baseTopLayerDiffID), newBase)
 	if err != nil {
