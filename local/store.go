@@ -40,7 +40,7 @@ type DockerClient interface {
 	ImageHistory(ctx context.Context, image string) ([]image.HistoryResponseItem, error)
 	ImageInspectWithRaw(ctx context.Context, image string) (types.ImageInspect, []byte, error)
 	ImageLoad(ctx context.Context, input io.Reader, quiet bool) (types.ImageLoadResponse, error)
-	ImageRemove(ctx context.Context, image string, options types.ImageRemoveOptions) ([]image.DeleteResponse, error)
+	ImageRemove(ctx context.Context, image string, options image.RemoveOptions) ([]image.DeleteResponse, error)
 	ImageSave(ctx context.Context, images []string) (io.ReadCloser, error)
 	ImageTag(ctx context.Context, image, ref string) error
 	Info(ctx context.Context) (system.Info, error)
@@ -71,7 +71,7 @@ func (s *Store) Delete(identifier string) error {
 	if !s.Contains(identifier) {
 		return nil
 	}
-	options := types.ImageRemoveOptions{
+	options := image.RemoveOptions{
 		Force:         true,
 		PruneChildren: true,
 	}
