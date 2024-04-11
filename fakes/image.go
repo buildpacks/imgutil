@@ -194,19 +194,19 @@ func (i *Image) SetVariant(a string) error {
 	return nil
 }
 
-func (i *Image) SetFeatures(features []string) error {
+func (i *Image) SetFeatures(_ []string) error {
 	return nil
 }
 
-func (i *Image) SetOSFeatures(osFeatures []string) error {
+func (i *Image) SetOSFeatures(_ []string) error {
 	return nil
 }
 
-func (i *Image) SetURLs(urls []string) error {
+func (i *Image) SetURLs(_ []string) error {
 	return nil
 }
 
-func (i *Image) SetAnnotations(annos map[string]string) error {
+func (i *Image) SetAnnotations(_ map[string]string) error {
 	return nil
 }
 
