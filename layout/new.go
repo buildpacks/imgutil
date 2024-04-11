@@ -145,8 +145,8 @@ func newImageFromPath(path string, withPlatform imgutil.Platform) (v1.Image, err
 
 // imageFromIndex creates a v1.Image from the given Image Index, selecting the image manifest
 // that matches the given OS and architecture.
-func imageFromIndex(v1Index v1.ImageIndex, platform imgutil.Platform) (v1.Image, error) {
-	manifestList, err := v1Index.IndexManifest()
+func imageFromIndex(index v1.ImageIndex, platform imgutil.Platform) (v1.Image, error) {
+	manifestList, err := index.IndexManifest()
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func imageFromIndex(v1Index v1.ImageIndex, platform imgutil.Platform) (v1.Image,
 		return nil, fmt.Errorf("failed to find manifest matching platform %v", platform)
 	}
 
-	return v1Index.Image(manifest.Digest)
+	return index.Image(manifest.Digest)
 }
 
 // TODO move this code to something more generic
