@@ -21,7 +21,7 @@ import (
 )
 
 // NewImage returns a new image that can be modified and saved to an OCI image registry.
-func NewImage(repoName string, keychain authn.Keychain, ops ...func(*imgutil.ImageOptions)) (*Image, error) {
+func NewImage(repoName string, keychain authn.Keychain, ops ...imgutil.ImageOption) (*Image, error) {
 	options := &imgutil.ImageOptions{}
 	for _, op := range ops {
 		op(options)
