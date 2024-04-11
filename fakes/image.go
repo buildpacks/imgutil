@@ -2,10 +2,8 @@ package fakes
 
 import (
 	"archive/tar"
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -15,9 +13,6 @@ import (
 
 	registryName "github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/empty"
-	"github.com/google/go-containerregistry/pkg/v1/mutate"
-	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
 
@@ -43,276 +38,32 @@ func NewImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
 	}
 }
 
-var ErrLayerNotFound = errors.New("layer with given diff id not found")
-
 type Image struct {
-	deleted                    bool
-	layers                     []string
-	history                    []v1.History
-	layersMap                  map[string]string
-	prevLayersMap              map[string]string
-	reusedLayers               []string
-	labels                     map[string]string
-	env                        map[string]string
-	topLayerSha                string
-	os                         string
-	osVersion                  string
-	architecture               string
-	variant                    string
-	identifier                 imgutil.Identifier
-	name                       string
-	entryPoint                 []string
-	cmd                        []string
-	base                       string
-	createdAt                  time.Time
-	layerDir                   string
-	workingDir                 string
-	savedNames                 map[string]bool
-	manifestSize               int64
-	refName                    string
-	savedAnnotations           map[string]string
-	features, osFeatures, urls []string
-}
-
-func mapToStringSlice(data map[string]string) []string {
-	var stringSlice []string
-	for key, value := range data {
-		keyValue := fmt.Sprintf("%s=%s", key, value)
-		stringSlice = append(stringSlice, keyValue)
-	}
-	return stringSlice
-}
-
-// ConfigFile implements v1.Image.
-func (i *Image) ConfigFile() (*v1.ConfigFile, error) {
-	var hashes = make([]v1.Hash, 0)
-
-	for _, layer := range i.layers {
-		hash, err := v1.NewHash(layer)
-		if err != nil {
-			return nil, err
-		}
-
-		hashes = append(hashes, hash)
-	}
-	return &v1.ConfigFile{
-		Architecture:  i.architecture,
-		OS:            i.os,
-		OSVersion:     i.osVersion,
-		Variant:       i.variant,
-		OSFeatures:    i.osFeatures,
-		History:       i.history,
-		Created:       v1.Time{Time: i.createdAt},
-		Author:        "buildpacks",
-		Container:     "containerd",
-		DockerVersion: "25.0",
-		RootFS: v1.RootFS{
-			DiffIDs: hashes,
-		},
-		Config: v1.Config{
-			Cmd:         i.cmd,
-			Env:         mapToStringSlice(i.env),
-			ArgsEscaped: true,
-			Image:       i.identifier.String(),
-			WorkingDir:  i.workingDir,
-			Labels:      i.labels,
-			User:        "cnb",
-		},
-	}, nil
-}
-
-// ConfigName implements v1.Image.
-func (i *Image) ConfigName() (v1.Hash, error) {
-	c, err := i.ConfigFile()
-	if err != nil {
-		return v1.Hash{}, err
-	}
-
-	return v1.NewHash(c.Config.Image)
-}
-
-// LayerByDiffID implements v1.Image.
-func (i *Image) LayerByDiffID(hash v1.Hash) (v1.Layer, error) {
-	c, err := i.ConfigFile()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, diffID := range c.RootFS.DiffIDs {
-		if hash == diffID {
-			return Layer(1024, types.DockerLayer, WithHash(hash))
-		}
-	}
-
-	return nil, ErrLayerNotFound
-}
-
-// LayerByDigest implements v1.Image.
-func (i *Image) LayerByDigest(hash v1.Hash) (v1.Layer, error) {
-	for _, layer := range i.layers {
-		if hash.String() == layer {
-			if h, err := v1.NewHash(layer); err == nil {
-				return Layer(1024, types.DockerLayer, WithHash(h))
-			}
-		}
-	}
-
-	return nil, ErrLayerNotFound
-}
-
-// Layers implements v1.Image.
-func (i *Image) Layers() (layers []v1.Layer, err error) {
-	for _, layer := range i.layers {
-		hash, err := v1.NewHash(layer)
-		if err != nil {
-			return nil, err
-		}
-
-		l, err := Layer(1024, types.DockerLayer, WithHash(hash))
-		if err != nil {
-			return layers, err
-		}
-		layers = append(layers, l)
-	}
-
-	return layers, err
-}
-
-type FakeConfigFile struct {
-	v1.ConfigFile
-}
-
-func NewFakeConfigFile(config v1.ConfigFile) FakeConfigFile {
-	return FakeConfigFile{
-		ConfigFile: config,
-	}
-}
-
-func (c FakeConfigFile) RawManifest() ([]byte, error) {
-	return json.Marshal(c.ConfigFile)
-}
-
-type FakeManifest struct {
-	v1.Manifest
-}
-
-func NewFakeManifest(mfest v1.Manifest) FakeManifest {
-	return FakeManifest{
-		Manifest: mfest,
-	}
-}
-
-func (c FakeManifest) RawManifest() ([]byte, error) {
-	return json.Marshal(c.Manifest)
-}
-
-func (i *Image) ConfigFileToV1Desc(config v1.ConfigFile) (desc v1.Descriptor, err error) {
-	fakeConfig := NewFakeConfigFile(config)
-	size, err := partial.Size(fakeConfig)
-	if err != nil {
-		return desc, err
-	}
-
-	digest, err := partial.Digest(fakeConfig)
-	if err != nil {
-		return desc, err
-	}
-
-	return v1.Descriptor{
-		MediaType:   types.DockerConfigJSON,
-		Size:        size,
-		Digest:      digest,
-		URLs:        i.urls,
-		Annotations: i.savedAnnotations,
-		Platform: &v1.Platform{
-			OS:           i.os,
-			Architecture: i.architecture,
-			Variant:      i.variant,
-			OSVersion:    i.osVersion,
-			Features:     i.features,
-			OSFeatures:   i.osFeatures,
-		},
-	}, nil
-}
-
-// Manifest implements v1.Image.
-func (i *Image) Manifest() (*v1.Manifest, error) {
-	layers, err := i.Layers()
-	if err != nil {
-		return nil, err
-	}
-
-	var layerDesc = make([]v1.Descriptor, 0)
-	for _, layer := range layers {
-		desc := v1.Descriptor{}
-		if desc.Digest, err = layer.Digest(); err != nil {
-			return nil, err
-		}
-
-		if desc.MediaType, err = layer.MediaType(); err != nil {
-			return nil, err
-		}
-
-		if desc.Size, err = layer.Size(); err != nil {
-			return nil, err
-		}
-
-		layerDesc = append(layerDesc, desc)
-	}
-
-	cfgFile, err := i.ConfigFile()
-	if err != nil {
-		return nil, err
-	}
-
-	configDesc, err := i.ConfigFileToV1Desc(*cfgFile)
-	if err != nil {
-		return nil, err
-	}
-
-	manifest := &v1.Manifest{
-		SchemaVersion: 1,
-		MediaType:     types.DockerManifestList,
-		Layers:        layerDesc,
-		Config:        configDesc,
-		Subject:       &configDesc,
-		Annotations:   i.savedAnnotations,
-	}
-
-	return manifest, nil
-}
-
-// RawConfigFile implements v1.Image.
-func (i *Image) RawConfigFile() ([]byte, error) {
-	config, err := i.ConfigFile()
-	if err != nil {
-		return nil, err
-	}
-
-	return json.Marshal(config)
-}
-
-// RawManifest implements v1.Image.
-func (i *Image) RawManifest() ([]byte, error) {
-	mfest, err := i.Manifest()
-	if err != nil {
-		return nil, err
-	}
-
-	return json.Marshal(mfest)
-}
-
-// Size implements v1.Image.
-func (i *Image) Size() (int64, error) {
-	mfest, err := i.Manifest()
-	if err != nil {
-		return 0, err
-	}
-	if mfest == nil {
-		return 0, errors.New("encountered unexpected error while parsing image: manifest or index manifest is nil")
-	}
-
-	return partial.Size(NewFakeManifest(*mfest))
+	deleted          bool
+	layers           []string
+	history          []v1.History
+	layersMap        map[string]string
+	prevLayersMap    map[string]string
+	reusedLayers     []string
+	labels           map[string]string
+	env              map[string]string
+	topLayerSha      string
+	os               string
+	osVersion        string
+	architecture     string
+	variant          string
+	identifier       imgutil.Identifier
+	name             string
+	entryPoint       []string
+	cmd              []string
+	base             string
+	createdAt        time.Time
+	layerDir         string
+	workingDir       string
+	savedNames       map[string]bool
+	manifestSize     int64
+	refName          string
+	savedAnnotations map[string]string
 }
 
 func (i *Image) CreatedAt() (time.Time, error) {
@@ -352,19 +103,19 @@ func (i *Image) Variant() (string, error) {
 }
 
 func (i *Image) Features() ([]string, error) {
-	return i.features, nil
+	return nil, nil
 }
 
 func (i *Image) OSFeatures() ([]string, error) {
-	return i.osFeatures, nil
+	return nil, nil
 }
 
 func (i *Image) URLs() ([]string, error) {
-	return i.urls, nil
+	return nil, nil
 }
 
 func (i *Image) Annotations() (map[string]string, error) {
-	return i.savedAnnotations, nil
+	return nil, nil
 }
 
 func (i *Image) Rename(name string) {
@@ -444,28 +195,18 @@ func (i *Image) SetVariant(a string) error {
 }
 
 func (i *Image) SetFeatures(features []string) error {
-	i.features = append(i.features, features...)
 	return nil
 }
 
 func (i *Image) SetOSFeatures(osFeatures []string) error {
-	i.osFeatures = append(i.osFeatures, osFeatures...)
 	return nil
 }
 
 func (i *Image) SetURLs(urls []string) error {
-	i.urls = append(i.urls, urls...)
 	return nil
 }
 
 func (i *Image) SetAnnotations(annos map[string]string) error {
-	if len(i.savedAnnotations) < 1 {
-		i.savedAnnotations = make(map[string]string)
-	}
-
-	for k, v := range annos {
-		i.savedAnnotations[k] = v
-	}
 	return nil
 }
 
@@ -800,49 +541,4 @@ func (i *Image) ManifestSize() (int64, error) {
 
 func (i *Image) SavedAnnotations() map[string]string {
 	return i.savedAnnotations
-}
-
-// uncompressedLayer implements partial.UncompressedLayer from raw bytes.
-type uncompressedLayer struct {
-	diffID    v1.Hash
-	mediaType types.MediaType
-	content   []byte
-}
-
-// DiffID implements partial.UncompressedLayer
-func (ul *uncompressedLayer) DiffID() (v1.Hash, error) {
-	return ul.diffID, nil
-}
-
-// Uncompressed implements partial.UncompressedLayer
-func (ul *uncompressedLayer) Uncompressed() (io.ReadCloser, error) {
-	return io.NopCloser(bytes.NewBuffer(ul.content)), nil
-}
-
-// MediaType returns the media type of the layer
-func (ul *uncompressedLayer) MediaType() (types.MediaType, error) {
-	return ul.mediaType, nil
-}
-
-var _ partial.UncompressedLayer = (*uncompressedLayer)(nil)
-
-// Image returns a pseudo-randomly generated Image.
-func V1Image(byteSize, layers int64, options ...Option) (v1.Image, error) {
-	adds := make([]mutate.Addendum, 0, 5)
-	for i := int64(0); i < layers; i++ {
-		layer, err := Layer(byteSize, types.DockerLayer, options...)
-		if err != nil {
-			return nil, err
-		}
-		adds = append(adds, mutate.Addendum{
-			Layer: layer,
-			History: v1.History{
-				Author:    "random.Image",
-				Comment:   fmt.Sprintf("this is a random history %d of %d", i, layers),
-				CreatedBy: "random",
-			},
-		})
-	}
-
-	return mutate.Append(empty.Image, adds...)
 }
