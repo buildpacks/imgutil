@@ -8,7 +8,7 @@ import (
 	"github.com/buildpacks/imgutil"
 )
 
-func NewImage(path string, ops ...ImageOption) (*Image, error) {
+func NewImage(path string, ops ...imgutil.ImageOption) (*Image, error) {
 	options := &imgutil.ImageOptions{}
 	for _, op := range ops {
 		op(options)

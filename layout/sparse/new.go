@@ -8,12 +8,12 @@ import (
 )
 
 // NewImage returns a new Image saved on disk that can be modified
-func NewImage(path string, from v1.Image, ops ...layout.ImageOption) (*layout.Image, error) {
+func NewImage(path string, from v1.Image, ops ...imgutil.ImageOption) (*layout.Image, error) {
 	preserveDigest := func(opts *imgutil.ImageOptions) {
 		opts.PreserveDigest = true
 	}
-	ops = append([]layout.ImageOption{
-		layout.FromBaseImage(from),
+	ops = append([]imgutil.ImageOption{
+		layout.FromBaseImageInstance(from),
 		layout.WithoutLayersWhenSaved(),
 		preserveDigest,
 	}, ops...)

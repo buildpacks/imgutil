@@ -14,7 +14,7 @@ import (
 
 // NewImage returns a new image that can be modified and saved to a docker daemon
 // via a tarball in legacy format.
-func NewImage(repoName string, dockerClient DockerClient, ops ...func(*imgutil.ImageOptions)) (*Image, error) {
+func NewImage(repoName string, dockerClient DockerClient, ops ...imgutil.ImageOption) (*Image, error) {
 	options := &imgutil.ImageOptions{}
 	for _, op := range ops {
 		op(options)
