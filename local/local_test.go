@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -2229,7 +2229,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				it.Before(func() {
 					h.AssertNil(t, dockerClient.ImageTag(context.TODO(), origImg.Name(), newTag))
 
-					_, err := dockerClient.ImageRemove(context.TODO(), origImg.Name(), types.ImageRemoveOptions{})
+					_, err := dockerClient.ImageRemove(context.TODO(), origImg.Name(), image.RemoveOptions{})
 					h.AssertNil(t, err)
 				})
 
