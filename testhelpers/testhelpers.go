@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	dockertypes "github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/image"
 	dockercli "github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/google/go-cmp/cmp"
@@ -172,10 +172,10 @@ func PullIfMissing(t *testing.T, docker dockercli.CommonAPIClient, ref string) {
 		t.Fatalf("failed inspecting image '%s': %s", ref, err)
 	}
 
-	rc, err := docker.ImagePull(context.Background(), ref, dockertypes.ImagePullOptions{})
+	rc, err := docker.ImagePull(context.Background(), ref, image.PullOptions{})
 	if err != nil {
 		// Retry
-		rc, err = docker.ImagePull(context.Background(), ref, dockertypes.ImagePullOptions{})
+		rc, err = docker.ImagePull(context.Background(), ref, image.PullOptions{})
 		AssertNil(t, err)
 	}
 	defer rc.Close()
@@ -193,7 +193,7 @@ func DockerRmi(dockerCli dockercli.CommonAPIClient, repoNames ...string) error {
 		_, e := dockerCli.ImageRemove(
 			ctx,
 			repoName,
-			dockertypes.ImageRemoveOptions{PruneChildren: true},
+			image.RemoveOptions{PruneChildren: true},
 		)
 		if e != nil && err == nil {
 			err = e
