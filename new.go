@@ -293,7 +293,7 @@ func NewCNBIndex(v1Index v1.ImageIndex, ops IndexOptions) (*CNBIndex, error) {
 	index := &CNBIndex{
 		ImageIndex:       v1Index,
 		Insecure:         ops.Insecure,
-		RepoName:         ops.Reponame,
+		RepoName:         ops.BaseImageIndexRepoName,
 		XdgPath:          ops.XdgPath,
 		KeyChain:         ops.KeyChain,
 		Format:           ops.Format,

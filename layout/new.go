@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/layout"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
 
@@ -65,6 +65,7 @@ func NewImage(path string, ops ...imgutil.ImageOption) (*Image, error) {
 
 // NewIndex will return an OCI ImageIndex saved on disk using OCI media Types. It can be modified and saved to a registry
 func NewIndex(repoName, path string, ops ...Option) (idx *ImageIndex, err error) {
+	var mfest *v1.IndexManifest
 	var idxOps = &imgutil.IndexOptions{}
 	for _, op := range ops {
 		if err = op(idxOps); err != nil {
@@ -76,31 +77,45 @@ func NewIndex(repoName, path string, ops ...Option) (idx *ImageIndex, err error)
 		return idx, err
 	}
 
-	// TODO validate path exists
-	layoutPath, err := layout.FromPath(filepath.Join(path, imgutil.MakeFileSafeName(repoName)))
-	if err != nil {
-		return idx, err
+	if idxOps.BaseIndex == nil && idxOps.BaseImageIndexRepoName != "" {
+		idxOps.BaseIndex, err = newImageIndexFromPath(idxOps.BaseImageIndexRepoName)
+		if err != nil {
+			return idx, err
+		}
+
+		if idxOps.BaseIndex != nil {
+			// TODO Do we need to do this?
+			mfest, err = idxOps.BaseIndex.IndexManifest()
+			if err != nil {
+				return idx, err
+			}
+
+			if mfest == nil {
+				return idx, errors.New("encountered unexpected error while parsing image: manifest or index manifest is nil")
+			}
+		}
 	}
 
-	imgIdx, err := layoutPath.ImageIndex()
-	if err != nil {
-		return idx, err
+	if idxOps.BaseIndex == nil {
+		localPath := filepath.Join(path, imgutil.MakeFileSafeName(repoName))
+		if imageExists(localPath) {
+			return idx, errors.Errorf("an image index already exists at %s use FromBaseImageIndex or "+
+				"FromBaseImageIndexInstance options to create a new instance", localPath)
+		}
 	}
 
-	mfest, err := imgIdx.IndexManifest()
-	if err != nil {
-		return idx, err
+	if idxOps.BaseIndex == nil {
+		switch idxOps.Format {
+		case types.DockerManifestList:
+			idxOps.BaseIndex = imgutil.NewEmptyDockerIndex()
+		default:
+			idxOps.BaseIndex = empty.Index
+		}
 	}
 
-	if mfest == nil {
-		return idx, errors.New("encountered unexpected error while parsing image: manifest or index manifest is nil")
-	}
-
-	if mfest.MediaType != types.OCIImageIndex {
-		return nil, errors.New("no oci image index found")
-	}
+	var cnbIndex *imgutil.CNBIndex
 	idxOps.XdgPath = path
-	cnbIndex, err := imgutil.NewCNBIndex(imgIdx, *idxOps)
+	cnbIndex, err = imgutil.NewCNBIndex(idxOps.BaseIndex, *idxOps)
 	if err != nil {
 		return idx, err
 	}
@@ -141,6 +156,19 @@ func newImageFromPath(path string, withPlatform imgutil.Platform) (v1.Image, err
 		return nil, fmt.Errorf("failed to load image from index: %w", err)
 	}
 	return image, nil
+}
+
+// newImageIndexFromPath creates a layout image index from the given path.
+func newImageIndexFromPath(path string) (v1.ImageIndex, error) {
+	if !imageExists(path) {
+		return nil, nil
+	}
+
+	layoutPath, err := FromPath(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load layout from path: %w", err)
+	}
+	return layoutPath.ImageIndex()
 }
 
 // imageFromIndex creates a v1.Image from the given Image Index, selecting the image manifest
@@ -185,6 +213,5 @@ func validateRepoName(repoName string, o *imgutil.IndexOptions) error {
 			return err
 		}
 	}
-	o.Reponame = repoName
 	return nil
 }

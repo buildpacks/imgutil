@@ -74,7 +74,7 @@ func NewIndex(repoName string, ops ...Option) (idx *ImageIndex, err error) {
 		return idx, err
 	}
 
-	ref, err := name.ParseReference(idxOps.Reponame, name.WeakValidation, name.Insecure)
+	ref, err := name.ParseReference(idxOps.BaseImageIndexRepoName, name.WeakValidation, name.Insecure)
 	if err != nil {
 		return idx, err
 	}

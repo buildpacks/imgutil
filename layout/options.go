@@ -65,6 +65,15 @@ type Option func(options *imgutil.IndexOptions) error
 type PushOption func(*imgutil.IndexPushOptions) error
 type AddOption func(*imgutil.IndexAddOptions) error
 
+// FromBaseImageIndexInstance loads the provided image index for the working image index.
+// If the index is not found, it does nothing.
+func FromBaseImageIndexInstance(index v1.ImageIndex) func(options *imgutil.IndexOptions) error {
+	return func(o *imgutil.IndexOptions) error {
+		o.BaseIndex = index
+		return nil
+	}
+}
+
 // WithKeychain fetches Index from registry with keychain
 func WithKeychain(keychain authn.Keychain) Option {
 	return func(o *imgutil.IndexOptions) error {

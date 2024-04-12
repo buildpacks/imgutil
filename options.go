@@ -123,10 +123,23 @@ type IndexRemoteOptions struct {
 }
 
 type IndexOptions struct {
+	XdgPath                string
+	BaseImageIndexRepoName string
+	KeyChain               authn.Keychain
 	IndexFormatOptions
 	IndexRemoteOptions
-	KeyChain          authn.Keychain
-	XdgPath, Reponame string
+
+	// These options must be specified in each implementation's image index constructor
+	BaseIndex v1.ImageIndex
+}
+
+// FromBaseImageIndex loads the ImageIndex at the provided path for the working image index.
+// If the index is not found, it does nothing.
+func FromBaseImageIndex(name string) func(*IndexOptions) error {
+	return func(o *IndexOptions) error {
+		o.BaseImageIndexRepoName = name
+		return nil
+	}
 }
 
 func GetTransport(insecure bool) http.RoundTripper {

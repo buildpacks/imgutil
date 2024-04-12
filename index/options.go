@@ -168,6 +168,6 @@ func ValidateRepoName(repoName string, o *imgutil.IndexOptions) error {
 			return err
 		}
 	}
-	o.Reponame = repoName
+	o.BaseImageIndexRepoName = repoName
 	return nil
 }

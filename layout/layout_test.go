@@ -22,14 +22,17 @@ import (
 
 // FIXME: relevant tests in this file should be moved into new_test.go and save_test.go to mirror the implementation
 func TestLayout(t *testing.T) {
-	spec.Run(t, "Image", testImage, spec.Parallel(), spec.Report(report.Terminal{}))
+	spec.Run(t, "Image", testImage, spec.Sequential(), spec.Report(report.Terminal{}))
+	spec.Run(t, "ImageIndex", testImageIndex, spec.Parallel(), spec.Report(report.Terminal{}))
 }
+
+// global directory and paths
+var testDataDir = filepath.Join("testdata", "layout")
 
 func testImage(t *testing.T, when spec.G, it spec.S) {
 	var (
 		remoteBaseImage     v1.Image
 		tmpDir              string
-		testDataDir         string
 		imagePath           string
 		fullBaseImagePath   string
 		sparseBaseImagePath string
@@ -1125,6 +1128,44 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				diffID := "sha256:40cf597a9181e86497f4121c604f9f0ab208950a98ca21db883f26b0a548a2eb"
 				_, err = image.GetLayer(diffID)
 				h.AssertNil(t, err)
+			})
+		})
+	})
+}
+
+func testImageIndex(t *testing.T, when spec.G, it spec.S) {
+	var (
+		idx     imgutil.ImageIndex
+		tempDir string
+		err     error
+	)
+
+	it.Before(func() {
+		// creates the directory to save all the OCI images on disk
+		tempDir, err = os.MkdirTemp("", "image-indexes")
+		h.AssertNil(t, err)
+	})
+
+	it.After(func() {
+		err := os.RemoveAll(tempDir)
+		h.AssertNil(t, err)
+	})
+
+	when("#NewIndex", func() {
+		when("index already exists on disk", func() {
+			it.Before(func() {
+				baseIndexPath := filepath.Join(testDataDir, "busybox-multi-platform")
+				idx, err = layout.NewIndex("busybox-multi-platform", tempDir, imgutil.FromBaseImageIndex(baseIndexPath))
+				h.AssertNil(t, err)
+			})
+
+			// Getters test cases
+			when("#Save", func() {
+				it("attributes are readable after saving", func() {
+					err = idx.Save()
+					h.AssertNil(t, err)
+					// TODO read from disk and assert values
+				})
 			})
 		})
 	})
