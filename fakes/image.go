@@ -19,6 +19,8 @@ import (
 	"github.com/buildpacks/imgutil"
 )
 
+var _ imgutil.Image = &Image{}
+
 func NewImage(name, topLayerSha string, identifier imgutil.Identifier) *Image {
 	return &Image{
 		labels:           nil,
@@ -277,6 +279,10 @@ func shaForFile(path string) (string, error) {
 	}
 
 	return hex.EncodeToString(hasher.Sum(make([]byte, 0, hasher.Size()))), nil
+}
+
+func (i *Image) AddOrReuseLayerWithHistory(_, _ string, _ v1.History) error {
+	panic("implement me")
 }
 
 func (i *Image) GetLayer(sha string) (io.ReadCloser, error) {

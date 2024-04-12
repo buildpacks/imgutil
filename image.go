@@ -85,6 +85,7 @@ type Image interface {
 	AddLayer(path string) error
 	AddLayerWithDiffID(path, diffID string) error
 	AddLayerWithDiffIDAndHistory(path, diffID string, history v1.History) error
+	AddOrReuseLayerWithHistory(path, diffID string, history v1.History) error
 	Delete() error
 	Rebase(string, Image) error
 	RemoveLabel(string) error

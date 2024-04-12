@@ -168,6 +168,17 @@ func (i *Image) addLayerToStore(fromPath, withDiffID string) (v1.Layer, error) {
 	return layer, nil
 }
 
+func (i *Image) AddOrReuseLayerWithHistory(path string, diffID string, history v1.History) error {
+	prevLayerExists, err := i.PreviousImageHasLayer(diffID)
+	if err != nil {
+		return err
+	}
+	if !prevLayerExists {
+		return i.AddLayerWithDiffIDAndHistory(path, diffID, history)
+	}
+	return i.ReuseLayerWithHistory(diffID, history)
+}
+
 func (i *Image) Rebase(baseTopLayerDiffID string, withNewBase imgutil.Image) error {
 	if err := i.ensureLayers(); err != nil {
 		return err
