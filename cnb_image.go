@@ -357,6 +357,29 @@ func (i *CNBImageCore) AddLayerWithHistory(layer v1.Layer, history v1.History) e
 	return err
 }
 
+func (i *CNBImageCore) AddOrReuseLayerWithHistory(path string, diffID string, history v1.History) error {
+	prevLayerExists, err := i.PreviousImageHasLayer(diffID)
+	if err != nil {
+		return err
+	}
+	if !prevLayerExists {
+		return i.AddLayerWithDiffIDAndHistory(path, diffID, history)
+	}
+	return i.ReuseLayerWithHistory(diffID, history)
+}
+
+func (i *CNBImageCore) PreviousImageHasLayer(diffID string) (bool, error) {
+	layerHash, err := v1.NewHash(diffID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get layer hash: %w", err)
+	}
+	prevConfigFile, err := getConfigFile(i.previousImage)
+	if err != nil {
+		return false, fmt.Errorf("failed to get previous image config: %w", err)
+	}
+	return contains(prevConfigFile.RootFS.DiffIDs, layerHash), nil
+}
+
 func (i *CNBImageCore) Rebase(baseTopLayerDiffID string, withNewBase Image) error {
 	newBase := withNewBase.UnderlyingImage() // FIXME: when all imgutil.Images are v1.Images, we can remove this part
 	var err error
