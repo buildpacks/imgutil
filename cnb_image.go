@@ -483,6 +483,14 @@ func getHistory(forIndex int, fromImage v1.Image) (v1.History, error) {
 }
 
 func (i *CNBImageCore) ReuseLayerWithHistory(diffID string, history v1.History) error {
+	var err error
+	// ensure existing history
+	if err = i.MutateConfigFile(func(c *v1.ConfigFile) {
+		c.History = NormalizedHistory(c.History, len(c.RootFS.DiffIDs))
+	}); err != nil {
+		return err
+	}
+
 	layerHash, err := v1.NewHash(diffID)
 	if err != nil {
 		return fmt.Errorf("failed to get layer hash: %w", err)
