@@ -64,7 +64,7 @@ func NewImage(path string, ops ...imgutil.ImageOption) (*Image, error) {
 }
 
 // NewIndex will return an OCI ImageIndex saved on disk using OCI media Types. It can be modified and saved to a registry
-func NewIndex(repoName, path string, ops ...Option) (idx *ImageIndex, err error) {
+func NewIndex(repoName, path string, ops ...imgutil.Option) (idx *ImageIndex, err error) {
 	var mfest *v1.IndexManifest
 	var idxOps = &imgutil.IndexOptions{}
 	for _, op := range ops {

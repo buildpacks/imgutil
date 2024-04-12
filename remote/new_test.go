@@ -44,9 +44,9 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 		it("should have expected indexOptions", func() {
 			idx, err = remote.NewIndex(
 				"busybox:1.36-musl",
-				remote.PullInsecure(),
-				remote.WithKeychain(authn.DefaultKeychain),
-				remote.WithXDGRuntimePath(xdgPath),
+				imgutil.PullInsecure(),
+				imgutil.WithKeychain(authn.DefaultKeychain),
+				imgutil.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertNil(t, err)
 
@@ -59,27 +59,27 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 		it("should return an error when invalid repoName is passed", func() {
 			_, err = remote.NewIndex(
 				"some/invalidImage",
-				remote.PullInsecure(),
-				remote.WithKeychain(authn.DefaultKeychain),
-				remote.WithXDGRuntimePath(xdgPath),
+				imgutil.PullInsecure(),
+				imgutil.WithKeychain(authn.DefaultKeychain),
+				imgutil.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertEq(t, err.Error(), "could not parse reference: some/invalidImage")
 		})
 		it("should return an error when index with the given repoName doesn't exists", func() {
 			_, err = remote.NewIndex(
 				"some/image",
-				remote.PullInsecure(),
-				remote.WithKeychain(authn.DefaultKeychain),
-				remote.WithXDGRuntimePath(xdgPath),
+				imgutil.PullInsecure(),
+				imgutil.WithKeychain(authn.DefaultKeychain),
+				imgutil.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertNotEq(t, err, nil)
 		})
 		it("should return ImageIndex with expected output", func() {
 			idx, err = remote.NewIndex(
 				"busybox:1.36-musl",
-				remote.PullInsecure(),
-				remote.WithKeychain(authn.DefaultKeychain),
-				remote.WithXDGRuntimePath(xdgPath),
+				imgutil.PullInsecure(),
+				imgutil.WithKeychain(authn.DefaultKeychain),
+				imgutil.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertNil(t, err)
 
@@ -94,9 +94,9 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 		it("should able to call #ImageIndex", func() {
 			idx, err = remote.NewIndex(
 				"busybox:1.36-musl",
-				remote.PullInsecure(),
-				remote.WithKeychain(authn.DefaultKeychain),
-				remote.WithXDGRuntimePath(xdgPath),
+				imgutil.PullInsecure(),
+				imgutil.WithKeychain(authn.DefaultKeychain),
+				imgutil.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertNil(t, err)
 
@@ -115,9 +115,9 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 		it("should able to call #Image", func() {
 			idx, err = remote.NewIndex(
 				"busybox:1.36-musl",
-				remote.PullInsecure(),
-				remote.WithKeychain(authn.DefaultKeychain),
-				remote.WithXDGRuntimePath(xdgPath),
+				imgutil.PullInsecure(),
+				imgutil.WithKeychain(authn.DefaultKeychain),
+				imgutil.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertNil(t, err)
 

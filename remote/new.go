@@ -62,7 +62,7 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...imgutil.ImageOpti
 }
 
 // NewIndex returns a new ImageIndex from the registry that can be modified and saved to local file system
-func NewIndex(repoName string, ops ...Option) (idx *ImageIndex, err error) {
+func NewIndex(repoName string, ops ...imgutil.Option) (idx *ImageIndex, err error) {
 	var idxOps = &imgutil.IndexOptions{}
 	for _, op := range ops {
 		if err = op(idxOps); err != nil {

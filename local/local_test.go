@@ -2284,7 +2284,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 		it("should have expected indexOptions", func() {
 			idx, err = local.NewIndex(
 				repoName,
-				local.WithXDGRuntimePath(xdgPath),
+				imgutil.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertNil(t, err)
 
@@ -2299,14 +2299,14 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 		it("should return an error when invalid repoName is passed", func() {
 			idx, err = local.NewIndex(
 				repoName+"Image",
-				local.WithXDGRuntimePath(xdgPath),
+				imgutil.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertNotNil(t, err)
 		})
 		it("should return ImageIndex with expected output", func() {
 			idx, err = local.NewIndex(
 				repoName,
-				local.WithXDGRuntimePath(xdgPath),
+				imgutil.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertNil(t, err)
 			h.AssertNotEq(t, idx, nil)
@@ -2317,7 +2317,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 		it("should able to call #ImageIndex", func() {
 			idx, err = local.NewIndex(
 				repoName,
-				local.WithXDGRuntimePath(xdgPath),
+				imgutil.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertNil(t, err)
 
@@ -2333,7 +2333,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 		it("should able to call #Image", func() {
 			idx, err = local.NewIndex(
 				repoName,
-				local.WithXDGRuntimePath(xdgPath),
+				imgutil.WithXDGRuntimePath(xdgPath),
 			)
 			h.AssertNil(t, err)
 

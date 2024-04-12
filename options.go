@@ -2,6 +2,7 @@ package imgutil
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -98,6 +99,10 @@ func WithPreviousImage(name string) func(*ImageOptions) {
 	}
 }
 
+type Option func(options *IndexOptions) error
+type PushOption func(*IndexPushOptions) error
+type AddOption func(*IndexAddOptions) error
+
 type IndexAddOptions struct {
 	All                          bool
 	Local                        bool
@@ -133,11 +138,158 @@ type IndexOptions struct {
 	BaseIndex v1.ImageIndex
 }
 
+// IndexOptions
+
 // FromBaseImageIndex loads the ImageIndex at the provided path for the working image index.
 // If the index is not found, it does nothing.
 func FromBaseImageIndex(name string) func(*IndexOptions) error {
 	return func(o *IndexOptions) error {
 		o.BaseImageIndexRepoName = name
+		return nil
+	}
+}
+
+// FromBaseImageIndexInstance loads the provided image index for the working image index.
+// If the index is not found, it does nothing.
+func FromBaseImageIndexInstance(index v1.ImageIndex) func(options *IndexOptions) error {
+	return func(o *IndexOptions) error {
+		o.BaseIndex = index
+		return nil
+	}
+}
+
+// WithKeychain fetches Index from registry with keychain
+func WithKeychain(keychain authn.Keychain) func(options *IndexOptions) error {
+	return func(o *IndexOptions) error {
+		o.KeyChain = keychain
+		return nil
+	}
+}
+
+// WithXDGRuntimePath Saves the Index to the '`xdgPath`/manifests'
+func WithXDGRuntimePath(xdgPath string) func(options *IndexOptions) error {
+	return func(o *IndexOptions) error {
+		o.XdgPath = xdgPath
+		return nil
+	}
+}
+
+// PullInsecure If true, pulls images from insecure registry
+func PullInsecure() func(options *IndexOptions) error {
+	return func(o *IndexOptions) error {
+		o.Insecure = true
+		return nil
+	}
+}
+
+// WithFormat Create the image index with the following format
+func WithFormat(format types.MediaType) func(options *IndexOptions) error {
+	return func(o *IndexOptions) error {
+		o.Format = format
+		return nil
+	}
+}
+
+// IndexAddOptions
+
+// Add all images within the index
+func WithAll(all bool) func(options *IndexAddOptions) error {
+	return func(a *IndexAddOptions) error {
+		a.All = all
+		return nil
+	}
+}
+
+// Add a single image from index with given OS
+func WithOS(os string) func(options *IndexAddOptions) error {
+	return func(a *IndexAddOptions) error {
+		a.OS = os
+		return nil
+	}
+}
+
+// Add a Local image to Index
+func WithLocalImage(image EditableImage) func(options *IndexAddOptions) error {
+	return func(a *IndexAddOptions) error {
+		a.Local = true
+		a.Image = image
+		return nil
+	}
+}
+
+// Add a single image from index with given Architecture
+func WithArchitecture(arch string) func(options *IndexAddOptions) error {
+	return func(a *IndexAddOptions) error {
+		a.Arch = arch
+		return nil
+	}
+}
+
+// Add a single image from index with given Variant
+func WithVariant(variant string) func(options *IndexAddOptions) error {
+	return func(a *IndexAddOptions) error {
+		a.Variant = variant
+		return nil
+	}
+}
+
+// Add a single image from index with given OSVersion
+func WithOSVersion(osVersion string) func(options *IndexAddOptions) error {
+	return func(a *IndexAddOptions) error {
+		a.OSVersion = osVersion
+		return nil
+	}
+}
+
+// Add a single image from index with given Features
+func WithFeatures(features []string) func(options *IndexAddOptions) error {
+	return func(a *IndexAddOptions) error {
+		a.Features = features
+		return nil
+	}
+}
+
+// Add a single image from index with given OSFeatures
+func WithOSFeatures(osFeatures []string) func(options *IndexAddOptions) error {
+	return func(a *IndexAddOptions) error {
+		a.OSFeatures = osFeatures
+		return nil
+	}
+}
+
+// IndexPushOptions
+
+// If true, Deletes index from local filesystem after pushing to registry
+func WithPurge(purge bool) func(options *IndexPushOptions) error {
+	return func(a *IndexPushOptions) error {
+		a.Purge = purge
+		return nil
+	}
+}
+
+// Push the Index with given format
+func WithTags(tags ...string) func(options *IndexPushOptions) error {
+	return func(a *IndexPushOptions) error {
+		a.Tags = tags
+		return nil
+	}
+}
+
+// Push index to Insecure Registry
+func WithInsecure(insecure bool) func(options *IndexPushOptions) error {
+	return func(a *IndexPushOptions) error {
+		a.Insecure = insecure
+		return nil
+	}
+}
+
+// Push the Index with given format
+func UsingFormat(format types.MediaType) func(options *IndexPushOptions) error {
+	return func(a *IndexPushOptions) error {
+		if !format.IsIndex() {
+			return fmt.Errorf("unsupported media type encountered in image: '%s'", format)
+		}
+		a.Format = format
 		return nil
 	}
 }

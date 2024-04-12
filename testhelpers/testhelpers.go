@@ -45,14 +45,14 @@ func RandString(n int) string {
 }
 
 // AssertEq asserts deep equality (and provides a useful difference as a test failure)
-func AssertEq(t *testing.T, actual, expected any) {
+func AssertEq(t *testing.T, actual, expected interface{}) {
 	t.Helper()
 	if diff := cmp.Diff(actual, expected); diff != "" {
 		t.Fatal(diff)
 	}
 }
 
-func AssertNotEq(t *testing.T, v1, v2 any) {
+func AssertNotEq(t *testing.T, v1, v2 interface{}) {
 	t.Helper()
 
 	if diff := cmp.Diff(v1, v2); diff == "" {
@@ -109,7 +109,7 @@ func AssertError(t *testing.T, actual error, expected string) {
 	}
 }
 
-func AssertNil(t *testing.T, actual any) {
+func AssertNil(t *testing.T, actual interface{}) {
 	t.Helper()
 	if actual != nil {
 		t.Fatalf("Expected nil: %s", actual)
