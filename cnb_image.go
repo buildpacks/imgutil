@@ -369,6 +369,9 @@ func (i *CNBImageCore) AddOrReuseLayerWithHistory(path string, diffID string, hi
 }
 
 func (i *CNBImageCore) PreviousImageHasLayer(diffID string) (bool, error) {
+	if i.previousImage == nil {
+		return false, nil
+	}
 	layerHash, err := v1.NewHash(diffID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get layer hash: %w", err)
