@@ -96,8 +96,8 @@ func NewIndex(repoName, path string, ops ...imgutil.Option) (idx *ImageIndex, er
 		}
 	}
 
+	localPath := filepath.Join(path, imgutil.MakeFileSafeName(repoName))
 	if idxOps.BaseIndex == nil {
-		localPath := filepath.Join(path, imgutil.MakeFileSafeName(repoName))
 		if imageExists(localPath) {
 			return idx, errors.Errorf("an image index already exists at %s use FromBaseImageIndex or "+
 				"FromBaseImageIndexInstance options to create a new instance", localPath)
@@ -115,7 +115,7 @@ func NewIndex(repoName, path string, ops ...imgutil.Option) (idx *ImageIndex, er
 
 	var cnbIndex *imgutil.CNBIndex
 	idxOps.XdgPath = path
-	cnbIndex, err = imgutil.NewCNBIndex(idxOps.BaseIndex, *idxOps)
+	cnbIndex, err = imgutil.NewCNBIndex(repoName, idxOps.BaseIndex, *idxOps)
 	if err != nil {
 		return idx, err
 	}

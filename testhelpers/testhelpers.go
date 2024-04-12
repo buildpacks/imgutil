@@ -29,6 +29,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
@@ -574,6 +575,21 @@ func AssertDockerMediaTypes(t *testing.T, image v1.Image) {
 	for _, manifestLayer := range manifest.Layers {
 		AssertEq(t, manifestLayer.MediaType, types.DockerLayer)
 	}
+}
+
+func ReadImageIndex(t *testing.T, path string) v1.ImageIndex {
+	indexPath := filepath.Join(path, "index.json")
+	AssertPathExists(t, filepath.Join(path, "oci-layout"))
+	AssertPathExists(t, indexPath)
+
+	layoutPath, err := layout.FromPath(path)
+	AssertNil(t, err)
+
+	localIndex, err := layoutPath.ImageIndex()
+	AssertNil(t, err)
+	AssertNotNil(t, localIndex)
+
+	return localIndex
 }
 
 func ReadIndexManifest(t *testing.T, path string) *v1.IndexManifest {

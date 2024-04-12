@@ -93,7 +93,7 @@ func NewIndex(repoName string, ops ...imgutil.Option) (idx *ImageIndex, err erro
 		return idx, err
 	}
 
-	cnbIndex, err := imgutil.NewCNBIndex(imgIdx, *idxOps)
+	cnbIndex, err := imgutil.NewCNBIndex(repoName, imgIdx, *idxOps)
 	if err != nil {
 		return idx, err
 	}
