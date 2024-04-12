@@ -84,6 +84,17 @@ func (i *CNBImageCore) GetAnnotateRefName() (string, error) {
 }
 
 func (i *CNBImageCore) GetLayer(diffID string) (io.ReadCloser, error) {
+	layerHash, err := v1.NewHash(diffID)
+	if err != nil {
+		return nil, err
+	}
+	configFile, err := i.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+	if !contains(configFile.RootFS.DiffIDs, layerHash) {
+		return nil, ErrLayerNotFound{DiffID: layerHash.String()}
+	}
 	hash, err := v1.NewHash(diffID)
 	if err != nil {
 		return nil, err
@@ -93,6 +104,15 @@ func (i *CNBImageCore) GetLayer(diffID string) (io.ReadCloser, error) {
 		return nil, err
 	}
 	return layer.Uncompressed()
+}
+
+func contains(diffIDs []v1.Hash, hash v1.Hash) bool {
+	for _, diffID := range diffIDs {
+		if diffID.String() == hash.String() {
+			return true
+		}
+	}
+	return false
 }
 
 // TBD Deprecated: History

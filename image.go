@@ -123,3 +123,11 @@ func (e SaveError) Error() string {
 	}
 	return fmt.Sprintf("failed to write image to the following tags: %s", strings.Join(errors, ","))
 }
+
+type ErrLayerNotFound struct {
+	DiffID string
+}
+
+func (e ErrLayerNotFound) Error() string {
+	return fmt.Sprintf("failed to find layer with diff ID %q", e.DiffID)
+}

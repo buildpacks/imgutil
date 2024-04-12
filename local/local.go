@@ -55,6 +55,13 @@ func (i *Image) GetLayer(diffID string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
+	configFile, err := i.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+	if !contains(configFile.RootFS.DiffIDs, layerHash) {
+		return nil, imgutil.ErrLayerNotFound{DiffID: layerHash.String()}
+	}
 	layer, err := i.LayerByDiffID(layerHash)
 	if err == nil {
 		// this avoids downloading ALL the image layers from the daemon
@@ -63,13 +70,6 @@ func (i *Image) GetLayer(diffID string) (io.ReadCloser, error) {
 		if size, err := layer.Size(); err != nil && size != -1 {
 			return layer.Uncompressed()
 		}
-	}
-	configFile, err := i.ConfigFile()
-	if err != nil {
-		return nil, err
-	}
-	if !contains(configFile.RootFS.DiffIDs, layerHash) {
-		return nil, fmt.Errorf("image %q does not contain layer with diff ID %q", i.Name(), layerHash.String())
 	}
 	if err = i.ensureLayers(); err != nil {
 		return nil, err
