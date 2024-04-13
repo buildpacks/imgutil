@@ -34,6 +34,6 @@ type ImageIndex interface {
 	Delete() error
 	Inspect() (string, error)
 	Push(ops ...func(options *IndexPushOptions) error) error
-	Remove(ref name.Reference) error
+	Remove(repoName string) error
 	Save() error
 }

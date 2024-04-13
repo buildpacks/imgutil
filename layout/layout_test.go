@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
@@ -1346,11 +1347,58 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 	})
-	/*
-		Push(ops ...func(options *IndexPushOptions) error) error
-		Inspect() (string, error)
-		Remove(ref name.Reference) error
-	*/
+
+	when("#Remove", func() {
+		var digest name.Digest
+		when("index exists on disk", func() {
+			when("#FromBaseImageIndex", func() {
+				it.Before(func() {
+					idx = setUpImageIndex(t, "busybox-multi-platform", tmpDir, imgutil.FromBaseImageIndex(baseIndexPath), imgutil.WithKeychain(authn.DefaultKeychain))
+					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
+					digest, err = name.NewDigest("busybox@sha256:4be429a5fbb2e71ae7958bfa558bc637cf3a61baf40a708cb8fff532b39e52d0")
+					h.AssertNil(t, err)
+				})
+
+				it("given manifest is removed", func() {
+					err = idx.Remove(digest.String())
+					h.AssertNil(t, err)
+
+					// After removing any operation to get something about the digest must fail
+					_, err = idx.OS(digest)
+					h.AssertNotNil(t, err)
+					h.AssertError(t, err, "no image or image index found for digest")
+
+					// After saving, the index on disk must reflect the change
+					err = idx.Save()
+					h.AssertNil(t, err)
+
+					index := h.ReadIndexManifest(t, localPath)
+					h.AssertEq(t, len(index.Manifests), 1)
+					h.AssertEq(t, index.Manifests[0].Digest.String(), "sha256:8a4415fb43600953cbdac6ec03c2d96d900bb21f8d78964837dad7f73b9afcdc")
+				})
+			})
+		})
+	})
+
+	when("#Inspect", func() {
+		var indexString string
+		when("index exists on disk", func() {
+			when("#FromBaseImageIndex", func() {
+				it.Before(func() {
+					idx = setUpImageIndex(t, "busybox-multi-platform", tmpDir, imgutil.FromBaseImageIndex(baseIndexPath))
+					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
+				})
+
+				it("returns an image index string representation", func() {
+					indexString, err = idx.Inspect()
+					h.AssertNil(t, err)
+
+					idxFromString := parseImageIndex(t, indexString)
+					h.AssertEq(t, len(idxFromString.Manifests), 2)
+				})
+			})
+		})
+	})
 }
 
 func setUpImageIndex(t *testing.T, repoName string, tmpDir string, ops ...imgutil.Option) imgutil.ImageIndex {
@@ -1369,4 +1417,11 @@ func newRepoName() string {
 
 func newTestImageIndexName(name string) string {
 	return dockerRegistry.RepoName(name + "-" + h.RandString(10))
+}
+
+func parseImageIndex(t *testing.T, index string) *v1.IndexManifest {
+	r := strings.NewReader(index)
+	idx, err := v1.ParseIndexManifest(r)
+	h.AssertNil(t, err)
+	return idx
 }

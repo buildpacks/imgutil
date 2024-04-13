@@ -1171,15 +1171,15 @@ func (h *CNBIndex) Add(name string, ops ...func(*IndexAddOptions) error) error {
 		return path.AppendDescriptor(desc)
 	}
 
-	// Fetch Descriptor of the given reference.
-	//
-	// This call is returns a v1.Descriptor with `Size`, `MediaType`, `Digest` fields only!!
-	// This is a lightweight call used for checking MediaType of given Reference
 	ref, auth, err := referenceForRepoName(h.KeyChain, name, h.Insecure)
 	if err != nil {
 		return err
 	}
 
+	// Fetch Descriptor of the given reference.
+	//
+	// This call is returns a v1.Descriptor with `Size`, `MediaType`, `Digest` fields only!!
+	// This is a lightweight call used for checking MediaType of given Reference
 	desc, err := remote.Head(
 		ref,
 		remote.WithAuth(auth),
@@ -1702,8 +1702,13 @@ func (h *CNBIndex) Inspect() (string, error) {
 // Remove Image/Index from ImageIndex.
 //
 // Accepts both Tags and Digests.
-func (h *CNBIndex) Remove(ref name.Reference) (err error) {
-	hash, err := parseReferenceToHash(ref, h.KeyChain, h.Insecure)
+func (h *CNBIndex) Remove(repoName string) (err error) {
+	ref, auth, err := referenceForRepoName(h.KeyChain, repoName, h.Insecure)
+	if err != nil {
+		return err
+	}
+
+	hash, err := parseReferenceToHash(ref, auth)
 	if err != nil {
 		return err
 	}
@@ -1912,15 +1917,12 @@ func appendAnnotatedManifests(desc v1.Descriptor, imgDesc v1.Descriptor, path la
 	}
 }
 
-func parseReferenceToHash(ref name.Reference, keychain authn.Keychain, insecure bool) (hash v1.Hash, err error) {
+func parseReferenceToHash(ref name.Reference, auth authn.Authenticator) (hash v1.Hash, err error) {
 	switch v := ref.(type) {
 	case name.Tag:
 		desc, err := remote.Head(
 			v,
-			remote.WithAuthFromKeychain(keychain),
-			remote.WithTransport(
-				GetTransport(insecure),
-			),
+			remote.WithAuth(auth),
 		)
 		if err != nil {
 			return hash, err
