@@ -1122,7 +1122,7 @@ func (h *CNBIndex) setImageURLs(img v1.Image, hash v1.Hash, urls []string) error
 //
 // If referencing an ImageIndex, will add Platform Specific Image from the Index.
 // Use IndexAddOptions to alter behaviour for ImageIndex Reference.
-func (h *CNBIndex) Add(ref name.Reference, ops ...func(*IndexAddOptions) error) error {
+func (h *CNBIndex) Add(name string, ops ...func(*IndexAddOptions) error) error {
 	var addOps = &IndexAddOptions{}
 	for _, op := range ops {
 		op(addOps)
@@ -1175,10 +1175,10 @@ func (h *CNBIndex) Add(ref name.Reference, ops ...func(*IndexAddOptions) error) 
 	//
 	// This call is returns a v1.Descriptor with `Size`, `MediaType`, `Digest` fields only!!
 	// This is a lightweight call used for checking MediaType of given Reference
+	ref, auth, err := referenceForRepoName(h.KeyChain, name, h.Insecure)
 	desc, err := remote.Head(
 		ref,
-		remote.WithAuthFromKeychain(h.KeyChain),
-		remote.WithTransport(GetTransport(h.Insecure)),
+		remote.WithAuth(auth),
 	)
 	if err != nil {
 		return err
@@ -1193,8 +1193,7 @@ func (h *CNBIndex) Add(ref name.Reference, ops ...func(*IndexAddOptions) error) 
 		// Get the Full Image from remote if the given Reference refers an Image
 		img, err := remote.Image(
 			ref,
-			remote.WithAuthFromKeychain(h.KeyChain),
-			remote.WithTransport(GetTransport(h.Insecure)),
+			remote.WithAuth(auth),
 		)
 		if err != nil {
 			return err
@@ -1956,4 +1955,24 @@ func indexMediaType(format types.MediaType) string {
 	default:
 		return "UNKNOWN"
 	}
+}
+
+// TODO this method is duplicated from remote.new file
+// referenceForRepoName
+func referenceForRepoName(keychain authn.Keychain, ref string, insecure bool) (name.Reference, authn.Authenticator, error) {
+	var auth authn.Authenticator
+	opts := []name.Option{name.WeakValidation}
+	if insecure {
+		opts = append(opts, name.Insecure)
+	}
+	r, err := name.ParseReference(ref, opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	auth, err = keychain.Resolve(r.Context().Registry)
+	if err != nil {
+		return nil, nil, err
+	}
+	return r, auth, nil
 }

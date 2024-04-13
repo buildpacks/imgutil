@@ -20,20 +20,15 @@ func TestLayoutNewImageIndex(t *testing.T) {
 	spec.Run(t, "LayoutNewImageIndex", testLayoutNewImageIndex, spec.Parallel(), spec.Report(report.Terminal{}))
 }
 
-var (
-	repoName = "some/index"
-)
-
 func testLayoutNewImageIndex(t *testing.T, when spec.G, it spec.S) {
 	var (
 		idx              imgutil.ImageIndex
 		linuxAmd64Digest name.Digest
 		linuxArm64Digest name.Digest
 
-		tempDir     string
-		testDataDir string
-
-		err error
+		tempDir  string
+		repoName string
+		err      error
 	)
 
 	it.Before(func() {
@@ -57,6 +52,10 @@ func testLayoutNewImageIndex(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#NewIndex", func() {
+		it.Before(func() {
+			repoName = "some/index"
+		})
+
 		when("index doesn't exists on disk", func() {
 			it("creates empty image index", func() {
 				idx, err = layout.NewIndex(

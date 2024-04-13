@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
@@ -16,17 +17,33 @@ import (
 
 	"github.com/buildpacks/imgutil"
 	"github.com/buildpacks/imgutil/layout"
+	imgutilRemote "github.com/buildpacks/imgutil/remote"
 	h "github.com/buildpacks/imgutil/testhelpers"
 )
 
 // FIXME: relevant tests in this file should be moved into new_test.go and save_test.go to mirror the implementation
 func TestLayout(t *testing.T) {
-	spec.Run(t, "Image", testImage, spec.Parallel(), spec.Report(report.Terminal{}))
+	// spec.Run(t, "Image", testImage, spec.Parallel(), spec.Report(report.Terminal{}))
+	dockerConfigDir, err := os.MkdirTemp("", "test.docker.config.dir")
+	h.AssertNil(t, err)
+	defer os.RemoveAll(dockerConfigDir)
+
+	dockerRegistry = h.NewDockerRegistry(h.WithAuth(dockerConfigDir))
+	dockerRegistry.Start(t)
+	defer dockerRegistry.Stop(t)
+
+	os.Setenv("DOCKER_CONFIG", dockerConfigDir)
+	defer os.Unsetenv("DOCKER_CONFIG")
+
 	spec.Run(t, "ImageIndex", testImageIndex, spec.Parallel(), spec.Report(report.Terminal{}))
 }
 
-// global directory and paths
-var testDataDir = filepath.Join("testdata", "layout")
+var (
+	dockerRegistry *h.DockerRegistry
+
+	// global directory and paths
+	testDataDir = filepath.Join("testdata", "layout")
+)
 
 func testImage(t *testing.T, when spec.G, it spec.S) {
 	var (
@@ -1135,53 +1152,48 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 	var (
-		idx     imgutil.ImageIndex
-		tempDir string
-		err     error
+		idx           imgutil.ImageIndex
+		tmpDir        string
+		localPath     string
+		baseIndexPath string
+		err           error
 	)
 
 	it.Before(func() {
 		// creates the directory to save all the OCI images on disk
-		tempDir, err = os.MkdirTemp("", "layout-image-indexes")
+		tmpDir, err = os.MkdirTemp("", "layout-image-indexes")
 		h.AssertNil(t, err)
+
+		// image index directory on disk
+		baseIndexPath = filepath.Join(testDataDir, "busybox-multi-platform")
+		// global directory and paths
+		testDataDir = filepath.Join("testdata", "layout")
 	})
 
 	it.After(func() {
-		err := os.RemoveAll(tempDir)
+		err := os.RemoveAll(tmpDir)
 		h.AssertNil(t, err)
 	})
 
 	when("#Save", func() {
 		when("index exists on disk", func() {
-			var (
-				baseIndexPath string
-				localPath     string
-			)
-
-			it.Before(func() {
-				baseIndexPath = filepath.Join(testDataDir, "busybox-multi-platform")
-			})
-
 			when("#FromBaseImageIndex", func() {
 				it.Before(func() {
-					idx, err = layout.NewIndex("busybox-multi-platform", tempDir, imgutil.FromBaseImageIndex(baseIndexPath))
+					idx, err = layout.NewIndex("busybox-multi-platform", tmpDir, imgutil.FromBaseImageIndex(baseIndexPath))
 					h.AssertNil(t, err)
 
-					localPath = filepath.Join(tempDir, "busybox-multi-platform")
+					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
 				})
 
-				// Getters test cases
-				when("#Save", func() {
-					it("image index saved on disk with the data from the base index", func() {
-						err = idx.Save()
-						h.AssertNil(t, err)
+				it("manifests from base image index are saved on disk", func() {
+					err = idx.Save()
+					h.AssertNil(t, err)
 
-						// assert linux/amd64 and linux/arm64 manifests were saved
-						index := h.ReadIndexManifest(t, localPath)
-						h.AssertEq(t, len(index.Manifests), 2)
-						h.AssertEq(t, index.Manifests[0].Digest.String(), "sha256:4be429a5fbb2e71ae7958bfa558bc637cf3a61baf40a708cb8fff532b39e52d0")
-						h.AssertEq(t, index.Manifests[1].Digest.String(), "sha256:8a4415fb43600953cbdac6ec03c2d96d900bb21f8d78964837dad7f73b9afcdc")
-					})
+					// assert linux/amd64 and linux/arm64 manifests were saved
+					index := h.ReadIndexManifest(t, localPath)
+					h.AssertEq(t, len(index.Manifests), 2)
+					h.AssertEq(t, index.Manifests[0].Digest.String(), "sha256:4be429a5fbb2e71ae7958bfa558bc637cf3a61baf40a708cb8fff532b39e52d0")
+					h.AssertEq(t, index.Manifests[1].Digest.String(), "sha256:8a4415fb43600953cbdac6ec03c2d96d900bb21f8d78964837dad7f73b9afcdc")
 				})
 			})
 
@@ -1189,26 +1201,172 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 				it.Before(func() {
 					localIndex := h.ReadImageIndex(t, baseIndexPath)
 
-					idx, err = layout.NewIndex("busybox-multi-platform", tempDir, imgutil.FromBaseImageIndexInstance(localIndex))
+					idx, err = layout.NewIndex("busybox-multi-platform", tmpDir, imgutil.FromBaseImageIndexInstance(localIndex))
 					h.AssertNil(t, err)
 
-					localPath = filepath.Join(tempDir, "busybox-multi-platform")
+					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
 				})
 
-				// Getters test cases
-				when("#Save", func() {
-					it("image index saved on disk with the data from the base index", func() {
-						err = idx.Save()
+				it("manifests from base image index instance are saved on disk", func() {
+					err = idx.Save()
+					h.AssertNil(t, err)
+
+					// assert linux/amd64 and linux/arm64 manifests were saved
+					index := h.ReadIndexManifest(t, localPath)
+					h.AssertEq(t, len(index.Manifests), 2)
+					h.AssertEq(t, index.Manifests[0].Digest.String(), "sha256:4be429a5fbb2e71ae7958bfa558bc637cf3a61baf40a708cb8fff532b39e52d0")
+					h.AssertEq(t, index.Manifests[1].Digest.String(), "sha256:8a4415fb43600953cbdac6ec03c2d96d900bb21f8d78964837dad7f73b9afcdc")
+				})
+			})
+		})
+	})
+
+	when("#Add", func() {
+		var (
+			imagePath         string
+			fullBaseImagePath string
+		)
+
+		it.Before(func() {
+			imagePath, err = os.MkdirTemp(tmpDir, "layout-test-image-index")
+			h.AssertNil(t, err)
+
+			fullBaseImagePath = filepath.Join(testDataDir, "busybox")
+		})
+
+		when("index is created from scratch", func() {
+			it.Before(func() {
+				repoName := newRepoName()
+				idx = setUpImageIndex(t, repoName, tmpDir)
+				localPath = filepath.Join(tmpDir, repoName)
+			})
+
+			when("manifest is OCI layout format is added", func() {
+				var editableImage imgutil.EditableImage
+				it.Before(func() {
+					editableImage, err = layout.NewImage(imagePath, layout.FromBaseImagePath(fullBaseImagePath))
+					h.AssertNil(t, err)
+				})
+
+				it("adds the manifest to the index", func() {
+					err = idx.Add("busybox", imgutil.WithLocalImage(editableImage))
+					h.AssertNil(t, err)
+
+					// manifest was added
+					index := h.ReadIndexManifest(t, localPath)
+					h.AssertEq(t, len(index.Manifests), 1)
+				})
+			})
+		})
+
+		when("index exists on disk", func() {
+			when("#FromBaseImageIndex", func() {
+				it.Before(func() {
+					idx = setUpImageIndex(t, "busybox-multi-platform", tmpDir, imgutil.FromBaseImageIndex(baseIndexPath))
+					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
+				})
+
+				when("manifest in OCI layout format is added", func() {
+					var editableImage imgutil.EditableImage
+					it.Before(func() {
+						editableImage, err = layout.NewImage(imagePath, layout.FromBaseImagePath(fullBaseImagePath))
+						h.AssertNil(t, err)
+					})
+
+					it("adds the manifest to the index", func() {
+						err = idx.Add("busybox", imgutil.WithLocalImage(editableImage))
 						h.AssertNil(t, err)
 
-						// assert linux/amd64 and linux/arm64 manifests were saved
 						index := h.ReadIndexManifest(t, localPath)
-						h.AssertEq(t, len(index.Manifests), 2)
-						h.AssertEq(t, index.Manifests[0].Digest.String(), "sha256:4be429a5fbb2e71ae7958bfa558bc637cf3a61baf40a708cb8fff532b39e52d0")
-						h.AssertEq(t, index.Manifests[1].Digest.String(), "sha256:8a4415fb43600953cbdac6ec03c2d96d900bb21f8d78964837dad7f73b9afcdc")
+
+						// manifest was added
+						// initially it has 2 manifest + 1 new
+						h.AssertEq(t, len(index.Manifests), 3)
 					})
 				})
 			})
 		})
 	})
+
+	when("#Push", func() {
+		when("index is created from scratch", func() {
+			it.Before(func() {
+				repoName := newTestImageIndexName("push-index-test")
+				idx = setUpImageIndex(t, repoName, tmpDir, imgutil.WithKeychain(authn.DefaultKeychain))
+
+				// TODO Note in the Push operation
+				// Note: It will only push IndexManifest, assuming all the images it refers exists in registry
+				// We need to push each individual image first]
+
+				img1RepoName := fmt.Sprintf("%s:%s", repoName, "busybox-amd64")
+				img1, err := imgutilRemote.NewImage(img1RepoName, authn.DefaultKeychain, imgutilRemote.FromBaseImage("busybox@sha256:4be429a5fbb2e71ae7958bfa558bc637cf3a61baf40a708cb8fff532b39e52d0"))
+				h.AssertNil(t, err)
+				err = img1.Save()
+				h.AssertNil(t, err)
+
+				err = idx.Add(img1RepoName)
+				h.AssertNil(t, err)
+
+				img2RepoName := fmt.Sprintf("%s:%s", repoName, "busybox-arm64")
+				img2, err := imgutilRemote.NewImage(img2RepoName, authn.DefaultKeychain, imgutilRemote.FromBaseImage("busybox@sha256:8a4415fb43600953cbdac6ec03c2d96d900bb21f8d78964837dad7f73b9afcdc"))
+				h.AssertNil(t, err)
+				err = img2.Save()
+				h.AssertNil(t, err)
+
+				err = idx.Add(img2RepoName)
+				h.AssertNil(t, err)
+			})
+
+			it("image index is pushed", func() {
+				err = idx.Push()
+				h.AssertNil(t, err)
+			})
+		})
+	})
+
+	when("#Delete", func() {
+		when("index exists on disk", func() {
+			when("#FromBaseImageIndex", func() {
+				it.Before(func() {
+					idx = setUpImageIndex(t, "busybox-multi-platform", tmpDir, imgutil.FromBaseImageIndex(baseIndexPath))
+					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
+				})
+
+				it("deletes the imange index from disk", func() {
+					// Verify the index exists
+					h.ReadIndexManifest(t, localPath)
+
+					err = idx.Delete()
+					h.AssertNil(t, err)
+
+					_, err = os.Stat(localPath)
+					h.AssertNotNil(t, err)
+					h.AssertEq(t, true, os.IsNotExist(err))
+				})
+			})
+		})
+	})
+	/*
+		Push(ops ...func(options *IndexPushOptions) error) error
+		Inspect() (string, error)
+		Remove(ref name.Reference) error
+	*/
+}
+
+func setUpImageIndex(t *testing.T, repoName string, tmpDir string, ops ...imgutil.Option) imgutil.ImageIndex {
+	idx, err := layout.NewIndex(repoName, tmpDir, ops...)
+	h.AssertNil(t, err)
+
+	// TODO before adding something to the index, apparently we need initialize on disk
+	err = idx.Save()
+	h.AssertNil(t, err)
+	return idx
+}
+
+func newRepoName() string {
+	return "test-layout-index-" + h.RandString(10)
+}
+
+func newTestImageIndexName(name string) string {
+	return dockerRegistry.RepoName(name + "-" + h.RandString(10))
 }
