@@ -23,7 +23,6 @@ import (
 
 // FIXME: relevant tests in this file should be moved into new_test.go and save_test.go to mirror the implementation
 func TestLayout(t *testing.T) {
-	// spec.Run(t, "Image", testImage, spec.Parallel(), spec.Report(report.Terminal{}))
 	dockerConfigDir, err := os.MkdirTemp("", "test.docker.config.dir")
 	h.AssertNil(t, err)
 	defer os.RemoveAll(dockerConfigDir)
@@ -35,6 +34,7 @@ func TestLayout(t *testing.T) {
 	os.Setenv("DOCKER_CONFIG", dockerConfigDir)
 	defer os.Unsetenv("DOCKER_CONFIG")
 
+	spec.Run(t, "Image", testImage, spec.Parallel(), spec.Report(report.Terminal{}))
 	spec.Run(t, "ImageIndex", testImageIndex, spec.Parallel(), spec.Report(report.Terminal{}))
 }
 

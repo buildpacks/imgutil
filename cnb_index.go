@@ -1176,6 +1176,10 @@ func (h *CNBIndex) Add(name string, ops ...func(*IndexAddOptions) error) error {
 	// This call is returns a v1.Descriptor with `Size`, `MediaType`, `Digest` fields only!!
 	// This is a lightweight call used for checking MediaType of given Reference
 	ref, auth, err := referenceForRepoName(h.KeyChain, name, h.Insecure)
+	if err != nil {
+		return err
+	}
+
 	desc, err := remote.Head(
 		ref,
 		remote.WithAuth(auth),
