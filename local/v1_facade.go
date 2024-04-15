@@ -184,7 +184,7 @@ var _ v1.Layer = &v1LayerFacade{}
 type v1LayerFacade struct {
 	diffID       v1.Hash
 	uncompressed func() (io.ReadCloser, error)
-	size         func() (int64, error)
+	sentinelSize func() (int64, error)
 }
 
 func newEmptyLayer(diffID v1.Hash, store *Store) *v1LayerFacade {
@@ -197,7 +197,7 @@ func newEmptyLayer(diffID v1.Hash, store *Store) *v1LayerFacade {
 			}
 			return io.NopCloser(bytes.NewReader([]byte{})), nil
 		},
-		size: func() (int64, error) {
+		sentinelSize: func() (int64, error) {
 			layer, err := store.LayerByDiffID(diffID)
 			if err == nil {
 				return layer.Size()
@@ -224,19 +224,12 @@ func newDownloadableEmptyLayer(diffID v1.Hash, store *Store, imageID string) *v1
 			}
 			return nil, err
 		},
-		size: func() (int64, error) {
+		sentinelSize: func() (int64, error) {
 			layer, err := store.LayerByDiffID(diffID)
 			if err == nil {
 				return layer.Size()
 			}
-			if err = store.downloadLayersFor(imageID); err != nil {
-				return -1, err
-			}
-			layer, err = store.LayerByDiffID(diffID)
-			if err == nil {
-				return layer.Size()
-			}
-			return -1, err
+			return -1, nil
 		},
 	}
 }
@@ -251,7 +244,7 @@ func newPopulatedLayer(diffID v1.Hash, fromPath string, sentinelSize int64) *v1L
 			}
 			return f, nil
 		},
-		size: func() (int64, error) {
+		sentinelSize: func() (int64, error) {
 			return sentinelSize, nil
 		},
 	}
@@ -287,7 +280,7 @@ func (l *v1LayerFacade) Uncompressed() (io.ReadCloser, error) {
 
 // Size returns a sentinel value indicating if the layer has data.
 func (l *v1LayerFacade) Size() (int64, error) {
-	return l.size()
+	return l.sentinelSize()
 }
 
 func (l *v1LayerFacade) MediaType() (v1types.MediaType, error) {
