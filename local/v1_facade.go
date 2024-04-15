@@ -182,9 +182,9 @@ func toV1Config(dockerCfg *container.Config) v1.Config {
 var _ v1.Layer = &v1LayerFacade{}
 
 type v1LayerFacade struct {
-	diffID       v1.Hash
-	uncompressed func() (io.ReadCloser, error)
-	sentinelSize func() (int64, error)
+	diffID           v1.Hash
+	uncompressed     func() (io.ReadCloser, error)
+	uncompressedSize func() (int64, error)
 }
 
 func newEmptyLayer(diffID v1.Hash, store *Store) *v1LayerFacade {
@@ -197,7 +197,7 @@ func newEmptyLayer(diffID v1.Hash, store *Store) *v1LayerFacade {
 			}
 			return io.NopCloser(bytes.NewReader([]byte{})), nil
 		},
-		sentinelSize: func() (int64, error) {
+		uncompressedSize: func() (int64, error) {
 			layer, err := store.LayerByDiffID(diffID)
 			if err == nil {
 				return layer.Size()
@@ -224,7 +224,7 @@ func newDownloadableEmptyLayer(diffID v1.Hash, store *Store, imageID string) *v1
 			}
 			return nil, err
 		},
-		sentinelSize: func() (int64, error) {
+		uncompressedSize: func() (int64, error) {
 			layer, err := store.LayerByDiffID(diffID)
 			if err == nil {
 				return layer.Size()
@@ -234,7 +234,7 @@ func newDownloadableEmptyLayer(diffID v1.Hash, store *Store, imageID string) *v1
 	}
 }
 
-func newPopulatedLayer(diffID v1.Hash, fromPath string, sentinelSize int64) *v1LayerFacade {
+func newPopulatedLayer(diffID v1.Hash, fromPath string, uncompressedSize int64) *v1LayerFacade {
 	return &v1LayerFacade{
 		diffID: diffID,
 		uncompressed: func() (io.ReadCloser, error) {
@@ -244,8 +244,8 @@ func newPopulatedLayer(diffID v1.Hash, fromPath string, sentinelSize int64) *v1L
 			}
 			return f, nil
 		},
-		sentinelSize: func() (int64, error) {
-			return sentinelSize, nil
+		uncompressedSize: func() (int64, error) {
+			return uncompressedSize, nil
 		},
 	}
 }
@@ -278,9 +278,10 @@ func (l *v1LayerFacade) Uncompressed() (io.ReadCloser, error) {
 	return l.uncompressed()
 }
 
-// Size returns a sentinel value indicating if the layer has data.
+// Size returns the uncompressed size.
+// If the layer is missing local data, it returns a sentinel value of -1.
 func (l *v1LayerFacade) Size() (int64, error) {
-	return l.sentinelSize()
+	return l.uncompressedSize()
 }
 
 func (l *v1LayerFacade) MediaType() (v1types.MediaType, error) {
