@@ -2101,10 +2101,13 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("previous image is configured and layers are reused", func() {
+			var prevImageName string
+
 			it.Before(func() {
 				var err error
 
-				prevImg, err := local.NewImage(newTestImageName(), dockerClient)
+				prevImageName = newTestImageName()
+				prevImg, err := local.NewImage(prevImageName, dockerClient)
 				h.AssertNil(t, err)
 
 				prevImgBase, err := h.CreateSingleFileLayerTar("/root", "root", daemonOS)
@@ -2112,7 +2115,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				h.AssertNil(t, prevImg.AddLayer(prevImgBase))
 				h.AssertNil(t, prevImg.Save())
-				defer h.DockerRmi(dockerClient, prevImg.Name())
 
 				img, err = local.NewImage(repoName, dockerClient, local.WithPreviousImage(prevImg.Name()))
 				h.AssertNil(t, err)
@@ -2131,6 +2133,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			it("creates an archive that can be imported and has correct diffIDs", saveFileTest)
+
+			it.After(func() {
+				defer h.DockerRmi(dockerClient, prevImageName)
+			})
 		})
 
 		when("base image is configured", func() {
