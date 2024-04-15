@@ -17,7 +17,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
-	"github.com/buildpacks/imgutil/index"
 )
 
 // NewImage returns a new image that can be modified and saved to an OCI image registry.
@@ -70,30 +69,32 @@ func NewIndex(repoName string, ops ...imgutil.Option) (idx *ImageIndex, err erro
 		}
 	}
 
-	if err = index.ValidateRepoName(repoName, idxOps); err != nil {
+	if err = validateRepoName(repoName, idxOps); err != nil {
 		return idx, err
 	}
 
-	ref, err := name.ParseReference(idxOps.BaseImageIndexRepoName, name.WeakValidation, name.Insecure)
-	if err != nil {
-		return idx, err
+	if idxOps.BaseIndex == nil && idxOps.BaseImageIndexRepoName != "" {
+		ref, err := name.ParseReference(idxOps.BaseImageIndexRepoName, name.WeakValidation, name.Insecure)
+		if err != nil {
+			return idx, err
+		}
+
+		desc, err := remote.Get(
+			ref,
+			remote.WithAuthFromKeychain(idxOps.KeyChain),
+			remote.WithTransport(imgutil.GetTransport(idxOps.Insecure)),
+		)
+		if err != nil {
+			return idx, err
+		}
+
+		idxOps.BaseIndex, err = desc.ImageIndex()
+		if err != nil {
+			return idx, err
+		}
 	}
 
-	desc, err := remote.Get(
-		ref,
-		remote.WithAuthFromKeychain(idxOps.KeyChain),
-		remote.WithTransport(imgutil.GetTransport(idxOps.Insecure)),
-	)
-	if err != nil {
-		return idx, err
-	}
-
-	imgIdx, err := desc.ImageIndex()
-	if err != nil {
-		return idx, err
-	}
-
-	cnbIndex, err := imgutil.NewCNBIndex(repoName, imgIdx, *idxOps)
+	cnbIndex, err := imgutil.NewCNBIndex(repoName, idxOps.BaseIndex, *idxOps)
 	if err != nil {
 		return idx, err
 	}
@@ -217,4 +218,22 @@ func NewV1Image(baseImageRepoName string, keychain authn.Keychain, ops ...func(*
 	}
 	options.Platform = processPlatformOption(options.Platform)
 	return processImageOption(baseImageRepoName, keychain, options.Platform, options.RegistrySettings)
+}
+
+// ValidateRepoName
+// TODO move this code to something more generic
+func validateRepoName(repoName string, o *imgutil.IndexOptions) error {
+	if o.Insecure {
+		_, err := name.ParseReference(repoName, name.Insecure, name.WeakValidation)
+		if err != nil {
+			return err
+		}
+	} else {
+		_, err := name.ParseReference(repoName, name.WeakValidation)
+		if err != nil {
+			return err
+		}
+	}
+	o.BaseImageIndexRepoName = repoName
+	return nil
 }

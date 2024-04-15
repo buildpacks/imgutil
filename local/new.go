@@ -3,18 +3,13 @@ package local
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/layout"
-	ggcrTypes "github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
-	"github.com/buildpacks/imgutil/index"
 )
 
 // NewImage returns a new image that can be modified and saved to a docker daemon
@@ -66,52 +61,6 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...imgutil.ImageOp
 		store:          store,
 		lastIdentifier: baseIdentifier,
 		daemonOS:       options.Platform.OS,
-	}, nil
-}
-
-// NewIndex will return a new local Docker ImageIndex that can be modified and saved to a registry
-func NewIndex(repoName string, ops ...imgutil.Option) (idx *ImageIndex, err error) {
-	var idxOps = &imgutil.IndexOptions{}
-	for _, op := range ops {
-		if err = op(idxOps); err != nil {
-			return idx, err
-		}
-	}
-
-	if err = index.ValidateRepoName(repoName, idxOps); err != nil {
-		return idx, err
-	}
-
-	path, err := layout.FromPath(filepath.Join(idxOps.XdgPath, imgutil.MakeFileSafeName(repoName)))
-	if err != nil {
-		return idx, err
-	}
-
-	imgIdx, err := path.ImageIndex()
-	if err != nil {
-		return idx, err
-	}
-
-	mfest, err := imgIdx.IndexManifest()
-	if err != nil {
-		return idx, err
-	}
-
-	if mfest == nil {
-		return idx, imgutil.ErrManifestUndefined
-	}
-
-	if mfest.MediaType != ggcrTypes.DockerManifestList {
-		return nil, errors.New("no docker image index found")
-	}
-
-	cnbIndex, err := imgutil.NewCNBIndex(repoName, imgIdx, *idxOps)
-	if err != nil {
-		return idx, err
-	}
-
-	return &ImageIndex{
-		CNBIndex: cnbIndex,
 	}, nil
 }
 
