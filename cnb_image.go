@@ -26,7 +26,7 @@ type CNBImageCore struct {
 	preferredMediaTypes MediaTypes
 	preserveHistory     bool
 	previousImage       v1.Image
-	features, urls      []string
+	features            []string
 	annotations         map[string]string
 }
 
@@ -188,22 +188,6 @@ func (i *CNBImageCore) Features() ([]string, error) {
 		return nil, fmt.Errorf("image features is undefined for %s ImageIndex", i.preferredMediaTypes.ManifestType())
 	}
 	return p.Features, nil
-}
-
-func (i *CNBImageCore) URLs() ([]string, error) {
-	if len(i.urls) != 0 {
-		return i.urls, nil
-	}
-
-	mfest, err := getManifest(i.Image)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(mfest.Config.URLs) < 1 {
-		return nil, fmt.Errorf("image urls is undefined for %s ImageIndex", i.preferredMediaTypes.ManifestType())
-	}
-	return mfest.Config.URLs, nil
 }
 
 func (i *CNBImageCore) Annotations() (map[string]string, error) {
@@ -377,11 +361,6 @@ func (i *CNBImageCore) SetOSVersion(osVersion string) error {
 	return i.MutateConfigFile(func(c *v1.ConfigFile) {
 		c.OSVersion = osVersion
 	})
-}
-
-func (i *CNBImageCore) SetURLs(urls []string) (err error) {
-	i.urls = append(i.urls, urls...)
-	return nil
 }
 
 // TBD Deprecated: SetVariant

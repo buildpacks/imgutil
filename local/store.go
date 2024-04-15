@@ -370,11 +370,10 @@ func (s *Store) SaveFile(image *Image, withName string) (string, error) {
 			osVersion, _   = image.OSVersion()
 			features, _    = image.Features()
 			osFeatures, _  = image.OSFeatures()
-			urls, _        = image.URLs()
 			annotations, _ = image.Annotations()
 		)
 
-		return imgutil.MutateManifestFn(mfest, os, arch, variant, osVersion, features, osFeatures, urls, annotations)
+		return imgutil.MutateManifestFn(mfest, os, arch, variant, osVersion, features, osFeatures, annotations)
 	})
 	if err != nil {
 		return "", err

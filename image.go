@@ -19,7 +19,6 @@ type EditableImage interface {
 	OSVersion() (string, error)
 	Features() ([]string, error)
 	OSFeatures() ([]string, error)
-	URLs() ([]string, error)
 	Annotations() (map[string]string, error)
 
 	// Setters
@@ -30,7 +29,6 @@ type EditableImage interface {
 	SetOSVersion(string) error
 	SetFeatures([]string) error
 	SetOSFeatures([]string) error
-	SetURLs([]string) error
 	SetAnnotations(map[string]string) error
 
 	// misc

@@ -39,11 +39,10 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 				osVersion, _   = i.OSVersion()
 				features, _    = i.Features()
 				osFeatures, _  = i.OSFeatures()
-				urls, _        = i.URLs()
 				annotations, _ = i.Annotations()
 			)
 
-			return imgutil.MutateManifestFn(mfest, os, arch, variant, osVersion, features, osFeatures, urls, annotations)
+			return imgutil.MutateManifestFn(mfest, os, arch, variant, osVersion, features, osFeatures, annotations)
 		})
 		if err != nil {
 			return err

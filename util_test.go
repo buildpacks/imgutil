@@ -310,25 +310,6 @@ func testUtils(t *testing.T, when spec.G, it spec.S) {
 				h.AssertEq(t, annotations, map[string]string{"some-key": "some-value"})
 			})
 		})
-		when("#URLs", func() {
-			it.Before(func() {
-				annotate.SetURLs(v1.Hash{}, []string{"some-urls"})
-				desc, ok := annotate.Instance[v1.Hash{}]
-				h.AssertEq(t, ok, true)
-				h.AssertNotEq(t, desc, nil)
-			})
-			it("should return an error", func() {
-				annotate.SetURLs(v1.Hash{}, []string(nil))
-				urls, err := annotate.URLs(v1.Hash{})
-				h.AssertNotEq(t, err, nil)
-				h.AssertEq(t, urls, []string(nil))
-			})
-			it("should return expected os", func() {
-				os, err := annotate.URLs(v1.Hash{})
-				h.AssertNil(t, err)
-				h.AssertEq(t, os, []string{"some-urls"})
-			})
-		})
 		when("#Format", func() {
 			it.Before(func() {
 				annotate.SetFormat(v1.Hash{}, types.OCIImageIndex)

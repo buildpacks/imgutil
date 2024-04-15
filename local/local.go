@@ -211,9 +211,3 @@ func (i *Image) SaveFile() (string, error) {
 func (i *Image) Delete() error {
 	return i.store.Delete(i.lastIdentifier)
 }
-
-var _ imgutil.ImageIndex = (*ImageIndex)(nil)
-
-type ImageIndex struct {
-	*imgutil.CNBIndex
-}

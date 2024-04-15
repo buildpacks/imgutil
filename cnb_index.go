@@ -42,9 +42,6 @@ var (
 	ErrOSFeaturesUndefined = func(format types.MediaType, digest string) error {
 		return fmt.Errorf("image os-features is undefined for %s ImageIndex (digest: %s)", indexMediaType(format), digest)
 	}
-	ErrURLsUndefined = func(format types.MediaType, digest string) error {
-		return fmt.Errorf("image urls is undefined for %s ImageIndex (digest: %s)", indexMediaType(format), digest)
-	}
 	ErrAnnotationsUndefined = func(format types.MediaType, digest string) error {
 		return fmt.Errorf("image annotations is undefined for %s ImageIndex (digest: %s)", indexMediaType(format), digest)
 	}
@@ -284,35 +281,6 @@ func (a *Annotate) SetAnnotations(hash v1.Hash, annotations map[string]string) {
 	}
 
 	desc.Annotations = annotations
-	a.Instance[hash] = desc
-}
-
-// URLs returns `URLs` of an existing manipulated ImageIndex if found, else an error.
-func (a *Annotate) URLs(hash v1.Hash) (urls []string, err error) {
-	if len(a.Instance) == 0 {
-		a.Instance = make(map[v1.Hash]v1.Descriptor)
-	}
-
-	desc := a.Instance[hash]
-	if len(desc.URLs) == 0 {
-		return urls, ErrURLsUndefined(types.DockerConfigJSON, hash.String())
-	}
-
-	return desc.URLs, nil
-}
-
-// SetURLs annotates the `URLs` of the given Image.
-func (a *Annotate) SetURLs(hash v1.Hash, urls []string) {
-	if len(a.Instance) == 0 {
-		a.Instance = make(map[v1.Hash]v1.Descriptor)
-	}
-
-	desc := a.Instance[hash]
-	if desc.Platform == nil {
-		desc.Platform = &v1.Platform{}
-	}
-
-	desc.URLs = urls
 	a.Instance[hash] = desc
 }
 
@@ -1071,7 +1039,6 @@ func (h *CNBIndex) Add(name string, ops ...func(*IndexAddOptions) error) error {
 			osVersion, _   = img.OSVersion()
 			features, _    = img.Features()
 			osFeatures, _  = img.OSFeatures()
-			urls, _        = img.URLs()
 			annos, _       = img.Annotations()
 			size, _        = img.ManifestSize()
 			mediaType, err = img.MediaType()
@@ -1085,7 +1052,6 @@ func (h *CNBIndex) Add(name string, ops ...func(*IndexAddOptions) error) error {
 			MediaType:   mediaType,
 			Size:        size,
 			Digest:      digest,
-			URLs:        urls,
 			Annotations: annos,
 			Platform: &v1.Platform{
 				OS:           os,

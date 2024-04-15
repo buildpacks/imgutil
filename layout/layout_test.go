@@ -1091,7 +1091,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				osVersion  = "1234"
 				features   = []string{"some-features"}
 				osFeatures = []string{"some-osFeatures"}
-				urls       = []string{"some-urls"}
 				annos      = map[string]string{"some-key": "some-value"}
 			)
 			image.SetOS(os)
@@ -1100,7 +1099,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			image.SetOSVersion(osVersion)
 			image.SetFeatures(features)
 			image.SetOSFeatures(osFeatures)
-			image.SetURLs(urls)
 			image.SetAnnotations(annos)
 
 			image.Save()
@@ -1118,7 +1116,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertEq(t, mfest.Subject.Platform.OSVersion, osVersion)
 			h.AssertEq(t, mfest.Subject.Platform.Features, features)
 			h.AssertEq(t, mfest.Subject.Platform.OSFeatures, osFeatures)
-			h.AssertEq(t, mfest.Subject.URLs, urls)
 			h.AssertEq(t, mfest.Subject.Annotations, annos)
 
 			h.AssertEq(t, mfest.Annotations, annos)

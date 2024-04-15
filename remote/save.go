@@ -46,7 +46,6 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 		osv, _ := i.OSVersion()
 		features, _ := i.Features()
 		osFeatures, _ := i.OSFeatures()
-		urls, _ := i.URLs()
 		annotations, _ := i.Annotations()
 
 		return imgutil.MutateManifestFn(
@@ -57,7 +56,6 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 			osv,
 			features,
 			osFeatures,
-			urls,
 			annotations,
 		)
 	})
