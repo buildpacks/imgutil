@@ -996,7 +996,7 @@ func (h *CNBIndex) indexAnnotations(digest name.Digest) (annotations map[string]
 	return mfest.Annotations, types.OCIImageIndex, nil
 }
 
-// SetAnnotations annotates the `Annotations` of an Image with given Digest by appending to existsing Annotations if any.
+// SetAnnotations annotates the `Annotations` of an Image with given Digest by appending to existing Annotations if any.
 //
 // Returns an error if no Image/Index found with given Digest.
 //
@@ -1045,77 +1045,6 @@ func (h *CNBIndex) SetAnnotations(digest name.Digest, annotations map[string]str
 	}
 
 	return ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
-}
-
-// URLs returns the `URLs` of an Image with given Digest.
-// Returns an error if no Image/Index found with given Digest.
-func (h *CNBIndex) URLs(digest name.Digest) (urls []string, err error) {
-	hash, err := h.getHash(digest)
-	if err != nil {
-		return urls, err
-	}
-
-	if urls, err = h.annotate.URLs(hash); err == nil {
-		var urlSet = NewStringSet()
-		for _, s := range urls {
-			urlSet.Add(s)
-		}
-		return urlSet.StringSlice(), nil
-	}
-
-	if urls, err = h.getIndexURLs(hash); err == nil {
-		return urls, nil
-	}
-
-	urls, format, err := h.getImageURLs(hash)
-	if err == nil {
-		return urls, nil
-	}
-
-	if err == ErrURLsUndefined(format, digest.Identifier()) {
-		return urls, ErrURLsUndefined(format, digest.Identifier())
-	}
-
-	return urls, ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
-}
-
-// SetURLs annotates the `URLs` of an Image with given Digest by appending to existsing URLs if any.
-// Returns an error if no Image/Index found with given Digest.
-func (h *CNBIndex) SetURLs(digest name.Digest, urls []string) error {
-	hash, err := h.getHash(digest)
-	if err != nil {
-		return err
-	}
-
-	if mfest, err := h.getIndexManifest(digest); err == nil {
-		h.annotate.SetURLs(hash, urls)
-		h.annotate.SetFormat(hash, mfest.MediaType)
-		return nil
-	}
-
-	if img, err := h.Image(hash); err == nil {
-		return h.setImageURLs(img, hash, urls)
-	}
-
-	if desc, ok := h.images[hash]; ok {
-		h.annotate.SetURLs(hash, urls)
-		h.annotate.SetFormat(hash, desc.MediaType)
-		return nil
-	}
-
-	return ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
-}
-
-// setImageURLs adds the requested URLs to `annotate`.
-func (h *CNBIndex) setImageURLs(img v1.Image, hash v1.Hash, urls []string) error {
-	mfest, err := GetManifest(img)
-	if err != nil {
-		return err
-	}
-
-	h.annotate.SetURLs(hash, urls)
-	h.annotate.SetFormat(hash, mfest.MediaType)
-	return nil
 }
 
 // Add the ImageIndex from the registry with the given Reference.
@@ -1747,56 +1676,6 @@ func (h *CNBIndex) Delete() error {
 	}
 
 	return os.RemoveAll(layoutPath)
-}
-
-func (h *CNBIndex) getIndexURLs(hash v1.Hash) (urls []string, err error) {
-	idx, err := h.ImageIndex.ImageIndex(hash)
-	if err != nil {
-		return urls, err
-	}
-
-	mfest, err := getIndexManifest(idx)
-	if err != nil {
-		return urls, err
-	}
-
-	if mfest.Subject == nil {
-		mfest.Subject = &v1.Descriptor{}
-	}
-
-	if len(mfest.Subject.URLs) == 0 {
-		return urls, ErrURLsUndefined(mfest.MediaType, hash.String())
-	}
-
-	return mfest.Subject.URLs, nil
-}
-
-func (h *CNBIndex) getImageURLs(hash v1.Hash) (urls []string, format types.MediaType, err error) {
-	if desc, ok := h.images[hash]; ok {
-		if len(desc.URLs) == 0 {
-			return urls, desc.MediaType, ErrURLsUndefined(desc.MediaType, hash.String())
-		}
-
-		return desc.URLs, desc.MediaType, nil
-	}
-
-	mfest, err := getIndexManifest(h.ImageIndex)
-	if err != nil {
-		// Return Non-Image and Non-Index mediaType
-		return urls, types.DockerConfigJSON, err
-	}
-
-	for _, desc := range mfest.Manifests {
-		if desc.Digest == hash {
-			if len(desc.URLs) == 0 {
-				return urls, desc.MediaType, ErrURLsUndefined(desc.MediaType, hash.String())
-			}
-
-			return desc.URLs, desc.MediaType, nil
-		}
-	}
-
-	return urls, mfest.MediaType, ErrNoImageOrIndexFoundWithGivenDigest(hash.String())
 }
 
 func (h *CNBIndex) getIndexManifest(digest name.Digest) (mfest *v1.IndexManifest, err error) {

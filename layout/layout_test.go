@@ -1176,6 +1176,159 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 		h.AssertNil(t, err)
 	})
 
+	when("Getters", func() {
+		var (
+			attribute   string
+			attributes  []string
+			annotations map[string]string
+			digest      name.Digest
+		)
+		when("index exists on disk", func() {
+			when("#FromBaseImageIndex", func() {
+				it.Before(func() {
+					idx, err = layout.NewIndex("busybox-multi-platform", tmpDir, imgutil.FromBaseImageIndex(baseIndexPath))
+					h.AssertNil(t, err)
+					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
+				})
+
+				// See spec: https://github.com/opencontainers/image-spec/blob/main/image-index.md#image-index-property-descriptions
+				when("linux/amd64", func() {
+					it.Before(func() {
+						digest, err = name.NewDigest("busybox-multi-platform@sha256:4be429a5fbb2e71ae7958bfa558bc637cf3a61baf40a708cb8fff532b39e52d0")
+						h.AssertNil(t, err)
+					})
+
+					it("existing platform attributes are readable", func() {
+						// #Architecture
+						attribute, err = idx.Architecture(digest)
+						h.AssertNil(t, err)
+						h.AssertEq(t, attribute, "amd64")
+
+						// #OS
+						attribute, err = idx.OS(digest)
+						h.AssertNil(t, err)
+						h.AssertEq(t, attribute, "linux")
+
+						// #Variant
+						attribute, err = idx.Variant(digest)
+						h.AssertNil(t, err)
+						h.AssertEq(t, attribute, "v1")
+
+						// #OSVersion
+						attribute, err = idx.OSVersion(digest)
+						h.AssertNil(t, err)
+						h.AssertEq(t, attribute, "4.5.6")
+
+						// #OSFeatures
+						attributes, err = idx.OSFeatures(digest)
+						h.AssertNil(t, err)
+						h.AssertContains(t, attributes, "os-feature-1", "os-feature-2")
+
+						// #Features
+						attributes, err = idx.Features(digest)
+						h.AssertNil(t, err)
+						h.AssertContains(t, attributes, "feature-1", "feature-2")
+					})
+
+					it("existing annotations are readable", func() {
+						annotations, err = idx.Annotations(digest)
+						h.AssertNil(t, err)
+						h.AssertEq(t, annotations["com.docker.official-images.bashbrew.arch"], "amd64")
+						h.AssertEq(t, annotations["org.opencontainers.image.url"], "https://hub.docker.com/_/busybox")
+						h.AssertEq(t, annotations["org.opencontainers.image.revision"], "d0b7d566eb4f1fa9933984e6fc04ab11f08f4592")
+					})
+				})
+
+				when("linux/arm64", func() {
+					it.Before(func() {
+						digest, err = name.NewDigest("busybox-multi-platform@sha256:8a4415fb43600953cbdac6ec03c2d96d900bb21f8d78964837dad7f73b9afcdc")
+						h.AssertNil(t, err)
+					})
+
+					it("existing platform attributes are readable", func() {
+						// #Architecture
+						attribute, err = idx.Architecture(digest)
+						h.AssertNil(t, err)
+						h.AssertEq(t, attribute, "arm")
+
+						// #OS
+						attribute, err = idx.OS(digest)
+						h.AssertNil(t, err)
+						h.AssertEq(t, attribute, "linux")
+
+						// #Variant
+						attribute, err = idx.Variant(digest)
+						h.AssertNil(t, err)
+						h.AssertEq(t, attribute, "v7")
+
+						// #OSVersion
+						attribute, err = idx.OSVersion(digest)
+						h.AssertNil(t, err)
+						h.AssertEq(t, attribute, "1.2.3")
+
+						// #OSFeatures
+						attributes, err = idx.OSFeatures(digest)
+						h.AssertNil(t, err)
+						h.AssertContains(t, attributes, "os-feature-3", "os-feature-4")
+
+						// #Features
+						attributes, err = idx.Features(digest)
+						h.AssertNil(t, err)
+						h.AssertContains(t, attributes, "feature-3", "feature-4")
+					})
+
+					it("existing annotations are readable", func() {
+						annotations, err = idx.Annotations(digest)
+						h.AssertNil(t, err)
+						h.AssertEq(t, annotations["com.docker.official-images.bashbrew.arch"], "arm32v7")
+						h.AssertEq(t, annotations["org.opencontainers.image.url"], "https://hub.docker.com/_/busybox")
+						h.AssertEq(t, annotations["org.opencontainers.image.revision"], "185a3f7f21c307b15ef99b7088b228f004ff5f11")
+					})
+				})
+			})
+		})
+	})
+
+	when("Setters", func() {
+		var digest name.Digest
+		when("index exists on disk", func() {
+			when("#FromBaseImageIndex", func() {
+				it.Before(func() {
+					idx = setUpImageIndex(t, "busybox-multi-platform", tmpDir, imgutil.FromBaseImageIndex(baseIndexPath), imgutil.WithKeychain(authn.DefaultKeychain))
+					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
+					digest, err = name.NewDigest("busybox@sha256:4be429a5fbb2e71ae7958bfa558bc637cf3a61baf40a708cb8fff532b39e52d0")
+					h.AssertNil(t, err)
+				})
+
+				it("Update platform values for an existent manifest", func() {
+					err = idx.SetOS(digest, "linux-1")
+					h.AssertNil(t, err)
+
+					err = idx.SetArchitecture(digest, "amd64-1")
+					h.AssertNil(t, err)
+
+					err = idx.SetVariant(digest, "v2")
+					h.AssertNil(t, err)
+
+					// After saving, the index on disk must reflect the change
+					err = idx.Save()
+					h.AssertNil(t, err)
+
+					index := h.ReadIndexManifest(t, localPath)
+					h.AssertEq(t, len(index.Manifests), 2)
+					// When updating the manifest is deleted and added at the end
+					h.AssertEq(t, index.Manifests[0].Digest.String(), "sha256:8a4415fb43600953cbdac6ec03c2d96d900bb21f8d78964837dad7f73b9afcdc")
+					h.AssertEq(t, index.Manifests[1].Digest.String(), "sha256:4be429a5fbb2e71ae7958bfa558bc637cf3a61baf40a708cb8fff532b39e52d0")
+
+					modifiedManifest := index.Manifests[1]
+					h.AssertEq(t, modifiedManifest.Platform.OS, "linux-1")
+					h.AssertEq(t, modifiedManifest.Platform.Architecture, "amd64-1")
+					h.AssertEq(t, modifiedManifest.Platform.Variant, "v2")
+				})
+			})
+		})
+	})
+
 	when("#Save", func() {
 		when("index exists on disk", func() {
 			when("#FromBaseImageIndex", func() {
@@ -1242,7 +1395,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 				localPath = filepath.Join(tmpDir, repoName)
 			})
 
-			when("manifest is OCI layout format is added", func() {
+			when("manifest in OCI layout format is added", func() {
 				var editableImage imgutil.EditableImage
 				it.Before(func() {
 					editableImage, err = layout.NewImage(imagePath, layout.FromBaseImagePath(fullBaseImagePath))

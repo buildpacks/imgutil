@@ -14,7 +14,6 @@ type ImageIndex interface {
 	OS(digest name.Digest) (os string, err error)
 	OSFeatures(digest name.Digest) (osFeatures []string, err error)
 	OSVersion(digest name.Digest) (osVersion string, err error)
-	URLs(digest name.Digest) (urls []string, err error)
 	Variant(digest name.Digest) (osVariant string, err error)
 
 	// setters
@@ -25,7 +24,6 @@ type ImageIndex interface {
 	SetOS(digest name.Digest, os string) error
 	SetOSFeatures(digest name.Digest, osFeatures []string) error
 	SetOSVersion(digest name.Digest, osVersion string) error
-	SetURLs(digest name.Digest, urls []string) error
 	SetVariant(digest name.Digest, osVariant string) error
 
 	// misc
