@@ -66,6 +66,11 @@ func (i *Image) Identifier() (imgutil.Identifier, error) {
 	return newLayoutIdentifier(i.repoPath, hash)
 }
 
+func (i *Image) Valid() bool {
+	// layout images may be invalid if they are missing layer data
+	return true
+}
+
 func (i *Image) Delete() error {
 	return os.RemoveAll(i.repoPath)
 }

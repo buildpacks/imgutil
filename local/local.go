@@ -46,6 +46,11 @@ func (i *Image) Identifier() (imgutil.Identifier, error) {
 	}, nil
 }
 
+func (i *Image) Valid() bool {
+	// local images are actually always invalid, because they are missing a manifest, but let's ignore that for now
+	return true
+}
+
 // GetLayer returns an io.ReadCloser with uncompressed layer data.
 // The layer will always have data, even if that means downloading ALL the image layers from the daemon.
 func (i *Image) GetLayer(diffID string) (io.ReadCloser, error) {

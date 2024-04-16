@@ -10,7 +10,6 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
-	"github.com/google/go-containerregistry/pkg/v1/validate"
 )
 
 // CNBImageCore wraps a v1.Image and provides most of the methods necessary for the image to satisfy the Image interface.
@@ -182,11 +181,6 @@ func (i *CNBImageCore) TopLayer() (string, error) {
 // UnderlyingImage is used to expose a v1.Image from an imgutil.Image, which can be useful in certain situations (such as rebase).
 func (i *CNBImageCore) UnderlyingImage() v1.Image {
 	return i.Image
-}
-
-func (i *CNBImageCore) Valid() bool {
-	err := validate.Image(i.Image)
-	return err == nil
 }
 
 // TBD Deprecated: Variant
