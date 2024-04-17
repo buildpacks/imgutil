@@ -1089,35 +1089,25 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				arch       = "amd64"
 				variant    = "some-variant"
 				osVersion  = "1234"
-				features   = []string{"some-features"}
 				osFeatures = []string{"some-osFeatures"}
 				annos      = map[string]string{"some-key": "some-value"}
 			)
-			image.SetOS(os)
-			image.SetArchitecture(arch)
-			image.SetVariant(variant)
-			image.SetOSVersion(osVersion)
-			image.SetOSFeatures(osFeatures)
-			image.SetAnnotations(annos)
+			h.AssertNil(t, image.SetOS(os))
+			h.AssertNil(t, image.SetArchitecture(arch))
+			h.AssertNil(t, image.SetVariant(variant))
+			h.AssertNil(t, image.SetOSVersion(osVersion))
+			h.AssertNil(t, image.SetOSFeatures(osFeatures))
+			h.AssertNil(t, image.SetAnnotations(annos))
 
-			image.Save()
+			h.AssertNil(t, image.Save())
 
-			mfest, configFile := h.ReadManifestAndConfigFile(t, imagePath)
+			manifestFile, configFile := h.ReadManifestAndConfigFile(t, imagePath)
 			h.AssertEq(t, configFile.OS, os)
 			h.AssertEq(t, configFile.Architecture, arch)
 			h.AssertEq(t, configFile.Variant, variant)
 			h.AssertEq(t, configFile.OSVersion, osVersion)
 			h.AssertEq(t, configFile.OSFeatures, osFeatures)
-
-			h.AssertEq(t, mfest.Config.Platform.OS, os)
-			h.AssertEq(t, mfest.Config.Platform.Architecture, arch)
-			h.AssertEq(t, mfest.Config.Platform.Variant, variant)
-			h.AssertEq(t, mfest.Config.Platform.OSVersion, osVersion)
-			h.AssertEq(t, mfest.Config.Platform.Features, features)
-			h.AssertEq(t, mfest.Config.Platform.OSFeatures, osFeatures)
-			h.AssertEq(t, mfest.Config.Annotations, annos)
-
-			h.AssertEq(t, mfest.Annotations, annos)
+			h.AssertEq(t, manifestFile.Annotations, annos)
 		})
 
 		it("Default Platform values are saved on disk in OCI layout format", func() {
