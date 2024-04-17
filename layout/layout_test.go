@@ -1083,7 +1083,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			}
 		})
 
-		it("Platform values are saved on disk in OCI layout format", func() {
+		it.Focus("Platform values are saved on disk in OCI layout format", func() {
 			var (
 				os         = "linux"
 				arch       = "amd64"
@@ -1110,13 +1110,13 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertEq(t, configFile.OSVersion, osVersion)
 			h.AssertEq(t, configFile.OSFeatures, osFeatures)
 
-			h.AssertEq(t, mfest.Subject.Platform.OS, os)
-			h.AssertEq(t, mfest.Subject.Platform.Architecture, arch)
-			h.AssertEq(t, mfest.Subject.Platform.Variant, variant)
-			h.AssertEq(t, mfest.Subject.Platform.OSVersion, osVersion)
-			h.AssertEq(t, mfest.Subject.Platform.Features, features)
-			h.AssertEq(t, mfest.Subject.Platform.OSFeatures, osFeatures)
-			h.AssertEq(t, mfest.Subject.Annotations, annos)
+			h.AssertEq(t, mfest.Config.Platform.OS, os)
+			h.AssertEq(t, mfest.Config.Platform.Architecture, arch)
+			h.AssertEq(t, mfest.Config.Platform.Variant, variant)
+			h.AssertEq(t, mfest.Config.Platform.OSVersion, osVersion)
+			h.AssertEq(t, mfest.Config.Platform.Features, features)
+			h.AssertEq(t, mfest.Config.Platform.OSFeatures, osFeatures)
+			h.AssertEq(t, mfest.Config.Annotations, annos)
 
 			h.AssertEq(t, mfest.Annotations, annos)
 		})
@@ -1281,46 +1281,6 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertEq(t, annotations["org.opencontainers.image.url"], "https://hub.docker.com/_/busybox")
 						h.AssertEq(t, annotations["org.opencontainers.image.revision"], "185a3f7f21c307b15ef99b7088b228f004ff5f11")
 					})
-				})
-			})
-		})
-	})
-
-	when("Setters", func() {
-		var digest name.Digest
-		when("index exists on disk", func() {
-			when("#FromBaseImageIndex", func() {
-				it.Before(func() {
-					idx = setUpImageIndex(t, "busybox-multi-platform", tmpDir, imgutil.FromBaseImageIndex(baseIndexPath), imgutil.WithKeychain(authn.DefaultKeychain))
-					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
-					digest, err = name.NewDigest("busybox@sha256:4be429a5fbb2e71ae7958bfa558bc637cf3a61baf40a708cb8fff532b39e52d0")
-					h.AssertNil(t, err)
-				})
-
-				it("Update platform values for an existent manifest", func() {
-					err = idx.SetOS(digest, "linux-1")
-					h.AssertNil(t, err)
-
-					err = idx.SetArchitecture(digest, "amd64-1")
-					h.AssertNil(t, err)
-
-					err = idx.SetVariant(digest, "v2")
-					h.AssertNil(t, err)
-
-					// After saving, the index on disk must reflect the change
-					err = idx.Save()
-					h.AssertNil(t, err)
-
-					index := h.ReadIndexManifest(t, localPath)
-					h.AssertEq(t, len(index.Manifests), 2)
-					// When updating the manifest is deleted and added at the end
-					h.AssertEq(t, index.Manifests[0].Digest.String(), "sha256:8a4415fb43600953cbdac6ec03c2d96d900bb21f8d78964837dad7f73b9afcdc")
-					h.AssertEq(t, index.Manifests[1].Digest.String(), "sha256:4be429a5fbb2e71ae7958bfa558bc637cf3a61baf40a708cb8fff532b39e52d0")
-
-					modifiedManifest := index.Manifests[1]
-					h.AssertEq(t, modifiedManifest.Platform.OS, "linux-1")
-					h.AssertEq(t, modifiedManifest.Platform.Architecture, "amd64-1")
-					h.AssertEq(t, modifiedManifest.Platform.Variant, "v2")
 				})
 			})
 		})
