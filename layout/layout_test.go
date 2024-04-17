@@ -1342,7 +1342,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			when("manifest in OCI layout format is added", func() {
-				var editableImage imgutil.EditableImage
+				var editableImage imgutil.Image
 				it.Before(func() {
 					editableImage, err = layout.NewImage(imagePath, layout.FromBaseImagePath(fullBaseImagePath))
 					h.AssertNil(t, err)
@@ -1367,7 +1367,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				when("manifest in OCI layout format is added", func() {
-					var editableImage imgutil.EditableImage
+					var editableImage imgutil.Image
 					it.Before(func() {
 						editableImage, err = layout.NewImage(imagePath, layout.FromBaseImagePath(fullBaseImagePath))
 						h.AssertNil(t, err)
