@@ -1,13 +1,10 @@
 package imgutil
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
-	"sync"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -20,7 +17,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -48,17 +44,15 @@ var (
 	ErrNoImageOrIndexFoundWithGivenDigest = func(digest string) error {
 		return fmt.Errorf(`no image or image index found for digest "%s"`, digest)
 	}
-	ErrConfigFilePlatformUndefined = errors.New("unable to determine image platform: ConfigFile's platform is nil")
-	ErrManifestUndefined           = errors.New("encountered unexpected error while parsing image: manifest or index manifest is nil")
-	ErrPlatformUndefined           = errors.New("unable to determine image platform: platform is nil")
-	ErrInvalidPlatform             = errors.New("unable to determine image platform: platform's 'OS' or 'Architecture' field is nil")
-	ErrConfigFileUndefined         = errors.New("unable to access image configuration: ConfigFile is nil")
-	ErrIndexNeedToBeSaved          = errors.New(`unable to perform action: ImageIndex requires local storage before proceeding.
+	ErrManifestUndefined   = errors.New("encountered unexpected error while parsing image: manifest or index manifest is nil")
+	ErrPlatformUndefined   = errors.New("unable to determine image platform: platform is nil")
+	ErrInvalidPlatform     = errors.New("unable to determine image platform: platform's 'OS' or 'Architecture' field is nil")
+	ErrConfigFileUndefined = errors.New("unable to access image configuration: ConfigFile is nil")
+	ErrIndexNeedToBeSaved  = errors.New(`unable to perform action: ImageIndex requires local storage before proceeding.
 	Please use '#Save()' to save the image index locally before attempting this operation`)
 	ErrUnknownMediaType = func(format types.MediaType) error {
 		return fmt.Errorf("unsupported media type encountered in image: '%s'", format)
 	}
-	ErrNoImageFoundWithGivenPlatform = errors.New("no image found for specified platform")
 )
 
 type CNBIndex struct {
@@ -812,248 +806,11 @@ func (h *CNBIndex) Add(name string, ops ...func(*IndexAddOptions) error) error {
 		// Append Image to V1.ImageIndex with the Annotations if any
 		return path.AppendDescriptor(config)
 	case desc.MediaType.IsIndex():
-		switch {
-		case addOps.All:
-			idx, err := remote.Index(
-				ref,
-				remote.WithAuthFromKeychain(h.KeyChain),
-				remote.WithTransport(GetTransport(h.Insecure)),
-			)
-			if err != nil {
-				return err
-			}
-
-			var iMap sync.Map
-			errs := SaveError{}
-			// Add all the images from Nested ImageIndexes
-			if err = h.addAllImages(idx, addOps.Annotations, &iMap); err != nil {
-				return err
-			}
-
-			if err != nil {
-				// if the ImageIndex is not saved till now for some reason Save the ImageIndex locally to append images
-				if err = h.Save(); err != nil {
-					return err
-				}
-			}
-
-			iMap.Range(func(key, value any) bool {
-				desc, ok := value.(v1.Descriptor)
-				if !ok {
-					return false
-				}
-
-				digest, ok := key.(v1.Hash)
-				if !ok {
-					return false
-				}
-
-				h.images[digest] = desc
-
-				// Append All the images within the nested ImageIndexes
-				if err = path.AppendDescriptor(desc); err != nil {
-					errs.Errors = append(errs.Errors, SaveDiagnostic{
-						Cause: err,
-					})
-				}
-				return true
-			})
-
-			if len(errs.Errors) != 0 {
-				return errs
-			}
-
-			return nil
-		case addOps.OS != "",
-			addOps.Arch != "",
-			addOps.Variant != "",
-			addOps.OSVersion != "",
-			len(addOps.Features) != 0,
-			len(addOps.OSFeatures) != 0:
-
-			platformSpecificDesc := &v1.Platform{}
-			if addOps.OS != "" {
-				platformSpecificDesc.OS = addOps.OS
-			}
-
-			if addOps.Arch != "" {
-				platformSpecificDesc.Architecture = addOps.Arch
-			}
-
-			if addOps.Variant != "" {
-				platformSpecificDesc.Variant = addOps.Variant
-			}
-
-			if addOps.OSVersion != "" {
-				platformSpecificDesc.OSVersion = addOps.OSVersion
-			}
-
-			if len(addOps.Features) != 0 {
-				platformSpecificDesc.Features = addOps.Features
-			}
-
-			if len(addOps.OSFeatures) != 0 {
-				platformSpecificDesc.OSFeatures = addOps.OSFeatures
-			}
-
-			// Add an Image from the ImageIndex with the given Platform
-			return h.addPlatformSpecificImages(ref, *platformSpecificDesc, addOps.Annotations)
-		default:
-			platform := v1.Platform{
-				OS:           runtime.GOOS,
-				Architecture: runtime.GOARCH,
-			}
-
-			// Add the Image from the ImageIndex with current Device's Platform
-			return h.addPlatformSpecificImages(ref, platform, addOps.Annotations)
-		}
+		return fmt.Errorf("failed to add %s to index; reference is an image index (requires image)", name)
 	default:
 		// return an error if the Reference is neither an Image not an Index
 		return ErrUnknownMediaType(desc.MediaType)
 	}
-}
-
-func (h *CNBIndex) addAllImages(idx v1.ImageIndex, annotations map[string]string, imageMap *sync.Map) error {
-	mfest, err := getIndexManifest(idx)
-	if err != nil {
-		return err
-	}
-
-	var errs, _ = errgroup.WithContext(context.Background())
-	for _, desc := range mfest.Manifests {
-		desc := desc
-		errs.Go(func() error {
-			return h.addIndexAddendum(annotations, desc, idx, imageMap)
-		})
-	}
-
-	return errs.Wait()
-}
-
-func (h *CNBIndex) addIndexAddendum(annotations map[string]string, desc v1.Descriptor, idx v1.ImageIndex, iMap *sync.Map) error {
-	switch {
-	case desc.MediaType.IsIndex():
-		ii, err := idx.ImageIndex(desc.Digest)
-		if err != nil {
-			return err
-		}
-
-		return h.addAllImages(ii, annotations, iMap)
-	case desc.MediaType.IsImage():
-		img, err := idx.Image(desc.Digest)
-		if err != nil {
-			return err
-		}
-
-		mfest, err := GetManifest(img)
-		if err != nil {
-			return err
-		}
-
-		imgConfig, err := img.ConfigFile()
-		if err != nil {
-			return err
-		}
-
-		platform := v1.Platform{}
-		if err = updatePlatform(imgConfig, &platform); err != nil {
-			return err
-		}
-
-		config := mfest.Config.DeepCopy()
-		config.Size = desc.Size
-		config.MediaType = desc.MediaType
-		config.Digest = desc.Digest
-		config.Platform = &platform
-		config.Annotations = mfest.Annotations
-
-		if len(config.Annotations) == 0 {
-			config.Annotations = make(map[string]string, 0)
-		}
-
-		if len(annotations) != 0 && mfest.MediaType == types.OCIManifestSchema1 {
-			for k, v := range annotations {
-				config.Annotations[k] = v
-			}
-		}
-
-		h.images[desc.Digest] = *config
-		iMap.Store(desc.Digest, *config)
-
-		return nil
-	default:
-		return ErrUnknownMediaType(desc.MediaType)
-	}
-}
-
-func (h *CNBIndex) addPlatformSpecificImages(ref name.Reference, platform v1.Platform, annotations map[string]string) error {
-	if platform.OS == "" || platform.Architecture == "" {
-		return ErrInvalidPlatform
-	}
-
-	desc, err := remote.Get(
-		ref,
-		remote.WithAuthFromKeychain(h.KeyChain),
-		remote.WithTransport(GetTransport(true)),
-		remote.WithPlatform(platform),
-	)
-	if err != nil {
-		return err
-	}
-
-	img, err := desc.Image()
-	if err != nil {
-		return err
-	}
-
-	digest, err := img.Digest()
-	if err != nil {
-		return err
-	}
-
-	mfest, err := GetManifest(img)
-	if err != nil {
-		return err
-	}
-
-	imgConfig, err := GetConfigFile(img)
-	if err != nil {
-		return err
-	}
-
-	platform = v1.Platform{}
-	if err = updatePlatform(imgConfig, &platform); err != nil {
-		return err
-	}
-
-	config := mfest.Config.DeepCopy()
-	config.MediaType = mfest.MediaType
-	config.Digest = digest
-	config.Size = desc.Size
-	config.Platform = &platform
-	config.Annotations = mfest.Annotations
-
-	if len(config.Annotations) != 0 {
-		config.Annotations = make(map[string]string, 0)
-	}
-
-	if len(annotations) != 0 && config.MediaType == types.OCIManifestSchema1 {
-		for k, v := range annotations {
-			config.Annotations[k] = v
-		}
-	}
-
-	h.images[digest] = *config
-
-	layoutPath := filepath.Join(h.XdgPath, MakeFileSafeName(h.RepoName))
-	path, err := layout.FromPath(layoutPath)
-	if err != nil {
-		if path, err = layout.Write(layoutPath, h.ImageIndex); err != nil {
-			return err
-		}
-	}
-
-	return path.AppendDescriptor(*config)
 }
 
 // Save IndexManifest locally.

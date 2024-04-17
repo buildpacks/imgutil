@@ -106,12 +106,9 @@ type PushOption func(*IndexPushOptions) error
 type AddOption func(*IndexAddOptions) error
 
 type IndexAddOptions struct {
-	All                          bool
-	Local                        bool
-	OS, Arch, Variant, OSVersion string
-	Features, OSFeatures         []string
-	Annotations                  map[string]string
-	Image                        Image
+	Local       bool
+	Annotations map[string]string
+	Image       Image
 }
 
 type IndexPushOptions struct {
@@ -194,67 +191,11 @@ func WithFormat(format types.MediaType) func(options *IndexOptions) error {
 
 // IndexAddOptions
 
-// Add all images within the index
-func WithAll(all bool) func(options *IndexAddOptions) error {
-	return func(a *IndexAddOptions) error {
-		a.All = all
-		return nil
-	}
-}
-
-// Add a single image from index with given OS
-func WithOS(os string) func(options *IndexAddOptions) error {
-	return func(a *IndexAddOptions) error {
-		a.OS = os
-		return nil
-	}
-}
-
 // Add a Local image to Index
 func WithLocalImage(image Image) func(options *IndexAddOptions) error {
 	return func(a *IndexAddOptions) error {
 		a.Local = true
 		a.Image = image
-		return nil
-	}
-}
-
-// Add a single image from index with given Architecture
-func WithArchitecture(arch string) func(options *IndexAddOptions) error {
-	return func(a *IndexAddOptions) error {
-		a.Arch = arch
-		return nil
-	}
-}
-
-// Add a single image from index with given Variant
-func WithVariant(variant string) func(options *IndexAddOptions) error {
-	return func(a *IndexAddOptions) error {
-		a.Variant = variant
-		return nil
-	}
-}
-
-// Add a single image from index with given OSVersion
-func WithOSVersion(osVersion string) func(options *IndexAddOptions) error {
-	return func(a *IndexAddOptions) error {
-		a.OSVersion = osVersion
-		return nil
-	}
-}
-
-// Add a single image from index with given Features
-func WithFeatures(features []string) func(options *IndexAddOptions) error {
-	return func(a *IndexAddOptions) error {
-		a.Features = features
-		return nil
-	}
-}
-
-// Add a single image from index with given OSFeatures
-func WithOSFeatures(osFeatures []string) func(options *IndexAddOptions) error {
-	return func(a *IndexAddOptions) error {
-		a.OSFeatures = osFeatures
 		return nil
 	}
 }
