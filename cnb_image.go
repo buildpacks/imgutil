@@ -25,7 +25,6 @@ type CNBImageCore struct {
 	preferredMediaTypes MediaTypes
 	preserveHistory     bool
 	previousImage       v1.Image
-	features            []string
 	annotations         map[string]string
 }
 
@@ -172,23 +171,6 @@ func (i *CNBImageCore) OSFeatures() ([]string, error) {
 	return configFile.OSFeatures, nil
 }
 
-func (i *CNBImageCore) Features() ([]string, error) {
-	if len(i.features) != 0 {
-		return i.features, nil
-	}
-
-	mfest, err := getManifest(i.Image)
-	if err != nil {
-		return nil, err
-	}
-
-	p := mfest.Config.Platform
-	if p == nil || len(p.Features) < 1 {
-		return nil, fmt.Errorf("image features is undefined for %s ImageIndex", i.preferredMediaTypes.ManifestType())
-	}
-	return p.Features, nil
-}
-
 func (i *CNBImageCore) Annotations() (map[string]string, error) {
 	if len(i.annotations) != 0 {
 		return i.annotations, nil
@@ -315,11 +297,6 @@ func (i *CNBImageCore) SetEnv(key, val string) error {
 		}
 		c.Config.Env = append(c.Config.Env, fmt.Sprintf("%s=%s", key, val))
 	})
-}
-
-func (i *CNBImageCore) SetFeatures(features []string) (err error) {
-	i.features = append(i.features, features...)
-	return nil
 }
 
 // TBD Deprecated: SetHistory

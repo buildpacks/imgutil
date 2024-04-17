@@ -707,7 +707,6 @@ func (h *CNBIndex) Add(name string, ops ...func(*IndexAddOptions) error) error {
 			arch, _        = img.Architecture()
 			variant, _     = img.Variant()
 			osVersion, _   = img.OSVersion()
-			features, _    = img.Features()
 			osFeatures, _  = img.OSFeatures()
 			annos, _       = img.Annotations()
 			size, _        = img.ManifestSize()
@@ -728,7 +727,6 @@ func (h *CNBIndex) Add(name string, ops ...func(*IndexAddOptions) error) error {
 				Architecture: arch,
 				Variant:      variant,
 				OSVersion:    osVersion,
-				Features:     features,
 				OSFeatures:   osFeatures,
 			},
 		}

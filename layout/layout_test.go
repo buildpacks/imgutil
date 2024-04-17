@@ -1097,7 +1097,6 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			image.SetArchitecture(arch)
 			image.SetVariant(variant)
 			image.SetOSVersion(osVersion)
-			image.SetFeatures(features)
 			image.SetOSFeatures(osFeatures)
 			image.SetAnnotations(annos)
 
@@ -1511,7 +1510,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 	})
 }
 
-func setUpImageIndex(t *testing.T, repoName string, tmpDir string, ops ...imgutil.Option) imgutil.ImageIndex {
+func setUpImageIndex(t *testing.T, repoName string, tmpDir string, ops ...imgutil.IndexOption) imgutil.ImageIndex {
 	idx, err := layout.NewIndex(repoName, tmpDir, ops...)
 	h.AssertNil(t, err)
 

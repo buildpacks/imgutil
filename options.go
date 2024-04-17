@@ -99,8 +99,10 @@ func WithPreviousImage(name string) func(*ImageOptions) {
 	}
 }
 
-type Option func(options *IndexOptions) error
+type IndexOption func(options *IndexOptions) error
+
 type PushOption func(*IndexPushOptions) error
+
 type AddOption func(*IndexAddOptions) error
 
 type IndexAddOptions struct {
