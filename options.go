@@ -111,7 +111,7 @@ type IndexAddOptions struct {
 	OS, Arch, Variant, OSVersion string
 	Features, OSFeatures         []string
 	Annotations                  map[string]string
-	Image                        EditableImage
+	Image                        Image
 }
 
 type IndexPushOptions struct {
@@ -211,7 +211,7 @@ func WithOS(os string) func(options *IndexAddOptions) error {
 }
 
 // Add a Local image to Index
-func WithLocalImage(image EditableImage) func(options *IndexAddOptions) error {
+func WithLocalImage(image Image) func(options *IndexAddOptions) error {
 	return func(a *IndexAddOptions) error {
 		a.Local = true
 		a.Image = image
