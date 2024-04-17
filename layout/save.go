@@ -1,7 +1,6 @@
 package layout
 
 import (
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 
 	"github.com/buildpacks/imgutil"
@@ -26,26 +25,6 @@ func (i *Image) SaveAs(name string, additionalNames ...string) error {
 	ops := []AppendOption{WithAnnotations(ImageRefAnnotation(refName))}
 	if i.saveWithoutLayers {
 		ops = append(ops, WithoutLayers())
-	}
-
-	if !i.preserveDigest {
-		i.Image, err = imgutil.MutateManifest(i.Image, func(mfest *v1.Manifest) (mutateSubject, mutateAnnotations bool) {
-			i.mutex.TryLock()
-			defer i.mutex.Unlock()
-			var (
-				os, _          = i.OS()
-				arch, _        = i.Architecture()
-				variant, _     = i.Variant()
-				osVersion, _   = i.OSVersion()
-				osFeatures, _  = i.OSFeatures()
-				annotations, _ = i.Annotations()
-			)
-
-			return imgutil.MutateManifestFn(mfest, os, arch, variant, osVersion, osFeatures, annotations)
-		})
-		if err != nil {
-			return err
-		}
 	}
 
 	var (

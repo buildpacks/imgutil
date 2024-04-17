@@ -240,7 +240,7 @@ func (i *CNBImageCore) SetAnnotations(annotations map[string]string) error {
 	mutated := mutate.Annotations(i.Image, manifest.Annotations)
 	image, ok := mutated.(v1.Image)
 	if !ok {
-		return fmt.Errorf("failed to add annotation")
+		return fmt.Errorf("failed to add annotations")
 	}
 	i.Image = image
 	return nil
