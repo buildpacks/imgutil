@@ -17,7 +17,6 @@ type EditableImage interface {
 	Architecture() (string, error)
 	Variant() (string, error)
 	OSVersion() (string, error)
-	Features() ([]string, error)
 	OSFeatures() ([]string, error)
 	Annotations() (map[string]string, error)
 
@@ -27,7 +26,6 @@ type EditableImage interface {
 	SetArchitecture(string) error
 	SetVariant(string) error
 	SetOSVersion(string) error
-	SetFeatures([]string) error
 	SetOSFeatures([]string) error
 	SetAnnotations(map[string]string) error
 

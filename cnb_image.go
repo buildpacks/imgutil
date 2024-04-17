@@ -25,8 +25,6 @@ type CNBImageCore struct {
 	preferredMediaTypes MediaTypes
 	preserveHistory     bool
 	previousImage       v1.Image
-	features            []string
-	annotations         map[string]string
 }
 
 var _ v1.Image = &CNBImageCore{}
@@ -172,37 +170,15 @@ func (i *CNBImageCore) OSFeatures() ([]string, error) {
 	return configFile.OSFeatures, nil
 }
 
-func (i *CNBImageCore) Features() ([]string, error) {
-	if len(i.features) != 0 {
-		return i.features, nil
-	}
-
-	mfest, err := getManifest(i.Image)
-	if err != nil {
-		return nil, err
-	}
-
-	p := mfest.Config.Platform
-	if p == nil || len(p.Features) < 1 {
-		return nil, fmt.Errorf("image features is undefined for %s ImageIndex", i.preferredMediaTypes.ManifestType())
-	}
-	return p.Features, nil
-}
-
 func (i *CNBImageCore) Annotations() (map[string]string, error) {
-	if len(i.annotations) != 0 {
-		return i.annotations, nil
-	}
-
-	mfest, err := getManifest(i.Image)
+	manifest, err := getManifest(i.Image)
 	if err != nil {
 		return nil, err
 	}
-
-	if len(mfest.Annotations) < 1 {
-		return nil, fmt.Errorf("image annotations is undefined for %s ImageIndex", i.preferredMediaTypes.ManifestType())
+	if manifest.Annotations == nil {
+		return make(map[string]string), nil
 	}
-	return mfest.Annotations, nil
+	return manifest.Annotations, nil
 }
 
 func (i *CNBImageCore) TopLayer() (string, error) {
@@ -245,6 +221,12 @@ func (i *CNBImageCore) WorkingDir() (string, error) {
 }
 
 func (i *CNBImageCore) AnnotateRefName(refName string) error {
+	return i.SetAnnotations(map[string]string{
+		"org.opencontainers.image.ref.name": refName,
+	})
+}
+
+func (i *CNBImageCore) SetAnnotations(annotations map[string]string) error {
 	manifest, err := getManifest(i.Image)
 	if err != nil {
 		return err
@@ -252,24 +234,15 @@ func (i *CNBImageCore) AnnotateRefName(refName string) error {
 	if manifest.Annotations == nil {
 		manifest.Annotations = make(map[string]string)
 	}
-	manifest.Annotations["org.opencontainers.image.ref.name"] = refName
+	for k, v := range annotations {
+		manifest.Annotations[k] = v
+	}
 	mutated := mutate.Annotations(i.Image, manifest.Annotations)
 	image, ok := mutated.(v1.Image)
 	if !ok {
 		return fmt.Errorf("failed to add annotation")
 	}
 	i.Image = image
-	return nil
-}
-
-func (i *CNBImageCore) SetAnnotations(annotations map[string]string) error {
-	if len(i.annotations) == 0 {
-		i.annotations = make(map[string]string)
-	}
-
-	for k, v := range annotations {
-		i.annotations[k] = v
-	}
 	return nil
 }
 
@@ -315,11 +288,6 @@ func (i *CNBImageCore) SetEnv(key, val string) error {
 		}
 		c.Config.Env = append(c.Config.Env, fmt.Sprintf("%s=%s", key, val))
 	})
-}
-
-func (i *CNBImageCore) SetFeatures(features []string) (err error) {
-	i.features = append(i.features, features...)
-	return nil
 }
 
 // TBD Deprecated: SetHistory

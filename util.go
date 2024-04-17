@@ -83,7 +83,7 @@ func MutateManifest(i v1.Image, withFunc func(c *v1.Manifest) (mutateSubject, mu
 	return i, err
 }
 
-func MutateManifestFn(mfest *v1.Manifest, os, arch, variant, osVersion string, features, osFeatures []string, annotations map[string]string) (mutateSubject, mutateAnnotations bool) {
+func MutateManifestFn(mfest *v1.Manifest, os, arch, variant, osVersion string, osFeatures []string, annotations map[string]string) (mutateSubject, mutateAnnotations bool) {
 	config := mfest.Config
 	if len(annotations) != 0 && !(MapContains(mfest.Annotations, annotations) || MapContains(config.Annotations, annotations)) {
 		mutateAnnotations = true
@@ -95,19 +95,6 @@ func MutateManifestFn(mfest *v1.Manifest, os, arch, variant, osVersion string, f
 
 	if config.Platform == nil {
 		config.Platform = &v1.Platform{}
-	}
-
-	if len(features) != 0 && !SliceContains(config.Platform.Features, features) {
-		mutateSubject = true
-		stringSet := NewStringSet()
-		for _, value := range config.Platform.Features {
-			stringSet.Add(value)
-		}
-		for _, value := range features {
-			stringSet.Add(value)
-		}
-
-		config.Platform.Features = stringSet.StringSlice()
 	}
 
 	if len(osFeatures) != 0 && !SliceContains(config.Platform.OSFeatures, osFeatures) {

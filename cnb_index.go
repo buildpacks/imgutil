@@ -95,21 +95,6 @@ func (a *Annotate) OS(hash v1.Hash) (os string, err error) {
 	return desc.Platform.OS, nil
 }
 
-// SetOS sets the `OS` of an Image/ImageIndex to keep track of changes.
-func (a *Annotate) SetOS(hash v1.Hash, os string) {
-	if len(a.Instance) == 0 {
-		a.Instance = make(map[v1.Hash]v1.Descriptor)
-	}
-
-	desc := a.Instance[hash]
-	if desc.Platform == nil {
-		desc.Platform = &v1.Platform{}
-	}
-
-	desc.Platform.OS = os
-	a.Instance[hash] = desc
-}
-
 // Architecture returns `Architecture` of an existing manipulated ImageIndex if found, else an error.
 func (a *Annotate) Architecture(hash v1.Hash) (arch string, err error) {
 	if len(a.Instance) == 0 {
@@ -122,21 +107,6 @@ func (a *Annotate) Architecture(hash v1.Hash) (arch string, err error) {
 	}
 
 	return desc.Platform.Architecture, nil
-}
-
-// SetArchitecture annotates the `Architecture` of the given Image.
-func (a *Annotate) SetArchitecture(hash v1.Hash, arch string) {
-	if len(a.Instance) == 0 {
-		a.Instance = make(map[v1.Hash]v1.Descriptor)
-	}
-
-	desc := a.Instance[hash]
-	if desc.Platform == nil {
-		desc.Platform = &v1.Platform{}
-	}
-
-	desc.Platform.Architecture = arch
-	a.Instance[hash] = desc
 }
 
 // Variant returns `Variant` of an existing manipulated ImageIndex if found, else an error.
@@ -153,21 +123,6 @@ func (a *Annotate) Variant(hash v1.Hash) (variant string, err error) {
 	return desc.Platform.Variant, nil
 }
 
-// SetVariant annotates the `Variant` of the given Image.
-func (a *Annotate) SetVariant(hash v1.Hash, variant string) {
-	if len(a.Instance) == 0 {
-		a.Instance = make(map[v1.Hash]v1.Descriptor)
-	}
-
-	desc := a.Instance[hash]
-	if desc.Platform == nil {
-		desc.Platform = &v1.Platform{}
-	}
-
-	desc.Platform.Variant = variant
-	a.Instance[hash] = desc
-}
-
 // OSVersion returns `OSVersion` of an existing manipulated ImageIndex if found, else an error.
 func (a *Annotate) OSVersion(hash v1.Hash) (osVersion string, err error) {
 	if len(a.Instance) == 0 {
@@ -180,21 +135,6 @@ func (a *Annotate) OSVersion(hash v1.Hash) (osVersion string, err error) {
 	}
 
 	return desc.Platform.OSVersion, nil
-}
-
-// SetOSVersion annotates the `OSVersion` of the given Image.
-func (a *Annotate) SetOSVersion(hash v1.Hash, osVersion string) {
-	if len(a.Instance) == 0 {
-		a.Instance = make(map[v1.Hash]v1.Descriptor)
-	}
-
-	desc := a.Instance[hash]
-	if desc.Platform == nil {
-		desc.Platform = &v1.Platform{}
-	}
-
-	desc.Platform.OSVersion = osVersion
-	a.Instance[hash] = desc
 }
 
 // Features returns `Features` of an existing manipulated ImageIndex if found, else an error.
@@ -211,21 +151,6 @@ func (a *Annotate) Features(hash v1.Hash) (features []string, err error) {
 	return desc.Platform.Features, nil
 }
 
-// SetFeatures annotates the `Features` of the given Image.
-func (a *Annotate) SetFeatures(hash v1.Hash, features []string) {
-	if len(a.Instance) == 0 {
-		a.Instance = make(map[v1.Hash]v1.Descriptor)
-	}
-
-	desc := a.Instance[hash]
-	if desc.Platform == nil {
-		desc.Platform = &v1.Platform{}
-	}
-
-	desc.Platform.Features = features
-	a.Instance[hash] = desc
-}
-
 // OSFeatures returns `OSFeatures` of an existing manipulated ImageIndex if found, else an error.
 func (a *Annotate) OSFeatures(hash v1.Hash) (osFeatures []string, err error) {
 	if len(a.Instance) == 0 {
@@ -238,21 +163,6 @@ func (a *Annotate) OSFeatures(hash v1.Hash) (osFeatures []string, err error) {
 	}
 
 	return desc.Platform.OSFeatures, nil
-}
-
-// SetOSFeatures annotates the `OSFeatures` of the given Image.
-func (a *Annotate) SetOSFeatures(hash v1.Hash, osFeatures []string) {
-	if len(a.Instance) == 0 {
-		a.Instance = make(map[v1.Hash]v1.Descriptor)
-	}
-
-	desc := a.Instance[hash]
-	if desc.Platform == nil {
-		desc.Platform = &v1.Platform{}
-	}
-
-	desc.Platform.OSFeatures = osFeatures
-	a.Instance[hash] = desc
 }
 
 // Annotations returns `Annotations` of an existing manipulated ImageIndex if found, else an error.
@@ -373,53 +283,6 @@ func (h *CNBIndex) OS(digest name.Digest) (os string, err error) {
 	return os, ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 }
 
-// SetOS annotates existing Image by updating `OS` field in IndexManifest.
-// Returns an error if no Image/Index found with given Digest.
-func (h *CNBIndex) SetOS(digest name.Digest, os string) error {
-	hash, err := h.getHash(digest)
-	if err != nil {
-		return err
-	}
-
-	// if any nested imageIndex found with given digest save underlying image instead of index with the given OS
-	if mfest, err := h.getIndexManifest(digest); err == nil {
-		// keep track of changes until ImageIndex#Save is called
-		h.annotate.SetOS(hash, os)
-		h.annotate.SetFormat(hash, mfest.MediaType)
-
-		return nil
-	}
-
-	// set the `OS` of an Image from base ImageIndex if found
-	if img, err := h.Image(hash); err == nil {
-		return h.setImageOS(img, hash, os)
-	}
-
-	// set the `OS` of an Image added to ImageIndex if found
-	if desc, ok := h.images[hash]; ok {
-		// keep track of changes until ImageIndex#Save is called
-		h.annotate.SetOS(hash, os)
-		h.annotate.SetFormat(hash, desc.MediaType)
-
-		return nil
-	}
-
-	// return an error if no Image found given digest
-	return ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
-}
-
-// setImageOS add requested OS to `annotate`
-func (h *CNBIndex) setImageOS(img v1.Image, hash v1.Hash, os string) error {
-	mfest, err := GetManifest(img)
-	if err != nil {
-		return err
-	}
-
-	h.annotate.SetOS(hash, os)
-	h.annotate.SetFormat(hash, mfest.MediaType)
-	return nil
-}
-
 // Architecture return the Architecture of an Image/Index based on given Digest.
 // Returns an error if no Image/Index found with given Digest.
 func (h *CNBIndex) Architecture(digest name.Digest) (arch string, err error) {
@@ -460,45 +323,6 @@ func (h *CNBIndex) Architecture(digest name.Digest) (arch string, err error) {
 	}
 
 	return arch, ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
-}
-
-// SetArchitecture annotates the `Architecture` of an Image.
-// Returns an error if no Image/Index found with given Digest.
-func (h *CNBIndex) SetArchitecture(digest name.Digest, arch string) error {
-	hash, err := h.getHash(digest)
-	if err != nil {
-		return err
-	}
-
-	if mfest, err := h.getIndexManifest(digest); err == nil {
-		h.annotate.SetArchitecture(hash, arch)
-		h.annotate.SetFormat(hash, mfest.MediaType)
-		return nil
-	}
-
-	if img, err := h.Image(hash); err == nil {
-		return h.setImageArch(img, hash, arch)
-	}
-
-	if desc, ok := h.images[hash]; ok {
-		h.annotate.SetArchitecture(hash, arch)
-		h.annotate.SetFormat(hash, desc.MediaType)
-		return nil
-	}
-
-	return ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
-}
-
-// setImageArch add request ARCH to `annotate`
-func (h *CNBIndex) setImageArch(img v1.Image, hash v1.Hash, arch string) error {
-	mfest, err := GetManifest(img)
-	if err != nil {
-		return err
-	}
-
-	h.annotate.SetArchitecture(hash, arch)
-	h.annotate.SetFormat(hash, mfest.MediaType)
-	return nil
 }
 
 // Variant return the `Variant` of an Image.
@@ -543,45 +367,6 @@ func (h *CNBIndex) Variant(digest name.Digest) (osVariant string, err error) {
 	return osVariant, ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
 }
 
-// SetVariant annotates the `Variant` of an Image with given Digest.
-// Returns an error if no Image/Index found with given Digest.
-func (h *CNBIndex) SetVariant(digest name.Digest, osVariant string) error {
-	hash, err := h.getHash(digest)
-	if err != nil {
-		return err
-	}
-
-	if mfest, err := h.getIndexManifest(digest); err == nil {
-		h.annotate.SetVariant(hash, osVariant)
-		h.annotate.SetFormat(hash, mfest.MediaType)
-		return nil
-	}
-
-	if img, err := h.Image(hash); err == nil {
-		return h.setImageVariant(img, hash, osVariant)
-	}
-
-	if desc, ok := h.images[hash]; ok {
-		h.annotate.SetVariant(hash, osVariant)
-		h.annotate.SetFormat(hash, desc.MediaType)
-		return nil
-	}
-
-	return ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
-}
-
-// setImageVariant add requested OSVariant to `annotate`.
-func (h *CNBIndex) setImageVariant(img v1.Image, hash v1.Hash, osVariant string) error {
-	mfest, err := GetManifest(img)
-	if err != nil {
-		return err
-	}
-
-	h.annotate.SetVariant(hash, osVariant)
-	h.annotate.SetFormat(hash, mfest.MediaType)
-	return nil
-}
-
 // OSVersion returns the `OSVersion` of an Image with given Digest.
 // Returns an error if no Image/Index found with given Digest.
 func (h *CNBIndex) OSVersion(digest name.Digest) (osVersion string, err error) {
@@ -622,45 +407,6 @@ func (h *CNBIndex) OSVersion(digest name.Digest) (osVersion string, err error) {
 	}
 
 	return osVersion, ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
-}
-
-// SetOSVersion annotates the `OSVersion` of an Image with given Digest.
-// Returns an error if no Image/Index found with given Digest.
-func (h *CNBIndex) SetOSVersion(digest name.Digest, osVersion string) error {
-	hash, err := h.getHash(digest)
-	if err != nil {
-		return err
-	}
-
-	if mfest, err := h.getIndexManifest(digest); err == nil {
-		h.annotate.SetOSVersion(hash, osVersion)
-		h.annotate.SetFormat(hash, mfest.MediaType)
-		return nil
-	}
-
-	if img, err := h.Image(hash); err == nil {
-		return h.setImageOSVersion(img, hash, osVersion)
-	}
-
-	if desc, ok := h.images[hash]; ok {
-		h.annotate.SetOSVersion(hash, osVersion)
-		h.annotate.SetFormat(hash, desc.MediaType)
-		return nil
-	}
-
-	return ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
-}
-
-// setImageOSVersion add requested OSVersion to `annotate`
-func (h *CNBIndex) setImageOSVersion(img v1.Image, hash v1.Hash, osVersion string) error {
-	mfest, err := GetManifest(img)
-	if err != nil {
-		return err
-	}
-
-	h.annotate.SetOSVersion(hash, osVersion)
-	h.annotate.SetFormat(hash, mfest.MediaType)
-	return nil
 }
 
 // Features returns the `Features` of an Image with given Digest.
@@ -736,44 +482,6 @@ func (h *CNBIndex) indexFeatures(digest name.Digest) (features []string, err err
 	return mfest.Subject.Platform.Features, nil
 }
 
-// SetFeatures annotates the `Features` of an Image with given Digest by appending to existsing Features if any.
-// Returns an error if no Image/Index found with given Digest.
-func (h *CNBIndex) SetFeatures(digest name.Digest, features []string) error {
-	hash, err := h.getHash(digest)
-	if err != nil {
-		return err
-	}
-
-	if mfest, err := h.getIndexManifest(digest); err == nil {
-		h.annotate.SetFeatures(hash, features)
-		h.annotate.SetFormat(hash, mfest.MediaType)
-		return nil
-	}
-
-	if img, err := h.Image(hash); err == nil {
-		return h.setImageFeatures(img, hash, features)
-	}
-
-	if desc, ok := h.images[hash]; ok {
-		h.annotate.SetFeatures(hash, features)
-		h.annotate.SetFormat(hash, desc.MediaType)
-		return nil
-	}
-
-	return ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
-}
-
-func (h *CNBIndex) setImageFeatures(img v1.Image, hash v1.Hash, features []string) error {
-	mfest, err := GetManifest(img)
-	if err != nil {
-		return err
-	}
-
-	h.annotate.SetFeatures(hash, features)
-	h.annotate.SetFormat(hash, mfest.MediaType)
-	return nil
-}
-
 // OSFeatures returns the `OSFeatures` of an Image with given Digest.
 // Returns an error if no Image/Index found with given Digest.
 func (h *CNBIndex) OSFeatures(digest name.Digest) (osFeatures []string, err error) {
@@ -846,44 +554,6 @@ func (h *CNBIndex) indexOSFeatures(digest name.Digest) (osFeatures []string, err
 	}
 
 	return mfest.Subject.Platform.OSFeatures, nil
-}
-
-// SetOSFeatures annotates the `OSFeatures` of an Image with given Digest by appending to existsing OSFeatures if any.
-// Returns an error if no Image/Index found with given Digest.
-func (h *CNBIndex) SetOSFeatures(digest name.Digest, osFeatures []string) error {
-	hash, err := h.getHash(digest)
-	if err != nil {
-		return err
-	}
-
-	if mfest, err := h.getIndexManifest(digest); err == nil {
-		h.annotate.SetOSFeatures(hash, osFeatures)
-		h.annotate.SetFormat(hash, mfest.MediaType)
-		return nil
-	}
-
-	if img, err := h.Image(hash); err == nil {
-		return h.setImageOSFeatures(img, hash, osFeatures)
-	}
-
-	if desc, ok := h.images[hash]; ok {
-		h.annotate.SetOSFeatures(hash, osFeatures)
-		h.annotate.SetFormat(hash, desc.MediaType)
-		return nil
-	}
-
-	return ErrNoImageOrIndexFoundWithGivenDigest(digest.Identifier())
-}
-
-func (h *CNBIndex) setImageOSFeatures(img v1.Image, hash v1.Hash, osFeatures []string) error {
-	mfest, err := GetManifest(img)
-	if err != nil {
-		return err
-	}
-
-	h.annotate.SetOSFeatures(hash, osFeatures)
-	h.annotate.SetFormat(hash, mfest.MediaType)
-	return nil
 }
 
 // Annotations return the `Annotations` of an Image with given Digest.
@@ -1037,7 +707,6 @@ func (h *CNBIndex) Add(name string, ops ...func(*IndexAddOptions) error) error {
 			arch, _        = img.Architecture()
 			variant, _     = img.Variant()
 			osVersion, _   = img.OSVersion()
-			features, _    = img.Features()
 			osFeatures, _  = img.OSFeatures()
 			annos, _       = img.Annotations()
 			size, _        = img.ManifestSize()
@@ -1058,7 +727,6 @@ func (h *CNBIndex) Add(name string, ops ...func(*IndexAddOptions) error) error {
 				Architecture: arch,
 				Variant:      variant,
 				OSVersion:    osVersion,
-				Features:     features,
 				OSFeatures:   osFeatures,
 			},
 		}

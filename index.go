@@ -19,12 +19,6 @@ type ImageIndex interface {
 	// setters
 
 	SetAnnotations(digest name.Digest, annotations map[string]string) error
-	SetArchitecture(digest name.Digest, arch string) error
-	SetFeatures(digest name.Digest, features []string) error
-	SetOS(digest name.Digest, os string) error
-	SetOSFeatures(digest name.Digest, osFeatures []string) error
-	SetOSVersion(digest name.Digest, osVersion string) error
-	SetVariant(digest name.Digest, osVariant string) error
 
 	// misc
 
