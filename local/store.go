@@ -360,25 +360,6 @@ func (s *Store) SaveFile(image *Image, withName string) (string, error) {
 		return "", err
 	}
 
-	image.Image, err = imgutil.MutateManifest(image.Image, func(mfest *v1.Manifest) (mutateSubject, mutateAnnotations bool) {
-		image.mutex.TryLock()
-		defer image.mutex.Unlock()
-		var (
-			os, _          = image.OS()
-			arch, _        = image.Architecture()
-			variant, _     = image.Variant()
-			osVersion, _   = image.OSVersion()
-			features, _    = image.Features()
-			osFeatures, _  = image.OSFeatures()
-			annotations, _ = image.Annotations()
-		)
-
-		return imgutil.MutateManifestFn(mfest, os, arch, variant, osVersion, features, osFeatures, annotations)
-	})
-	if err != nil {
-		return "", err
-	}
-
 	errs, _ := errgroup.WithContext(context.Background())
 	pr, pw := io.Pipe()
 
