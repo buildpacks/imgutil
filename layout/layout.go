@@ -3,7 +3,6 @@ package layout
 import (
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/pkg/errors"
 
@@ -18,7 +17,6 @@ type Image struct {
 	repoPath          string
 	saveWithoutLayers bool
 	preserveDigest    bool
-	mutex             sync.Mutex
 }
 
 func (i *Image) Kind() string {

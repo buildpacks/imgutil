@@ -3,7 +3,6 @@ package remote
 import (
 	"fmt"
 	"net/http"
-	"sync"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -25,8 +24,6 @@ type Image struct {
 	keychain            authn.Keychain
 	addEmptyLayerOnSave bool
 	registrySettings    map[string]imgutil.RegistrySetting
-
-	mutex sync.Mutex
 }
 
 func (i *Image) Kind() string {
