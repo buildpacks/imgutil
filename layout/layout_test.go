@@ -1450,7 +1450,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 					// After removing any operation to get something about the digest must fail
 					_, err = idx.OS(digest)
 					h.AssertNotNil(t, err)
-					h.AssertError(t, err, "no image or image index found for digest")
+					h.AssertError(t, err, "failed to find image with digest")
 
 					// After saving, the index on disk must reflect the change
 					err = idx.SaveDir()

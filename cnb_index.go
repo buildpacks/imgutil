@@ -228,16 +228,20 @@ func (h *CNBIndex) SaveDir() error {
 		path layout.Path
 		err  error
 	)
-	path, err = layout.FromPath(layoutPath)
+
+	if _, err = os.Stat(layoutPath); !os.IsNotExist(err) {
+		// We need to always init an empty index when saving
+		if err = os.RemoveAll(layoutPath); err != nil {
+			return err
+		}
+	}
+
+	indexType, err := h.ImageIndex.MediaType()
 	if err != nil {
-		// assume it errored because the index.json doesn't exist
-		indexType, err := h.ImageIndex.MediaType()
-		if err != nil {
-			return err
-		}
-		if path, err = newEmptyLayoutPath(indexType, layoutPath); err != nil {
-			return err
-		}
+		return err
+	}
+	if path, err = newEmptyLayoutPath(indexType, layoutPath); err != nil {
+		return err
 	}
 
 	var errs SaveError
