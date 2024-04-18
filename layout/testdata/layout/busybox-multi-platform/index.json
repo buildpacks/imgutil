@@ -10,7 +10,7 @@
         "org.opencontainers.image.url": "https://hub.docker.com/_/busybox",
         "org.opencontainers.image.version": "1.36.1-glibc"
       },
-      "digest": "sha256:4be429a5fbb2e71ae7958bfa558bc637cf3a61baf40a708cb8fff532b39e52d0",
+      "digest": "sha256:f5b920213fc6498c0c5eaee7e04f8424202b565bb9e5e4de9e617719fb7bd873",
       "mediaType": "application/vnd.oci.image.manifest.v1+json",
       "platform": {
         "architecture": "amd64",
@@ -38,7 +38,7 @@
         "org.opencontainers.image.url": "https://hub.docker.com/_/busybox",
         "org.opencontainers.image.version": "1.36.1-glibc"
       },
-      "digest": "sha256:8a4415fb43600953cbdac6ec03c2d96d900bb21f8d78964837dad7f73b9afcdc",
+      "digest": "sha256:e18f2c12bb4ea582045415243370a3d9cf3874265aa2867f21a35e630ebe45a7",
       "mediaType": "application/vnd.oci.image.manifest.v1+json",
       "platform": {
         "architecture": "arm",

@@ -19,5 +19,7 @@
 	},
 	"architecture": "arm",
 	"os": "linux",
-	"variant": "v7"
+	"variant": "v7",
+	"os.features": ["os-feature-3", "os-feature-4"],
+	"os.version": "1.2.3"
 }
