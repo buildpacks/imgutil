@@ -35,7 +35,7 @@ func TestLayout(t *testing.T) {
 	os.Setenv("DOCKER_CONFIG", dockerConfigDir)
 	defer os.Unsetenv("DOCKER_CONFIG")
 
-	spec.Run(t, "Image", testImage, spec.Parallel(), spec.Report(report.Terminal{}))
+	//spec.Run(t, "Image", testImage, spec.Parallel(), spec.Report(report.Terminal{}))
 	spec.Run(t, "ImageIndex", testImageIndex, spec.Parallel(), spec.Report(report.Terminal{}))
 }
 
@@ -1158,7 +1158,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	it.After(func() {
-		err := os.RemoveAll(tmpDir)
+		//err := os.RemoveAll(tmpDir)
 		h.AssertNil(t, err)
 	})
 

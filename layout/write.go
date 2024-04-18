@@ -9,7 +9,9 @@ import (
 	"path/filepath"
 
 	"github.com/google/go-containerregistry/pkg/logs"
+	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/stream"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"golang.org/x/sync/errgroup"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -51,14 +53,80 @@ func (l Path) AppendImage(img v1.Image, ops ...AppendOption) error {
 	}
 
 	if o.withoutLayers {
-		return l.writeImageWithoutLayers(img, annotations)
+		return l.appendImageWithoutLayers(img, annotations)
 	}
 	return l.appendImage(img, annotations)
 }
 
-// writeImageWithoutLayers is the same implementation of ggcr layout writeImage method, removing the writeLayer code
-func (l Path) writeImageWithoutLayers(img v1.Image, annotations map[string]string) error {
-	if err := l.writeImage(img); err != nil {
+// AppendIndex mimics GGCR's AppendIndex in that it writes an image index to a path (and updates the index.json to reference it),
+// but the images within the index do not include any layers in the `blobs` directory.
+// See also AppendImage.
+func (l Path) AppendIndex(ii v1.ImageIndex) error {
+	if err := l.writeIndex(ii); err != nil {
+		return err
+	}
+
+	desc, err := partial.Descriptor(ii)
+	if err != nil {
+		return err
+	}
+
+	return l.AppendDescriptor(*desc)
+}
+
+var layoutFile = `{
+    "imageLayoutVersion": "1.0.0"
+}`
+
+func (l Path) writeIndex(ii v1.ImageIndex) error {
+	if err := l.WriteFile("oci-layout", []byte(layoutFile), os.ModePerm); err != nil {
+		return err
+	}
+
+	h, err := ii.Digest()
+	if err != nil {
+		return err
+	}
+
+	indexFile := filepath.Join("blobs", h.Algorithm, h.Hex)
+	return l.writeIndexToFile(indexFile, ii)
+}
+
+func (l Path) writeIndexToFile(indexFile string, ii v1.ImageIndex) error {
+	index, err := ii.IndexManifest()
+	if err != nil {
+		return err
+	}
+
+	// Walk the descriptor and write any v1.Images that we find.
+	// Skip other indexes or anything else unexpected.
+	for _, desc := range index.Manifests {
+		switch desc.MediaType {
+		case types.OCIImageIndex, types.DockerManifestList:
+			continue
+		case types.OCIManifestSchema1, types.DockerManifestSchema2:
+			img, err := ii.Image(desc.Digest)
+			if err != nil {
+				return err
+			}
+			if err := l.writeManifestAndConfig(img); err != nil {
+				return err
+			}
+		default:
+			continue
+		}
+	}
+
+	rawIndex, err := ii.RawManifest()
+	if err != nil {
+		return err
+	}
+
+	return l.WriteFile(indexFile, rawIndex, os.ModePerm)
+}
+
+func (l Path) appendImageWithoutLayers(img v1.Image, annotations map[string]string) error {
+	if err := l.writeManifestAndConfig(img); err != nil {
 		return err
 	}
 
@@ -104,10 +172,10 @@ func (l Path) appendImage(img v1.Image, annotations map[string]string) error {
 		return err
 	}
 
-	return l.writeImageWithoutLayers(img, annotations)
+	return l.appendImageWithoutLayers(img, annotations)
 }
 
-func (l Path) writeImage(img v1.Image) error {
+func (l Path) writeManifestAndConfig(img v1.Image) error {
 	// Write the config.
 	cfgName, err := img.ConfigName()
 	if err != nil {
