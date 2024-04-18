@@ -103,14 +103,6 @@ type IndexOption func(options *IndexOptions) error
 
 type PushOption func(*IndexPushOptions) error
 
-type AddOption func(*IndexAddOptions) error
-
-type IndexAddOptions struct {
-	Local       bool
-	Annotations map[string]string
-	Image       Image
-}
-
 type IndexPushOptions struct {
 	IndexFormatOptions
 	IndexRemoteOptions
@@ -119,7 +111,7 @@ type IndexPushOptions struct {
 }
 
 type IndexFormatOptions struct {
-	Format types.MediaType // The Format the Index should be. One of Docker or OCI
+	Format types.MediaType // The media type for the index (oci or docker)
 }
 
 type IndexRemoteOptions struct {
@@ -190,15 +182,6 @@ func WithFormat(format types.MediaType) func(options *IndexOptions) error {
 }
 
 // IndexAddOptions
-
-// Add a Local image to Index
-func WithLocalImage(image Image) func(options *IndexAddOptions) error {
-	return func(a *IndexAddOptions) error {
-		a.Local = true
-		a.Image = image
-		return nil
-	}
-}
 
 // IndexPushOptions
 

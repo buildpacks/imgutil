@@ -94,6 +94,7 @@ func testUtils(t *testing.T, when spec.G, it spec.S) {
 			h.AssertEq(t, format, indexManifest.MediaType)
 		})
 	})
+
 	when("#StringSet", func() {
 		when("#NewStringSet", func() {
 			it("should return not nil StringSet instance", func() {
@@ -154,6 +155,7 @@ func testUtils(t *testing.T, when spec.G, it spec.S) {
 			})
 		})
 	})
+
 	when("#NewEmptyDockerIndex", func() {
 		it("should return an empty docker index", func() {
 			idx := imgutil.NewEmptyDockerIndex()
@@ -166,55 +168,6 @@ func testUtils(t *testing.T, when spec.G, it spec.S) {
 			format, err := idx.MediaType()
 			h.AssertNil(t, err)
 			h.AssertEq(t, format, types.DockerManifestList)
-		})
-	})
-	when("annotate", func() {
-		annotate := imgutil.Annotate{
-			Instance: map[v1.Hash]v1.Descriptor{},
-		}
-		it.Before(func() {
-			annotate = imgutil.Annotate{
-				Instance: map[v1.Hash]v1.Descriptor{},
-			}
-		})
-		when("#Annotations", func() {
-			it.Before(func() {
-				annotate.SetAnnotations(v1.Hash{}, map[string]string{"some-key": "some-value"})
-				desc, ok := annotate.Instance[v1.Hash{}]
-				h.AssertEq(t, ok, true)
-				h.AssertNotEq(t, desc, nil)
-			})
-			it("should return an error", func() {
-				annotate.SetAnnotations(v1.Hash{}, map[string]string(nil))
-				annotations, err := annotate.Annotations(v1.Hash{})
-				h.AssertNotEq(t, err, nil)
-				h.AssertEq(t, annotations, map[string]string(nil))
-			})
-			it("should return expected os", func() {
-				annotations, err := annotate.Annotations(v1.Hash{})
-				h.AssertNil(t, err)
-				h.AssertEq(t, annotations, map[string]string{"some-key": "some-value"})
-			})
-		})
-		when("#Format", func() {
-			it.Before(func() {
-				annotate.SetFormat(v1.Hash{}, types.OCIImageIndex)
-				desc, ok := annotate.Instance[v1.Hash{}]
-				h.AssertEq(t, ok, true)
-				h.AssertNotEq(t, desc, nil)
-				h.AssertEq(t, desc.MediaType, types.OCIImageIndex)
-			})
-			it("should return an error", func() {
-				annotate.SetFormat(v1.Hash{}, types.MediaType(""))
-				format, err := annotate.Format(v1.Hash{})
-				h.AssertNotEq(t, err, nil)
-				h.AssertEq(t, format, types.MediaType(""))
-			})
-			it("should return expected os", func() {
-				format, err := annotate.Format(v1.Hash{})
-				h.AssertNil(t, err)
-				h.AssertEq(t, format, types.OCIImageIndex)
-			})
 		})
 	})
 }
