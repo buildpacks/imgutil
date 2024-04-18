@@ -1209,11 +1209,6 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 						attributes, err = idx.OSFeatures(digest)
 						h.AssertNil(t, err)
 						h.AssertContains(t, attributes, "os-feature-1", "os-feature-2")
-
-						// #Features
-						attributes, err = idx.Features(digest)
-						h.AssertNil(t, err)
-						h.AssertContains(t, attributes, "feature-1", "feature-2")
 					})
 
 					it("existing annotations are readable", func() {
@@ -1256,11 +1251,6 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 						attributes, err = idx.OSFeatures(digest)
 						h.AssertNil(t, err)
 						h.AssertContains(t, attributes, "os-feature-3", "os-feature-4")
-
-						// #Features
-						attributes, err = idx.Features(digest)
-						h.AssertNil(t, err)
-						h.AssertContains(t, attributes, "feature-3", "feature-4")
 					})
 
 					it("existing annotations are readable", func() {
@@ -1286,7 +1276,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				it("manifests from base image index are saved on disk", func() {
-					err = idx.Save()
+					err = idx.SaveDir()
 					h.AssertNil(t, err)
 
 					// assert linux/amd64 and linux/arm64 manifests were saved
@@ -1308,7 +1298,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				it("manifests from base image index instance are saved on disk", func() {
-					err = idx.Save()
+					err = idx.SaveDir()
 					h.AssertNil(t, err)
 
 					// assert linux/amd64 and linux/arm64 manifests were saved
@@ -1342,16 +1332,14 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 			})
 
 			when("manifest in OCI layout format is added", func() {
-				var editableImage imgutil.Image
+				var editableImage v1.Image
 				it.Before(func() {
 					editableImage, err = layout.NewImage(imagePath, layout.FromBaseImagePath(fullBaseImagePath))
 					h.AssertNil(t, err)
 				})
 
 				it("adds the manifest to the index", func() {
-					err = idx.Add("busybox", imgutil.WithLocalImage(editableImage))
-					h.AssertNil(t, err)
-
+					idx.AddManifest(editableImage)
 					// manifest was added
 					index := h.ReadIndexManifest(t, localPath)
 					h.AssertEq(t, len(index.Manifests), 1)
@@ -1367,18 +1355,15 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				when("manifest in OCI layout format is added", func() {
-					var editableImage imgutil.Image
+					var editableImage v1.Image
 					it.Before(func() {
 						editableImage, err = layout.NewImage(imagePath, layout.FromBaseImagePath(fullBaseImagePath))
 						h.AssertNil(t, err)
 					})
 
 					it("adds the manifest to the index", func() {
-						err = idx.Add("busybox", imgutil.WithLocalImage(editableImage))
-						h.AssertNil(t, err)
-
+						idx.AddManifest(editableImage)
 						index := h.ReadIndexManifest(t, localPath)
-
 						// manifest was added
 						// initially it has 2 manifest + 1 new
 						h.AssertEq(t, len(index.Manifests), 3)
@@ -1404,8 +1389,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 				err = img1.Save()
 				h.AssertNil(t, err)
 
-				err = idx.Add(img1RepoName)
-				h.AssertNil(t, err)
+				idx.AddManifest(img1)
 
 				img2RepoName := fmt.Sprintf("%s:%s", repoName, "busybox-arm64")
 				img2, err := imgutilRemote.NewImage(img2RepoName, authn.DefaultKeychain, imgutilRemote.FromBaseImage("busybox@sha256:8a4415fb43600953cbdac6ec03c2d96d900bb21f8d78964837dad7f73b9afcdc"))
@@ -1413,8 +1397,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 				err = img2.Save()
 				h.AssertNil(t, err)
 
-				err = idx.Add(img2RepoName)
-				h.AssertNil(t, err)
+				idx.AddManifest(img2)
 			})
 
 			it("image index is pushed", func() {
@@ -1436,7 +1419,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 					// Verify the index exists
 					h.ReadIndexManifest(t, localPath)
 
-					err = idx.Delete()
+					err = idx.DeleteDir()
 					h.AssertNil(t, err)
 
 					_, err = os.Stat(localPath)
@@ -1459,7 +1442,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				it("given manifest is removed", func() {
-					err = idx.Remove(digest.String())
+					err = idx.RemoveManifest(digest)
 					h.AssertNil(t, err)
 
 					// After removing any operation to get something about the digest must fail
@@ -1468,7 +1451,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertError(t, err, "no image or image index found for digest")
 
 					// After saving, the index on disk must reflect the change
-					err = idx.Save()
+					err = idx.SaveDir()
 					h.AssertNil(t, err)
 
 					index := h.ReadIndexManifest(t, localPath)
@@ -1505,7 +1488,7 @@ func setUpImageIndex(t *testing.T, repoName string, tmpDir string, ops ...imguti
 	h.AssertNil(t, err)
 
 	// TODO before adding something to the index, apparently we need initialize on disk
-	err = idx.Save()
+	err = idx.SaveDir()
 	h.AssertNil(t, err)
 	return idx
 }
