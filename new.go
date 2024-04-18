@@ -299,7 +299,6 @@ func NewCNBIndex(repoName string, v1Index v1.ImageIndex, ops IndexOptions) (*CNB
 		RepoName:   repoName,
 		XdgPath:    ops.XdgPath,
 		KeyChain:   ops.KeyChain,
-		Format:     ops.Format,
 	}
 	return index, nil
 }

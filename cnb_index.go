@@ -27,8 +27,6 @@ var (
 type CNBIndex struct {
 	// required
 	v1.ImageIndex // the working image index
-	// optional
-	Format types.MediaType
 	// local options
 	XdgPath string
 	// push options

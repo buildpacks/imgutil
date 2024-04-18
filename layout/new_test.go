@@ -34,6 +34,7 @@ func testLayoutNewImageIndex(t *testing.T, when spec.G, it spec.S) {
 
 		// global directory and paths
 		testDataDir = filepath.Join("testdata", "layout")
+		_ = idx
 	})
 
 	it.After(func() {
@@ -71,9 +72,6 @@ func testLayoutNewImageIndex(t *testing.T, when spec.G, it spec.S) {
 					imgutil.WithFormat(types.DockerManifestList),
 				)
 				h.AssertNil(t, err)
-				imgIdx, ok := idx.(*layout.ImageIndex)
-				h.AssertEq(t, ok, true)
-				h.AssertEq(t, imgIdx.Format, types.DockerManifestList)
 			})
 
 			it("should return an error when invalid repoName is passed", func() {
