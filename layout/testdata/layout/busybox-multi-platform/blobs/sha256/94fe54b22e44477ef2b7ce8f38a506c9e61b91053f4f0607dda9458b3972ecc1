@@ -18,5 +18,8 @@
 		]
 	},
 	"architecture": "amd64",
-	"os": "linux"
+	"os": "linux",
+	"variant": "v1",
+	"os.features": ["os-feature-1", "os-feature-2"],
+	"os.version": "4.5.6"
 }

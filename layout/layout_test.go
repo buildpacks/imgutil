@@ -1180,7 +1180,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 				// See spec: https://github.com/opencontainers/image-spec/blob/main/image-index.md#image-index-property-descriptions
 				when("linux/amd64", func() {
 					it.Before(func() {
-						digest, err = name.NewDigest("busybox-multi-platform@sha256:4be429a5fbb2e71ae7958bfa558bc637cf3a61baf40a708cb8fff532b39e52d0")
+						digest, err = name.NewDigest("busybox-multi-platform@sha256:f5b920213fc6498c0c5eaee7e04f8424202b565bb9e5e4de9e617719fb7bd873")
 						h.AssertNil(t, err)
 					})
 
@@ -1222,7 +1222,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 
 				when("linux/arm64", func() {
 					it.Before(func() {
-						digest, err = name.NewDigest("busybox-multi-platform@sha256:8a4415fb43600953cbdac6ec03c2d96d900bb21f8d78964837dad7f73b9afcdc")
+						digest, err = name.NewDigest("busybox-multi-platform@sha256:e18f2c12bb4ea582045415243370a3d9cf3874265aa2867f21a35e630ebe45a7")
 						h.AssertNil(t, err)
 					})
 
@@ -1282,8 +1282,8 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 					// assert linux/amd64 and linux/arm64 manifests were saved
 					index := h.ReadIndexManifest(t, localPath)
 					h.AssertEq(t, len(index.Manifests), 2)
-					h.AssertEq(t, index.Manifests[0].Digest.String(), "sha256:4be429a5fbb2e71ae7958bfa558bc637cf3a61baf40a708cb8fff532b39e52d0")
-					h.AssertEq(t, index.Manifests[1].Digest.String(), "sha256:8a4415fb43600953cbdac6ec03c2d96d900bb21f8d78964837dad7f73b9afcdc")
+					h.AssertEq(t, index.Manifests[0].Digest.String(), "sha256:f5b920213fc6498c0c5eaee7e04f8424202b565bb9e5e4de9e617719fb7bd873")
+					h.AssertEq(t, index.Manifests[1].Digest.String(), "sha256:e18f2c12bb4ea582045415243370a3d9cf3874265aa2867f21a35e630ebe45a7")
 				})
 			})
 
@@ -1304,8 +1304,8 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 					// assert linux/amd64 and linux/arm64 manifests were saved
 					index := h.ReadIndexManifest(t, localPath)
 					h.AssertEq(t, len(index.Manifests), 2)
-					h.AssertEq(t, index.Manifests[0].Digest.String(), "sha256:4be429a5fbb2e71ae7958bfa558bc637cf3a61baf40a708cb8fff532b39e52d0")
-					h.AssertEq(t, index.Manifests[1].Digest.String(), "sha256:8a4415fb43600953cbdac6ec03c2d96d900bb21f8d78964837dad7f73b9afcdc")
+					h.AssertEq(t, index.Manifests[0].Digest.String(), "sha256:f5b920213fc6498c0c5eaee7e04f8424202b565bb9e5e4de9e617719fb7bd873")
+					h.AssertEq(t, index.Manifests[1].Digest.String(), "sha256:e18f2c12bb4ea582045415243370a3d9cf3874265aa2867f21a35e630ebe45a7")
 				})
 			})
 		})
@@ -1384,7 +1384,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 				// We need to push each individual image first]
 
 				img1RepoName := fmt.Sprintf("%s:%s", repoName, "busybox-amd64")
-				img1, err := imgutilRemote.NewImage(img1RepoName, authn.DefaultKeychain, imgutilRemote.FromBaseImage("busybox@sha256:4be429a5fbb2e71ae7958bfa558bc637cf3a61baf40a708cb8fff532b39e52d0"))
+				img1, err := imgutilRemote.NewImage(img1RepoName, authn.DefaultKeychain, imgutilRemote.FromBaseImage("busybox@sha256:f5b920213fc6498c0c5eaee7e04f8424202b565bb9e5e4de9e617719fb7bd873"))
 				h.AssertNil(t, err)
 				err = img1.Save()
 				h.AssertNil(t, err)
@@ -1392,7 +1392,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 				idx.AddManifest(img1)
 
 				img2RepoName := fmt.Sprintf("%s:%s", repoName, "busybox-arm64")
-				img2, err := imgutilRemote.NewImage(img2RepoName, authn.DefaultKeychain, imgutilRemote.FromBaseImage("busybox@sha256:8a4415fb43600953cbdac6ec03c2d96d900bb21f8d78964837dad7f73b9afcdc"))
+				img2, err := imgutilRemote.NewImage(img2RepoName, authn.DefaultKeychain, imgutilRemote.FromBaseImage("busybox@sha256:e18f2c12bb4ea582045415243370a3d9cf3874265aa2867f21a35e630ebe45a7"))
 				h.AssertNil(t, err)
 				err = img2.Save()
 				h.AssertNil(t, err)
@@ -1437,7 +1437,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 				it.Before(func() {
 					idx = setUpImageIndex(t, "busybox-multi-platform", tmpDir, imgutil.FromBaseImageIndex(baseIndexPath), imgutil.WithKeychain(authn.DefaultKeychain))
 					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
-					digest, err = name.NewDigest("busybox@sha256:4be429a5fbb2e71ae7958bfa558bc637cf3a61baf40a708cb8fff532b39e52d0")
+					digest, err = name.NewDigest("busybox@sha256:f5b920213fc6498c0c5eaee7e04f8424202b565bb9e5e4de9e617719fb7bd873")
 					h.AssertNil(t, err)
 				})
 
@@ -1456,7 +1456,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 
 					index := h.ReadIndexManifest(t, localPath)
 					h.AssertEq(t, len(index.Manifests), 1)
-					h.AssertEq(t, index.Manifests[0].Digest.String(), "sha256:8a4415fb43600953cbdac6ec03c2d96d900bb21f8d78964837dad7f73b9afcdc")
+					h.AssertEq(t, index.Manifests[0].Digest.String(), "sha256:e18f2c12bb4ea582045415243370a3d9cf3874265aa2867f21a35e630ebe45a7")
 				})
 			})
 		})
