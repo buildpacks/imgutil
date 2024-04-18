@@ -1340,6 +1340,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 
 				it("adds the manifest to the index", func() {
 					idx.AddManifest(editableImage)
+					h.AssertNil(t, idx.SaveDir())
 					// manifest was added
 					index := h.ReadIndexManifest(t, localPath)
 					h.AssertEq(t, len(index.Manifests), 1)
@@ -1363,6 +1364,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 
 					it("adds the manifest to the index", func() {
 						idx.AddManifest(editableImage)
+						h.AssertNil(t, idx.SaveDir())
 						index := h.ReadIndexManifest(t, localPath)
 						// manifest was added
 						// initially it has 2 manifest + 1 new

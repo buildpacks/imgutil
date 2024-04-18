@@ -10,6 +10,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
+	"github.com/google/go-containerregistry/pkg/v1/match"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
@@ -218,7 +219,32 @@ func (h *CNBIndex) SaveDir() error {
 			return err
 		}
 	}
-	return path.AppendIndex(h.ImageIndex)
+
+	var errs SaveError
+	index, err := h.ImageIndex.IndexManifest()
+	if err != nil {
+		return err
+	}
+	for _, desc := range index.Manifests {
+		appendManifest(desc, path, &errs)
+	}
+	if len(errs.Errors) != 0 {
+		return errs
+	}
+	return nil
+}
+
+func appendManifest(desc v1.Descriptor, path layout.Path, errs *SaveError) {
+	if err := path.RemoveDescriptors(match.Digests(desc.Digest)); err != nil {
+		errs.Errors = append(errs.Errors, SaveDiagnostic{
+			Cause: err,
+		})
+	}
+	if err := path.AppendDescriptor(desc); err != nil {
+		errs.Errors = append(errs.Errors, SaveDiagnostic{
+			Cause: err,
+		})
+	}
 }
 
 func newEmptyLayoutPath(indexType types.MediaType, path string) (layout.Path, error) {
@@ -305,10 +331,9 @@ func (h *CNBIndex) RemoveManifest(digest name.Digest) (err error) {
 	if err != nil {
 		return err
 	}
-	h.ImageIndex = mutate.RemoveManifests(h.ImageIndex, func(desc v1.Descriptor) bool {
-		return desc.Digest.String() == hash.String()
-	})
-	return nil
+	h.ImageIndex = mutate.RemoveManifests(h.ImageIndex, match.Digests(hash))
+	_, err = h.ImageIndex.Digest() // force compute
+	return err
 }
 
 // DeleteDir removes the index from the local filesystem if it exists.
