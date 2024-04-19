@@ -44,7 +44,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 		it("should have expected indexOptions", func() {
 			idx, err = remote.NewIndex(
 				"busybox:1.36-musl",
-				imgutil.PullInsecure(),
+				imgutil.WithInsecure(),
 				imgutil.WithKeychain(authn.DefaultKeychain),
 				imgutil.WithXDGRuntimePath(xdgPath),
 			)
@@ -58,7 +58,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 		it("should return an error when invalid repoName is passed", func() {
 			_, err = remote.NewIndex(
 				"some/invalidImage",
-				imgutil.PullInsecure(),
+				imgutil.WithInsecure(),
 				imgutil.WithKeychain(authn.DefaultKeychain),
 				imgutil.WithXDGRuntimePath(xdgPath),
 			)
@@ -67,7 +67,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 		it("should return an error when index with the given repoName doesn't exists", func() {
 			_, err = remote.NewIndex(
 				"some/image",
-				imgutil.PullInsecure(),
+				imgutil.WithInsecure(),
 				imgutil.WithKeychain(authn.DefaultKeychain),
 				imgutil.WithXDGRuntimePath(xdgPath),
 			)
@@ -76,7 +76,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 		it("should return ImageIndex with expected output", func() {
 			idx, err = remote.NewIndex(
 				"busybox:1.36-musl",
-				imgutil.PullInsecure(),
+				imgutil.WithInsecure(),
 				imgutil.WithKeychain(authn.DefaultKeychain),
 				imgutil.WithXDGRuntimePath(xdgPath),
 			)
@@ -93,7 +93,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 		it("should able to call #ImageIndex", func() {
 			idx, err = remote.NewIndex(
 				"busybox:1.36-musl",
-				imgutil.PullInsecure(),
+				imgutil.WithInsecure(),
 				imgutil.WithKeychain(authn.DefaultKeychain),
 				imgutil.WithXDGRuntimePath(xdgPath),
 			)
@@ -114,7 +114,7 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 		it("should able to call #Image", func() {
 			idx, err = remote.NewIndex(
 				"busybox:1.36-musl",
-				imgutil.PullInsecure(),
+				imgutil.WithInsecure(),
 				imgutil.WithKeychain(authn.DefaultKeychain),
 				imgutil.WithXDGRuntimePath(xdgPath),
 			)

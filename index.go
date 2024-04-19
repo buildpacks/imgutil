@@ -29,7 +29,7 @@ type ImageIndex interface {
 	AddManifest(image v1.Image)
 	RemoveManifest(digest name.Digest) error
 
-	Push(ops ...func(options *IndexPushOptions) error) error
+	Push(ops ...func(options *IndexOptions) error) error
 	SaveDir() error
 	DeleteDir() error
 }

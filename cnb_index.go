@@ -280,24 +280,24 @@ func newEmptyLayoutPath(indexType types.MediaType, path string) (layout.Path, er
 // Push Publishes ImageIndex to the registry assuming every image it referes exists in registry.
 //
 // It will only push the IndexManifest to registry.
-func (h *CNBIndex) Push(ops ...func(*IndexPushOptions) error) error {
-	var pushOps = &IndexPushOptions{}
+func (h *CNBIndex) Push(ops ...func(*IndexOptions) error) error {
+	var pushOps = &IndexOptions{}
 	for _, op := range ops {
 		if err := op(pushOps); err != nil {
 			return err
 		}
 	}
 
-	if pushOps.Format != "" {
-		if !pushOps.Format.IsIndex() {
-			return ErrUnknownMediaType(pushOps.Format)
+	if pushOps.MediaType != "" {
+		if !pushOps.MediaType.IsIndex() {
+			return ErrUnknownMediaType(pushOps.MediaType)
 		}
 		existingType, err := h.ImageIndex.MediaType()
 		if err != nil {
 			return err
 		}
-		if pushOps.Format != existingType {
-			h.ImageIndex = mutate.IndexMediaType(h.ImageIndex, pushOps.Format)
+		if pushOps.MediaType != existingType {
+			h.ImageIndex = mutate.IndexMediaType(h.ImageIndex, pushOps.MediaType)
 		}
 	}
 
@@ -319,7 +319,7 @@ func (h *CNBIndex) Push(ops ...func(*IndexPushOptions) error) error {
 	multiWriteTagables := map[name.Reference]remote.Taggable{
 		ref: taggableIndex,
 	}
-	for _, tag := range pushOps.Tags {
+	for _, tag := range pushOps.DestinationTags {
 		multiWriteTagables[ref.Context().Tag(tag)] = taggableIndex
 	}
 

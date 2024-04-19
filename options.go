@@ -101,37 +101,28 @@ func WithPreviousImage(name string) func(*ImageOptions) {
 
 type IndexOption func(options *IndexOptions) error
 
-type PushOption func(*IndexPushOptions) error
-
-type IndexPushOptions struct {
-	IndexFormatOptions
-	IndexRemoteOptions
-	Purge bool
-	Tags  []string // Tags with which the index should be pushed to registry
-}
-
-type IndexFormatOptions struct {
-	Format types.MediaType // The media type for the index (oci or docker)
-}
-
-type IndexRemoteOptions struct {
-	Insecure bool
-}
-
 type IndexOptions struct {
-	XdgPath                string
 	BaseImageIndexRepoName string
-	KeyChain               authn.Keychain
-	IndexFormatOptions
-	IndexRemoteOptions
+	MediaType              types.MediaType
+	LayoutIndexOptions
+	RemoteIndexOptions
+	IndexPushOptions
 
 	// These options must be specified in each implementation's image index constructor
 	BaseIndex v1.ImageIndex
 }
 
-// IndexOptions
+type LayoutIndexOptions struct {
+	XdgPath string
+}
 
-// FromBaseImageIndex loads the ImageIndex at the provided path for the working image index.
+type RemoteIndexOptions struct {
+	KeyChain authn.Keychain
+	Insecure bool
+}
+
+// FromBaseImageIndex sets the name to use when loading the index.
+// It used to either construct the path (if using layout) or the repo name (if using remote).
 // If the index is not found, it does nothing.
 func FromBaseImageIndex(name string) func(*IndexOptions) error {
 	return func(o *IndexOptions) error {
@@ -140,8 +131,7 @@ func FromBaseImageIndex(name string) func(*IndexOptions) error {
 	}
 }
 
-// FromBaseImageIndexInstance loads the provided image index for the working image index.
-// If the index is not found, it does nothing.
+// FromBaseImageIndexInstance sets the provided image index as the working image index.
 func FromBaseImageIndexInstance(index v1.ImageIndex) func(options *IndexOptions) error {
 	return func(o *IndexOptions) error {
 		o.BaseIndex = index
@@ -149,10 +139,13 @@ func FromBaseImageIndexInstance(index v1.ImageIndex) func(options *IndexOptions)
 	}
 }
 
-// WithKeychain fetches Index from registry with keychain
-func WithKeychain(keychain authn.Keychain) func(options *IndexOptions) error {
+// WithMediaType specifies the media type for the image index.
+func WithMediaType(mediaType types.MediaType) func(options *IndexOptions) error {
 	return func(o *IndexOptions) error {
-		o.KeyChain = keychain
+		if !mediaType.IsIndex() {
+			return fmt.Errorf("unsupported media type encountered: '%s'", mediaType)
+		}
+		o.MediaType = mediaType
 		return nil
 	}
 }
@@ -165,57 +158,39 @@ func WithXDGRuntimePath(xdgPath string) func(options *IndexOptions) error {
 	}
 }
 
-// PullInsecure If true, pulls images from insecure registry
-func PullInsecure() func(options *IndexOptions) error {
+// WithKeychain fetches Index from registry with keychain
+func WithKeychain(keychain authn.Keychain) func(options *IndexOptions) error {
+	return func(o *IndexOptions) error {
+		o.KeyChain = keychain
+		return nil
+	}
+}
+
+// WithInsecure if true pulls and pushes the image to an insecure registry.
+func WithInsecure() func(options *IndexOptions) error {
 	return func(o *IndexOptions) error {
 		o.Insecure = true
 		return nil
 	}
 }
 
-// WithFormat Create the image index with the following format
-func WithFormat(format types.MediaType) func(options *IndexOptions) error {
-	return func(o *IndexOptions) error {
-		o.Format = format
-		return nil
-	}
+type IndexPushOptions struct {
+	Purge           bool
+	DestinationTags []string
 }
 
-// IndexAddOptions
-
-// IndexPushOptions
-
-// If true, Deletes index from local filesystem after pushing to registry
-func WithPurge(purge bool) func(options *IndexPushOptions) error {
-	return func(a *IndexPushOptions) error {
+// WithPurge if true deletes the index from the local filesystem after pushing
+func WithPurge(purge bool) func(options *IndexOptions) error {
+	return func(a *IndexOptions) error {
 		a.Purge = purge
 		return nil
 	}
 }
 
-// Push the Index with given format
-func WithTags(tags ...string) func(options *IndexPushOptions) error {
-	return func(a *IndexPushOptions) error {
-		a.Tags = tags
-		return nil
-	}
-}
-
-// Push index to Insecure Registry
-func WithInsecure(insecure bool) func(options *IndexPushOptions) error {
-	return func(a *IndexPushOptions) error {
-		a.Insecure = insecure
-		return nil
-	}
-}
-
-// Push the Index with given format
-func UsingFormat(format types.MediaType) func(options *IndexPushOptions) error {
-	return func(a *IndexPushOptions) error {
-		if !format.IsIndex() {
-			return fmt.Errorf("unsupported media type encountered in image: '%s'", format)
-		}
-		a.Format = format
+// WithTags sets the destination tags for the index when pushed
+func WithTags(tags ...string) func(options *IndexOptions) error {
+	return func(a *IndexOptions) error {
+		a.DestinationTags = tags
 		return nil
 	}
 }
@@ -228,6 +203,5 @@ func GetTransport(insecure bool) http.RoundTripper {
 			},
 		}
 	}
-
 	return http.DefaultTransport
 }
