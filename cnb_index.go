@@ -31,7 +31,6 @@ type CNBIndex struct {
 	// local options
 	XdgPath string
 	// push options
-	Insecure bool
 	KeyChain authn.Keychain
 	RepoName string
 }
@@ -41,7 +40,7 @@ func (h *CNBIndex) getConfigFileFrom(digest name.Digest) (v1.ConfigFile, error) 
 	if err != nil {
 		return v1.ConfigFile{}, err
 	}
-	image, err := h.getImage(hash)
+	image, err := h.Image(hash)
 	if err != nil {
 		return v1.ConfigFile{}, err
 	}
@@ -57,7 +56,7 @@ func (h *CNBIndex) getManifestFileFrom(digest name.Digest) (v1.Manifest, error) 
 	if err != nil {
 		return v1.Manifest{}, err
 	}
-	image, err := h.getImage(hash)
+	image, err := h.Image(hash)
 	if err != nil {
 		return v1.Manifest{}, err
 	}
@@ -179,7 +178,7 @@ func (h *CNBIndex) mutateExistingImage(digest name.Digest, withFunc func(image v
 	if err != nil {
 		return err
 	}
-	image, err := h.getImage(hash)
+	image, err := h.Image(hash)
 	if err != nil {
 		return err
 	}
@@ -194,7 +193,7 @@ func (h *CNBIndex) mutateExistingImage(digest name.Digest, withFunc func(image v
 	return nil
 }
 
-func (h *CNBIndex) getImage(hash v1.Hash) (v1.Image, error) {
+func (h *CNBIndex) Image(hash v1.Hash) (v1.Image, error) {
 	index, err := h.IndexManifest()
 	if err != nil {
 		return nil, err
@@ -202,7 +201,7 @@ func (h *CNBIndex) getImage(hash v1.Hash) (v1.Image, error) {
 	if !indexContains(index.Manifests, hash) {
 		return nil, fmt.Errorf("failed to find image with digest %s in index", hash.String())
 	}
-	return h.Image(hash)
+	return h.ImageIndex.Image(hash)
 }
 
 func indexContains(manifests []v1.Descriptor, hash v1.Hash) bool {
@@ -281,24 +280,24 @@ func newEmptyLayoutPath(indexType types.MediaType, path string) (layout.Path, er
 // Push Publishes ImageIndex to the registry assuming every image it referes exists in registry.
 //
 // It will only push the IndexManifest to registry.
-func (h *CNBIndex) Push(ops ...func(*IndexPushOptions) error) error {
-	var pushOps = &IndexPushOptions{}
+func (h *CNBIndex) Push(ops ...func(*IndexOptions) error) error {
+	var pushOps = &IndexOptions{}
 	for _, op := range ops {
 		if err := op(pushOps); err != nil {
 			return err
 		}
 	}
 
-	if pushOps.Format != "" {
-		if !pushOps.Format.IsIndex() {
-			return ErrUnknownMediaType(pushOps.Format)
+	if pushOps.MediaType != "" {
+		if !pushOps.MediaType.IsIndex() {
+			return ErrUnknownMediaType(pushOps.MediaType)
 		}
 		existingType, err := h.ImageIndex.MediaType()
 		if err != nil {
 			return err
 		}
-		if pushOps.Format != existingType {
-			h.ImageIndex = mutate.IndexMediaType(h.ImageIndex, pushOps.Format)
+		if pushOps.MediaType != existingType {
+			h.ImageIndex = mutate.IndexMediaType(h.ImageIndex, pushOps.MediaType)
 		}
 	}
 
@@ -320,7 +319,7 @@ func (h *CNBIndex) Push(ops ...func(*IndexPushOptions) error) error {
 	multiWriteTagables := map[name.Reference]remote.Taggable{
 		ref: taggableIndex,
 	}
-	for _, tag := range pushOps.Tags {
+	for _, tag := range pushOps.DestinationTags {
 		multiWriteTagables[ref.Context().Tag(tag)] = taggableIndex
 	}
 

@@ -105,7 +105,7 @@ func NewIndex(repoName, path string, ops ...imgutil.IndexOption) (idx *ImageInde
 	}
 
 	if idxOps.BaseIndex == nil {
-		switch idxOps.Format {
+		switch idxOps.MediaType {
 		case types.DockerManifestList:
 			idxOps.BaseIndex = imgutil.NewEmptyDockerIndex()
 		default:

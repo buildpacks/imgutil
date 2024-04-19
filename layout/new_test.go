@@ -69,7 +69,7 @@ func testLayoutNewImageIndex(t *testing.T, when spec.G, it spec.S) {
 				idx, err = layout.NewIndex(
 					repoName,
 					tempDir,
-					imgutil.WithFormat(types.DockerManifestList),
+					imgutil.WithMediaType(types.DockerManifestList),
 				)
 				h.AssertNil(t, err)
 			})
@@ -87,7 +87,7 @@ func testLayoutNewImageIndex(t *testing.T, when spec.G, it spec.S) {
 				idx, err = layout.NewIndex(
 					failingName,
 					tempDir,
-					imgutil.PullInsecure(),
+					imgutil.WithInsecure(),
 				)
 				h.AssertNotNil(t, err)
 				h.AssertError(t, err, fmt.Sprintf("could not parse reference: %s", failingName))
