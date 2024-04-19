@@ -41,7 +41,7 @@ func (h *CNBIndex) getConfigFileFrom(digest name.Digest) (v1.ConfigFile, error) 
 	if err != nil {
 		return v1.ConfigFile{}, err
 	}
-	image, err := h.getImage(hash)
+	image, err := h.Image(hash)
 	if err != nil {
 		return v1.ConfigFile{}, err
 	}
@@ -57,7 +57,7 @@ func (h *CNBIndex) getManifestFileFrom(digest name.Digest) (v1.Manifest, error) 
 	if err != nil {
 		return v1.Manifest{}, err
 	}
-	image, err := h.getImage(hash)
+	image, err := h.Image(hash)
 	if err != nil {
 		return v1.Manifest{}, err
 	}
@@ -179,7 +179,7 @@ func (h *CNBIndex) mutateExistingImage(digest name.Digest, withFunc func(image v
 	if err != nil {
 		return err
 	}
-	image, err := h.getImage(hash)
+	image, err := h.Image(hash)
 	if err != nil {
 		return err
 	}
@@ -194,7 +194,7 @@ func (h *CNBIndex) mutateExistingImage(digest name.Digest, withFunc func(image v
 	return nil
 }
 
-func (h *CNBIndex) getImage(hash v1.Hash) (v1.Image, error) {
+func (h *CNBIndex) Image(hash v1.Hash) (v1.Image, error) {
 	index, err := h.IndexManifest()
 	if err != nil {
 		return nil, err
@@ -202,7 +202,7 @@ func (h *CNBIndex) getImage(hash v1.Hash) (v1.Image, error) {
 	if !indexContains(index.Manifests, hash) {
 		return nil, fmt.Errorf("failed to find image with digest %s in index", hash.String())
 	}
-	return h.Image(hash)
+	return h.ImageIndex.Image(hash)
 }
 
 func indexContains(manifests []v1.Descriptor, hash v1.Hash) bool {
