@@ -52,7 +52,6 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 
 			imgIx, ok := idx.(*remote.ImageIndex)
 			h.AssertEq(t, ok, true)
-			h.AssertEq(t, imgIx.Insecure, true)
 			h.AssertEq(t, imgIx.XdgPath, xdgPath)
 			h.AssertEq(t, imgIx.RepoName, "busybox:1.36-musl")
 		})

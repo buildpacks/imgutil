@@ -31,7 +31,6 @@ type CNBIndex struct {
 	// local options
 	XdgPath string
 	// push options
-	Insecure bool
 	KeyChain authn.Keychain
 	RepoName string
 }
