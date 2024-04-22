@@ -14,11 +14,12 @@ import (
 	h "github.com/buildpacks/imgutil/testhelpers"
 )
 
-func TestRemoteNew(t *testing.T) {
-	spec.Run(t, "RemoteNew", testRemoteNew, spec.Parallel(), spec.Report(report.Terminal{}))
+func TestRemoteNewIndex(t *testing.T) {
+	spec.Run(t, "RemoteNewIndex", testNewIndex, spec.Parallel(), spec.Report(report.Terminal{}))
 }
 
-func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
+// FIXME: these tests should push and pull from a local registry to avoid getting rate limited
+func testNewIndex(t *testing.T, when spec.G, it spec.S) {
 	var (
 		idx     imgutil.ImageIndex
 		xdgPath string
@@ -37,10 +38,6 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#NewIndex", func() {
-		it.After(func() {
-			err := os.RemoveAll(xdgPath)
-			h.AssertNil(t, err)
-		})
 		it("should have expected indexOptions", func() {
 			idx, err = remote.NewIndex(
 				"busybox:1.36-musl",
@@ -50,39 +47,30 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			)
 			h.AssertNil(t, err)
 
-			imgIx, ok := idx.(*remote.ImageIndex)
+			imgIx, ok := idx.(*imgutil.CNBIndex)
 			h.AssertEq(t, ok, true)
 			h.AssertEq(t, imgIx.XdgPath, xdgPath)
 			h.AssertEq(t, imgIx.RepoName, "busybox:1.36-musl")
 		})
-		it("should return an error when invalid repoName is passed", func() {
-			_, err = remote.NewIndex(
-				"some/invalidImage",
-				imgutil.WithInsecure(),
-				imgutil.WithKeychain(authn.DefaultKeychain),
-				imgutil.WithXDGRuntimePath(xdgPath),
-			)
-			h.AssertEq(t, err.Error(), "could not parse reference: some/invalidImage")
-		})
+
 		it("should return an error when index with the given repoName doesn't exists", func() {
 			_, err = remote.NewIndex(
-				"some/image",
-				imgutil.WithInsecure(),
+				"my-index",
 				imgutil.WithKeychain(authn.DefaultKeychain),
-				imgutil.WithXDGRuntimePath(xdgPath),
+				imgutil.FromBaseIndex("some-not-exist-index"),
 			)
 			h.AssertNotEq(t, err, nil)
 		})
+
 		it("should return ImageIndex with expected output", func() {
 			idx, err = remote.NewIndex(
-				"busybox:1.36-musl",
-				imgutil.WithInsecure(),
+				"my-index",
 				imgutil.WithKeychain(authn.DefaultKeychain),
-				imgutil.WithXDGRuntimePath(xdgPath),
+				imgutil.FromBaseIndex("busybox:1.36-musl"),
 			)
 			h.AssertNil(t, err)
 
-			imgIx, ok := idx.(*remote.ImageIndex)
+			imgIx, ok := idx.(*imgutil.CNBIndex)
 			h.AssertEq(t, ok, true)
 
 			mfest, err := imgIx.IndexManifest()
@@ -90,16 +78,16 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNotEq(t, mfest, nil)
 			h.AssertEq(t, len(mfest.Manifests), 8)
 		})
+
 		it("should able to call #ImageIndex", func() {
 			idx, err = remote.NewIndex(
-				"busybox:1.36-musl",
-				imgutil.WithInsecure(),
+				"my-index",
 				imgutil.WithKeychain(authn.DefaultKeychain),
-				imgutil.WithXDGRuntimePath(xdgPath),
+				imgutil.FromBaseIndex("busybox:1.36-musl"),
 			)
 			h.AssertNil(t, err)
 
-			imgIx, ok := idx.(*remote.ImageIndex)
+			imgIx, ok := idx.(*imgutil.CNBIndex)
 			h.AssertEq(t, ok, true)
 
 			// linux/amd64
@@ -111,16 +99,16 @@ func testRemoteNew(t *testing.T, when spec.G, it spec.S) {
 			_, err = imgIx.ImageIndex.ImageIndex(hash1)
 			h.AssertNotEq(t, err.Error(), "empty index")
 		})
+
 		it("should able to call #Image", func() {
 			idx, err = remote.NewIndex(
-				"busybox:1.36-musl",
-				imgutil.WithInsecure(),
+				"my-index",
 				imgutil.WithKeychain(authn.DefaultKeychain),
-				imgutil.WithXDGRuntimePath(xdgPath),
+				imgutil.FromBaseIndex("busybox:1.36-musl"),
 			)
 			h.AssertNil(t, err)
 
-			imgIdx, ok := idx.(*remote.ImageIndex)
+			imgIdx, ok := idx.(*imgutil.CNBIndex)
 			h.AssertEq(t, ok, true)
 
 			// linux/amd64

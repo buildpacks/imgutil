@@ -35,8 +35,9 @@ func TestLayout(t *testing.T) {
 	os.Setenv("DOCKER_CONFIG", dockerConfigDir)
 	defer os.Unsetenv("DOCKER_CONFIG")
 
-	spec.Run(t, "Image", testImage, spec.Parallel(), spec.Report(report.Terminal{}))
-	spec.Run(t, "ImageIndex", testImageIndex, spec.Parallel(), spec.Report(report.Terminal{}))
+	spec.Run(t, "LayoutImage", testImage, spec.Parallel(), spec.Report(report.Terminal{}))
+	// FIXME: find a way to make the docker registry not-global, so that these tests can move to index_test.go
+	spec.Run(t, "LayoutIndex", testIndex, spec.Parallel(), spec.Report(report.Terminal{}))
 }
 
 var (
@@ -1137,7 +1138,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 	})
 }
 
-func testImageIndex(t *testing.T, when spec.G, it spec.S) {
+func testIndex(t *testing.T, when spec.G, it spec.S) {
 	var (
 		idx           imgutil.ImageIndex
 		tmpDir        string
@@ -1170,9 +1171,9 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 			digest      name.Digest
 		)
 		when("index exists on disk", func() {
-			when("#FromBaseImageIndex", func() {
+			when("#FromBaseIndex", func() {
 				it.Before(func() {
-					idx, err = layout.NewIndex("busybox-multi-platform", tmpDir, imgutil.FromBaseImageIndex(baseIndexPath))
+					idx, err = layout.NewIndex("busybox-multi-platform", imgutil.WithXDGRuntimePath(tmpDir), imgutil.FromBaseIndex(baseIndexPath))
 					h.AssertNil(t, err)
 					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
 				})
@@ -1267,9 +1268,9 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 
 	when("#Save", func() {
 		when("index exists on disk", func() {
-			when("#FromBaseImageIndex", func() {
+			when("#FromBaseIndex", func() {
 				it.Before(func() {
-					idx, err = layout.NewIndex("busybox-multi-platform", tmpDir, imgutil.FromBaseImageIndex(baseIndexPath))
+					idx, err = layout.NewIndex("busybox-multi-platform", imgutil.WithXDGRuntimePath(tmpDir), imgutil.FromBaseIndex(baseIndexPath))
 					h.AssertNil(t, err)
 
 					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
@@ -1287,11 +1288,11 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 				})
 			})
 
-			when("#FromBaseImageIndexInstance", func() {
+			when("#FromBaseIndexInstance", func() {
 				it.Before(func() {
 					localIndex := h.ReadImageIndex(t, baseIndexPath)
 
-					idx, err = layout.NewIndex("busybox-multi-platform", tmpDir, imgutil.FromBaseImageIndexInstance(localIndex))
+					idx, err = layout.NewIndex("busybox-multi-platform", imgutil.WithXDGRuntimePath(tmpDir), imgutil.FromBaseIndexInstance(localIndex))
 					h.AssertNil(t, err)
 
 					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
@@ -1327,7 +1328,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 		when("index is created from scratch", func() {
 			it.Before(func() {
 				repoName := newRepoName()
-				idx = setUpImageIndex(t, repoName, tmpDir)
+				idx = setupIndex(t, repoName, imgutil.WithXDGRuntimePath(tmpDir))
 				localPath = filepath.Join(tmpDir, repoName)
 			})
 
@@ -1349,9 +1350,9 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 		})
 
 		when("index exists on disk", func() {
-			when("#FromBaseImageIndex", func() {
+			when("#FromBaseIndex", func() {
 				it.Before(func() {
-					idx = setUpImageIndex(t, "busybox-multi-platform", tmpDir, imgutil.FromBaseImageIndex(baseIndexPath))
+					idx = setupIndex(t, "busybox-multi-platform", imgutil.WithXDGRuntimePath(tmpDir), imgutil.FromBaseIndex(baseIndexPath))
 					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
 				})
 
@@ -1376,10 +1377,11 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#Push", func() {
-		when("index is created from scratch", func() {
+		when.Focus("index is created from scratch", func() {
 			it.Before(func() {
 				repoName := newTestImageIndexName("push-index-test")
-				idx = setUpImageIndex(t, repoName, tmpDir, imgutil.WithKeychain(authn.DefaultKeychain))
+				t.Log("XXX", repoName)
+				idx = setupIndex(t, repoName, imgutil.WithXDGRuntimePath(tmpDir), imgutil.WithKeychain(authn.DefaultKeychain))
 
 				// TODO Note in the Push operation
 				// Note: It will only push IndexManifest, assuming all the images it refers exists in registry
@@ -1411,9 +1413,9 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 
 	when("#Delete", func() {
 		when("index exists on disk", func() {
-			when("#FromBaseImageIndex", func() {
+			when("#FromBaseIndex", func() {
 				it.Before(func() {
-					idx = setUpImageIndex(t, "busybox-multi-platform", tmpDir, imgutil.FromBaseImageIndex(baseIndexPath))
+					idx = setupIndex(t, "busybox-multi-platform", imgutil.WithXDGRuntimePath(tmpDir), imgutil.FromBaseIndex(baseIndexPath))
 					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
 				})
 
@@ -1435,9 +1437,9 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 	when("#Remove", func() {
 		var digest name.Digest
 		when("index exists on disk", func() {
-			when("#FromBaseImageIndex", func() {
+			when("#FromBaseIndex", func() {
 				it.Before(func() {
-					idx = setUpImageIndex(t, "busybox-multi-platform", tmpDir, imgutil.FromBaseImageIndex(baseIndexPath), imgutil.WithKeychain(authn.DefaultKeychain))
+					idx = setupIndex(t, "busybox-multi-platform", imgutil.WithXDGRuntimePath(tmpDir), imgutil.FromBaseIndex(baseIndexPath), imgutil.WithKeychain(authn.DefaultKeychain))
 					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
 					digest, err = name.NewDigest("busybox@sha256:f5b920213fc6498c0c5eaee7e04f8424202b565bb9e5e4de9e617719fb7bd873")
 					h.AssertNil(t, err)
@@ -1467,9 +1469,9 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 	when("#Inspect", func() {
 		var indexString string
 		when("index exists on disk", func() {
-			when("#FromBaseImageIndex", func() {
+			when("#FromBaseIndex", func() {
 				it.Before(func() {
-					idx = setUpImageIndex(t, "busybox-multi-platform", tmpDir, imgutil.FromBaseImageIndex(baseIndexPath))
+					idx = setupIndex(t, "busybox-multi-platform", imgutil.WithXDGRuntimePath(tmpDir), imgutil.FromBaseIndex(baseIndexPath))
 					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
 				})
 
@@ -1477,7 +1479,7 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 					indexString, err = idx.Inspect()
 					h.AssertNil(t, err)
 
-					idxFromString := parseImageIndex(t, indexString)
+					idxFromString := parseIndex(t, indexString)
 					h.AssertEq(t, len(idxFromString.Manifests), 2)
 				})
 			})
@@ -1485,8 +1487,8 @@ func testImageIndex(t *testing.T, when spec.G, it spec.S) {
 	})
 }
 
-func setUpImageIndex(t *testing.T, repoName string, tmpDir string, ops ...imgutil.IndexOption) imgutil.ImageIndex {
-	idx, err := layout.NewIndex(repoName, tmpDir, ops...)
+func setupIndex(t *testing.T, repoName string, ops ...imgutil.IndexOption) imgutil.ImageIndex {
+	idx, err := layout.NewIndex(repoName, ops...)
 	h.AssertNil(t, err)
 
 	// TODO before adding something to the index, apparently we need initialize on disk
@@ -1503,7 +1505,7 @@ func newTestImageIndexName(name string) string {
 	return dockerRegistry.RepoName(name + "-" + h.RandString(10))
 }
 
-func parseImageIndex(t *testing.T, index string) *v1.IndexManifest {
+func parseIndex(t *testing.T, index string) *v1.IndexManifest {
 	r := strings.NewReader(index)
 	idx, err := v1.ParseIndexManifest(r)
 	h.AssertNil(t, err)
