@@ -568,6 +568,7 @@ func (i *CNBImageCore) SetCreatedAtAndHistory() error {
 	if i.preserveHistory {
 		// set created at for each history
 		err = i.MutateConfigFile(func(c *v1.ConfigFile) {
+			c.History = NormalizedHistory(c.History, len(c.RootFS.DiffIDs))
 			for j := range c.History {
 				c.History[j].Created = v1.Time{Time: i.createdAt}
 			}
@@ -575,6 +576,7 @@ func (i *CNBImageCore) SetCreatedAtAndHistory() error {
 	} else {
 		// zero history
 		err = i.MutateConfigFile(func(c *v1.ConfigFile) {
+			c.History = NormalizedHistory(c.History, len(c.RootFS.DiffIDs))
 			for j := range c.History {
 				c.History[j] = v1.History{Created: v1.Time{Time: i.createdAt}}
 			}

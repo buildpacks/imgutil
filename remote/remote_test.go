@@ -1278,6 +1278,14 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				newBaseImg, err := remote.NewImage(newBase, authn.DefaultKeychain, remote.FromBaseImage(newBase))
 				h.AssertNil(t, err)
 
+				h.AssertNil(t, newBaseImg.MutateConfigFile(func(c *v1.ConfigFile) {
+					c.History = []v1.History{
+						{CreatedBy: "/new-base.txt"},
+						{CreatedBy: "FOOBAR", EmptyLayer: true}, // add empty layer history
+						{CreatedBy: "/otherfile.txt"},
+					}
+				})) // don't save the image, as that will strip the empty layer history
+
 				err = img.Rebase(oldTopLayerDiffID, newBaseImg)
 				h.AssertNil(t, err)
 				h.AssertNil(t, img.Save())
@@ -1293,6 +1301,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertEq(t, rebasedImgConfig.OS, newBaseConfig.OS)
 				h.AssertEq(t, rebasedImgConfig.OSVersion, newBaseConfig.OSVersion)
 				h.AssertEq(t, rebasedImgConfig.Architecture, newBaseConfig.Architecture)
+				h.AssertEq(t, len(rebasedImgConfig.History), len(rebasedImgConfig.RootFS.DiffIDs))
 			})
 		})
 	})
