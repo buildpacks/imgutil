@@ -1,7 +1,6 @@
 package layout_test
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,7 +14,7 @@ import (
 	h "github.com/buildpacks/imgutil/testhelpers"
 )
 
-func TestLayoutNewIndex(t *testing.T) {
+func TestLayoutIndex(t *testing.T) {
 	spec.Run(t, "LayoutNewIndex", testNewIndex, spec.Parallel(), spec.Report(report.Terminal{}))
 }
 
@@ -51,16 +50,16 @@ func testNewIndex(t *testing.T, when spec.G, it spec.S) {
 			it("creates empty image index", func() {
 				idx, err = layout.NewIndex(
 					repoName,
-					tempDir,
+					imgutil.WithXDGRuntimePath(tempDir),
 				)
 				h.AssertNil(t, err)
 			})
 
-			it("ignores FromBaseImageIndex if it doesn't exist", func() {
+			it("ignores FromBaseIndex if it doesn't exist", func() {
 				idx, err = layout.NewIndex(
 					repoName,
-					tempDir,
-					imgutil.FromBaseImageIndex("non-existent/index"),
+					imgutil.WithXDGRuntimePath(tempDir),
+					imgutil.FromBaseIndex("non-existent/index"),
 				)
 				h.AssertNil(t, err)
 			})
@@ -68,36 +67,10 @@ func testNewIndex(t *testing.T, when spec.G, it spec.S) {
 			it("creates empty image index with Docker media-types", func() {
 				idx, err = layout.NewIndex(
 					repoName,
-					tempDir,
+					imgutil.WithXDGRuntimePath(tempDir),
 					imgutil.WithMediaType(types.DockerManifestList),
 				)
 				h.AssertNil(t, err)
-			})
-
-			it("should return an error when invalid repoName is passed", func() {
-				failingName := repoName + ":🧨"
-				idx, err = layout.NewIndex(
-					failingName,
-					tempDir,
-				)
-				h.AssertNotNil(t, err)
-				h.AssertError(t, err, fmt.Sprintf("could not parse reference: %s", failingName))
-
-				// when insecure
-				idx, err = layout.NewIndex(
-					failingName,
-					tempDir,
-					imgutil.WithInsecure(),
-				)
-				h.AssertNotNil(t, err)
-				h.AssertError(t, err, fmt.Sprintf("could not parse reference: %s", failingName))
-			})
-
-			it("error when an image index already exists at path and it is not reuse", func() {
-				localPath := filepath.Join(testDataDir, "busybox-multi-platform")
-				idx, err = layout.NewIndex("busybox-multi-platform", testDataDir)
-				h.AssertNotNil(t, err)
-				h.AssertError(t, err, fmt.Sprintf("an image index already exists at %s use FromBaseImageIndex or FromBaseImageIndexInstance options to create a new instance", localPath))
 			})
 		})
 	})

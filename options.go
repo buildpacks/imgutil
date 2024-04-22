@@ -102,8 +102,8 @@ func WithPreviousImage(name string) func(*ImageOptions) {
 type IndexOption func(options *IndexOptions) error
 
 type IndexOptions struct {
-	BaseImageIndexRepoName string
-	MediaType              types.MediaType
+	BaseIndexRepoName string
+	MediaType         types.MediaType
 	LayoutIndexOptions
 	RemoteIndexOptions
 	IndexPushOptions
@@ -117,22 +117,22 @@ type LayoutIndexOptions struct {
 }
 
 type RemoteIndexOptions struct {
-	KeyChain authn.Keychain
+	Keychain authn.Keychain
 	Insecure bool
 }
 
-// FromBaseImageIndex sets the name to use when loading the index.
+// FromBaseIndex sets the name to use when loading the index.
 // It used to either construct the path (if using layout) or the repo name (if using remote).
 // If the index is not found, it does nothing.
-func FromBaseImageIndex(name string) func(*IndexOptions) error {
+func FromBaseIndex(name string) func(*IndexOptions) error {
 	return func(o *IndexOptions) error {
-		o.BaseImageIndexRepoName = name
+		o.BaseIndexRepoName = name
 		return nil
 	}
 }
 
-// FromBaseImageIndexInstance sets the provided image index as the working image index.
-func FromBaseImageIndexInstance(index v1.ImageIndex) func(options *IndexOptions) error {
+// FromBaseIndexInstance sets the provided image index as the working image index.
+func FromBaseIndexInstance(index v1.ImageIndex) func(options *IndexOptions) error {
 	return func(o *IndexOptions) error {
 		o.BaseIndex = index
 		return nil
@@ -161,7 +161,7 @@ func WithXDGRuntimePath(xdgPath string) func(options *IndexOptions) error {
 // WithKeychain fetches Index from registry with keychain
 func WithKeychain(keychain authn.Keychain) func(options *IndexOptions) error {
 	return func(o *IndexOptions) error {
-		o.KeyChain = keychain
+		o.Keychain = keychain
 		return nil
 	}
 }

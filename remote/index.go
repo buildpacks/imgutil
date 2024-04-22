@@ -1,70 +1,51 @@
 package remote
 
 import (
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 
 	"github.com/buildpacks/imgutil"
 )
 
 // NewIndex returns a new ImageIndex from the registry that can be modified and saved to the local file system.
-func NewIndex(repoName string, ops ...imgutil.IndexOption) (idx *ImageIndex, err error) {
-	var idxOps = &imgutil.IndexOptions{}
+func NewIndex(repoName string, ops ...imgutil.IndexOption) (*imgutil.CNBIndex, error) {
+	options := &imgutil.IndexOptions{}
 	for _, op := range ops {
-		if err = op(idxOps); err != nil {
-			return idx, err
+		if err := op(options); err != nil {
+			return nil, err
 		}
 	}
 
-	if err = validateRepoName(repoName, idxOps); err != nil {
-		return idx, err
-	}
+	var err error
 
-	if idxOps.BaseIndex == nil && idxOps.BaseImageIndexRepoName != "" {
-		ref, err := name.ParseReference(idxOps.BaseImageIndexRepoName, name.WeakValidation, name.Insecure)
-		if err != nil {
-			return idx, err
-		}
-
-		desc, err := remote.Get(
-			ref,
-			remote.WithAuthFromKeychain(idxOps.KeyChain),
-			remote.WithTransport(imgutil.GetTransport(idxOps.Insecure)),
+	if options.BaseIndex == nil && options.BaseIndexRepoName != "" { // options.BaseIndex supersedes options.BaseIndexRepoName
+		options.BaseIndex, err = newV1Index(
+			options.BaseIndexRepoName,
+			options.Keychain,
+			options.Insecure,
 		)
 		if err != nil {
-			return idx, err
-		}
-
-		idxOps.BaseIndex, err = desc.ImageIndex()
-		if err != nil {
-			return idx, err
+			return nil, err
 		}
 	}
 
-	cnbIndex, err := imgutil.NewCNBIndex(repoName, idxOps.BaseIndex, *idxOps)
-	if err != nil {
-		return idx, err
-	}
-
-	return &ImageIndex{
-		CNBIndex: cnbIndex,
-	}, nil
+	return imgutil.NewCNBIndex(repoName, *options)
 }
 
-// ValidateRepoName
-// TODO move this code to something more generic
-func validateRepoName(repoName string, o *imgutil.IndexOptions) error {
-	if o.Insecure {
-		_, err := name.ParseReference(repoName, name.Insecure, name.WeakValidation)
-		if err != nil {
-			return err
-		}
-	} else {
-		_, err := name.ParseReference(repoName, name.WeakValidation)
-		if err != nil {
-			return err
-		}
+func newV1Index(repoName string, keychain authn.Keychain, insecure bool) (v1.ImageIndex, error) {
+	ref, err := name.ParseReference(repoName, name.WeakValidation)
+	if err != nil {
+		return nil, err
 	}
-	o.BaseImageIndexRepoName = repoName
-	return nil
+	desc, err := remote.Get(
+		ref,
+		remote.WithAuthFromKeychain(keychain),
+		remote.WithTransport(imgutil.GetTransport(insecure)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return desc.ImageIndex()
 }

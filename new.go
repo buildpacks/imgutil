@@ -292,18 +292,27 @@ func prepareNewWindowsImageIfNeeded(image *CNBImageCore) error {
 	return nil
 }
 
-func NewCNBIndex(repoName string, v1Index v1.ImageIndex, ops IndexOptions) (*CNBIndex, error) {
+func NewCNBIndex(repoName string, options IndexOptions) (*CNBIndex, error) {
+	if options.BaseIndex == nil {
+		switch options.MediaType {
+		case types.DockerManifestList:
+			options.BaseIndex = NewEmptyDockerIndex()
+		default:
+			options.BaseIndex = empty.Index
+		}
+	}
+
 	index := &CNBIndex{
-		ImageIndex: v1Index,
 		RepoName:   repoName,
-		XdgPath:    ops.XdgPath,
-		KeyChain:   ops.KeyChain,
+		ImageIndex: options.BaseIndex,
+		XdgPath:    options.XdgPath,
+		KeyChain:   options.Keychain,
 	}
 	return index, nil
 }
 
-func NewTaggableIndex(mfest *v1.IndexManifest) *TaggableIndex {
+func NewTaggableIndex(manifest *v1.IndexManifest) *TaggableIndex {
 	return &TaggableIndex{
-		IndexManifest: mfest,
+		IndexManifest: manifest,
 	}
 }
