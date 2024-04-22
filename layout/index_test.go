@@ -15,11 +15,11 @@ import (
 	h "github.com/buildpacks/imgutil/testhelpers"
 )
 
-func TestLayoutNewImageIndex(t *testing.T) {
-	spec.Run(t, "LayoutNewImageIndex", testLayoutNewImageIndex, spec.Parallel(), spec.Report(report.Terminal{}))
+func TestLayoutNewIndex(t *testing.T) {
+	spec.Run(t, "LayoutNewIndex", testNewIndex, spec.Parallel(), spec.Report(report.Terminal{}))
 }
 
-func testLayoutNewImageIndex(t *testing.T, when spec.G, it spec.S) {
+func testNewIndex(t *testing.T, when spec.G, it spec.S) {
 	var (
 		idx      imgutil.ImageIndex
 		tempDir  string
