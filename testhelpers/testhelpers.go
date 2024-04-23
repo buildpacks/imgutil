@@ -519,7 +519,6 @@ func RemoteImage(t *testing.T, testImageName string, opts []remote.Option) v1.Im
 
 	testImage, err := remote.Image(r, opts...)
 	AssertNil(t, err)
-
 	return testImage
 }
 
@@ -590,6 +589,17 @@ func ReadImageIndex(t *testing.T, path string) v1.ImageIndex {
 	AssertNotNil(t, localIndex)
 
 	return localIndex
+}
+
+func DigestsFromImageIndex(t *testing.T, index v1.ImageIndex) []v1.Hash {
+	manifests, err := index.IndexManifest()
+	AssertNil(t, err)
+
+	var hashes []v1.Hash
+	for _, manifest := range manifests.Manifests {
+		hashes = append(hashes, manifest.Digest)
+	}
+	return hashes
 }
 
 func ReadIndexManifest(t *testing.T, path string) *v1.IndexManifest {
