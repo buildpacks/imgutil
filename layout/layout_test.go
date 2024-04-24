@@ -1377,7 +1377,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 	})
 
 	when("#Push", func() {
-		when.Focus("index is created from scratch", func() {
+		when("index is created from scratch", func() {
 			it.Before(func() {
 				repoName := newTestImageIndexName("push-index-test")
 				t.Log("XXX", repoName)
