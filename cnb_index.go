@@ -280,7 +280,7 @@ func newEmptyLayoutPath(indexType types.MediaType, path string) (layout.Path, er
 // Push Publishes ImageIndex to the registry assuming every image it referes exists in registry.
 //
 // It will only push the IndexManifest to registry.
-func (h *CNBIndex) Push(ops ...func(*IndexOptions) error) error {
+func (h *CNBIndex) Push(ops ...IndexOption) error {
 	var pushOps = &IndexOptions{}
 	for _, op := range ops {
 		if err := op(pushOps); err != nil {

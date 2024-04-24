@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/sclevine/spec"
@@ -1339,12 +1340,28 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 				})
 
-				it("adds the manifest to the index", func() {
+				it("adds one manifest to the index", func() {
 					idx.AddManifest(editableImage)
 					h.AssertNil(t, idx.SaveDir())
 					// manifest was added
 					index := h.ReadIndexManifest(t, localPath)
 					h.AssertEq(t, len(index.Manifests), 1)
+				})
+
+				it.Focus("add more than one manifest to the index", func() {
+					image1, err := random.Image(1024, 1)
+					h.AssertNil(t, err)
+					idx.AddManifest(image1)
+
+					image2, err := random.Image(1024, 1)
+					h.AssertNil(t, err)
+					idx.AddManifest(image2)
+
+					h.AssertNil(t, idx.SaveDir())
+
+					// manifest was added
+					index := h.ReadIndexManifest(t, localPath)
+					h.AssertEq(t, len(index.Manifests), 2)
 				})
 			})
 		})
