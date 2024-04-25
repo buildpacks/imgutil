@@ -35,161 +35,144 @@ type CNBIndex struct {
 	RepoName string
 }
 
-func (h *CNBIndex) getConfigFileFrom(digest name.Digest) (v1.ConfigFile, error) {
-	hash, err := v1.NewHash(digest.Identifier())
+func (h *CNBIndex) getDescriptorFrom(digest name.Digest) (v1.Descriptor, error) {
+	indexManifest, err := getIndexManifest(h.ImageIndex)
 	if err != nil {
-		return v1.ConfigFile{}, err
+		return v1.Descriptor{}, err
 	}
-	image, err := h.Image(hash)
-	if err != nil {
-		return v1.ConfigFile{}, err
+	for _, current := range indexManifest.Manifests {
+		if current.Digest.String() == digest.Identifier() {
+			return current, nil
+		}
 	}
-	configFile, err := GetConfigFile(image)
-	if err != nil {
-		return v1.ConfigFile{}, err
-	}
-	return *configFile, nil
-}
-
-func (h *CNBIndex) getManifestFileFrom(digest name.Digest) (v1.Manifest, error) {
-	hash, err := v1.NewHash(digest.Identifier())
-	if err != nil {
-		return v1.Manifest{}, err
-	}
-	image, err := h.Image(hash)
-	if err != nil {
-		return v1.Manifest{}, err
-	}
-	manifestFile, err := GetManifest(image)
-	if err != nil {
-		return v1.Manifest{}, err
-	}
-	return *manifestFile, nil
+	return v1.Descriptor{}, fmt.Errorf("failed to find image with digest %s in index", digest.Identifier())
 }
 
 // OS returns `OS` of an existing Image.
 func (h *CNBIndex) OS(digest name.Digest) (os string, err error) {
-	configFile, err := h.getConfigFileFrom(digest)
+	desc, err := h.getDescriptorFrom(digest)
 	if err != nil {
 		return "", err
 	}
-	return configFile.OS, nil
+	if desc.Platform != nil {
+		return desc.Platform.OS, nil
+	}
+	return "", nil
 }
 
 // Architecture return the Architecture of an Image/Index based on given Digest.
 // Returns an error if no Image/Index found with given Digest.
 func (h *CNBIndex) Architecture(digest name.Digest) (arch string, err error) {
-	configFile, err := h.getConfigFileFrom(digest)
+	desc, err := h.getDescriptorFrom(digest)
 	if err != nil {
 		return "", err
 	}
-	return configFile.Architecture, nil
+	if desc.Platform != nil {
+		return desc.Platform.Architecture, nil
+	}
+	return "", nil
 }
 
 // Variant return the `Variant` of an Image.
 // Returns an error if no Image/Index found with given Digest.
 func (h *CNBIndex) Variant(digest name.Digest) (osVariant string, err error) {
-	configFile, err := h.getConfigFileFrom(digest)
+	desc, err := h.getDescriptorFrom(digest)
 	if err != nil {
 		return "", err
 	}
-	return configFile.Variant, nil
+	if desc.Platform != nil {
+		return desc.Platform.Variant, nil
+	}
+	return "", nil
 }
 
 // OSVersion returns the `OSVersion` of an Image with given Digest.
 // Returns an error if no Image/Index found with given Digest.
 func (h *CNBIndex) OSVersion(digest name.Digest) (osVersion string, err error) {
-	configFile, err := h.getConfigFileFrom(digest)
+	desc, err := h.getDescriptorFrom(digest)
 	if err != nil {
 		return "", err
 	}
-	return configFile.OSVersion, nil
+	if desc.Platform != nil {
+		return desc.Platform.OSVersion, nil
+	}
+	return "", nil
 }
 
 // OSFeatures returns the `OSFeatures` of an Image with given Digest.
 // Returns an error if no Image/Index found with given Digest.
 func (h *CNBIndex) OSFeatures(digest name.Digest) (osFeatures []string, err error) {
-	configFile, err := h.getConfigFileFrom(digest)
+	desc, err := h.getDescriptorFrom(digest)
 	if err != nil {
 		return nil, err
 	}
-	return configFile.OSFeatures, nil
+	if desc.Platform != nil {
+		return desc.Platform.OSFeatures, nil
+	}
+	return []string{}, nil
 }
 
 // Annotations return the `Annotations` of an Image with given Digest.
 // Returns an error if no Image/Index found with given Digest.
 // For Docker images and Indexes it returns an error.
 func (h *CNBIndex) Annotations(digest name.Digest) (annotations map[string]string, err error) {
-	manifestFile, err := h.getManifestFileFrom(digest)
+	desc, err := h.getDescriptorFrom(digest)
 	if err != nil {
 		return nil, err
 	}
-	return manifestFile.Annotations, nil
+	return desc.Annotations, nil
 }
 
 // setters
 
 func (h *CNBIndex) SetAnnotations(digest name.Digest, annotations map[string]string) (err error) {
-	return h.mutateExistingImage(digest, func(image v1.Image) (v1.Image, error) {
-		partial := mutate.Annotations(image, annotations)
-		annotatedImage, ok := partial.(v1.Image)
-		if !ok {
-			return nil, fmt.Errorf("failed to annotate image")
+	return h.replaceDescriptor(digest, func(descriptor v1.Descriptor) (v1.Descriptor, error) {
+		if len(descriptor.Annotations) == 0 {
+			descriptor.Annotations = make(map[string]string)
 		}
-		return annotatedImage, nil
+
+		for k, v := range annotations {
+			descriptor.Annotations[k] = v
+		}
+		return descriptor, nil
 	})
 }
 
 func (h *CNBIndex) SetArchitecture(digest name.Digest, arch string) (err error) {
-	return h.mutateExistingImage(digest, func(image v1.Image) (v1.Image, error) {
-		configFile, err := image.ConfigFile()
-		if err != nil {
-			return nil, err
-		}
-		configFile.Architecture = arch
-		return mutate.ConfigFile(image, configFile)
+	return h.replaceDescriptor(digest, func(descriptor v1.Descriptor) (v1.Descriptor, error) {
+		descriptor.Platform.Architecture = arch
+		return descriptor, nil
 	})
 }
 
 func (h *CNBIndex) SetOS(digest name.Digest, os string) (err error) {
-	return h.mutateExistingImage(digest, func(image v1.Image) (v1.Image, error) {
-		configFile, err := image.ConfigFile()
-		if err != nil {
-			return nil, err
-		}
-		configFile.OS = os
-		return mutate.ConfigFile(image, configFile)
+	return h.replaceDescriptor(digest, func(descriptor v1.Descriptor) (v1.Descriptor, error) {
+		descriptor.Platform.OS = os
+		return descriptor, nil
 	})
 }
 
 func (h *CNBIndex) SetVariant(digest name.Digest, osVariant string) (err error) {
-	return h.mutateExistingImage(digest, func(image v1.Image) (v1.Image, error) {
-		configFile, err := image.ConfigFile()
-		if err != nil {
-			return nil, err
-		}
-		configFile.Variant = osVariant
-		return mutate.ConfigFile(image, configFile)
+	return h.replaceDescriptor(digest, func(descriptor v1.Descriptor) (v1.Descriptor, error) {
+		descriptor.Platform.Variant = osVariant
+		return descriptor, nil
 	})
 }
 
-func (h *CNBIndex) mutateExistingImage(digest name.Digest, withFunc func(image v1.Image) (v1.Image, error)) (err error) {
-	hash, err := v1.NewHash(digest.Identifier())
+func (h *CNBIndex) replaceDescriptor(digest name.Digest, withFun func(descriptor v1.Descriptor) (v1.Descriptor, error)) (err error) {
+	desc, err := h.getDescriptorFrom(digest)
 	if err != nil {
 		return err
 	}
-	image, err := h.Image(hash)
+	desc, err = withFun(desc)
 	if err != nil {
 		return err
 	}
-	if err = h.RemoveManifest(digest); err != nil {
-		return err
+	add := mutate.IndexAddendum{
+		Add:        h.ImageIndex,
+		Descriptor: desc,
 	}
-	newImage, err := withFunc(image)
-	if err != nil {
-		return err
-	}
-	h.AddManifest(newImage)
+	h.ImageIndex = mutate.AppendManifests(mutate.RemoveManifests(h.ImageIndex, match.Digests(desc.Digest)), add)
 	return nil
 }
 
@@ -215,8 +198,10 @@ func indexContains(manifests []v1.Descriptor, hash v1.Hash) bool {
 
 // AddManifest adds an image to the index.
 func (h *CNBIndex) AddManifest(image v1.Image) {
+	desc, _ := descriptor(image)
 	h.ImageIndex = mutate.AppendManifests(h.ImageIndex, mutate.IndexAddendum{
-		Add: image,
+		Add:        image,
+		Descriptor: desc,
 	})
 }
 
@@ -377,4 +362,20 @@ func getIndexManifest(ii v1.ImageIndex) (mfest *v1.IndexManifest, err error) {
 		return mfest, ErrManifestUndefined
 	}
 	return mfest, err
+}
+
+// descriptor returns a v1.Descriptor filled with a v1.Platform created from reading
+// the image config file.
+func descriptor(image v1.Image) (v1.Descriptor, error) {
+	// Get the image configuration file
+	cfg, _ := GetConfigFile(image)
+	platform := v1.Platform{}
+	platform.Architecture = cfg.Architecture
+	platform.OS = cfg.OS
+	platform.OSVersion = cfg.OSVersion
+	platform.Variant = cfg.Variant
+	platform.OSFeatures = cfg.OSFeatures
+	return v1.Descriptor{
+		Platform: &platform,
+	}, nil
 }

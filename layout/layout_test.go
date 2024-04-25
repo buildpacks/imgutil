@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -1267,6 +1268,112 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 		})
 	})
 
+	when("#Setters", func() {
+		var (
+			descriptor1 v1.Descriptor
+			digest1     name.Digest
+		)
+
+		when("index is created from scratch", func() {
+			it.Before(func() {
+				repoName := newRepoName()
+				idx = setupIndex(t, repoName, imgutil.WithXDGRuntimePath(tmpDir))
+				localPath = filepath.Join(tmpDir, repoName)
+			})
+
+			when("digest is provided", func() {
+				it.Before(func() {
+					image1, err := random.Image(1024, 1)
+					h.AssertNil(t, err)
+					idx.AddManifest(image1)
+
+					h.AssertNil(t, idx.SaveDir())
+
+					index := h.ReadIndexManifest(t, localPath)
+					h.AssertEq(t, len(index.Manifests), 1)
+					descriptor1 = index.Manifests[0]
+
+					digest1, err = name.NewDigest(fmt.Sprintf("%s@%s", "random", descriptor1.Digest.String()))
+					h.AssertNil(t, err)
+				})
+
+				it("platform attributes are written on disk", func() {
+					h.AssertNil(t, idx.SetOS(digest1, "linux"))
+					h.AssertNil(t, idx.SetArchitecture(digest1, "arm"))
+					h.AssertNil(t, idx.SetVariant(digest1, "v6"))
+					h.AssertNil(t, idx.SaveDir())
+
+					index := h.ReadIndexManifest(t, localPath)
+					h.AssertEq(t, len(index.Manifests), 1)
+					h.AssertEq(t, index.Manifests[0].Digest.String(), descriptor1.Digest.String())
+					h.AssertEq(t, index.Manifests[0].Platform.OS, "linux")
+					h.AssertEq(t, index.Manifests[0].Platform.Architecture, "arm")
+					h.AssertEq(t, index.Manifests[0].Platform.Variant, "v6")
+				})
+
+				it("annotations are written on disk", func() {
+					annotations := map[string]string{
+						"some-key": "some-value",
+					}
+					h.AssertNil(t, idx.SetAnnotations(digest1, annotations))
+					h.AssertNil(t, idx.SaveDir())
+
+					index := h.ReadIndexManifest(t, localPath)
+					h.AssertEq(t, len(index.Manifests), 1)
+					h.AssertEq(t, index.Manifests[0].Digest.String(), descriptor1.Digest.String())
+					h.AssertEq(t, reflect.DeepEqual(index.Manifests[0].Annotations, annotations), true)
+				})
+			})
+		})
+
+		when("index exists on disk", func() {
+			when("#FromBaseIndex", func() {
+				it.Before(func() {
+					idx = setupIndex(t, "busybox-multi-platform", imgutil.WithXDGRuntimePath(tmpDir), imgutil.FromBaseIndex(baseIndexPath))
+					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
+					digest1, err = name.NewDigest("busybox@sha256:e18f2c12bb4ea582045415243370a3d9cf3874265aa2867f21a35e630ebe45a7")
+					h.AssertNil(t, err)
+				})
+
+				when("digest is provided", func() {
+					when("attributes already exists", func() {
+						it("platform attributes are updated on disk", func() {
+							h.AssertNil(t, idx.SetOS(digest1, "linux-2"))
+							h.AssertNil(t, idx.SetArchitecture(digest1, "arm-2"))
+							h.AssertNil(t, idx.SetVariant(digest1, "v6-2"))
+							h.AssertNil(t, idx.SaveDir())
+
+							index := h.ReadIndexManifest(t, localPath)
+							h.AssertEq(t, len(index.Manifests), 2)
+							h.AssertEq(t, index.Manifests[1].Digest.String(), "sha256:e18f2c12bb4ea582045415243370a3d9cf3874265aa2867f21a35e630ebe45a7")
+							h.AssertEq(t, index.Manifests[1].Platform.OS, "linux-2")
+							h.AssertEq(t, index.Manifests[1].Platform.Architecture, "arm-2")
+							h.AssertEq(t, index.Manifests[1].Platform.Variant, "v6-2")
+						})
+
+						it("new annotation are appended on disk", func() {
+							annotations := map[string]string{
+								"some-key": "some-value",
+							}
+							h.AssertNil(t, idx.SetAnnotations(digest1, annotations))
+							h.AssertNil(t, idx.SaveDir())
+
+							index := h.ReadIndexManifest(t, localPath)
+							h.AssertEq(t, len(index.Manifests), 2)
+
+							// When updating a digest, it will be appended at the end
+							h.AssertEq(t, index.Manifests[1].Digest.String(), "sha256:e18f2c12bb4ea582045415243370a3d9cf3874265aa2867f21a35e630ebe45a7")
+
+							// in testdata we have 7 annotations + 1 new
+							h.AssertEq(t, len(index.Manifests[1].Annotations), 8)
+							h.AssertEq(t, index.Manifests[1].Annotations["some-key"], "some-value")
+						})
+					})
+				})
+			})
+		})
+	})
+
 	when("#Save", func() {
 		when("index exists on disk", func() {
 			when("#FromBaseIndex", func() {
@@ -1348,7 +1455,7 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					h.AssertEq(t, len(index.Manifests), 1)
 				})
 
-				it.Focus("add more than one manifest to the index", func() {
+				it("add more than one manifest to the index", func() {
 					image1, err := random.Image(1024, 1)
 					h.AssertNil(t, err)
 					idx.AddManifest(image1)

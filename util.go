@@ -2,7 +2,6 @@ package imgutil
 
 import (
 	"encoding/json"
-	"slices"
 	"strings"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -106,25 +105,6 @@ func (s *StringSet) StringSlice() (slice []string) {
 	}
 
 	return slice
-}
-
-func MapContains(src, target map[string]string) bool {
-	for targetKey, targetValue := range target {
-		if value := src[targetKey]; targetValue == value {
-			continue
-		}
-		return false
-	}
-	return true
-}
-
-func SliceContains(src, target []string) bool {
-	for _, value := range target {
-		if ok := slices.Contains[[]string, string](src, value); !ok {
-			return false
-		}
-	}
-	return true
 }
 
 // MakeFileSafeName Change a reference name string into a valid file name
