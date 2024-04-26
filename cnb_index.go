@@ -164,6 +164,9 @@ func (h *CNBIndex) replaceDescriptor(digest name.Digest, withFun func(descriptor
 	if err != nil {
 		return err
 	}
+	if desc.Platform == nil {
+		desc.Platform = &v1.Platform{}
+	}
 	desc, err = withFun(desc)
 	if err != nil {
 		return err
