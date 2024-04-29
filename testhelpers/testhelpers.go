@@ -378,7 +378,7 @@ func FetchManifestImageConfigFile(t *testing.T, repoName string) *v1.ConfigFile 
 	return configFile
 }
 
-func FetchImageManifest(t *testing.T, repoName string) *v1.Manifest {
+func FetchImageIndexDescriptor(t *testing.T, repoName string) v1.ImageIndex {
 	t.Helper()
 
 	r, err := name.ParseReference(repoName, name.WeakValidation)
@@ -387,14 +387,10 @@ func FetchImageManifest(t *testing.T, repoName string) *v1.Manifest {
 	auth, err := authn.DefaultKeychain.Resolve(r.Context().Registry)
 	AssertNil(t, err)
 
-	gImg, err := remote.Image(r, remote.WithTransport(http.DefaultTransport), remote.WithAuth(auth))
+	index, err := remote.Index(r, remote.WithTransport(http.DefaultTransport), remote.WithAuth(auth))
 	AssertNil(t, err)
 
-	mfest, err := gImg.Manifest()
-	AssertNil(t, err)
-	AssertNotEq(t, mfest, nil)
-
-	return mfest
+	return index
 }
 
 func FileDiffID(t *testing.T, path string) string {
@@ -532,6 +528,14 @@ func AssertPathExists(t *testing.T, path string) {
 	}
 }
 
+func AssertPathDoesNotExists(t *testing.T, path string) {
+	t.Helper()
+	_, err := os.Stat(path)
+	if err == nil {
+		t.Errorf("Expected %q to not exists", path)
+	}
+}
+
 func AssertEqAnnotation(t *testing.T, manifest v1.Descriptor, key, value string) {
 	t.Helper()
 	AssertTrue(t, func() bool {
@@ -577,6 +581,8 @@ func AssertDockerMediaTypes(t *testing.T, image v1.Image) {
 }
 
 func ReadImageIndex(t *testing.T, path string) v1.ImageIndex {
+	t.Helper()
+
 	indexPath := filepath.Join(path, "index.json")
 	AssertPathExists(t, filepath.Join(path, "oci-layout"))
 	AssertPathExists(t, indexPath)
@@ -592,6 +598,8 @@ func ReadImageIndex(t *testing.T, path string) v1.ImageIndex {
 }
 
 func DigestsFromImageIndex(t *testing.T, index v1.ImageIndex) []v1.Hash {
+	t.Helper()
+
 	manifests, err := index.IndexManifest()
 	AssertNil(t, err)
 
@@ -600,6 +608,20 @@ func DigestsFromImageIndex(t *testing.T, index v1.ImageIndex) []v1.Hash {
 		hashes = append(hashes, manifest.Digest)
 	}
 	return hashes
+}
+
+func AssertRemoteImageIndex(t *testing.T, repoName string, mediaType types.MediaType, expectedNumberOfManifests int) {
+	t.Helper()
+
+	remoteIndex := FetchImageIndexDescriptor(t, repoName)
+	AssertNotNil(t, remoteIndex)
+	remoteIndexMediaType, err := remoteIndex.MediaType()
+	AssertNil(t, err)
+	AssertEq(t, remoteIndexMediaType, mediaType)
+	remoteIndexManifest, err := remoteIndex.IndexManifest()
+	AssertNil(t, err)
+	AssertNotNil(t, remoteIndexManifest)
+	AssertEq(t, len(remoteIndexManifest.Manifests), expectedNumberOfManifests)
 }
 
 func ReadIndexManifest(t *testing.T, path string) *v1.IndexManifest {
