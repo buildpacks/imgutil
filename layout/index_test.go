@@ -228,6 +228,40 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 						h.AssertEq(t, annotations["org.opencontainers.image.revision"], "185a3f7f21c307b15ef99b7088b228f004ff5f11")
 					})
 				})
+
+				when("non-existent digest is provided", func() {
+					it.Before(func() {
+						// Just changed the last number of a valid digest
+						digest, err = name.NewDigest("busybox-multi-platform@sha256:f5b920213fc6498c0c5eaee7e04f8424202b565bb9e5e4de9e617719fb7bd872")
+						h.AssertNil(t, err)
+					})
+
+					it("error is returned", func() {
+						// #Architecture
+						attribute, err = idx.Architecture(digest)
+						h.AssertNotNil(t, err)
+
+						// #OS
+						attribute, err = idx.OS(digest)
+						h.AssertNotNil(t, err)
+
+						// #Variant
+						attribute, err = idx.Variant(digest)
+						h.AssertNotNil(t, err)
+
+						// #OSVersion
+						attribute, err = idx.OSVersion(digest)
+						h.AssertNotNil(t, err)
+
+						// #OSFeatures
+						attributes, err = idx.OSFeatures(digest)
+						h.AssertNotNil(t, err)
+
+						// #Annotations
+						annotations, err = idx.Annotations(digest)
+						h.AssertNotNil(t, err)
+					})
+				})
 			})
 		})
 	})
@@ -501,6 +535,11 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 					err = idx.Push(imgutil.WithMediaType(types.DockerManifestList))
 					h.AssertNil(t, err)
 					h.AssertRemoteImageIndex(t, repoName, types.DockerManifestList, expectedNumberOfManifests)
+				})
+
+				it("error when media-type doesn't refer to an index", func() {
+					err = idx.Push(imgutil.WithMediaType(types.DockerConfigJSON))
+					h.AssertNotNil(t, err)
 				})
 			})
 
