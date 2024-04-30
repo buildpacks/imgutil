@@ -164,6 +164,7 @@ func (h *CNBIndex) replaceDescriptor(digest name.Digest, withFun func(descriptor
 	if err != nil {
 		return err
 	}
+	mediaType := desc.MediaType
 	if desc.Platform == nil {
 		desc.Platform = &v1.Platform{}
 	}
@@ -176,6 +177,15 @@ func (h *CNBIndex) replaceDescriptor(digest name.Digest, withFun func(descriptor
 		Descriptor: desc,
 	}
 	h.ImageIndex = mutate.AppendManifests(mutate.RemoveManifests(h.ImageIndex, match.Digests(desc.Digest)), add)
+
+	// Avoid overriding the original media-type
+	mediaTypeAfter, err := h.ImageIndex.MediaType()
+	if err != nil {
+		return err
+	}
+	if mediaTypeAfter != mediaType {
+		h.ImageIndex = mutate.IndexMediaType(h.ImageIndex, mediaType)
+	}
 	return nil
 }
 

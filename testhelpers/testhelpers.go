@@ -625,6 +625,8 @@ func AssertRemoteImageIndex(t *testing.T, repoName string, mediaType types.Media
 }
 
 func ReadIndexManifest(t *testing.T, path string) *v1.IndexManifest {
+	t.Helper()
+
 	indexPath := filepath.Join(path, "index.json")
 	AssertPathExists(t, filepath.Join(path, "oci-layout"))
 	AssertPathExists(t, indexPath)
@@ -640,6 +642,8 @@ func ReadIndexManifest(t *testing.T, path string) *v1.IndexManifest {
 }
 
 func ReadManifest(t *testing.T, digest v1.Hash, path string) *v1.Manifest {
+	t.Helper()
+
 	manifestPath := filepath.Join(path, "blobs", digest.Algorithm, digest.Hex)
 	AssertPathExists(t, manifestPath)
 
@@ -653,6 +657,7 @@ func ReadManifest(t *testing.T, digest v1.Hash, path string) *v1.Manifest {
 }
 
 func ReadConfigFile(t *testing.T, manifest *v1.Manifest, path string) *v1.ConfigFile {
+	t.Helper()
 	digest := manifest.Config.Digest
 	configPath := filepath.Join(path, "blobs", digest.Algorithm, digest.Hex)
 	AssertPathExists(t, configPath)

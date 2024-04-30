@@ -326,45 +326,76 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 
 		when("index exists on disk", func() {
 			when("#FromBaseIndex", func() {
-				it.Before(func() {
-					idx = setupIndex(t, "busybox-multi-platform", imgutil.WithXDGRuntimePath(tmpDir), imgutil.FromBaseIndex(baseIndexPath))
-					localPath = filepath.Join(tmpDir, "busybox-multi-platform")
-					digest1, err = name.NewDigest("busybox@sha256:e18f2c12bb4ea582045415243370a3d9cf3874265aa2867f21a35e630ebe45a7")
-					h.AssertNil(t, err)
-				})
-
 				when("digest is provided", func() {
 					when("attributes already exists", func() {
-						it("platform attributes are updated on disk", func() {
-							h.AssertNil(t, idx.SetOS(digest1, "linux-2"))
-							h.AssertNil(t, idx.SetArchitecture(digest1, "arm-2"))
-							h.AssertNil(t, idx.SetVariant(digest1, "v6-2"))
-							h.AssertNil(t, idx.SaveDir())
+						when("oci media-type is used", func() {
+							it.Before(func() {
+								idx = setupIndex(t, "busybox-multi-platform", imgutil.WithXDGRuntimePath(tmpDir), imgutil.FromBaseIndex(baseIndexPath))
+								localPath = filepath.Join(tmpDir, "busybox-multi-platform")
+								digest1, err = name.NewDigest("busybox@sha256:e18f2c12bb4ea582045415243370a3d9cf3874265aa2867f21a35e630ebe45a7")
+								h.AssertNil(t, err)
+							})
 
-							index := h.ReadIndexManifest(t, localPath)
-							h.AssertEq(t, len(index.Manifests), 2)
-							h.AssertEq(t, index.Manifests[1].Digest.String(), "sha256:e18f2c12bb4ea582045415243370a3d9cf3874265aa2867f21a35e630ebe45a7")
-							h.AssertEq(t, index.Manifests[1].Platform.OS, "linux-2")
-							h.AssertEq(t, index.Manifests[1].Platform.Architecture, "arm-2")
-							h.AssertEq(t, index.Manifests[1].Platform.Variant, "v6-2")
+							it("platform attributes are updated on disk", func() {
+								h.AssertNil(t, idx.SetOS(digest1, "linux-2"))
+								h.AssertNil(t, idx.SetArchitecture(digest1, "arm-2"))
+								h.AssertNil(t, idx.SetVariant(digest1, "v6-2"))
+								h.AssertNil(t, idx.SaveDir())
+
+								index := h.ReadIndexManifest(t, localPath)
+								h.AssertEq(t, len(index.Manifests), 2)
+								h.AssertEq(t, index.Manifests[1].Digest.String(), "sha256:e18f2c12bb4ea582045415243370a3d9cf3874265aa2867f21a35e630ebe45a7")
+								h.AssertEq(t, index.Manifests[1].Platform.OS, "linux-2")
+								h.AssertEq(t, index.Manifests[1].Platform.Architecture, "arm-2")
+								h.AssertEq(t, index.Manifests[1].Platform.Variant, "v6-2")
+							})
+
+							it("new annotation are appended on disk", func() {
+								annotations := map[string]string{
+									"some-key": "some-value",
+								}
+								h.AssertNil(t, idx.SetAnnotations(digest1, annotations))
+								h.AssertNil(t, idx.SaveDir())
+
+								index := h.ReadIndexManifest(t, localPath)
+								h.AssertEq(t, len(index.Manifests), 2)
+
+								// When updating a digest, it will be appended at the end
+								h.AssertEq(t, index.Manifests[1].Digest.String(), "sha256:e18f2c12bb4ea582045415243370a3d9cf3874265aa2867f21a35e630ebe45a7")
+
+								// in testdata we have 7 annotations + 1 new
+								h.AssertEq(t, len(index.Manifests[1].Annotations), 8)
+								h.AssertEq(t, index.Manifests[1].Annotations["some-key"], "some-value")
+							})
 						})
 
-						it("new annotation are appended on disk", func() {
-							annotations := map[string]string{
-								"some-key": "some-value",
-							}
-							h.AssertNil(t, idx.SetAnnotations(digest1, annotations))
-							h.AssertNil(t, idx.SaveDir())
+						when("docker media-type is used", func() {
+							it.Before(func() {
+								baseIndexPath = filepath.Join(testDataDir, "index-with-docker-media-type")
+								idx = setupIndex(t, "some-docker-index", imgutil.WithXDGRuntimePath(tmpDir), imgutil.FromBaseIndex(baseIndexPath))
+								localPath = filepath.Join(tmpDir, imgutil.MakeFileSafeName("some-docker-index"))
+								digest1, err = name.NewDigest("some-docker-manifest@sha256:a564fd8f0684d2e119b73db7fb89280a665ebb18e8c30f26d163b4c0da8a8090")
+								h.AssertNil(t, err)
+							})
 
-							index := h.ReadIndexManifest(t, localPath)
-							h.AssertEq(t, len(index.Manifests), 2)
+							it("new annotation are appended on disk and media-type is not override", func() {
+								annotations := map[string]string{
+									"some-key": "some-value",
+								}
+								h.AssertNil(t, idx.SetAnnotations(digest1, annotations))
+								h.AssertNil(t, idx.SaveDir())
 
-							// When updating a digest, it will be appended at the end
-							h.AssertEq(t, index.Manifests[1].Digest.String(), "sha256:e18f2c12bb4ea582045415243370a3d9cf3874265aa2867f21a35e630ebe45a7")
+								index := h.ReadIndexManifest(t, localPath)
+								h.AssertEq(t, len(index.Manifests), 1)
+								h.AssertEq(t, index.MediaType, types.DockerManifestList)
 
-							// in testdata we have 7 annotations + 1 new
-							h.AssertEq(t, len(index.Manifests[1].Annotations), 8)
-							h.AssertEq(t, index.Manifests[1].Annotations["some-key"], "some-value")
+								// When updating a digest, it will be appended at the end
+								h.AssertEq(t, index.Manifests[0].Digest.String(), "sha256:a564fd8f0684d2e119b73db7fb89280a665ebb18e8c30f26d163b4c0da8a8090")
+
+								// in testdata we have 7 annotations + 1 new
+								h.AssertEq(t, len(index.Manifests[0].Annotations), 1)
+								h.AssertEq(t, index.Manifests[0].Annotations["some-key"], "some-value")
+							})
 						})
 					})
 				})
