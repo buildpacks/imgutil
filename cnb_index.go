@@ -321,7 +321,7 @@ func (h *CNBIndex) Push(ops ...IndexOption) error {
 		multiWriteTagables[ref.Context().Tag(tag)] = taggableIndex
 	}
 
-	// FIXME: this will only push the index manifest, assuming that all the images it refers to exist in the registry
+	// Note: this will only push the index manifest, assuming that all the images it refers to exists in the registry
 	err = remote.MultiWrite(
 		multiWriteTagables,
 		remote.WithAuthFromKeychain(h.KeyChain),
