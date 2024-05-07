@@ -13,6 +13,7 @@ import (
 
 	registryName "github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil"
@@ -103,6 +104,18 @@ func (i *Image) Variant() (string, error) {
 	return i.variant, nil
 }
 
+func (i *Image) Features() ([]string, error) {
+	return nil, nil
+}
+
+func (i *Image) OSFeatures() ([]string, error) {
+	return nil, nil
+}
+
+func (i *Image) Annotations() (map[string]string, error) {
+	return nil, nil
+}
+
 func (i *Image) Rename(name string) {
 	i.name = name
 }
@@ -113,6 +126,14 @@ func (i *Image) Name() string {
 
 func (i *Image) Identifier() (imgutil.Identifier, error) {
 	return i.identifier, nil
+}
+
+func (i *Image) Digest() (v1.Hash, error) {
+	return v1.Hash{}, nil
+}
+
+func (i *Image) MediaType() (types.MediaType, error) {
+	return types.MediaType(""), nil
 }
 
 func (i *Image) Kind() string {
@@ -168,6 +189,18 @@ func (i *Image) SetArchitecture(a string) error {
 
 func (i *Image) SetVariant(a string) error {
 	i.variant = a
+	return nil
+}
+
+func (i *Image) SetFeatures(_ []string) error {
+	return nil
+}
+
+func (i *Image) SetOSFeatures(_ []string) error {
+	return nil
+}
+
+func (i *Image) SetAnnotations(_ map[string]string) error {
 	return nil
 }
 

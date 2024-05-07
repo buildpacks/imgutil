@@ -49,7 +49,7 @@ func (i *Image) found() (*v1.Descriptor, error) {
 	if err != nil {
 		return nil, err
 	}
-	return remote.Head(ref, remote.WithAuth(auth), remote.WithTransport(getTransport(reg.Insecure)))
+	return remote.Head(ref, remote.WithAuth(auth), remote.WithTransport(imgutil.GetTransport(reg.Insecure)))
 }
 
 func (i *Image) Identifier() (imgutil.Identifier, error) {
@@ -84,7 +84,7 @@ func (i *Image) valid() error {
 	if err != nil {
 		return err
 	}
-	desc, err := remote.Get(ref, remote.WithAuth(auth), remote.WithTransport(getTransport(reg.Insecure)))
+	desc, err := remote.Get(ref, remote.WithAuth(auth), remote.WithTransport(imgutil.GetTransport(reg.Insecure)))
 	if err != nil {
 		return err
 	}
@@ -112,7 +112,7 @@ func (i *Image) Delete() error {
 	if err != nil {
 		return err
 	}
-	return remote.Delete(ref, remote.WithAuth(auth), remote.WithTransport(getTransport(reg.Insecure)))
+	return remote.Delete(ref, remote.WithAuth(auth), remote.WithTransport(imgutil.GetTransport(reg.Insecure)))
 }
 
 // extras
@@ -146,4 +146,10 @@ func (i *Image) CheckReadWriteAccess() (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+var _ imgutil.ImageIndex = (*ImageIndex)(nil)
+
+type ImageIndex struct {
+	*imgutil.CNBIndex
 }

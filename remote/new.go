@@ -96,7 +96,7 @@ func processImageOption(repoName string, keychain authn.Keychain, withPlatform i
 		image, err = remote.Image(ref,
 			remote.WithAuth(auth),
 			remote.WithPlatform(platform),
-			remote.WithTransport(getTransport(reg.Insecure)),
+			remote.WithTransport(imgutil.GetTransport(reg.Insecure)),
 		)
 		if err != nil {
 			if err == io.EOF && i != maxRetries {

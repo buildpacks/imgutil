@@ -55,10 +55,10 @@ func testReproducibility(t *testing.T, _ spec.G, it spec.S) {
 	it.Before(func() {
 		dockerClient = h.DockerCli(t)
 
-		daemonInfo, err := dockerClient.Info(context.TODO())
+		daemonInfo, err := dockerClient.ServerVersion(context.TODO())
 		h.AssertNil(t, err)
 
-		daemonOS := daemonInfo.OSType
+		daemonOS := daemonInfo.Os
 
 		runnableBaseImageName = h.RunnableBaseImage(daemonOS)
 		h.PullIfMissing(t, dockerClient, runnableBaseImageName)

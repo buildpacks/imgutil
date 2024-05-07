@@ -1,9 +1,14 @@
 package imgutil
 
 import (
+	"crypto/tls"
+	"fmt"
+	"net/http"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
 type ImageOption func(*ImageOptions)
@@ -92,4 +97,111 @@ func WithPreviousImage(name string) func(*ImageOptions) {
 	return func(o *ImageOptions) {
 		o.PreviousImageRepoName = name
 	}
+}
+
+type IndexOption func(options *IndexOptions) error
+
+type IndexOptions struct {
+	BaseIndexRepoName string
+	MediaType         types.MediaType
+	LayoutIndexOptions
+	RemoteIndexOptions
+	IndexPushOptions
+
+	// These options must be specified in each implementation's image index constructor
+	BaseIndex v1.ImageIndex
+}
+
+type LayoutIndexOptions struct {
+	XdgPath string
+}
+
+type RemoteIndexOptions struct {
+	Keychain authn.Keychain
+	Insecure bool
+}
+
+// FromBaseIndex sets the name to use when loading the index.
+// It used to either construct the path (if using layout) or the repo name (if using remote).
+// If the index is not found, it does nothing.
+func FromBaseIndex(name string) func(*IndexOptions) error {
+	return func(o *IndexOptions) error {
+		o.BaseIndexRepoName = name
+		return nil
+	}
+}
+
+// FromBaseIndexInstance sets the provided image index as the working image index.
+func FromBaseIndexInstance(index v1.ImageIndex) func(options *IndexOptions) error {
+	return func(o *IndexOptions) error {
+		o.BaseIndex = index
+		return nil
+	}
+}
+
+// WithMediaType specifies the media type for the image index.
+func WithMediaType(mediaType types.MediaType) func(options *IndexOptions) error {
+	return func(o *IndexOptions) error {
+		if !mediaType.IsIndex() {
+			return fmt.Errorf("unsupported media type encountered: '%s'", mediaType)
+		}
+		o.MediaType = mediaType
+		return nil
+	}
+}
+
+// WithXDGRuntimePath Saves the Index to the '`xdgPath`/manifests'
+func WithXDGRuntimePath(xdgPath string) func(options *IndexOptions) error {
+	return func(o *IndexOptions) error {
+		o.XdgPath = xdgPath
+		return nil
+	}
+}
+
+// WithKeychain fetches Index from registry with keychain
+func WithKeychain(keychain authn.Keychain) func(options *IndexOptions) error {
+	return func(o *IndexOptions) error {
+		o.Keychain = keychain
+		return nil
+	}
+}
+
+// WithInsecure if true pulls and pushes the image to an insecure registry.
+func WithInsecure() func(options *IndexOptions) error {
+	return func(o *IndexOptions) error {
+		o.Insecure = true
+		return nil
+	}
+}
+
+type IndexPushOptions struct {
+	Purge           bool
+	DestinationTags []string
+}
+
+// WithPurge if true deletes the index from the local filesystem after pushing
+func WithPurge(purge bool) func(options *IndexOptions) error {
+	return func(a *IndexOptions) error {
+		a.Purge = purge
+		return nil
+	}
+}
+
+// WithTags sets the destination tags for the index when pushed
+func WithTags(tags ...string) func(options *IndexOptions) error {
+	return func(a *IndexOptions) error {
+		a.DestinationTags = tags
+		return nil
+	}
+}
+
+func GetTransport(insecure bool) http.RoundTripper {
+	if insecure {
+		return &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true, // #nosec G402
+			},
+		}
+	}
+	return http.DefaultTransport
 }

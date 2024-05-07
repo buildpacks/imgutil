@@ -1,9 +1,7 @@
 package remote
 
 import (
-	"crypto/tls"
 	"fmt"
-	"net/http"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -61,17 +59,6 @@ func (i *Image) doSave(imageName string) error {
 
 	return remote.Write(ref, i.CNBImageCore,
 		remote.WithAuth(auth),
-		remote.WithTransport(getTransport(reg.Insecure)),
+		remote.WithTransport(imgutil.GetTransport(reg.Insecure)),
 	)
-}
-
-func getTransport(insecure bool) http.RoundTripper {
-	if insecure {
-		return &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true, // #nosec G402
-			},
-		}
-	}
-	return http.DefaultTransport
 }

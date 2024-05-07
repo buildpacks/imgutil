@@ -29,6 +29,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
@@ -113,6 +114,13 @@ func AssertNil(t *testing.T, actual interface{}) {
 	t.Helper()
 	if actual != nil {
 		t.Fatalf("Expected nil: %s", actual)
+	}
+}
+
+func AssertNotNil(t *testing.T, actual any) {
+	t.Helper()
+	if actual == nil {
+		t.Fatalf("Expected not nil: %s", actual)
 	}
 }
 
@@ -365,8 +373,24 @@ func FetchManifestImageConfigFile(t *testing.T, repoName string) *v1.ConfigFile 
 
 	configFile, err := gImg.ConfigFile()
 	AssertNil(t, err)
+	AssertNotEq(t, configFile, nil)
 
 	return configFile
+}
+
+func FetchImageIndexDescriptor(t *testing.T, repoName string) v1.ImageIndex {
+	t.Helper()
+
+	r, err := name.ParseReference(repoName, name.WeakValidation)
+	AssertNil(t, err)
+
+	auth, err := authn.DefaultKeychain.Resolve(r.Context().Registry)
+	AssertNil(t, err)
+
+	index, err := remote.Index(r, remote.WithTransport(http.DefaultTransport), remote.WithAuth(auth))
+	AssertNil(t, err)
+
+	return index
 }
 
 func FileDiffID(t *testing.T, path string) string {
@@ -491,7 +515,6 @@ func RemoteImage(t *testing.T, testImageName string, opts []remote.Option) v1.Im
 
 	testImage, err := remote.Image(r, opts...)
 	AssertNil(t, err)
-
 	return testImage
 }
 
@@ -502,6 +525,14 @@ func AssertPathExists(t *testing.T, path string) {
 		t.Errorf("Expected %q to exist", path)
 	} else if err != nil {
 		t.Fatalf("Error stating %q: %v", path, err)
+	}
+}
+
+func AssertPathDoesNotExists(t *testing.T, path string) {
+	t.Helper()
+	_, err := os.Stat(path)
+	if err == nil {
+		t.Errorf("Expected %q to not exists", path)
 	}
 }
 
@@ -549,7 +580,53 @@ func AssertDockerMediaTypes(t *testing.T, image v1.Image) {
 	}
 }
 
+func ReadImageIndex(t *testing.T, path string) v1.ImageIndex {
+	t.Helper()
+
+	indexPath := filepath.Join(path, "index.json")
+	AssertPathExists(t, filepath.Join(path, "oci-layout"))
+	AssertPathExists(t, indexPath)
+
+	layoutPath, err := layout.FromPath(path)
+	AssertNil(t, err)
+
+	localIndex, err := layoutPath.ImageIndex()
+	AssertNil(t, err)
+	AssertNotNil(t, localIndex)
+
+	return localIndex
+}
+
+func DigestsFromImageIndex(t *testing.T, index v1.ImageIndex) []v1.Hash {
+	t.Helper()
+
+	manifests, err := index.IndexManifest()
+	AssertNil(t, err)
+
+	var hashes []v1.Hash
+	for _, manifest := range manifests.Manifests {
+		hashes = append(hashes, manifest.Digest)
+	}
+	return hashes
+}
+
+func AssertRemoteImageIndex(t *testing.T, repoName string, mediaType types.MediaType, expectedNumberOfManifests int) {
+	t.Helper()
+
+	remoteIndex := FetchImageIndexDescriptor(t, repoName)
+	AssertNotNil(t, remoteIndex)
+	remoteIndexMediaType, err := remoteIndex.MediaType()
+	AssertNil(t, err)
+	AssertEq(t, remoteIndexMediaType, mediaType)
+	remoteIndexManifest, err := remoteIndex.IndexManifest()
+	AssertNil(t, err)
+	AssertNotNil(t, remoteIndexManifest)
+	AssertEq(t, len(remoteIndexManifest.Manifests), expectedNumberOfManifests)
+}
+
 func ReadIndexManifest(t *testing.T, path string) *v1.IndexManifest {
+	t.Helper()
+
 	indexPath := filepath.Join(path, "index.json")
 	AssertPathExists(t, filepath.Join(path, "oci-layout"))
 	AssertPathExists(t, indexPath)
@@ -565,6 +642,8 @@ func ReadIndexManifest(t *testing.T, path string) *v1.IndexManifest {
 }
 
 func ReadManifest(t *testing.T, digest v1.Hash, path string) *v1.Manifest {
+	t.Helper()
+
 	manifestPath := filepath.Join(path, "blobs", digest.Algorithm, digest.Hex)
 	AssertPathExists(t, manifestPath)
 
@@ -578,6 +657,7 @@ func ReadManifest(t *testing.T, digest v1.Hash, path string) *v1.Manifest {
 }
 
 func ReadConfigFile(t *testing.T, manifest *v1.Manifest, path string) *v1.ConfigFile {
+	t.Helper()
 	digest := manifest.Config.Digest
 	configPath := filepath.Join(path, "blobs", digest.Algorithm, digest.Hex)
 	AssertPathExists(t, configPath)

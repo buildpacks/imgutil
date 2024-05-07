@@ -162,6 +162,25 @@ func (i *CNBImageCore) OSVersion() (string, error) {
 	return configFile.OSVersion, nil
 }
 
+func (i *CNBImageCore) OSFeatures() ([]string, error) {
+	configFile, err := getConfigFile(i.Image)
+	if err != nil {
+		return nil, err
+	}
+	return configFile.OSFeatures, nil
+}
+
+func (i *CNBImageCore) Annotations() (map[string]string, error) {
+	manifest, err := getManifest(i.Image)
+	if err != nil {
+		return nil, err
+	}
+	if manifest.Annotations == nil {
+		return make(map[string]string), nil
+	}
+	return manifest.Annotations, nil
+}
+
 func (i *CNBImageCore) TopLayer() (string, error) {
 	layers, err := i.Image.Layers()
 	if err != nil {
@@ -202,6 +221,12 @@ func (i *CNBImageCore) WorkingDir() (string, error) {
 }
 
 func (i *CNBImageCore) AnnotateRefName(refName string) error {
+	return i.SetAnnotations(map[string]string{
+		"org.opencontainers.image.ref.name": refName,
+	})
+}
+
+func (i *CNBImageCore) SetAnnotations(annotations map[string]string) error {
 	manifest, err := getManifest(i.Image)
 	if err != nil {
 		return err
@@ -209,11 +234,13 @@ func (i *CNBImageCore) AnnotateRefName(refName string) error {
 	if manifest.Annotations == nil {
 		manifest.Annotations = make(map[string]string)
 	}
-	manifest.Annotations["org.opencontainers.image.ref.name"] = refName
+	for k, v := range annotations {
+		manifest.Annotations[k] = v
+	}
 	mutated := mutate.Annotations(i.Image, manifest.Annotations)
 	image, ok := mutated.(v1.Image)
 	if !ok {
-		return fmt.Errorf("failed to add annotation")
+		return fmt.Errorf("failed to add annotations")
 	}
 	i.Image = image
 	return nil
@@ -282,6 +309,12 @@ func (i *CNBImageCore) SetLabel(key, val string) error {
 func (i *CNBImageCore) SetOS(osVal string) error {
 	return i.MutateConfigFile(func(c *v1.ConfigFile) {
 		c.OS = osVal
+	})
+}
+
+func (i *CNBImageCore) SetOSFeatures(osFeatures []string) error {
+	return i.MutateConfigFile(func(c *v1.ConfigFile) {
+		c.OSFeatures = osFeatures
 	})
 }
 

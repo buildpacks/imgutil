@@ -1163,22 +1163,27 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 	when("#SetOS #SetOSVersion #SetArchitecture", func() {
 		it("sets the os/arch", func() {
+			var (
+				os        = "foobaros"
+				arch      = "arm64"
+				osVersion = "1.2.3.4"
+			)
 			img, err := remote.NewImage(repoName, authn.DefaultKeychain)
 			h.AssertNil(t, err)
 
-			err = img.SetOS("foobaros")
+			err = img.SetOS(os)
 			h.AssertNil(t, err)
-			err = img.SetOSVersion("1.2.3.4")
+			err = img.SetOSVersion(osVersion)
 			h.AssertNil(t, err)
-			err = img.SetArchitecture("arm64")
+			err = img.SetArchitecture(arch)
 			h.AssertNil(t, err)
 
 			h.AssertNil(t, img.Save())
 
 			configFile := h.FetchManifestImageConfigFile(t, repoName)
-			h.AssertEq(t, configFile.OS, "foobaros")
-			h.AssertEq(t, configFile.OSVersion, "1.2.3.4")
-			h.AssertEq(t, configFile.Architecture, "arm64")
+			h.AssertEq(t, configFile.OS, os)
+			h.AssertEq(t, configFile.OSVersion, osVersion)
+			h.AssertEq(t, configFile.Architecture, arch)
 		})
 	})
 
