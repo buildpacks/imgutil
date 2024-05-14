@@ -119,6 +119,7 @@ func emptyV1(withPlatform Platform, withMediaTypes MediaTypes) (v1.Image, error)
 		History:      []v1.History{},
 		OS:           withPlatform.OS,
 		OSVersion:    withPlatform.OSVersion,
+		Variant:      withPlatform.Variant,
 		RootFS: v1.RootFS{
 			Type:    "layers",
 			DiffIDs: []v1.Hash{},

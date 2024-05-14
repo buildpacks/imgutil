@@ -82,6 +82,7 @@ func processImageOption(repoName string, keychain authn.Keychain, withPlatform i
 	platform := v1.Platform{
 		Architecture: withPlatform.Architecture,
 		OS:           withPlatform.OS,
+		Variant:      withPlatform.Variant,
 		OSVersion:    withPlatform.OSVersion,
 	}
 	reg := getRegistrySetting(repoName, withRegistrySettings)
@@ -153,6 +154,7 @@ func emptyImage(platform imgutil.Platform) (v1.Image, error) {
 		Architecture: platform.Architecture,
 		History:      []v1.History{},
 		OS:           platform.OS,
+		Variant:      platform.Variant,
 		OSVersion:    platform.OSVersion,
 		RootFS: v1.RootFS{
 			Type:    "layers",
