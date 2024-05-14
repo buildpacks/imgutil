@@ -110,7 +110,9 @@ func imageFromIndex(index v1.ImageIndex, platform imgutil.Platform) (v1.Image, e
 	} else {
 		for _, m := range manifestList.Manifests {
 			if m.Platform.OS == platform.OS &&
-				m.Platform.Architecture == platform.Architecture {
+				m.Platform.Architecture == platform.Architecture &&
+				m.Platform.Variant == platform.Variant &&
+				m.Platform.OSVersion == platform.OSVersion {
 				manifest = m
 				break
 			}

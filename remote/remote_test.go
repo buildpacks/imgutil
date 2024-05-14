@@ -123,6 +123,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					remote.WithDefaultPlatform(imgutil.Platform{
 						Architecture: "arm",
 						OS:           "windows",
+						Variant:      "v1",
 						OSVersion:    "10.0.17763.316",
 					}),
 				)
@@ -136,6 +137,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				os, err := img.OS()
 				h.AssertNil(t, err)
 				h.AssertEq(t, os, "windows")
+
+				variant, err := img.Variant()
+				h.AssertNil(t, err)
+				h.AssertEq(t, variant, "v1")
 
 				osVersion, err := img.OSVersion()
 				h.AssertNil(t, err)
@@ -155,6 +160,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					remote.WithDefaultPlatform(imgutil.Platform{
 						Architecture: "arm",
 						OS:           "linux",
+						Variant:      "v6",
+						OSVersion:    "21.01",
 					}),
 				)
 				h.AssertNil(t, err)
@@ -167,6 +174,14 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				osName, err := img.OS()
 				h.AssertNil(t, err)
 				h.AssertEq(t, osName, "linux")
+
+				variant, err := img.Variant()
+				h.AssertNil(t, err)
+				h.AssertEq(t, variant, "v6")
+
+				osVersion, err := img.OSVersion()
+				h.AssertNil(t, err)
+				h.AssertEq(t, osVersion, "21.01")
 
 				_, err = img.TopLayer()
 				h.AssertError(t, err, "has no layers")

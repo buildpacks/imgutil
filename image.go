@@ -108,10 +108,11 @@ type WithEditableLayers interface {
 
 type Identifier fmt.Stringer
 
-// Platform represents the target arch/os/os_version for an image construction and querying.
+// Platform represents the target arch/os/variant/os_version for an image construction and querying.
 type Platform struct {
 	Architecture string
 	OS           string
+	Variant      string
 	OSVersion    string
 }
 
