@@ -216,10 +216,11 @@ func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string) e
 		blankIdx   int
 	)
 	for _, layer := range layers {
-		layerName, err := s.addLayerToTar(tw, layer, &blankIdx)
+		layerName, err := s.addLayerToTar(tw, layer, blankIdx)
 		if err != nil {
 			return err
 		}
+		blankIdx++
 		layerPaths = append(layerPaths, layerName)
 	}
 
@@ -236,7 +237,7 @@ func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string) e
 	return addTextToTar(tw, manifestJSON, "manifest.json")
 }
 
-func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer, blankIdx *int) (string, error) {
+func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer, blankIdx int) (string, error) {
 	// If the layer is a previous image layer that hasn't been downloaded yet,
 	// cause ALL the previous image layers to be downloaded by grabbing the ReadCloser.
 	layerReader, err := layer.Uncompressed()
@@ -252,7 +253,6 @@ func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer, blankIdx *int) (st
 	}
 	if size == -1 { // it's a base (always empty) layer
 		layerName = fmt.Sprintf("blank_%d", blankIdx)
-		*blankIdx++
 		hdr := &tar.Header{Name: layerName, Mode: 0644, Size: 0}
 		return layerName, tw.WriteHeader(hdr)
 	}
