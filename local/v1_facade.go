@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -230,22 +229,6 @@ func newDownloadableEmptyLayer(diffID v1.Hash, store *Store, imageID string) *v1
 				return layer.Size()
 			}
 			return -1, nil
-		},
-	}
-}
-
-func newPopulatedLayer(diffID v1.Hash, fromPath string, uncompressedSize int64) *v1LayerFacade {
-	return &v1LayerFacade{
-		diffID: diffID,
-		uncompressed: func() (io.ReadCloser, error) {
-			f, err := os.Open(fromPath)
-			if err != nil {
-				return nil, err
-			}
-			return f, nil
-		},
-		uncompressedSize: func() (int64, error) {
-			return uncompressedSize, nil
 		},
 	}
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/docker/docker/pkg/jsonmessage"
 	registryName "github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/buildpacks/imgutil"
@@ -288,11 +289,13 @@ func (s *Store) getLayerSize(layer v1.Layer) (int64, error) {
 		return 0, err
 	}
 	knownLayer, layerFound := s.onDiskLayersByDiffID[diffID]
-	if layerFound {
+	if layerFound && knownLayer.uncompressedSize != -1 {
 		return knownLayer.uncompressedSize, nil
 	}
+	// FIXME: this is a time sink and should be avoided if the daemon accepts OCI layout-formatted tars
 	// If layer was not seen previously, we need to read it to get the uncompressed size
-	// In practice, we should not get here
+	// In practice, we should only get here if layers saved from the daemon via `docker save`
+	// are output compressed.
 	layerReader, err := layer.Uncompressed()
 	if err != nil {
 		return 0, err
@@ -450,18 +453,11 @@ func (s *Store) doDownloadLayersFor(identifier string) error {
 		return err
 	}
 
-	for idx, diffID := range configFile.RootFS.DiffIDs {
+	for idx := range configFile.RootFS.DiffIDs {
 		layerPath := filepath.Join(tmpDir, manifest[0].Layers[idx])
-		hash, err := v1.NewHash(diffID)
-		if err != nil {
+		if _, err := s.AddLayer(layerPath); err != nil {
 			return err
 		}
-		layer := newPopulatedLayer(hash, layerPath, 1)
-		fi, err := os.Stat(layerPath)
-		if err != nil {
-			return err
-		}
-		s.AddLayer(layer, hash, fi.Size())
 	}
 	return nil
 }
@@ -546,9 +542,39 @@ func (s *Store) findLayer(withHash v1.Hash) v1.Layer {
 	return aLayer.layer
 }
 
-func (s *Store) AddLayer(layer v1.Layer, withDiffID v1.Hash, withSize int64) {
-	s.onDiskLayersByDiffID[withDiffID] = annotatedLayer{
-		layer:            layer,
-		uncompressedSize: withSize,
+func (s *Store) AddLayer(fromPath string) (v1.Layer, error) {
+	layer, err := tarball.LayerFromFile(fromPath)
+	if err != nil {
+		return nil, err
 	}
+	diffID, err := layer.DiffID()
+	if err != nil {
+		return nil, err
+	}
+	var uncompressedSize int64
+	fileSize, err := func() (int64, error) {
+		fi, err := os.Stat(fromPath)
+		if err != nil {
+			return -1, err
+		}
+		return fi.Size(), nil
+	}()
+	if err != nil {
+		return nil, err
+	}
+	compressedSize, err := layer.Size()
+	if err != nil {
+		return nil, err
+	}
+	if fileSize == compressedSize {
+		// the layer is compressed, we don't know the uncompressed size
+		uncompressedSize = -1
+	} else {
+		uncompressedSize = fileSize
+	}
+	s.onDiskLayersByDiffID[diffID] = annotatedLayer{
+		layer:            layer,
+		uncompressedSize: uncompressedSize,
+	}
+	return layer, nil
 }

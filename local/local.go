@@ -1,13 +1,9 @@
 package local
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -110,65 +106,27 @@ func (i *Image) SetOS(osVal string) error {
 var emptyHistory = v1.History{Created: v1.Time{Time: imgutil.NormalizedDateTime}}
 
 func (i *Image) AddLayer(path string) error {
-	diffID, err := calculateChecksum(path)
-	if err != nil {
-		return err
-	}
-	layer, err := i.addLayerToStore(path, diffID)
+	layer, err := i.store.AddLayer(path)
 	if err != nil {
 		return err
 	}
 	return i.AddLayerWithHistory(layer, emptyHistory)
 }
 
-func calculateChecksum(path string) (string, error) {
-	f, err := os.Open(filepath.Clean(path))
-	if err != nil {
-		return "", fmt.Errorf("failed to open layer at path %s: %w", path, err)
-	}
-	defer f.Close()
-	hasher := sha256.New()
-	if _, err := io.Copy(hasher, f); err != nil {
-		return "", fmt.Errorf("failed to calculate checksum for layer at path %s: %w", path, err)
-	}
-	return "sha256:" + hex.EncodeToString(hasher.Sum(make([]byte, 0, hasher.Size()))), nil
-}
-
-func (i *Image) AddLayerWithDiffID(path, diffID string) error {
-	layer, err := i.addLayerToStore(path, diffID)
+func (i *Image) AddLayerWithDiffID(path, _ string) error {
+	layer, err := i.store.AddLayer(path)
 	if err != nil {
 		return err
 	}
 	return i.AddLayerWithHistory(layer, emptyHistory)
 }
 
-func (i *Image) AddLayerWithDiffIDAndHistory(path, diffID string, history v1.History) error {
-	layer, err := i.addLayerToStore(path, diffID)
+func (i *Image) AddLayerWithDiffIDAndHistory(path, _ string, history v1.History) error {
+	layer, err := i.store.AddLayer(path)
 	if err != nil {
 		return err
 	}
 	return i.AddLayerWithHistory(layer, history)
-}
-
-func (i *Image) addLayerToStore(fromPath, withDiffID string) (v1.Layer, error) {
-	var (
-		layer v1.Layer
-		err   error
-	)
-	diffID, err := v1.NewHash(withDiffID)
-	if err != nil {
-		return nil, err
-	}
-	layer = newPopulatedLayer(diffID, fromPath, 1)
-	if err != nil {
-		return nil, err
-	}
-	fi, err := os.Stat(fromPath)
-	if err != nil {
-		return nil, err
-	}
-	i.store.AddLayer(layer, diffID, fi.Size())
-	return layer, nil
 }
 
 func (i *Image) AddOrReuseLayerWithHistory(path string, diffID string, history v1.History) error {
