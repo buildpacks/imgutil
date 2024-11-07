@@ -717,7 +717,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, err)
 
 			// based on static base image refs
-			expectedTime := time.Date(2018, 10, 2, 17, 19, 34, 239926273, time.UTC)
+			expectedTime := time.Date(2024, 9, 26, 21, 31, 42, 0, time.UTC)
 			if daemonOS == "windows" {
 				expectedTime = time.Date(2020, 03, 04, 13, 28, 48, 673000000, time.UTC)
 			}

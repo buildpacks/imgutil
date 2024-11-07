@@ -270,9 +270,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				})
 
 				when("base image is a multi-OS/Arch manifest list", func() {
-					it("returns a base image matching linux/amd64", func() {
+					it("returns a base image matching linux/architecture", func() {
 						manifestListName := "golang:1.13.8"
-						existingLayerSha := "sha256:427da4a135b0869c1a274ba38e23d45bdbda93134c4ad99c8900cb0cfe9f0c9e"
+						existingLayerDigests := map[string]string{
+							"amd64": "sha256:427da4a135b0869c1a274ba38e23d45bdbda93134c4ad99c8900cb0cfe9f0c9e",
+							"arm64": "sha256:c50765ba68c46491618574144955985555c2c7584137e69a0bd1017f411111d2",
+						}
 
 						img, err := remote.NewImage(
 							repoName,
@@ -293,7 +296,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 						h.AssertEq(t, arch, runtime.GOARCH)
 
-						readCloser, err := img.GetLayer(existingLayerSha)
+						readCloser, err := img.GetLayer(existingLayerDigests[runtime.GOARCH])
 						h.AssertNil(t, err)
 						defer readCloser.Close()
 					})
