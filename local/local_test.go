@@ -27,6 +27,14 @@ const someSHA = "sha256:aec070645fe53ee3b3763059376134f058cc337247c978add178b6cc
 
 var localTestRegistry *h.DockerRegistry
 
+type TestLogger struct {
+	WarnCalled bool
+}
+
+func (logger *TestLogger) Warn(msg string) {
+	logger.WarnCalled = true
+}
+
 func TestLocal(t *testing.T) {
 	localTestRegistry = h.NewDockerRegistry()
 	localTestRegistry.Start(t)
@@ -2026,6 +2034,32 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				err = img.Save()
 				h.AssertError(t, err, fmt.Sprintf("failed to write image to the following tags: [%s:", repoName))
 				h.AssertError(t, err, "daemon response")
+			})
+		})
+		when("logger is set", func() {
+			when("containerd is used", func() {
+				testLogger := &TestLogger{}
+				dockerClient := h.DockerCli(t)
+				imgName := "test-image"
+
+				img, err := local.NewImage(imgName, dockerClient, local.WithLogger(testLogger))
+				if err != nil {
+					t.Fatalf("Failed to create image: %v", err)
+				}
+				err = img.Save()
+				if err != nil {
+					t.Fatalf("Failed to save image: %v", err)
+				}
+
+				defer func() {
+					if err := h.DockerRmi(dockerClient, imgName); err != nil {
+						t.Errorf("Failed to remove image %s: %v", imgName, err)
+					}
+				}()
+
+				if !testLogger.WarnCalled {
+					t.Error("Expected warning to be logged,but it was not.")
+				}
 			})
 		})
 	})

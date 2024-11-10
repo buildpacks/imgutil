@@ -38,3 +38,15 @@ func WithMediaTypes(m imgutil.MediaTypes) func(*imgutil.ImageOptions) {
 func WithPreviousImage(name string) func(*imgutil.ImageOptions) {
 	return imgutil.WithPreviousImage(name)
 }
+
+func WithLogger(logger imgutil.Logger) func(*imgutil.ImageOptions) {
+	return imgutil.WithLogger(logger)
+}
+
+type StoreOption func(*Store)
+
+func WithStoreLogger(logger imgutil.Logger) StoreOption {
+	return func(s *Store) {
+		s.Logger = logger
+	}
+}

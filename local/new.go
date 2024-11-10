@@ -47,7 +47,11 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...imgutil.ImageOp
 		baseIdentifier = baseImage.identifier
 		store = baseImage.layerStore
 	} else {
-		store = NewStore(dockerClient)
+		if options.Logger != nil {
+			store = NewStore(dockerClient, WithStoreLogger(options.Logger))
+		} else {
+			store = NewStore(dockerClient)
+		}
 	}
 
 	cnbImage, err := imgutil.NewCNBImage(*options)

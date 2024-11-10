@@ -34,6 +34,7 @@ type Store struct {
 	// optional
 	downloadOnce         *sync.Once
 	onDiskLayersByDiffID map[v1.Hash]annotatedLayer
+	Logger               imgutil.Logger
 }
 
 // DockerClient is subset of client.CommonAPIClient required by this package.
@@ -53,12 +54,18 @@ type annotatedLayer struct {
 	uncompressedSize int64
 }
 
-func NewStore(dockerClient DockerClient) *Store {
-	return &Store{
+func NewStore(dockerClient DockerClient, ops ...StoreOption) *Store {
+	store := &Store{
 		dockerClient:         dockerClient,
 		downloadOnce:         &sync.Once{},
 		onDiskLayersByDiffID: make(map[v1.Hash]annotatedLayer),
+		Logger:               nil,
 	}
+	for _, op := range ops {
+		op(store)
+	}
+
+	return store
 }
 
 // images
@@ -95,6 +102,9 @@ func (s *Store) Save(image *Image, withName string, withAdditionalNames ...strin
 		inspect, err = s.doSave(image, withName)
 	}
 	if !canOmitBaseLayers || err != nil {
+		if s.Logger != nil && !canOmitBaseLayers {
+			s.Logger.Warn("Containerd is enabled, which will make saving your work more expensive.")
+		}
 		if err = image.ensureLayers(); err != nil {
 			return "", err
 		}
