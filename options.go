@@ -17,6 +17,7 @@ type ImageOptions struct {
 	BaseImageRepoName     string
 	PreviousImageRepoName string
 	Config                *v1.Config
+	Logger                Logger
 	CreatedAt             time.Time
 	MediaTypes            MediaTypes
 	Platform              Platform
@@ -41,6 +42,10 @@ type RemoteOptions struct {
 
 type RegistrySetting struct {
 	Insecure bool
+}
+
+type Logger interface {
+	Warn(msg string)
 }
 
 // FromBaseImage loads the provided image as the manifest, config, and layers for the working image.
@@ -96,6 +101,13 @@ func WithMediaTypes(m MediaTypes) func(*ImageOptions) {
 func WithPreviousImage(name string) func(*ImageOptions) {
 	return func(o *ImageOptions) {
 		o.PreviousImageRepoName = name
+	}
+}
+
+// WithLogger if provided will check if contained is used.
+func WithLogger(logger Logger) func(*ImageOptions) {
+	return func(o *ImageOptions) {
+		o.Logger = logger
 	}
 }
 
