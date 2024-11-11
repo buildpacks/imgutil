@@ -29,10 +29,12 @@ var localTestRegistry *h.DockerRegistry
 
 type TestLogger struct {
 	WarnCalled bool
+	Message    string
 }
 
 func (logger *TestLogger) Warn(msg string) {
 	logger.WarnCalled = true
+	logger.Message = msg
 }
 
 func TestLocal(t *testing.T) {
@@ -2057,8 +2059,28 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					}
 				}()
 
-				if !testLogger.WarnCalled {
-					t.Error("Expected warning to be logged,but it was not.")
+				isContainerd := func(cli local.DockerClient) bool {
+					info, err := cli.Info(context.Background())
+					if err != nil {
+						return false
+					}
+					for _, driverStatus := range info.DriverStatus {
+						if driverStatus[0] == "driver-type" && driverStatus[1] == "io.containerd.snapshotter.v1" {
+							return true
+						}
+					}
+					return false
+				}(dockerClient)
+				if isContainerd {
+					if !testLogger.WarnCalled {
+						t.Error("Expected warning to be logged,but it was not.")
+						t.Errorf(testLogger.Message)
+					}
+				} else {
+					if testLogger.WarnCalled {
+						t.Error("did not expected warning to be logged,but it was.")
+						t.Errorf(testLogger.Message)
+					}
 				}
 			})
 		})
