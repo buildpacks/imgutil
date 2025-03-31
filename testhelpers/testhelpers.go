@@ -138,10 +138,10 @@ func AssertTrue(t *testing.T, p func() bool) {
 	}
 }
 
-var dockerCliVal dockercli.CommonAPIClient
+var dockerCliVal dockercli.APIClient
 var dockerCliOnce sync.Once
 
-func DockerCli(t *testing.T) dockercli.CommonAPIClient {
+func DockerCli(t *testing.T) dockercli.APIClient {
 	dockerCliOnce.Do(func() {
 		var dockerCliErr error
 		dockerCliVal, dockerCliErr = dockercli.NewClientWithOpts(dockercli.FromEnv, dockercli.WithVersion("1.38"))
@@ -170,9 +170,9 @@ func Eventually(t *testing.T, test func() bool, every time.Duration, timeout tim
 	}
 }
 
-func PullIfMissing(t *testing.T, docker dockercli.CommonAPIClient, ref string) {
+func PullIfMissing(t *testing.T, docker dockercli.APIClient, ref string) {
 	t.Helper()
-	_, _, err := docker.ImageInspectWithRaw(context.TODO(), ref)
+	_, err := docker.ImageInspect(context.TODO(), ref)
 	if err == nil {
 		return
 	}
@@ -194,7 +194,7 @@ func PullIfMissing(t *testing.T, docker dockercli.CommonAPIClient, ref string) {
 	AssertNil(t, err)
 }
 
-func DockerRmi(dockerCli dockercli.CommonAPIClient, repoNames ...string) error {
+func DockerRmi(dockerCli dockercli.APIClient, repoNames ...string) error {
 	var err error
 	ctx := context.Background()
 	for _, repoName := range repoNames {
@@ -211,7 +211,7 @@ func DockerRmi(dockerCli dockercli.CommonAPIClient, repoNames ...string) error {
 }
 
 // PushImage pushes an image to a registry, optionally using credentials from any set DOCKER_CONFIG
-func PushImage(t *testing.T, _ dockercli.CommonAPIClient, refStr string) {
+func PushImage(t *testing.T, _ dockercli.APIClient, refStr string) {
 	t.Helper()
 	Run(t, exec.Command("docker", "push", refStr)) // #nosec G204
 }
@@ -260,7 +260,7 @@ func DeleteRegistryBlob(t *testing.T, repoName string, digest v1.Hash, encodedAu
 
 func ImageID(t *testing.T, repoName string) string {
 	t.Helper()
-	inspect, _, err := DockerCli(t).ImageInspectWithRaw(context.Background(), repoName)
+	inspect, err := DockerCli(t).ImageInspect(context.Background(), repoName)
 	AssertNil(t, err)
 	return inspect.ID
 }
