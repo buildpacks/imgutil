@@ -39,7 +39,7 @@ type Store struct {
 // DockerClient is subset of client.CommonAPIClient required by this package.
 type DockerClient interface {
 	ImageHistory(ctx context.Context, image string, opts ...client.ImageHistoryOption) ([]image.HistoryResponseItem, error)
-	ImageInspect(ctx context.Context, image string) (image.InspectResponse, error)
+	ImageInspect(ctx context.Context, image string, opts ...client.ImageInspectOption) (image.InspectResponse, error)
 	ImageLoad(ctx context.Context, input io.Reader, opts ...client.ImageLoadOption) (image.LoadResponse, error)
 	ImageRemove(ctx context.Context, image string, options image.RemoveOptions) ([]image.DeleteResponse, error)
 	ImageSave(ctx context.Context, images []string, saveOpts ...client.ImageSaveOption) (io.ReadCloser, error)
