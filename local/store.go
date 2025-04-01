@@ -80,10 +80,10 @@ func (s *Store) Delete(identifier string) error {
 	return err
 }
 
-func (s *Store) Save(image *Image, withName string, withAdditionalNames ...string) (string, error) {
+func (s *Store) Save(img *Image, withName string, withAdditionalNames ...string) (string, error) {
 	withName = tryNormalizing(withName)
 	var (
-		inspect types.ImageInspect
+		inspect image.InspectResponse
 		err     error
 	)
 
@@ -92,13 +92,13 @@ func (s *Store) Save(image *Image, withName string, withAdditionalNames ...strin
 	if canOmitBaseLayers {
 		// During the first save attempt some layers may be excluded.
 		// The docker daemon allows this if the given set of layers already exists in the daemon in the given order.
-		inspect, err = s.doSave(image, withName)
+		inspect, err = s.doSave(img, withName)
 	}
 	if !canOmitBaseLayers || err != nil {
-		if err = image.ensureLayers(); err != nil {
+		if err = img.ensureLayers(); err != nil {
 			return "", err
 		}
-		inspect, err = s.doSave(image, withName)
+		inspect, err = s.doSave(img, withName)
 		if err != nil {
 			saveErr := imgutil.SaveError{}
 			for _, n := range append([]string{withName}, withAdditionalNames...) {
@@ -146,7 +146,7 @@ func usesContainerdStorage(docker DockerClient) bool {
 	return false
 }
 
-func (s *Store) doSave(img v1.Image, withName string) (types.ImageInspect, error) {
+func (s *Store) doSave(img v1.Image, withName string) (image.InspectResponse, error) {
 	ctx := context.Background()
 	done := make(chan error)
 
@@ -180,27 +180,27 @@ func (s *Store) doSave(img v1.Image, withName string) (types.ImageInspect, error
 	defer tw.Close()
 
 	if err = s.addImageToTar(tw, img, withName); err != nil {
-		return types.ImageInspect{}, err
+		return image.InspectResponse{}, err
 	}
 	tw.Close()
 	pw.Close()
 	err = <-done
 	if err != nil {
-		return types.ImageInspect{}, fmt.Errorf("loading image %q. first error: %w", withName, err)
+		return image.InspectResponse{}, fmt.Errorf("loading image %q. first error: %w", withName, err)
 	}
 
 	inspect, err := s.dockerClient.ImageInspect(context.Background(), withName)
 	if err != nil {
 		if client.IsErrNotFound(err) {
-			return types.ImageInspect{}, fmt.Errorf("saving image %q: %w", withName, err)
+			return image.InspectResponse{}, fmt.Errorf("saving image %q: %w", withName, err)
 		}
-		return types.ImageInspect{}, err
+		return image.InspectResponse{}, err
 	}
 	return inspect, nil
 }
 
-func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string) error {
-	rawConfigFile, err := image.RawConfigFile()
+func (s *Store) addImageToTar(tw *tar.Writer, img v1.Image, withName string) error {
+	rawConfigFile, err := img.RawConfigFile()
 	if err != nil {
 		return err
 	}
@@ -208,7 +208,7 @@ func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string) e
 	if err = addTextToTar(tw, rawConfigFile, configHash+".json"); err != nil {
 		return err
 	}
-	layers, err := image.Layers()
+	layers, err := img.Layers()
 	if err != nil {
 		return err
 	}
@@ -341,7 +341,7 @@ func ensureReaderClosed(r io.ReadCloser) error {
 	return err
 }
 
-func (s *Store) SaveFile(image *Image, withName string) (string, error) {
+func (s *Store) SaveFile(img *Image, withName string) (string, error) {
 	withName = tryNormalizing(withName)
 
 	f, err := os.CreateTemp("", "imgutil.local.image.export.*.tar")
@@ -359,7 +359,7 @@ func (s *Store) SaveFile(image *Image, withName string) (string, error) {
 	// (1) WithPreviousImage(), or (2) FromBaseImage().
 	// The former is only relevant if ReuseLayers() has been called which takes care of resolving them.
 	// The latter case needs to be handled explicitly.
-	if err = image.ensureLayers(); err != nil {
+	if err = img.ensureLayers(); err != nil {
 		return "", err
 	}
 
@@ -380,7 +380,7 @@ func (s *Store) SaveFile(image *Image, withName string) (string, error) {
 		tw := tar.NewWriter(pw)
 		defer tw.Close()
 
-		return s.addImageToTar(tw, image, withName)
+		return s.addImageToTar(tw, img, withName)
 	})
 
 	err = errs.Wait()

@@ -22,7 +22,7 @@ import (
 // The facade is never modified, but it may become the underlying v1.Image for imgutil.CNBImageCore images.
 // The underlying layers will return data if they are contained in the store.
 // By storing a pointer to the image store, callers can update the store to force the layers to return data.
-func newV1ImageFacadeFromInspect(dockerInspect types.ImageInspect, history []image.HistoryResponseItem, withStore *Store, downloadLayersOnAccess bool) (v1.Image, error) {
+func newV1ImageFacadeFromInspect(dockerInspect image.InspectResponse, history []image.HistoryResponseItem, withStore *Store, downloadLayersOnAccess bool) (v1.Image, error) {
 	rootFS, err := toV1RootFS(dockerInspect.RootFS)
 	if err != nil {
 		return nil, err

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -119,7 +118,7 @@ func processImageOption(repoName string, dockerClient DockerClient, downloadLaye
 	}, nil
 }
 
-func getInspectAndHistory(repoName string, dockerClient DockerClient) (*types.ImageInspect, []image.HistoryResponseItem, error) {
+func getInspectAndHistory(repoName string, dockerClient DockerClient) (*image.InspectResponse, []image.HistoryResponseItem, error) {
 	inspect, err := dockerClient.ImageInspect(context.Background(), repoName)
 	if err != nil {
 		if client.IsErrNotFound(err) {
