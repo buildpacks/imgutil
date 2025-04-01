@@ -260,7 +260,7 @@ func DeleteRegistryBlob(t *testing.T, repoName string, digest v1.Hash, encodedAu
 
 func ImageID(t *testing.T, repoName string) string {
 	t.Helper()
-	inspect, _, err := DockerCli(t).ImageInspectWithRaw(context.Background(), repoName)
+	inspect, err := DockerCli(t).ImageInspect(context.Background(), repoName)
 	AssertNil(t, err)
 	return inspect.ID
 }
