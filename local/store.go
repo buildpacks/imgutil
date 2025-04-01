@@ -42,7 +42,7 @@ type DockerClient interface {
 	ImageInspect(ctx context.Context, image string, opts ...client.ImageInspectOption) (image.InspectResponse, error)
 	ImageLoad(ctx context.Context, input io.Reader, opts ...client.ImageLoadOption) (image.LoadResponse, error)
 	ImageRemove(ctx context.Context, image string, options image.RemoveOptions) ([]image.DeleteResponse, error)
-	ImageSave(ctx context.Context, images []string) (io.ReadCloser, error)
+	ImageSave(ctx context.Context, images []string, opts ...client.ImageSaveOption) (io.ReadCloser, error)
 	ImageTag(ctx context.Context, image, ref string) error
 	Info(ctx context.Context) (system.Info, error)
 	ServerVersion(ctx context.Context) (types.Version, error)
