@@ -6,7 +6,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -97,7 +96,7 @@ func layersAddendum(layers []v1.Layer, history []v1.History, requestedType v1typ
 	return addendums
 }
 
-func toV1RootFS(dockerRootFS types.RootFS) (v1.RootFS, error) {
+func toV1RootFS(dockerRootFS image.RootFS) (v1.RootFS, error) {
 	diffIDs := make([]v1.Hash, len(dockerRootFS.Layers))
 	for idx, layer := range dockerRootFS.Layers {
 		hash, err := v1.NewHash(layer)
