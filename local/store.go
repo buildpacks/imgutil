@@ -36,7 +36,7 @@ type Store struct {
 	onDiskLayersByDiffID map[v1.Hash]annotatedLayer
 }
 
-// DockerClient is subset of client.CommonAPIClient required by this package.
+// DockerClient is subset of client.APIClient required by this package.
 type DockerClient interface {
 	ImageHistory(ctx context.Context, image string, opts ...client.ImageHistoryOption) ([]image.HistoryResponseItem, error)
 	ImageInspect(ctx context.Context, image string, opts ...client.ImageInspectOption) (image.InspectResponse, error)

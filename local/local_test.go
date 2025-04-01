@@ -41,7 +41,7 @@ func newTestImageName() string {
 
 func testImage(t *testing.T, when spec.G, it spec.S) {
 	var (
-		dockerClient          client.CommonAPIClient
+		dockerClient          client.APIClient
 		daemonOS              string
 		daemonArchitecture    string
 		runnableBaseImageName string
