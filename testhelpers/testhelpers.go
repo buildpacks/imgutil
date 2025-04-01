@@ -172,7 +172,7 @@ func Eventually(t *testing.T, test func() bool, every time.Duration, timeout tim
 
 func PullIfMissing(t *testing.T, docker dockercli.APIClient, ref string) {
 	t.Helper()
-	_, _, err := docker.ImageInspectWithRaw(context.TODO(), ref)
+	_, err := docker.ImageInspect(context.TODO(), ref)
 	if err == nil {
 		return
 	}

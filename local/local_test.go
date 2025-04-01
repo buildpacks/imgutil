@@ -1204,7 +1204,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				h.AssertNil(t, origImage.Save())
 
-				inspect, _, err = dockerClient.ImageInspectWithRaw(context.TODO(), repoName)
+				inspect, err = dockerClient.ImageInspect(context.TODO(), repoName)
 				h.AssertNil(t, err)
 				origNumLayers = len(inspect.RootFS.Layers)
 			})
@@ -1998,7 +1998,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						h.AssertError(t, saveErr.Errors[0].Cause, "invalid reference format")
 
 						for _, n := range successfulRepoNames {
-							_, _, err = dockerClient.ImageInspectWithRaw(context.TODO(), n)
+							_, err = dockerClient.ImageInspect(context.TODO(), n)
 							h.AssertNil(t, err)
 						}
 					})
