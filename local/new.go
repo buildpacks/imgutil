@@ -120,7 +120,7 @@ func processImageOption(repoName string, dockerClient DockerClient, downloadLaye
 }
 
 func getInspectAndHistory(repoName string, dockerClient DockerClient) (*types.ImageInspect, []image.HistoryResponseItem, error) {
-	inspect, _, err := dockerClient.ImageInspectWithRaw(context.Background(), repoName)
+	inspect, err := dockerClient.ImageInspect(context.Background(), repoName)
 	if err != nil {
 		if client.IsErrNotFound(err) {
 			return nil, nil, nil

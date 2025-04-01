@@ -38,9 +38,9 @@ type Store struct {
 
 // DockerClient is subset of client.CommonAPIClient required by this package.
 type DockerClient interface {
-	ImageHistory(ctx context.Context, image string) ([]image.HistoryResponseItem, error)
-	ImageInspectWithRaw(ctx context.Context, image string) (types.ImageInspect, []byte, error)
-	ImageLoad(ctx context.Context, input io.Reader, quiet bool) (types.ImageLoadResponse, error)
+	ImageHistory(ctx context.Context, image string, opts ...client.ImageHistoryOption) ([]image.HistoryResponseItem, error)
+	ImageInspect(ctx context.Context, image string, opts ...client.ImageInspectOption) (image.InspectResponse, error)
+	ImageLoad(ctx context.Context, input io.Reader, opts ...client.ImageLoadOption) (image.LoadResponse, error)
 	ImageRemove(ctx context.Context, image string, options image.RemoveOptions) ([]image.DeleteResponse, error)
 	ImageSave(ctx context.Context, images []string) (io.ReadCloser, error)
 	ImageTag(ctx context.Context, image, ref string) error
@@ -64,7 +64,7 @@ func NewStore(dockerClient DockerClient) *Store {
 // images
 
 func (s *Store) Contains(identifier string) bool {
-	_, _, err := s.dockerClient.ImageInspectWithRaw(context.Background(), identifier)
+	_, err := s.dockerClient.ImageInspect(context.Background(), identifier)
 	return err == nil
 }
 
@@ -146,7 +146,7 @@ func usesContainerdStorage(docker DockerClient) bool {
 	return false
 }
 
-func (s *Store) doSave(image v1.Image, withName string) (types.ImageInspect, error) {
+func (s *Store) doSave(img v1.Image, withName string) (types.ImageInspect, error) {
 	ctx := context.Background()
 	done := make(chan error)
 
@@ -155,8 +155,8 @@ func (s *Store) doSave(image v1.Image, withName string) (types.ImageInspect, err
 	defer pw.Close()
 
 	go func() {
-		var res types.ImageLoadResponse
-		res, err = s.dockerClient.ImageLoad(ctx, pr, true)
+		var res image.LoadResponse
+		res, err = s.dockerClient.ImageLoad(ctx, pr, client.ImageLoadWithQuiet(true))
 		if err != nil {
 			done <- err
 			return
@@ -179,7 +179,7 @@ func (s *Store) doSave(image v1.Image, withName string) (types.ImageInspect, err
 	tw := tar.NewWriter(pw)
 	defer tw.Close()
 
-	if err = s.addImageToTar(tw, image, withName); err != nil {
+	if err = s.addImageToTar(tw, img, withName); err != nil {
 		return types.ImageInspect{}, err
 	}
 	tw.Close()
@@ -189,7 +189,7 @@ func (s *Store) doSave(image v1.Image, withName string) (types.ImageInspect, err
 		return types.ImageInspect{}, fmt.Errorf("loading image %q. first error: %w", withName, err)
 	}
 
-	inspect, _, err := s.dockerClient.ImageInspectWithRaw(context.Background(), withName)
+	inspect, err := s.dockerClient.ImageInspect(context.Background(), withName)
 	if err != nil {
 		if client.IsErrNotFound(err) {
 			return types.ImageInspect{}, fmt.Errorf("saving image %q: %w", withName, err)
