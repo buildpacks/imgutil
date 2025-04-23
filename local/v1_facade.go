@@ -6,7 +6,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -22,7 +21,7 @@ import (
 // The facade is never modified, but it may become the underlying v1.Image for imgutil.CNBImageCore images.
 // The underlying layers will return data if they are contained in the store.
 // By storing a pointer to the image store, callers can update the store to force the layers to return data.
-func newV1ImageFacadeFromInspect(dockerInspect types.ImageInspect, history []image.HistoryResponseItem, withStore *Store, downloadLayersOnAccess bool) (v1.Image, error) {
+func newV1ImageFacadeFromInspect(dockerInspect image.InspectResponse, history []image.HistoryResponseItem, withStore *Store, downloadLayersOnAccess bool) (v1.Image, error) {
 	rootFS, err := toV1RootFS(dockerInspect.RootFS)
 	if err != nil {
 		return nil, err
@@ -97,7 +96,7 @@ func layersAddendum(layers []v1.Layer, history []v1.History, requestedType v1typ
 	return addendums
 }
 
-func toV1RootFS(dockerRootFS types.RootFS) (v1.RootFS, error) {
+func toV1RootFS(dockerRootFS image.RootFS) (v1.RootFS, error) {
 	diffIDs := make([]v1.Hash, len(dockerRootFS.Layers))
 	for idx, layer := range dockerRootFS.Layers {
 		hash, err := v1.NewHash(layer)

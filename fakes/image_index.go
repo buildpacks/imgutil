@@ -1,9 +1,10 @@
 package fakes
 
 import (
-	"github.com/buildpacks/imgutil"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+
+	"github.com/buildpacks/imgutil"
 )
 
 var _ imgutil.ImageIndex = ImageIndex{}
