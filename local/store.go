@@ -36,13 +36,14 @@ type Store struct {
 	onDiskLayersByDiffID map[v1.Hash]annotatedLayer
 }
 
-// DockerClient is subset of client.CommonAPIClient required by this package.
+// DockerClient is subset of client.APIClient required by this package.
 type DockerClient interface {
-	ImageHistory(ctx context.Context, image string) ([]image.HistoryResponseItem, error)
+	ImageHistory(ctx context.Context, image string, opts ...client.ImageHistoryOption) ([]image.HistoryResponseItem, error)
+	ImageInspect(ctx context.Context, image string, opts ...client.ImageInspectOption) (image.InspectResponse, error)
 	ImageInspectWithRaw(ctx context.Context, image string) (types.ImageInspect, []byte, error)
-	ImageLoad(ctx context.Context, input io.Reader, quiet bool) (types.ImageLoadResponse, error)
+	ImageLoad(ctx context.Context, input io.Reader, opts ...client.ImageLoadOption) (image.LoadResponse, error)
 	ImageRemove(ctx context.Context, image string, options image.RemoveOptions) ([]image.DeleteResponse, error)
-	ImageSave(ctx context.Context, images []string) (io.ReadCloser, error)
+	ImageSave(ctx context.Context, images []string, opts ...client.ImageSaveOption) (io.ReadCloser, error)
 	ImageTag(ctx context.Context, image, ref string) error
 	Info(ctx context.Context) (system.Info, error)
 	ServerVersion(ctx context.Context) (types.Version, error)
@@ -155,8 +156,7 @@ func (s *Store) doSave(image v1.Image, withName string) (types.ImageInspect, err
 	defer pw.Close()
 
 	go func() {
-		var res types.ImageLoadResponse
-		res, err = s.dockerClient.ImageLoad(ctx, pr, true)
+		res, err := s.dockerClient.ImageLoad(ctx, pr, client.ImageLoadWithQuiet(true))
 		if err != nil {
 			done <- err
 			return

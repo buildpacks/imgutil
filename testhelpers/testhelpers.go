@@ -138,10 +138,10 @@ func AssertTrue(t *testing.T, p func() bool) {
 	}
 }
 
-var dockerCliVal dockercli.CommonAPIClient
+var dockerCliVal dockercli.APIClient
 var dockerCliOnce sync.Once
 
-func DockerCli(t *testing.T) dockercli.CommonAPIClient {
+func DockerCli(t *testing.T) dockercli.APIClient {
 	dockerCliOnce.Do(func() {
 		var dockerCliErr error
 		dockerCliVal, dockerCliErr = dockercli.NewClientWithOpts(dockercli.FromEnv, dockercli.WithVersion("1.38"))
@@ -170,7 +170,7 @@ func Eventually(t *testing.T, test func() bool, every time.Duration, timeout tim
 	}
 }
 
-func PullIfMissing(t *testing.T, docker dockercli.CommonAPIClient, ref string) {
+func PullIfMissing(t *testing.T, docker dockercli.APIClient, ref string) {
 	t.Helper()
 	_, _, err := docker.ImageInspectWithRaw(context.TODO(), ref)
 	if err == nil {
@@ -194,7 +194,7 @@ func PullIfMissing(t *testing.T, docker dockercli.CommonAPIClient, ref string) {
 	AssertNil(t, err)
 }
 
-func DockerRmi(dockerCli dockercli.CommonAPIClient, repoNames ...string) error {
+func DockerRmi(dockerCli dockercli.APIClient, repoNames ...string) error {
 	var err error
 	ctx := context.Background()
 	for _, repoName := range repoNames {
@@ -211,7 +211,7 @@ func DockerRmi(dockerCli dockercli.CommonAPIClient, repoNames ...string) error {
 }
 
 // PushImage pushes an image to a registry, optionally using credentials from any set DOCKER_CONFIG
-func PushImage(t *testing.T, _ dockercli.CommonAPIClient, refStr string) {
+func PushImage(t *testing.T, _ dockercli.APIClient, refStr string) {
 	t.Helper()
 	Run(t, exec.Command("docker", "push", refStr)) // #nosec G204
 }

@@ -41,7 +41,7 @@ func newTestImageName() string {
 
 func testImage(t *testing.T, when spec.G, it spec.S) {
 	var (
-		dockerClient          client.CommonAPIClient
+		dockerClient          client.APIClient
 		daemonOS              string
 		daemonArchitecture    string
 		runnableBaseImageName string
@@ -2055,7 +2055,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, err)
 			defer f.Close()
 
-			_, err = dockerClient.ImageLoad(context.TODO(), f, true)
+			_, err = dockerClient.ImageLoad(context.TODO(), f, client.ImageLoadWithQuiet(true))
 			h.AssertNil(t, err)
 			f.Close()
 			defer h.DockerRmi(dockerClient, img.Name())
