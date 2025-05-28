@@ -48,7 +48,7 @@ func testReproducibility(t *testing.T, _ spec.G, it spec.S) {
 		imageName1, imageName2 string
 		layer1, layer2         string
 		mutateAndSave          func(t *testing.T, image imgutil.Image)
-		dockerClient           dockerclient.CommonAPIClient
+		dockerClient           dockerclient.APIClient
 		runnableBaseImageName  string
 	)
 
