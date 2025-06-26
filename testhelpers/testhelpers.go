@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/image"
 	dockercli "github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
@@ -176,7 +177,7 @@ func PullIfMissing(t *testing.T, docker dockercli.APIClient, ref string) {
 	if err == nil {
 		return
 	}
-	if !dockercli.IsErrNotFound(err) {
+	if !cerrdefs.IsNotFound(err) {
 		t.Fatalf("failed inspecting image '%s': %s", ref, err)
 	}
 
