@@ -6,12 +6,12 @@ import (
 	"io"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	v1types "github.com/google/go-containerregistry/pkg/v1/types"
+	dockerspec "github.com/moby/docker-image-spec/specs-go/v1"
 
 	"github.com/buildpacks/imgutil"
 )
@@ -132,7 +132,7 @@ func toV1History(history []image.HistoryResponseItem) []v1.History {
 	return v1History
 }
 
-func toV1Config(dockerCfg *container.Config) v1.Config {
+func toV1Config(dockerCfg *dockerspec.DockerOCIImageConfig) v1.Config {
 	if dockerCfg == nil {
 		return v1.Config{}
 	}
@@ -148,32 +148,21 @@ func toV1Config(dockerCfg *container.Config) v1.Config {
 	}
 	exposedPorts := make(map[string]struct{}, len(dockerCfg.ExposedPorts))
 	for key, val := range dockerCfg.ExposedPorts {
-		exposedPorts[string(key)] = val
+		exposedPorts[key] = val
 	}
 	return v1.Config{
-		AttachStderr:    dockerCfg.AttachStderr,
-		AttachStdin:     dockerCfg.AttachStdin,
-		AttachStdout:    dockerCfg.AttachStdout,
-		Cmd:             dockerCfg.Cmd,
-		Healthcheck:     healthcheck,
-		Domainname:      dockerCfg.Domainname,
-		Entrypoint:      dockerCfg.Entrypoint,
-		Env:             dockerCfg.Env,
-		Hostname:        dockerCfg.Hostname,
-		Image:           dockerCfg.Image,
-		Labels:          dockerCfg.Labels,
-		OnBuild:         dockerCfg.OnBuild,
-		OpenStdin:       dockerCfg.OpenStdin,
-		StdinOnce:       dockerCfg.StdinOnce,
-		Tty:             dockerCfg.Tty,
-		User:            dockerCfg.User,
-		Volumes:         dockerCfg.Volumes,
-		WorkingDir:      dockerCfg.WorkingDir,
-		ExposedPorts:    exposedPorts,
-		ArgsEscaped:     dockerCfg.ArgsEscaped,
-		NetworkDisabled: dockerCfg.NetworkDisabled,
-		StopSignal:      dockerCfg.StopSignal,
-		Shell:           dockerCfg.Shell,
+		Cmd:          dockerCfg.Cmd,
+		Healthcheck:  healthcheck,
+		Entrypoint:   dockerCfg.Entrypoint,
+		Env:          dockerCfg.Env,
+		Labels:       dockerCfg.Labels,
+		OnBuild:      dockerCfg.OnBuild,
+		User:         dockerCfg.User,
+		Volumes:      dockerCfg.Volumes,
+		WorkingDir:   dockerCfg.WorkingDir,
+		ExposedPorts: exposedPorts,
+		StopSignal:   dockerCfg.StopSignal,
+		Shell:        dockerCfg.Shell,
 	}
 }
 

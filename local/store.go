@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/system"
@@ -190,7 +191,7 @@ func (s *Store) doSave(img v1.Image, withName string) (image.InspectResponse, er
 
 	inspect, err := s.dockerClient.ImageInspect(context.Background(), withName)
 	if err != nil {
-		if client.IsErrNotFound(err) {
+		if cerrdefs.IsNotFound(err) {
 			return image.InspectResponse{}, fmt.Errorf("saving image %q: %w", withName, err)
 		}
 		return image.InspectResponse{}, err

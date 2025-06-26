@@ -1040,7 +1040,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 			h.AssertNil(t, err)
 
-			h.AssertEq(t, []string(inspect.Config.Entrypoint), []string{"some", "entrypoint"})
+			h.AssertEq(t, inspect.Config.Entrypoint, []string{"some", "entrypoint"})
 		})
 	})
 
@@ -1063,7 +1063,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 			h.AssertNil(t, err)
 
-			h.AssertEq(t, []string(inspect.Config.Cmd), []string{"some", "cmd"})
+			h.AssertEq(t, inspect.Config.Cmd, []string{"some", "cmd"})
 		})
 	})
 

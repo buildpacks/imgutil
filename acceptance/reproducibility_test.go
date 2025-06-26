@@ -131,6 +131,7 @@ func testReproducibility(t *testing.T, _ spec.G, it spec.S) {
 		img2, err := local.NewImage(imageName2, dockerClient, local.FromBaseImage(runnableBaseImageName))
 		h.AssertNil(t, err)
 		mutateAndSave(t, img2)
+
 		h.PushImage(t, dockerClient, imageName2)
 
 		compare(t, imageName1, imageName2)
@@ -169,6 +170,10 @@ func compare(t *testing.T, img1, img2 string) {
 	cfg2.DockerVersion = ""
 	cfg1.Config.Image = ""
 	cfg2.Config.Image = ""
+
+	// ArgsEscaped is deprecated by docker/moby and is no longer set by imgutil, so we set it to false
+	cfg1.Config.ArgsEscaped = false
+	cfg2.Config.ArgsEscaped = false
 
 	h.AssertEq(t, cfg1, cfg2)
 
