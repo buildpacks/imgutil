@@ -355,8 +355,8 @@ func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer, blankIdx int) (str
 
 // getLayerSize returns the uncompressed layer size.
 // This is needed because the daemon expects uncompressed layer size and a v1.Layer reports compressed layer size;
-// in a future where we send OCI layout tars to the daemon we should be able to remove this method
-// and the need to track layers individually.
+// Performance optimization: When all layers have known uncompressed sizes (from docker save), 
+// use addLayerToTarOptimized to avoid this expensive calculation.
 func (s *Store) getLayerSize(layer v1.Layer) (int64, error) {
 	diffID, err := layer.DiffID()
 	if err != nil {
@@ -366,6 +366,8 @@ func (s *Store) getLayerSize(layer v1.Layer) (int64, error) {
 	if layerFound && knownLayer.uncompressedSize != -1 {
 		return knownLayer.uncompressedSize, nil
 	}
+	// Performance optimization: Avoid expensive size calculation when all layers are known.
+	// This happens when layers were downloaded via docker save and have cached uncompressed sizes.
 	// FIXME: this is a time sink and should be avoided if the daemon accepts OCI layout-formatted tars
 	// If layer was not seen previously, we need to read it to get the uncompressed size
 	// In practice, we should only get here if layers saved from the daemon via `docker save`
