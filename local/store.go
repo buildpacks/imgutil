@@ -200,6 +200,9 @@ func (s *Store) doSave(img v1.Image, withName string) (image.InspectResponse, er
 }
 
 func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string) error {
+	// Check if we can optimize by using known layer sizes
+	canOptimize := s.canOptimizeLayerSizes(image)
+	
 	rawConfigFile, err := image.RawConfigFile()
 	if err != nil {
 		return err
@@ -217,7 +220,12 @@ func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string) e
 		blankIdx   int
 	)
 	for _, layer := range layers {
-		layerName, err := s.addLayerToTar(tw, layer, blankIdx)
+		var layerName string
+		if canOptimize {
+			layerName, err = s.addLayerToTarOptimized(tw, layer, blankIdx)
+		} else {
+			layerName, err = s.addLayerToTar(tw, layer, blankIdx)
+		}
 		if err != nil {
 			return err
 		}
@@ -236,6 +244,72 @@ func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string) e
 		return err
 	}
 	return addTextToTar(tw, manifestJSON, "manifest.json")
+}
+
+func (s *Store) canOptimizeLayerSizes(image v1.Image) bool {
+	layers, err := image.Layers()
+	if err != nil {
+		return false
+	}
+	
+	// Check if all layers have known uncompressed sizes (i.e., they came from docker save)
+	for _, layer := range layers {
+		diffID, err := layer.DiffID()
+		if err != nil {
+			return false
+		}
+		knownLayer, layerFound := s.onDiskLayersByDiffID[diffID]
+		if !layerFound || knownLayer.uncompressedSize == -1 {
+			return false
+		}
+	}
+	
+	return true
+}
+
+func (s *Store) addLayerToTarOptimized(tw *tar.Writer, layer v1.Layer, blankIdx int) (string, error) {
+	// This optimized version avoids reading through the layer to calculate uncompressed size
+	// when we already know it from docker save
+	
+	// Get size info from cache first
+	diffID, err := layer.DiffID()
+	if err != nil {
+		return "", err
+	}
+	knownLayer := s.onDiskLayersByDiffID[diffID]
+	
+	size, err := layer.Size()
+	if err != nil {
+		return "", err
+	}
+	
+	var layerName string
+	if size == -1 { // it's a base (always empty) layer
+		layerName = fmt.Sprintf("blank_%d", blankIdx)
+		hdr := &tar.Header{Name: layerName, Mode: 0644, Size: 0}
+		return layerName, tw.WriteHeader(hdr)
+	}
+	
+	// it's a populated layer - use known uncompressed size
+	layerName = fmt.Sprintf("/%s.tar", diffID.String())
+	uncompressedSize := knownLayer.uncompressedSize
+	
+	// Use the uncompressed layer reader
+	layerReader, err := layer.Uncompressed()
+	if err != nil {
+		return "", err
+	}
+	defer layerReader.Close()
+	
+	hdr := &tar.Header{Name: layerName, Mode: 0644, Size: uncompressedSize}
+	if err = tw.WriteHeader(hdr); err != nil {
+		return "", err
+	}
+	if _, err = io.Copy(tw, layerReader); err != nil {
+		return "", err
+	}
+
+	return layerName, nil
 }
 
 func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer, blankIdx int) (string, error) {
