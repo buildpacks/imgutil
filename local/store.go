@@ -257,116 +257,40 @@ func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string, i
 		return err
 	}
 
-	// Pre-process layers in parallel, then write to tar sequentially
-
-	// Parallel Processing Optimization: Prepare layer metadata concurrently, then write sequentially
-	// This overlaps the expensive layer reader preparation while maintaining tar format integrity.
-	// Prepare layer metadata in parallel
-	type layerInfo struct {
-		index   int
-		name    string
-		size    int64
-		diffID  v1.Hash
-		isBlank bool
-		reader  io.ReadCloser
-		err     error
-	}
-
-	layerInfos := make([]*layerInfo, len(layers))
-
-	// Parallel preparation phase
-	g, ctx := errgroup.WithContext(context.Background())
-
-	// Limit concurrent layer preparation to avoid too many open file handles
-	maxConcurrency := 3
-	if len(layers) < maxConcurrency {
-		maxConcurrency = len(layers)
-	}
-	semaphore := make(chan struct{}, maxConcurrency)
-
-	for i, layer := range layers {
-		i, layer := i, layer // capture loop variables
-		layerInfos[i] = &layerInfo{index: i}
-
-		g.Go(func() error {
-			// Acquire semaphore
-			select {
-			case semaphore <- struct{}{}:
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-			defer func() { <-semaphore }()
-
-			info := layerInfos[i]
-
-			// Get layer size to determine if it's blank
-			size, err := layer.Size()
-			if err != nil {
-				info.err = err
-				return err
-			}
-			info.size = size
-
-			if size == -1 {
-				// Blank layer
-				info.isBlank = true
-				info.name = fmt.Sprintf("blank_%d", i)
-				return nil
-			}
-
-			// Get diff ID for non-blank layers
-			diffID, err := layer.DiffID()
-			if err != nil {
-				info.err = err
-				return err
-			}
-			info.diffID = diffID
-			info.name = fmt.Sprintf("/%s.tar", diffID.String())
-
-			// Pre-open the reader to check for errors early
-			reader, err := layer.Uncompressed()
-			if err != nil {
-				info.err = err
-				return err
-			}
-			info.reader = reader
-
-			return nil
-		})
-	}
-
-	// Wait for all preparation to complete
-	if err := g.Wait(); err != nil {
-		// Close any opened readers on error
-		for _, info := range layerInfos {
-			if info.reader != nil {
-				info.reader.Close()
-			}
+	var (
+		layerPaths []string
+		blankIdx   int
+	)
+	for _, layer := range layers {
+		// If the layer is a previous image layer that hasn't been downloaded yet,
+		// cause ALL the previous image layers to be downloaded by grabbing the ReadCloser.
+		layerReader, err := layer.Uncompressed()
+		if err != nil {
+			return err
 		}
-		return err
-	}
+		defer layerReader.Close()
 
-	// Sequential tar writing phase
-	var layerPaths []string
-
-	for i, info := range layerInfos {
-		if info.err != nil {
-			return info.err
+		var layerName string
+		size, err := layer.Size()
+		if err != nil {
+			return err
 		}
-
-		if info.isBlank {
-			// Write blank layer
-			hdr := &tar.Header{Name: info.name, Mode: 0644, Size: 0}
+		if size == -1 { // it's a base (always empty) layer
+			layerName = fmt.Sprintf("blank_%d", blankIdx)
+			hdr := &tar.Header{Name: layerName, Mode: 0644, Size: 0}
 			if err := tw.WriteHeader(hdr); err != nil {
 				return err
 			}
 		} else {
-			// Write populated layer
-			defer info.reader.Close()
+			// it's a populated layer
+			layerDiffID, err := layer.DiffID()
+			if err != nil {
+				return err
+			}
+			layerName = fmt.Sprintf("/%s.tar", layerDiffID.String())
 
 			// CONTAINERD OPTIMIZATION: For containerd, calculate size efficiently during tar writing
 			var uncompressedSize int64
-			var err error
 
 			if isContainerdStorage {
 				// For containerd, use Docker-native format bypass optimization
@@ -375,13 +299,13 @@ func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string, i
 
 				// Use the layer's existing compressed format if available
 				// This mimics what docker save/load does natively
-				compressedReader, err := layers[i].Compressed()
+				compressedReader, err := layer.Compressed()
 				if err != nil {
 					// Fallback to uncompressed if compressed not available
-					compressedReader = info.reader
+					compressedReader = layerReader
 				} else {
 					// Close the uncompressed reader since we're using compressed
-					info.reader.Close()
+					layerReader.Close()
 				}
 				defer compressedReader.Close()
 
@@ -406,7 +330,7 @@ func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string, i
 				}
 
 				// Write tar header with calculated size (Docker-native format)
-				hdr := &tar.Header{Name: info.name, Mode: 0644, Size: uncompressedSize}
+				hdr := &tar.Header{Name: layerName, Mode: 0644, Size: uncompressedSize}
 				if err := tw.WriteHeader(hdr); err != nil {
 					return err
 				}
@@ -417,27 +341,22 @@ func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string, i
 					return err
 				}
 			} else {
-				// For standard Docker storage, use cached size calculation (existing behavior)
-				uncompressedSize, err = s.getLayerSize(layers[i])
+				// For standard Docker storage, use original logic
+				uncompressedSize, err := s.getLayerSize(layer)
 				if err != nil {
 					return err
 				}
-
-				// Write tar header with cached size
-				hdr := &tar.Header{Name: info.name, Mode: 0644, Size: uncompressedSize}
+				hdr := &tar.Header{Name: layerName, Mode: 0644, Size: uncompressedSize}
 				if err := tw.WriteHeader(hdr); err != nil {
 					return err
 				}
-
-				// Copy layer data
-				_, err = io.Copy(tw, info.reader)
-				if err != nil {
+				if _, err := io.Copy(tw, layerReader); err != nil {
 					return err
 				}
 			}
 		}
-
-		layerPaths = append(layerPaths, info.name)
+		blankIdx++
+		layerPaths = append(layerPaths, layerName)
 	}
 
 	// Add manifest
@@ -644,7 +563,7 @@ func (s *Store) doDownloadLayersFor(identifier string) error {
 
 	// Limit concurrent layer processing to avoid overwhelming the system
 	// Use a reasonable number based on typical layer counts and system resources
-	maxConcurrency := 4
+	maxConcurrency := 3
 	if len(configFile.RootFS.DiffIDs) < maxConcurrency {
 		maxConcurrency = len(configFile.RootFS.DiffIDs)
 	}
