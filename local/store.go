@@ -189,7 +189,6 @@ func (s *Store) doSave(img v1.Image, withName string, isContainerdStorage bool) 
 
 	// Start the ImageLoad goroutine
 	go func() {
-
 		res, err := s.dockerClient.ImageLoad(ctx, pr, client.ImageLoadWithQuiet(true))
 		if err != nil {
 			done <- err
