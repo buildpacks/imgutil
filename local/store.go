@@ -35,6 +35,7 @@ type Store struct {
 	// optional
 	downloadOnce         *sync.Once
 	onDiskLayersByDiffID map[v1.Hash]annotatedLayer
+	onDiskLayersMutex    sync.RWMutex
 
 	// containerd storage detection cache
 	containerdStorageCache     *bool
@@ -386,7 +387,9 @@ func (s *Store) getLayerSize(layer v1.Layer) (int64, error) {
 		return 0, err
 	}
 
+	s.onDiskLayersMutex.RLock()
 	knownLayer, layerFound := s.onDiskLayersByDiffID[diffID]
+	s.onDiskLayersMutex.RUnlock()
 	if layerFound && knownLayer.uncompressedSize != -1 {
 		return knownLayer.uncompressedSize, nil
 	}
@@ -671,7 +674,9 @@ func (s *Store) LayerByDiffID(h v1.Hash) (v1.Layer, error) {
 }
 
 func (s *Store) findLayer(withHash v1.Hash) v1.Layer {
+	s.onDiskLayersMutex.RLock()
 	aLayer, layerFound := s.onDiskLayersByDiffID[withHash]
+	s.onDiskLayersMutex.RUnlock()
 	if !layerFound {
 		return nil
 	}
@@ -741,10 +746,12 @@ func (s *Store) AddLayer(fromPath string) (v1.Layer, error) {
 		uncompressedSize = fileSize
 	}
 
+	s.onDiskLayersMutex.Lock()
 	s.onDiskLayersByDiffID[diffID] = annotatedLayer{
 		layer:            layer,
 		uncompressedSize: uncompressedSize,
 	}
+	s.onDiskLayersMutex.Unlock()
 
 	return layer, nil
 }
