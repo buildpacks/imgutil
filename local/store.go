@@ -94,14 +94,13 @@ func (s *Store) Save(img *Image, withName string, withAdditionalNames ...string)
 
 	// save
 	isContainerdStorage := s.usesContainerdStorageCached()
-	canOmitBaseLayers := !isContainerdStorage
 
-	if canOmitBaseLayers {
-		// During the first save attempt some layers may be excluded.
-		// The docker daemon allows this if the given set of layers already exists in the daemon in the given order.
-		inspect, err = s.doSave(img, withName, isContainerdStorage)
-	}
-	if !canOmitBaseLayers || err != nil {
+	// During the first save attempt some layers may be excluded.
+	// The docker daemon allows this if the given set of layers already exists in the daemon in the given order.
+	inspect, err = s.doSave(img, withName, isContainerdStorage)
+
+	// If the fast save fails, we need to ensure the layers and try again.
+	if err != nil {
 		if err = img.ensureLayers(); err != nil {
 			return "", err
 		}
