@@ -94,13 +94,14 @@ func (s *Store) Save(img *Image, withName string, withAdditionalNames ...string)
 
 	// save
 	isContainerdStorage := s.usesContainerdStorageCached()
+	canOmitBaseLayers := !isContainerdStorage
 
-	// During the first save attempt some layers may be excluded.
-	// The docker daemon allows this if the given set of layers already exists in the daemon in the given order.
-	inspect, err = s.doSave(img, withName, isContainerdStorage)
-
-	// If the fast save fails, we need to ensure the layers and try again.
-	if err != nil {
+	if canOmitBaseLayers {
+		// During the first save attempt some layers may be excluded.
+		// The docker daemon allows this if the given set of layers already exists in the daemon in the given order.
+		inspect, err = s.doSave(img, withName, isContainerdStorage)
+	}
+	if !canOmitBaseLayers || err != nil {
 		if err = img.ensureLayers(); err != nil {
 			return "", err
 		}
@@ -260,7 +261,7 @@ func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string, i
 		layerPaths []string
 		blankIdx   int
 	)
-	for i, layer := range layers {
+	for _, layer := range layers {
 		// If the layer is a previous image layer that hasn't been downloaded yet,
 		// cause ALL the previous image layers to be downloaded by grabbing the ReadCloser.
 		layerReader, err := layer.Uncompressed()
