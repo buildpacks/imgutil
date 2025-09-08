@@ -260,7 +260,7 @@ func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string, i
 		layerPaths []string
 		blankIdx   int
 	)
-	for _, layer := range layers {
+	for i, layer := range layers {
 		// If the layer is a previous image layer that hasn't been downloaded yet,
 		// cause ALL the previous image layers to be downloaded by grabbing the ReadCloser.
 		layerReader, err := layer.Uncompressed()
