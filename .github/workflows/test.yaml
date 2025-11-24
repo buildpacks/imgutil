@@ -22,9 +22,9 @@ jobs:
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}  
+          token: ${{ secrets.CODECOV_TOKEN }}
   test-and-build-windows:
-    runs-on: windows-2019
+    runs-on: windows-2022
     steps:
       - name: Set git to use LF and symlinks
         run: |
@@ -42,4 +42,4 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-        
+
