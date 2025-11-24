@@ -10,10 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/moby/moby/client"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 
@@ -51,7 +50,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 		var err error
 		dockerClient = h.DockerCli(t)
 
-		daemonInfo, err := dockerClient.ServerVersion(context.TODO())
+		daemonInfo, err := dockerClient.ServerVersion(context.TODO(), client.ServerVersionOptions{})
 		h.AssertNil(t, err)
 
 		daemonOS = daemonInfo.Os
@@ -80,7 +79,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				inspect, err := dockerClient.ImageInspect(context.TODO(), img.Name())
 				h.AssertNil(t, err)
 
-				daemonInfo, err := dockerClient.ServerVersion(context.TODO())
+				daemonInfo, err := dockerClient.ServerVersion(context.TODO(), client.ServerVersionOptions{})
 				h.AssertNil(t, err)
 
 				h.AssertEq(t, inspect.Os, daemonInfo.Os)
@@ -118,11 +117,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				inspect, err := dockerClient.ImageInspect(context.TODO(), img.Name())
 				h.AssertNil(t, err)
 
-				daemonInfo, err := dockerClient.Info(context.TODO())
+				daemonInfoResult, err := dockerClient.Info(context.TODO(), client.InfoOptions{})
 				h.AssertNil(t, err)
 
 				// image os must match daemon
-				h.AssertEq(t, inspect.Os, daemonInfo.OSType)
+				h.AssertEq(t, inspect.Os, daemonInfoResult.Info.OSType)
 				h.AssertEq(t, inspect.Architecture, expectedArmArch)
 				h.AssertEq(t, inspect.OsVersion, expectedOSVersion)
 				h.AssertEq(t, inspect.RootFS.Type, "layers")
@@ -311,11 +310,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						inspect, err := dockerClient.ImageInspect(context.TODO(), img.Name())
 						h.AssertNil(t, err)
 
-						daemonInfo, err := dockerClient.Info(context.TODO())
+						daemonInfoResult, err := dockerClient.Info(context.TODO(), client.InfoOptions{})
 						h.AssertNil(t, err)
 
 						// image os must match daemon
-						h.AssertEq(t, inspect.Os, daemonInfo.OSType)
+						h.AssertEq(t, inspect.Os, daemonInfoResult.Info.OSType)
 						h.AssertEq(t, inspect.Architecture, "arm64")
 						h.AssertEq(t, inspect.OsVersion, "10.0.99999.9999")
 
@@ -1510,8 +1509,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertEq(t, len(imageReportsHistory), len(oldHistory)+1)
 			h.AssertEq(t, imageReportsHistory[len(imageReportsHistory)-1], addedHistory)
 
-			daemonReportsHistory, err := dockerClient.ImageHistory(context.TODO(), repoName)
+			daemonReportsHistoryResult, err := dockerClient.ImageHistory(context.TODO(), repoName)
 			h.AssertNil(t, err)
+			daemonReportsHistory := daemonReportsHistoryResult.Items
 			h.AssertEq(t, len(imageReportsHistory), len(daemonReportsHistory))
 			lastHistory := daemonReportsHistory[0] // the daemon reports history in reverse order
 			h.AssertEq(t, lastHistory.CreatedBy, "some-history")
@@ -1920,10 +1920,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 
 				h.AssertEq(t, inspect.Created, imgutil.NormalizedDateTime.Format(time.RFC3339))
-				h.AssertEq(t, inspect.Container, "") //nolint
 
-				history, err := dockerClient.ImageHistory(context.TODO(), repoName)
+				historyResult, err := dockerClient.ImageHistory(context.TODO(), repoName)
 				h.AssertNil(t, err)
+				history := historyResult.Items
 				h.AssertEq(t, len(history), len(inspect.RootFS.Layers))
 				for i := range inspect.RootFS.Layers {
 					h.AssertEq(t, history[i].Created, imgutil.NormalizedDateTime.Unix())
@@ -1950,10 +1950,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					h.AssertNil(t, err)
 
 					h.AssertEq(t, inspect.Created, expectedTime.Format(time.RFC3339))
-					h.AssertEq(t, inspect.Container, "") //nolint
 
-					history, err := dockerClient.ImageHistory(context.TODO(), repoName)
+					historyResult, err := dockerClient.ImageHistory(context.TODO(), repoName)
 					h.AssertNil(t, err)
+					history := historyResult.Items
 					h.AssertEq(t, len(history), len(inspect.RootFS.Layers))
 					for i := range inspect.RootFS.Layers {
 						h.AssertEq(t, history[i].Created, expectedTime.Unix())
@@ -2233,9 +2233,10 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				const newTag = "different-tag"
 
 				it.Before(func() {
-					h.AssertNil(t, dockerClient.ImageTag(context.TODO(), origImg.Name(), newTag))
+					_, err := dockerClient.ImageTag(context.TODO(), client.ImageTagOptions{Source: origImg.Name(), Target: newTag})
+					h.AssertNil(t, err)
 
-					_, err := dockerClient.ImageRemove(context.TODO(), origImg.Name(), image.RemoveOptions{})
+					_, err = dockerClient.ImageRemove(context.TODO(), origImg.Name(), client.ImageRemoveOptions{})
 					h.AssertNil(t, err)
 				})
 

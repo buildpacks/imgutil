@@ -23,9 +23,6 @@ import (
 	"time"
 
 	cerrdefs "github.com/containerd/errdefs"
-	"github.com/docker/docker/api/types/image"
-	dockercli "github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -33,6 +30,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/moby/moby/api/types/jsonstream"
+	dockercli "github.com/moby/moby/client"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil/layer"
@@ -145,7 +144,7 @@ var dockerCliOnce sync.Once
 func DockerCli(t *testing.T) dockercli.APIClient {
 	dockerCliOnce.Do(func() {
 		var dockerCliErr error
-		dockerCliVal, dockerCliErr = dockercli.NewClientWithOpts(dockercli.FromEnv, dockercli.WithVersion("1.38"))
+		dockerCliVal, dockerCliErr = dockercli.New(dockercli.FromEnv, dockercli.WithAPIVersionNegotiation())
 		AssertNil(t, dockerCliErr)
 	})
 	return dockerCliVal
@@ -181,10 +180,10 @@ func PullIfMissing(t *testing.T, docker dockercli.APIClient, ref string) {
 		t.Fatalf("failed inspecting image '%s': %s", ref, err)
 	}
 
-	rc, err := docker.ImagePull(context.Background(), ref, image.PullOptions{})
+	rc, err := docker.ImagePull(context.Background(), ref, dockercli.ImagePullOptions{})
 	if err != nil {
 		// Retry
-		rc, err = docker.ImagePull(context.Background(), ref, image.PullOptions{})
+		rc, err = docker.ImagePull(context.Background(), ref, dockercli.ImagePullOptions{})
 		AssertNil(t, err)
 	}
 	defer rc.Close()
@@ -202,7 +201,7 @@ func DockerRmi(dockerCli dockercli.APIClient, repoNames ...string) error {
 		_, e := dockerCli.ImageRemove(
 			ctx,
 			repoName,
-			image.RemoveOptions{PruneChildren: true},
+			dockercli.ImageRemoveOptions{PruneChildren: true},
 		)
 		if e != nil && err == nil {
 			err = e
@@ -433,7 +432,7 @@ func checkResponseError(r io.Reader) error {
 	decoder := json.NewDecoder(responseBuf)
 
 	for {
-		var jsonMessage jsonmessage.JSONMessage
+		var jsonMessage jsonstream.Message
 		err := decoder.Decode(&jsonMessage)
 
 		if err != nil {
