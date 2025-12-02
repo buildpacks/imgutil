@@ -6,10 +6,10 @@ import (
 	"os"
 	"testing"
 
-	dockerclient "github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	ggcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
+	dockerclient "github.com/moby/moby/client"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 
@@ -55,7 +55,7 @@ func testReproducibility(t *testing.T, _ spec.G, it spec.S) {
 	it.Before(func() {
 		dockerClient = h.DockerCli(t)
 
-		daemonInfo, err := dockerClient.ServerVersion(context.TODO())
+		daemonInfo, err := dockerClient.ServerVersion(context.TODO(), dockerclient.ServerVersionOptions{})
 		h.AssertNil(t, err)
 
 		daemonOS := daemonInfo.Os

@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/registry"
+	"github.com/moby/moby/client"
 )
 
 type DockerRegistry struct {
@@ -249,12 +250,20 @@ func DockerHostname(t *testing.T) string {
 
 	// query daemon for insecure-registry network ranges
 	var insecureRegistryNets []*net.IPNet
-	daemonInfo, err := dockerCli.Info(context.TODO())
+	daemonInfoResult, err := dockerCli.Info(context.TODO(), client.InfoOptions{})
 	if err != nil {
 		t.Fatalf("unable to fetch client.DockerInfo: %s", err)
 	}
-	for _, ipnet := range daemonInfo.RegistryConfig.InsecureRegistryCIDRs {
-		insecureRegistryNets = append(insecureRegistryNets, (*net.IPNet)(ipnet))
+	daemonInfo := daemonInfoResult.Info
+	for _, prefix := range daemonInfo.RegistryConfig.InsecureRegistryCIDRs {
+		// Convert netip.Prefix to *net.IPNet
+		addr := prefix.Addr()
+		bits := prefix.Bits()
+		ipnet := &net.IPNet{
+			IP:   addr.AsSlice(),
+			Mask: net.CIDRMask(bits, addr.BitLen()),
+		}
+		insecureRegistryNets = append(insecureRegistryNets, ipnet)
 	}
 
 	// search for non-loopback interface IPs contained by a insecure-registry range
