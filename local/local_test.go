@@ -82,9 +82,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				daemonInfo, err := dockerClient.ServerVersion(context.TODO(), client.ServerVersionOptions{})
 				h.AssertNil(t, err)
 
-				h.AssertEq(t, inspect.Os, daemonInfo.Os)
-				h.AssertEq(t, inspect.Architecture, daemonInfo.Arch)
-				h.AssertEq(t, inspect.RootFS.Type, "layers")
+				h.AssertEq(t, inspect.InspectResponse.Os, daemonInfo.Os)
+				h.AssertEq(t, inspect.InspectResponse.Architecture, daemonInfo.Arch)
+				h.AssertEq(t, inspect.InspectResponse.RootFS.Type, "layers")
 			})
 		})
 
@@ -121,16 +121,16 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 
 				// image os must match daemon
-				h.AssertEq(t, inspect.Os, daemonInfoResult.Info.OSType)
-				h.AssertEq(t, inspect.Architecture, expectedArmArch)
-				h.AssertEq(t, inspect.OsVersion, expectedOSVersion)
-				h.AssertEq(t, inspect.RootFS.Type, "layers")
+				h.AssertEq(t, inspect.InspectResponse.Os, daemonInfoResult.Info.OSType)
+				h.AssertEq(t, inspect.InspectResponse.Architecture, expectedArmArch)
+				h.AssertEq(t, inspect.InspectResponse.OsVersion, expectedOSVersion)
+				h.AssertEq(t, inspect.InspectResponse.RootFS.Type, "layers")
 
 				// base layer is added for windows
 				if daemonOS == "windows" {
-					h.AssertEq(t, len(inspect.RootFS.Layers), 1)
+					h.AssertEq(t, len(inspect.InspectResponse.RootFS.Layers), 1)
 				} else {
-					h.AssertEq(t, len(inspect.RootFS.Layers), 0)
+					h.AssertEq(t, len(inspect.InspectResponse.RootFS.Layers), 0)
 				}
 			})
 		})
@@ -209,9 +209,9 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 						inspect, err := dockerClient.ImageInspect(context.TODO(), img.Name())
 						h.AssertNil(t, err)
-						h.AssertEq(t, inspect.Os, daemonOS)
-						h.AssertEq(t, inspect.Architecture, daemonArchitecture)
-						h.AssertEq(t, inspect.RootFS.Type, "layers")
+						h.AssertEq(t, inspect.InspectResponse.Os, daemonOS)
+						h.AssertEq(t, inspect.InspectResponse.Architecture, daemonArchitecture)
+						h.AssertEq(t, inspect.InspectResponse.RootFS.Type, "layers")
 
 						h.AssertEq(t, img.Found(), true)
 					})
@@ -314,15 +314,15 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						h.AssertNil(t, err)
 
 						// image os must match daemon
-						h.AssertEq(t, inspect.Os, daemonInfoResult.Info.OSType)
-						h.AssertEq(t, inspect.Architecture, "arm64")
-						h.AssertEq(t, inspect.OsVersion, "10.0.99999.9999")
+						h.AssertEq(t, inspect.InspectResponse.Os, daemonInfoResult.Info.OSType)
+						h.AssertEq(t, inspect.InspectResponse.Architecture, "arm64")
+						h.AssertEq(t, inspect.InspectResponse.OsVersion, "10.0.99999.9999")
 
 						// base layer is added for windows
 						if daemonOS == "windows" {
-							h.AssertEq(t, len(inspect.RootFS.Layers), 1)
+							h.AssertEq(t, len(inspect.InspectResponse.RootFS.Layers), 1)
 						} else {
-							h.AssertEq(t, len(inspect.RootFS.Layers), 0)
+							h.AssertEq(t, len(inspect.InspectResponse.RootFS.Layers), 0)
 						}
 					})
 				})
@@ -753,7 +753,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 			inspect, err := dockerClient.ImageInspect(context.TODO(), id.String())
 			h.AssertNil(t, err)
-			labelValue := inspect.Config.Labels["existingLabel"]
+			labelValue := inspect.InspectResponse.Config.Labels["existingLabel"]
 			h.AssertEq(t, labelValue, "existingValue")
 		})
 
@@ -777,7 +777,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				inspect, err := dockerClient.ImageInspect(context.TODO(), id.String())
 				h.AssertNil(t, err)
 
-				label := inspect.Config.Labels["new"]
+				label := inspect.InspectResponse.Config.Labels["new"]
 				h.AssertEq(t, strings.TrimSpace(label), "label")
 			})
 		})
@@ -825,7 +825,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 				h.AssertNil(t, err)
-				label = inspect.Config.Labels["somekey"]
+				label = inspect.InspectResponse.Config.Labels["somekey"]
 				h.AssertEq(t, strings.TrimSpace(label), "new-val")
 			})
 		})
@@ -853,7 +853,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 				h.AssertNil(t, err)
 
-				label = inspect.Config.Labels["somekey"]
+				label = inspect.InspectResponse.Config.Labels["somekey"]
 				h.AssertEq(t, strings.TrimSpace(label), "new-val")
 			})
 		})
@@ -907,7 +907,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 				h.AssertNil(t, err)
-				_, exists := inspect.Config.Labels["my.custom.label"]
+				_, exists := inspect.InspectResponse.Config.Labels["my.custom.label"]
 				h.AssertEq(t, exists, false)
 			})
 		})
@@ -935,7 +935,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 			h.AssertNil(t, err)
 
-			h.AssertContains(t, inspect.Config.Env, "ENV_KEY=ENV_VAL")
+			h.AssertContains(t, inspect.InspectResponse.Config.Env, "ENV_KEY=ENV_VAL")
 		})
 
 		when("the key already exists", func() {
@@ -954,8 +954,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 				h.AssertNil(t, err)
 
-				h.AssertContains(t, inspect.Config.Env, "ENV_KEY=SOME_OTHER_VAL")
-				h.AssertDoesNotContain(t, inspect.Config.Env, "ENV_KEY=SOME_VAL")
+				h.AssertContains(t, inspect.InspectResponse.Config.Env, "ENV_KEY=SOME_OTHER_VAL")
+				h.AssertDoesNotContain(t, inspect.InspectResponse.Config.Env, "ENV_KEY=SOME_VAL")
 			})
 
 			when("windows", func() {
@@ -985,13 +985,13 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 					h.AssertNil(t, err)
 
-					h.AssertContains(t, inspect.Config.Env, "env_key=SOME_OTHER_VAL")
-					h.AssertDoesNotContain(t, inspect.Config.Env, "ENV_KEY=SOME_VAL")
-					h.AssertDoesNotContain(t, inspect.Config.Env, "ENV_KEY=SOME_OTHER_VAL")
+					h.AssertContains(t, inspect.InspectResponse.Config.Env, "env_key=SOME_OTHER_VAL")
+					h.AssertDoesNotContain(t, inspect.InspectResponse.Config.Env, "ENV_KEY=SOME_VAL")
+					h.AssertDoesNotContain(t, inspect.InspectResponse.Config.Env, "ENV_KEY=SOME_OTHER_VAL")
 
-					h.AssertContains(t, inspect.Config.Env, "ENV_KEY2=SOME_OTHER_VAL")
-					h.AssertDoesNotContain(t, inspect.Config.Env, "env_key2=SOME_OTHER_VAL")
-					h.AssertDoesNotContain(t, inspect.Config.Env, "env_key2=SOME_VAL")
+					h.AssertContains(t, inspect.InspectResponse.Config.Env, "ENV_KEY2=SOME_OTHER_VAL")
+					h.AssertDoesNotContain(t, inspect.InspectResponse.Config.Env, "env_key2=SOME_OTHER_VAL")
+					h.AssertDoesNotContain(t, inspect.InspectResponse.Config.Env, "env_key2=SOME_VAL")
 				})
 			})
 		})
@@ -1016,7 +1016,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 			h.AssertNil(t, err)
 
-			h.AssertEq(t, inspect.Config.WorkingDir, "/some/work/dir")
+			h.AssertEq(t, inspect.InspectResponse.Config.WorkingDir, "/some/work/dir")
 		})
 	})
 
@@ -1039,7 +1039,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 			h.AssertNil(t, err)
 
-			h.AssertEq(t, inspect.Config.Entrypoint, []string{"some", "entrypoint"})
+			h.AssertEq(t, inspect.InspectResponse.Config.Entrypoint, []string{"some", "entrypoint"})
 		})
 	})
 
@@ -1062,7 +1062,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 			h.AssertNil(t, err)
 
-			h.AssertEq(t, inspect.Config.Cmd, []string{"some", "cmd"})
+			h.AssertEq(t, inspect.InspectResponse.Config.Cmd, []string{"some", "cmd"})
 		})
 	})
 
@@ -1088,7 +1088,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 			h.AssertNil(t, err)
 
-			h.AssertEq(t, inspect.Os, daemonOS)
+			h.AssertEq(t, inspect.InspectResponse.Os, daemonOS)
 		})
 	})
 
@@ -1114,8 +1114,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 			h.AssertNil(t, err)
 
-			h.AssertEq(t, inspect.OsVersion, "1.2.3.4")
-			h.AssertEq(t, inspect.Architecture, "arm64")
+			h.AssertEq(t, inspect.InspectResponse.OsVersion, "1.2.3.4")
+			h.AssertEq(t, inspect.InspectResponse.Architecture, "arm64")
 		})
 	})
 
@@ -1180,7 +1180,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				inspect, err := dockerClient.ImageInspect(context.TODO(), oldBase)
 				h.AssertNil(t, err)
-				oldTopLayer = h.StringElementAt(inspect.RootFS.Layers, -1)
+				oldTopLayer = h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -1)
 
 				// original image
 				origImage, err := local.NewImage(repoName, dockerClient, local.FromBaseImage(oldBase))
@@ -1205,7 +1205,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				inspect, err = dockerClient.ImageInspect(context.TODO(), repoName)
 				h.AssertNil(t, err)
-				origNumLayers = len(inspect.RootFS.Layers)
+				origNumLayers = len(inspect.InspectResponse.RootFS.Layers)
 			})
 
 			it.After(func() {
@@ -1291,7 +1291,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 				h.AssertNil(t, err)
-				expectedTopLayer = h.StringElementAt(inspect.RootFS.Layers, -1)
+				expectedTopLayer = h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -1)
 			})
 
 			it.After(func() {
@@ -1348,7 +1348,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 				h.AssertNil(t, err)
 
-				h.AssertEq(t, newLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -1))
+				h.AssertEq(t, newLayerDiffID, h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -1))
 			})
 		})
 
@@ -1398,8 +1398,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 				h.AssertNil(t, err)
 
-				h.AssertEq(t, oldLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -2))
-				h.AssertEq(t, newLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -1))
+				h.AssertEq(t, oldLayerDiffID, h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -2))
+				h.AssertEq(t, newLayerDiffID, h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -1))
 			})
 		})
 	})
@@ -1447,8 +1447,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 			h.AssertNil(t, err)
 
-			h.AssertEq(t, oldLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -2))
-			h.AssertEq(t, newLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -1))
+			h.AssertEq(t, oldLayerDiffID, h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -2))
+			h.AssertEq(t, newLayerDiffID, h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -1))
 		})
 	})
 
@@ -1519,8 +1519,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 			h.AssertNil(t, err)
 
-			h.AssertEq(t, oldLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -2))
-			h.AssertEq(t, newLayerDiffID, h.StringElementAt(inspect.RootFS.Layers, -1))
+			h.AssertEq(t, oldLayerDiffID, h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -2))
+			h.AssertEq(t, newLayerDiffID, h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -1))
 		})
 	})
 
@@ -1640,8 +1640,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, err := dockerClient.ImageInspect(context.TODO(), prevImageName)
 			h.AssertNil(t, err)
 
-			prevLayer1SHA = h.StringElementAt(inspect.RootFS.Layers, -2)
-			prevLayer2SHA = h.StringElementAt(inspect.RootFS.Layers, -1)
+			prevLayer1SHA = h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -2)
+			prevLayer2SHA = h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -1)
 		})
 
 		it.After(func() {
@@ -1673,8 +1673,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 			h.AssertNil(t, err)
 
-			newLayer1SHA := h.StringElementAt(inspect.RootFS.Layers, -2)
-			reusedLayer2SHA := h.StringElementAt(inspect.RootFS.Layers, -1)
+			newLayer1SHA := h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -2)
+			reusedLayer2SHA := h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -1)
 
 			h.AssertNotEq(t, prevLayer1SHA, newLayer1SHA)
 			h.AssertEq(t, prevLayer2SHA, reusedLayer2SHA)
@@ -1699,12 +1699,12 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			h.AssertNil(t, err)
 
 			if daemonOS == "windows" {
-				h.AssertEq(t, len(inspect.RootFS.Layers), 2)
+				h.AssertEq(t, len(inspect.InspectResponse.RootFS.Layers), 2)
 			} else {
-				h.AssertEq(t, len(inspect.RootFS.Layers), 1)
+				h.AssertEq(t, len(inspect.InspectResponse.RootFS.Layers), 1)
 			}
 
-			newLayer1SHA := h.StringElementAt(inspect.RootFS.Layers, -1)
+			newLayer1SHA := h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -1)
 
 			h.AssertEq(t, prevLayer1SHA, newLayer1SHA)
 		})
@@ -1756,8 +1756,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 				h.AssertNil(t, err)
 
-				newLayer1SHA := h.StringElementAt(inspect.RootFS.Layers, -2)
-				reusedLayer2SHA := h.StringElementAt(inspect.RootFS.Layers, -1)
+				newLayer1SHA := h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -2)
+				reusedLayer2SHA := h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -1)
 
 				h.AssertNotEq(t, prevLayer1SHA, newLayer1SHA)
 				h.AssertEq(t, prevLayer2SHA, reusedLayer2SHA)
@@ -1807,8 +1807,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, err := dockerClient.ImageInspect(context.TODO(), prevImageName)
 			h.AssertNil(t, err)
 
-			prevLayer1SHA = h.StringElementAt(inspect.RootFS.Layers, -2)
-			prevLayer2SHA = h.StringElementAt(inspect.RootFS.Layers, -1)
+			prevLayer1SHA = h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -2)
+			prevLayer2SHA = h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -1)
 		})
 
 		it.After(func() {
@@ -1839,8 +1839,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 			h.AssertNil(t, err)
 
-			newLayer1SHA := h.StringElementAt(inspect.RootFS.Layers, -2)
-			reusedLayer2SHA := h.StringElementAt(inspect.RootFS.Layers, -1)
+			newLayer1SHA := h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -2)
+			reusedLayer2SHA := h.StringElementAt(inspect.InspectResponse.RootFS.Layers, -1)
 
 			h.AssertNotEq(t, prevLayer1SHA, newLayer1SHA)
 			h.AssertEq(t, prevLayer2SHA, reusedLayer2SHA)
@@ -1903,7 +1903,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 				inspect, err := dockerClient.ImageInspect(context.TODO(), identifier.String())
 				h.AssertNil(t, err)
-				label := inspect.Config.Labels["mykey"]
+				label := inspect.InspectResponse.Config.Labels["mykey"]
 				h.AssertEq(t, strings.TrimSpace(label), "newValue")
 			})
 
@@ -1919,13 +1919,13 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 				h.AssertNil(t, err)
 
-				h.AssertEq(t, inspect.Created, imgutil.NormalizedDateTime.Format(time.RFC3339))
+				h.AssertEq(t, inspect.InspectResponse.Created, imgutil.NormalizedDateTime.Format(time.RFC3339))
 
 				historyResult, err := dockerClient.ImageHistory(context.TODO(), repoName)
 				h.AssertNil(t, err)
 				history := historyResult.Items
-				h.AssertEq(t, len(history), len(inspect.RootFS.Layers))
-				for i := range inspect.RootFS.Layers {
+				h.AssertEq(t, len(history), len(inspect.InspectResponse.RootFS.Layers))
+				for i := range inspect.InspectResponse.RootFS.Layers {
 					h.AssertEq(t, history[i].Created, imgutil.NormalizedDateTime.Unix())
 				}
 			})
@@ -1949,13 +1949,13 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					inspect, err := dockerClient.ImageInspect(context.TODO(), repoName)
 					h.AssertNil(t, err)
 
-					h.AssertEq(t, inspect.Created, expectedTime.Format(time.RFC3339))
+					h.AssertEq(t, inspect.InspectResponse.Created, expectedTime.Format(time.RFC3339))
 
 					historyResult, err := dockerClient.ImageHistory(context.TODO(), repoName)
 					h.AssertNil(t, err)
 					history := historyResult.Items
-					h.AssertEq(t, len(history), len(inspect.RootFS.Layers))
-					for i := range inspect.RootFS.Layers {
+					h.AssertEq(t, len(history), len(inspect.InspectResponse.RootFS.Layers))
+					for i := range inspect.InspectResponse.RootFS.Layers {
 						h.AssertEq(t, history[i].Created, expectedTime.Unix())
 					}
 				})
@@ -2063,7 +2063,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 			inspect, err := dockerClient.ImageInspect(context.TODO(), img.Name())
 			h.AssertNil(t, err)
 
-			for _, diffID := range inspect.RootFS.Layers {
+			for _, diffID := range inspect.InspectResponse.RootFS.Layers {
 				rc, err := img.GetLayer(diffID)
 				h.AssertNil(t, err)
 				rc.Close()

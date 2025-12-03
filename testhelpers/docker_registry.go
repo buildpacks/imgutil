@@ -3,6 +3,7 @@ package testhelpers
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -308,17 +309,48 @@ func (r *DockerRegistry) EncodedAuth() string {
 	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", r.username, r.password)))
 }
 
+type dockerConfig struct {
+	Auths map[string]struct {
+		Auth string `json:"auth"`
+	} `json:"auths"`
+}
+
 func writeDockerConfig(t *testing.T, configDir, host, port, auth string) {
-	AssertNil(t, os.WriteFile(
-		filepath.Join(configDir, "config.json"),
-		[]byte(fmt.Sprintf(`{
-			  "auths": {
-			    "%s:%s": {
-			      "auth": "%s"
-			    }
-			  }
-			}
-			`, host, port, auth)),
-		0600,
-	))
+	cfg := dockerConfig{
+		Auths: make(map[string]struct {
+			Auth string `json:"auth"`
+		}),
+	}
+
+	// Try to load existing config
+	existingConfigPath := os.Getenv("DOCKER_CONFIG")
+	if existingConfigPath == "" {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			existingConfigPath = filepath.Join(home, ".docker")
+		}
+	}
+
+	if existingConfigPath != "" {
+		configFile := filepath.Join(existingConfigPath, "config.json")
+		data, err := os.ReadFile(configFile)
+		if err == nil {
+			// Ignore errors reading existing config, just start fresh if it fails
+			_ = json.Unmarshal(data, &cfg)
+		}
+	}
+
+	if cfg.Auths == nil {
+		cfg.Auths = make(map[string]struct {
+			Auth string `json:"auth"`
+		})
+	}
+
+	cfg.Auths[fmt.Sprintf("%s:%s", host, port)] = struct {
+		Auth string `json:"auth"`
+	}{Auth: auth}
+
+	data, err := json.Marshal(cfg)
+	AssertNil(t, err)
+	AssertNil(t, os.WriteFile(filepath.Join(configDir, "config.json"), data, 0600))
 }

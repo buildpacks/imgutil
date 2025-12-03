@@ -144,7 +144,7 @@ var dockerCliOnce sync.Once
 func DockerCli(t *testing.T) dockercli.APIClient {
 	dockerCliOnce.Do(func() {
 		var dockerCliErr error
-		dockerCliVal, dockerCliErr = dockercli.New(dockercli.FromEnv, dockercli.WithAPIVersionNegotiation())
+		dockerCliVal, dockerCliErr = dockercli.New(dockercli.FromEnv)
 		AssertNil(t, dockerCliErr)
 	})
 	return dockerCliVal
@@ -262,7 +262,7 @@ func ImageID(t *testing.T, repoName string) string {
 	t.Helper()
 	inspect, err := DockerCli(t).ImageInspect(context.Background(), repoName)
 	AssertNil(t, err)
-	return inspect.ID
+	return inspect.InspectResponse.ID
 }
 
 func CreateSingleFileTarReader(path, txt string) io.ReadCloser {
