@@ -27,15 +27,15 @@ func newV1ImageFacadeFromInspect(dockerInspect image.InspectResponse, history []
 		return nil, err
 	}
 	configFile := &v1.ConfigFile{
-		Architecture: dockerInspect.Architecture, // FIXME: this should come from options.Platform
+		Architecture: dockerInspect.Architecture,
 		Author:       dockerInspect.Author,
 		Created:      toV1Time(dockerInspect.Created),
 		History:      imgutil.NormalizedHistory(toV1History(history), len(dockerInspect.RootFS.Layers)),
 		OS:           dockerInspect.Os,
 		RootFS:       rootFS,
 		Config:       toV1Config(dockerInspect.Config),
-		OSVersion:    dockerInspect.OsVersion, // FIXME: this should come from options.Platform
-		Variant:      dockerInspect.Variant,   // FIXME: this should come from options.Platform
+		OSVersion:    dockerInspect.OsVersion,
+		Variant:      dockerInspect.Variant,
 	}
 	layersToSet := newEmptyLayerListFrom(configFile, downloadLayersOnAccess, withStore, dockerInspect.ID)
 	return imageFrom(layersToSet, configFile, imgutil.DockerTypes) // FIXME: this should be configurable with options.MediaTypes
