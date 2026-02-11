@@ -110,7 +110,10 @@ func (s *Store) Save(img *Image, withName string, withAdditionalNames ...string)
 	// tag additional names
 	var errs []imgutil.SaveDiagnostic
 	for _, n := range append([]string{withName}, withAdditionalNames...) {
-		_, err = s.dockerClient.ImageTag(context.Background(), client.ImageTagOptions{Source: inspect.ID, Target: n})
+		_, err = s.dockerClient.ImageTag(context.Background(), client.ImageTagOptions{
+			Source: inspect.ID,
+			Target: n,
+		})
 		if err != nil {
 			errs = append(errs, imgutil.SaveDiagnostic{ImageName: n, Cause: err})
 		}
@@ -198,8 +201,8 @@ func (s *Store) doSave(img v1.Image, withName string) (image.InspectResponse, er
 	return inspect.InspectResponse, nil
 }
 
-func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string) error {
-	rawConfigFile, err := image.RawConfigFile()
+func (s *Store) addImageToTar(tw *tar.Writer, img v1.Image, withName string) error {
+	rawConfigFile, err := img.RawConfigFile()
 	if err != nil {
 		return err
 	}
@@ -207,7 +210,7 @@ func (s *Store) addImageToTar(tw *tar.Writer, image v1.Image, withName string) e
 	if err = addTextToTar(tw, rawConfigFile, configHash+".json"); err != nil {
 		return err
 	}
-	layers, err := image.Layers()
+	layers, err := img.Layers()
 	if err != nil {
 		return err
 	}
