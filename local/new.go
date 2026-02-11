@@ -3,11 +3,14 @@ package local
 import (
 	"context"
 	"fmt"
+	"runtime"
+	"strings"
 
 	cerrdefs "github.com/containerd/errdefs"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/moby/api/types/image"
 	"github.com/moby/moby/client"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/buildpacks/imgutil"
 )
@@ -26,7 +29,7 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...imgutil.ImageOp
 		return nil, err
 	}
 
-	previousImage, err := processImageOption(options.PreviousImageRepoName, dockerClient, true)
+	previousImage, err := processImageOption(options.PreviousImageRepoName, options.Platform, dockerClient, true)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +41,7 @@ func NewImage(repoName string, dockerClient DockerClient, ops ...imgutil.ImageOp
 		baseIdentifier string
 		store          *Store
 	)
-	baseImage, err := processImageOption(options.BaseImageRepoName, dockerClient, false)
+	baseImage, err := processImageOption(options.BaseImageRepoName, options.Platform, dockerClient, false)
 	if err != nil {
 		return nil, err
 	}
@@ -69,6 +72,14 @@ func defaultPlatform(dockerClient DockerClient) (imgutil.Platform, error) {
 	if err != nil {
 		return imgutil.Platform{}, err
 	}
+	if daemonInfo.Os == "linux" {
+		// When running on a different architecture than the daemon, we still want to use images matching our own architecture
+		// https://github.com/buildpacks/lifecycle/issues/1599
+		return imgutil.Platform{
+			OS:           "linux",
+			Architecture: runtime.GOARCH,
+		}, nil
+	}
 	return imgutil.Platform{
 		OS:           daemonInfo.Os,
 		Architecture: daemonInfo.Arch,
@@ -96,11 +107,11 @@ type imageResult struct {
 	layerStore *Store
 }
 
-func processImageOption(repoName string, dockerClient DockerClient, downloadLayersOnAccess bool) (imageResult, error) {
+func processImageOption(repoName string, platform imgutil.Platform, dockerClient DockerClient, downloadLayersOnAccess bool) (imageResult, error) {
 	if repoName == "" {
 		return imageResult{}, nil
 	}
-	inspect, history, err := getInspectAndHistory(repoName, dockerClient)
+	inspect, history, err := getInspectAndHistory(repoName, platform, dockerClient)
 	if err != nil {
 		return imageResult{}, err
 	}
@@ -119,8 +130,25 @@ func processImageOption(repoName string, dockerClient DockerClient, downloadLaye
 	}, nil
 }
 
-func getInspectAndHistory(repoName string, dockerClient DockerClient) (*image.InspectResponse, []image.HistoryResponseItem, error) {
-	inspect, err := dockerClient.ImageInspect(context.Background(), repoName)
+func getInspectAndHistory(repoName string, platform imgutil.Platform, dockerClient DockerClient) (*image.InspectResponse, []image.HistoryResponseItem, error) {
+	platformOpt := client.ImageInspectWithPlatform(&ocispec.Platform{
+		Architecture: platform.Architecture,
+		OS:           platform.OS,
+		OSVersion:    platform.OSVersion,
+		Variant:      platform.Variant,
+	})
+	// Try to inspect the image with the default platform/arch
+	inspect, err := dockerClient.ImageInspect(context.Background(), repoName, platformOpt)
+	if err != nil {
+		// ...and if that fails, inspect without the platform
+		if cerrdefs.IsNotImplemented(err) || strings.Contains(err.Error(), "requires API version") {
+			fmt.Printf("Docker API Version < 1.49. Platform defaulting to daemon platform\n")
+			inspect, err = dockerClient.ImageInspect(context.Background(), repoName)
+		} else if cerrdefs.IsNotFound(err) {
+			fmt.Printf("Docker did not find image %s with platform %s/%s; retrying without specifying a platform\n", repoName, platform.OS, platform.Architecture)
+			inspect, err = dockerClient.ImageInspect(context.Background(), repoName)
+		}
+	}
 	if err != nil {
 		if cerrdefs.IsNotFound(err) {
 			return nil, nil, nil
