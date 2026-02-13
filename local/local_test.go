@@ -372,7 +372,8 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 						dockerClient,
 						local.WithPreviousImage(armBaseImageName),
 						local.WithDefaultPlatform(imgutil.Platform{
-							Architecture: "some-fake-os",
+							OS:           daemonOS,
+							Architecture: "some-fake-arch",
 						}),
 					)
 					h.AssertNil(t, err)
