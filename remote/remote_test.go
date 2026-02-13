@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"runtime"
 	"strings"
 	"testing"
@@ -571,10 +572,14 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, image.Save())
 				h.AssertEq(t, len(h.FetchManifestLayers(t, repoName)), 1)
 
-				// Pull the image via Docker to verify it works with containerd-snapshotter
-				dockerClient := h.DockerCli(t)
-				h.PullIfMissing(t, dockerClient, repoName)
-				defer h.DockerRmi(dockerClient, repoName)
+				// Pull the image via Docker CLI to verify it works with containerd-snapshotter.
+				// Using exec.Command so it inherits DOCKER_CONFIG env var with registry credentials.
+				cmd := exec.Command("docker", "pull", repoName)
+				output, err := cmd.CombinedOutput()
+				if err != nil {
+					t.Fatalf("docker pull failed: %v\noutput: %s", err, string(output))
+				}
+				defer exec.Command("docker", "rmi", repoName).Run()
 			})
 		})
 
