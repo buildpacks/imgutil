@@ -2008,6 +2008,16 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 
 		when("invalid image content for daemon", func() {
 			it("returns errors from daemon", func() {
+				// containerd-snapshotter defers layer validation, so errors aren't
+				// returned during Save - skip this test for that storage driver
+				infoResult, err := dockerClient.Info(context.TODO(), client.InfoOptions{})
+				h.AssertNil(t, err)
+				for _, driverStatus := range infoResult.Info.DriverStatus {
+					if driverStatus[0] == "driver-type" && driverStatus[1] == "io.containerd.snapshotter.v1" {
+						t.Skip("containerd-snapshotter defers layer validation")
+					}
+				}
+
 				repoName := newTestImageName()
 
 				invalidLayerTarFile, err := os.CreateTemp("", "daemon-error-test")
