@@ -1,6 +1,7 @@
 package remote_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -15,6 +16,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/moby/moby/client"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 
@@ -573,13 +575,18 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertEq(t, len(h.FetchManifestLayers(t, repoName)), 1)
 
 				// Pull the image via Docker CLI to verify it works with containerd-snapshotter.
-				// Using exec.Command so it inherits DOCKER_CONFIG env var with registry credentials.
-				cmd := exec.Command("docker", "pull", repoName)
-				output, err := cmd.CombinedOutput()
-				if err != nil {
-					t.Fatalf("docker pull failed: %v\noutput: %s", err, string(output))
+				// Only run when Docker daemon OS matches image OS (linux by default).
+				dockerCli := h.DockerCli(t)
+				daemonInfo, err := dockerCli.ServerVersion(context.Background(), client.ServerVersionOptions{})
+				h.AssertNil(t, err)
+				if daemonInfo.Os == "linux" {
+					cmd := exec.Command("docker", "pull", repoName)
+					output, err := cmd.CombinedOutput()
+					if err != nil {
+						t.Fatalf("docker pull failed: %v\noutput: %s", err, string(output))
+					}
+					defer exec.Command("docker", "rmi", repoName).Run()
 				}
-				defer exec.Command("docker", "rmi", repoName).Run()
 			})
 		})
 
