@@ -272,6 +272,7 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 							dockerClient,
 							local.FromBaseImage(armBaseImageName),
 							local.WithDefaultPlatform(imgutil.Platform{
+								OS:           daemonOS,
 								Architecture: "not-an-arch",
 								OSVersion:    "10.0.99999.9999",
 							}),
