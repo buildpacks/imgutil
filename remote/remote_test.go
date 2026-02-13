@@ -570,6 +570,11 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 				h.AssertNil(t, err)
 				h.AssertNil(t, image.Save())
 				h.AssertEq(t, len(h.FetchManifestLayers(t, repoName)), 1)
+
+				// Pull the image via Docker to verify it works with containerd-snapshotter
+				dockerClient := h.DockerCli(t)
+				h.PullIfMissing(t, dockerClient, repoName)
+				defer h.DockerRmi(dockerClient, repoName)
 			})
 		})
 
