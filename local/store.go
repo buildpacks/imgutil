@@ -19,6 +19,7 @@ import (
 	"github.com/moby/moby/api/types/image"
 	"github.com/moby/moby/api/types/jsonstream"
 	"github.com/moby/moby/client"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/buildpacks/imgutil"
@@ -33,6 +34,7 @@ type Store struct {
 	// optional
 	downloadOnce         *sync.Once
 	onDiskLayersByDiffID map[v1.Hash]annotatedLayer
+	platform             imgutil.Platform
 }
 
 // DockerClient is subset of client.APIClient required by this package.
@@ -57,6 +59,15 @@ func NewStore(dockerClient DockerClient) *Store {
 		dockerClient:         dockerClient,
 		downloadOnce:         &sync.Once{},
 		onDiskLayersByDiffID: make(map[v1.Hash]annotatedLayer),
+	}
+}
+
+func NewStoreWithPlatform(dockerClient DockerClient, platform imgutil.Platform) *Store {
+	return &Store{
+		dockerClient:         dockerClient,
+		downloadOnce:         &sync.Once{},
+		onDiskLayersByDiffID: make(map[v1.Hash]annotatedLayer),
+		platform:             platform,
 	}
 }
 
@@ -408,7 +419,21 @@ func (s *Store) doDownloadLayersFor(identifier string) error {
 	}
 	ctx := context.Background()
 
-	imageReader, err := s.dockerClient.ImageSave(ctx, []string{identifier})
+	var imageReader client.ImageSaveResult
+	var err error
+
+	if s.platform != (imgutil.Platform{}) && false {
+		ociPlatform := ocispec.Platform{
+			Architecture: s.platform.Architecture,
+			OS:           s.platform.OS,
+			OSVersion:    s.platform.OSVersion,
+			Variant:      s.platform.Variant,
+		}
+		imageReader, err = s.dockerClient.ImageSave(ctx, []string{identifier}, client.ImageSaveWithPlatforms(ociPlatform))
+	} else {
+		imageReader, err = s.dockerClient.ImageSave(ctx, []string{identifier})
+	}
+
 	if err != nil {
 		return fmt.Errorf("saving image with ID %q from the docker daemon: %w", identifier, err)
 	}
