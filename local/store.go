@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	cerrdefs "github.com/containerd/errdefs"
 	registryName "github.com/google/go-containerregistry/pkg/name"
@@ -24,6 +25,18 @@ import (
 	"github.com/buildpacks/imgutil"
 )
 
+// debugLog writes to both stderr and a file for visibility inside containers.
+// Remove before merging.
+func debugLog(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	fmt.Fprintln(os.Stderr, msg)
+	f, err := os.OpenFile("/tmp/imgutil-debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err == nil {
+		fmt.Fprintln(f, msg)
+		f.Close()
+	}
+}
+
 // Store provides methods for interacting with a docker daemon
 // in order to save, delete, and report the presence of images,
 // as well as download layers for a given image.
@@ -33,6 +46,10 @@ type Store struct {
 	// optional
 	downloadOnce         *sync.Once
 	onDiskLayersByDiffID map[v1.Hash]annotatedLayer
+	// grpcConn is a gRPC connection to Docker's containerd content store.
+	// Lazily created by doDownloadLayersViaContentStore. Stays alive while
+	// contentStoreLayer objects reference the content client.
+	grpcConn interface{ Close() error }
 }
 
 // DockerClient is subset of client.APIClient required by this package.
@@ -87,17 +104,23 @@ func (s *Store) Save(img *Image, withName string, withAdditionalNames ...string)
 	)
 
 	// save
+	saveStart := time.Now()
 	canOmitBaseLayers := !usesContainerdStorage(s.dockerClient)
+	debugLog("[imgutil] Save: containerd=%v, infoCall=%v", !canOmitBaseLayers, time.Since(saveStart))
 	if canOmitBaseLayers {
 		// During the first save attempt some layers may be excluded.
 		// The docker daemon allows this if the given set of layers already exists in the daemon in the given order.
 		inspect, err = s.doSave(img, withName)
 	}
 	if !canOmitBaseLayers || err != nil {
+		ensureStart := time.Now()
 		if err = img.ensureLayers(); err != nil {
 			return "", err
 		}
+		debugLog("[imgutil] Save: ensureLayers=%v", time.Since(ensureStart))
+		doSaveStart := time.Now()
 		inspect, err = s.doSave(img, withName)
+		debugLog("[imgutil] Save: doSave=%v", time.Since(doSaveStart))
 		if err != nil {
 			saveErr := imgutil.SaveError{}
 			for _, n := range append([]string{withName}, withAdditionalNames...) {
@@ -181,12 +204,16 @@ func (s *Store) doSave(img v1.Image, withName string) (image.InspectResponse, er
 	tw := tar.NewWriter(pw)
 	defer tw.Close()
 
+	tarStart := time.Now()
 	if err = s.addImageToTar(tw, img, withName); err != nil {
 		return image.InspectResponse{}, err
 	}
+	debugLog("[imgutil] doSave: addImageToTar=%v", time.Since(tarStart))
 	tw.Close()
 	pw.Close()
+	loadStart := time.Now()
 	err = <-done
+	debugLog("[imgutil] doSave: ImageLoad drain=%v", time.Since(loadStart))
 	if err != nil {
 		return image.InspectResponse{}, fmt.Errorf("loading image %q. first error: %w", withName, err)
 	}
@@ -241,21 +268,21 @@ func (s *Store) addImageToTar(tw *tar.Writer, img v1.Image, withName string) err
 }
 
 func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer, blankIdx int) (string, error) {
-	// If the layer is a previous image layer that hasn't been downloaded yet,
-	// cause ALL the previous image layers to be downloaded by grabbing the ReadCloser.
+	layerStart := time.Now()
+	// Open the uncompressed reader first. For facade layers backed by a previous image,
+	// this triggers lazy download of all previous image layers as a side effect.
 	layerReader, err := layer.Uncompressed()
 	if err != nil {
 		return "", err
 	}
 	defer layerReader.Close()
 
-	var layerName string
 	size, err := layer.Size()
 	if err != nil {
 		return "", err
 	}
 	if size == -1 { // it's a base (always empty) layer
-		layerName = fmt.Sprintf("blank_%d", blankIdx)
+		layerName := fmt.Sprintf("blank_%d", blankIdx)
 		hdr := &tar.Header{Name: layerName, Mode: 0644, Size: 0}
 		return layerName, tw.WriteHeader(hdr)
 	}
@@ -264,52 +291,79 @@ func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer, blankIdx int) (str
 	if err != nil {
 		return "", err
 	}
-	layerName = fmt.Sprintf("/%s.tar", layerDiffID.String())
+	layerName := fmt.Sprintf("/%s.tar", layerDiffID.String())
 
-	uncompressedSize, err := s.getLayerSize(layer)
-	if err != nil {
-		return "", err
+	uncompressedSize := s.getLayerSize(layer)
+	if uncompressedSize != -1 {
+		// Size is known: write directly from the already-open reader
+		hdr := &tar.Header{Name: layerName, Mode: 0644, Size: uncompressedSize}
+		if err = tw.WriteHeader(hdr); err != nil {
+			return "", err
+		}
+		writeStart := time.Now()
+		written, err := io.Copy(tw, layerReader)
+		if err != nil {
+			return "", err
+		}
+		debugLog("[imgutil] addLayerToTar: %s write=%v (%d bytes, size_known=true)",
+			layerName, time.Since(writeStart), written)
+		return layerName, nil
 	}
+
+	// Size is unknown (e.g., content store layer or compressed layer from containerd):
+	// decompress to a temp file in a single pass to determine the size,
+	// then write the tar header and stream from the temp file.
+	// This avoids a second decompression that was previously done in getLayerSize.
+	writeStart := time.Now()
+	name, err := s.addUnknownSizeLayerToTar(tw, layerReader, layerName)
+	debugLog("[imgutil] addLayerToTar: %s total=%v (size_known=false, single_pass)",
+		layerName, time.Since(layerStart))
+	_ = writeStart
+	return name, err
+}
+
+func (s *Store) addUnknownSizeLayerToTar(tw *tar.Writer, layerReader io.Reader, layerName string) (string, error) {
+	tmpFile, err := os.CreateTemp("", "imgutil.local.layer.")
+	if err != nil {
+		return "", fmt.Errorf("creating temp file for layer: %w", err)
+	}
+	defer func() {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+	}()
+
+	uncompressedSize, err := io.Copy(tmpFile, layerReader)
+	if err != nil {
+		return "", fmt.Errorf("writing layer to temp file: %w", err)
+	}
+
+	if _, err = tmpFile.Seek(0, io.SeekStart); err != nil {
+		return "", fmt.Errorf("seeking temp file: %w", err)
+	}
+
 	hdr := &tar.Header{Name: layerName, Mode: 0644, Size: uncompressedSize}
 	if err = tw.WriteHeader(hdr); err != nil {
 		return "", err
 	}
-	if _, err = io.Copy(tw, layerReader); err != nil {
+	if _, err = io.Copy(tw, tmpFile); err != nil {
 		return "", err
 	}
-
 	return layerName, nil
 }
 
-// getLayerSize returns the uncompressed layer size.
-// This is needed because the daemon expects uncompressed layer size and a v1.Layer reports compressed layer size;
-// in a future where we send OCI layout tars to the daemon we should be able to remove this method
-// and the need to track layers individually.
-func (s *Store) getLayerSize(layer v1.Layer) (int64, error) {
+// getLayerSize returns the known uncompressed layer size, or -1 if unknown.
+// When -1 is returned, the caller uses addUnknownSizeLayerToTar to compute
+// the size during writing rather than decompressing the layer a second time.
+func (s *Store) getLayerSize(layer v1.Layer) int64 {
 	diffID, err := layer.DiffID()
 	if err != nil {
-		return 0, err
+		return -1
 	}
 	knownLayer, layerFound := s.onDiskLayersByDiffID[diffID]
 	if layerFound && knownLayer.uncompressedSize != -1 {
-		return knownLayer.uncompressedSize, nil
+		return knownLayer.uncompressedSize
 	}
-	// FIXME: this is a time sink and should be avoided if the daemon accepts OCI layout-formatted tars
-	// If layer was not seen previously, we need to read it to get the uncompressed size
-	// In practice, we should only get here if layers saved from the daemon via `docker save`
-	// are output compressed.
-	layerReader, err := layer.Uncompressed()
-	if err != nil {
-		return 0, err
-	}
-	defer layerReader.Close()
-
-	var size int64
-	size, err = io.Copy(io.Discard, layerReader)
-	if err != nil {
-		return 0, err
-	}
-	return size, nil
+	return -1
 }
 
 func addTextToTar(tw *tar.Writer, fileContents []byte, withName string) error {
@@ -397,7 +451,15 @@ func (s *Store) SaveFile(image *Image, withName string) (string, error) {
 func (s *Store) downloadLayersFor(identifier string) error {
 	var err error
 	s.downloadOnce.Do(func() {
-		err = s.doDownloadLayersFor(identifier)
+		if usesContainerdStorage(s.dockerClient) {
+			err = s.doDownloadLayersViaContentStore(identifier)
+			if err != nil {
+				debugLog("[imgutil] content store path failed (%v), falling back to ImageSave", err)
+				err = s.doDownloadLayersFor(identifier)
+			}
+		} else {
+			err = s.doDownloadLayersFor(identifier)
+		}
 	})
 	return err
 }
@@ -406,23 +468,40 @@ func (s *Store) doDownloadLayersFor(identifier string) error {
 	if identifier == "" {
 		return nil
 	}
+	debugLog("[imgutil] doDownloadLayersFor: identifier=%s", identifier)
 	ctx := context.Background()
 
+	t0 := time.Now()
 	imageReader, err := s.dockerClient.ImageSave(ctx, []string{identifier})
 	if err != nil {
 		return fmt.Errorf("saving image with ID %q from the docker daemon: %w", identifier, err)
 	}
 	defer ensureReaderClosed(imageReader)
+	debugLog("[imgutil] doDownloadLayersFor: ImageSave open=%v", time.Since(t0))
 
 	tmpDir, err := os.MkdirTemp("", "imgutil.local.image.")
 	if err != nil {
 		return fmt.Errorf("failed to create temp dir: %w", err)
 	}
 
+	t1 := time.Now()
 	err = untar(imageReader, tmpDir)
 	if err != nil {
 		return err
 	}
+	debugLog("[imgutil] doDownloadLayersFor: untar=%v", time.Since(t1))
+
+	// Log extracted files for debugging
+	var extractedFiles []string
+	filepath.Walk(tmpDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		rel, _ := filepath.Rel(tmpDir, path)
+		extractedFiles = append(extractedFiles, fmt.Sprintf("%s(%d)", rel, info.Size()))
+		return nil
+	})
+	debugLog("[imgutil] doDownloadLayersFor: extracted files: %v", extractedFiles)
 
 	mf, err := os.Open(filepath.Clean(filepath.Join(tmpDir, "manifest.json")))
 	if err != nil {
@@ -455,12 +534,14 @@ func (s *Store) doDownloadLayersFor(identifier string) error {
 		return err
 	}
 
+	t2 := time.Now()
 	for idx := range configFile.RootFS.DiffIDs {
 		layerPath := filepath.Join(tmpDir, manifest[0].Layers[idx])
 		if _, err := s.AddLayer(layerPath); err != nil {
 			return err
 		}
 	}
+	debugLog("[imgutil] doDownloadLayersFor: AddLayer(x%d)=%v", len(configFile.RootFS.DiffIDs), time.Since(t2))
 	return nil
 }
 
