@@ -13,6 +13,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/moby/client"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
 
@@ -275,6 +276,62 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 								OS:           daemonOS,
 								Architecture: "not-an-arch",
 								OSVersion:    "10.0.99999.9999",
+							}),
+						)
+						h.AssertNil(t, err)
+						h.AssertNil(t, img.Save())
+						defer h.DockerRmi(dockerClient, img.Name())
+
+						imgArch, err := img.Architecture()
+						h.AssertNil(t, err)
+						h.AssertEq(t, imgArch, expectedArchitecture)
+
+						imgOSVersion, err := img.OSVersion()
+						h.AssertNil(t, err)
+						h.AssertEq(t, imgOSVersion, expectedOSVersion)
+					})
+				})
+
+				platformAwareWhen := when.Pend
+				if h.DockerIsPlatformAware() {
+					platformAwareWhen = when
+				}
+				platformAwareWhen("base image has multiple platforms available", func() {
+					it("uses the matching platform", func() {
+						// linux/arm64 busybox image
+						multiplatformBaseImageName := "busybox"
+						expectedArchitecture := "arm64"
+						expectedOSVersion := ""
+						distractingArchitecture := "amd64"
+						distractingOSVersion := ""
+						if daemonOS == "windows" {
+							// windows/arm nanoserver image
+							multiplatformBaseImageName = "mcr.microsoft.com/windows/nanoserver:10.0.17763.1040"
+							expectedArchitecture = "arm"
+							expectedOSVersion = "10.0.17763.1040"
+							distractingArchitecture = "amd64"
+							distractingOSVersion = "10.0.17763.1040"
+						}
+
+						h.PullWithPlatformIfMissing(t, dockerClient, multiplatformBaseImageName, ocispec.Platform{
+							OS:           daemonOS,
+							Architecture: expectedArchitecture,
+							OSVersion:    expectedOSVersion,
+						})
+						h.PullWithPlatformIfMissing(t, dockerClient, multiplatformBaseImageName, ocispec.Platform{
+							OS:           daemonOS,
+							Architecture: distractingArchitecture,
+							OSVersion:    distractingOSVersion,
+						})
+
+						img, err := local.NewImage(
+							newTestImageName(),
+							dockerClient,
+							local.FromBaseImage(multiplatformBaseImageName),
+							local.WithDefaultPlatform(imgutil.Platform{
+								OS:           daemonOS,
+								Architecture: expectedArchitecture,
+								OSVersion:    expectedOSVersion,
 							}),
 						)
 						h.AssertNil(t, err)
