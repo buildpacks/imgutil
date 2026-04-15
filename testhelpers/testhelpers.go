@@ -32,6 +32,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/moby/moby/api/types/jsonstream"
 	dockercli "github.com/moby/moby/client"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/imgutil/layer"
@@ -184,6 +185,38 @@ func PullIfMissing(t *testing.T, docker dockercli.APIClient, ref string) {
 	if err != nil {
 		// Retry
 		rc, err = docker.ImagePull(context.Background(), ref, dockercli.ImagePullOptions{})
+		AssertNil(t, err)
+	}
+	defer rc.Close()
+
+	AssertNil(t, checkResponseError(rc))
+
+	_, err = io.Copy(io.Discard, rc)
+	AssertNil(t, err)
+}
+
+func DockerIsPlatformAware() bool {
+	dockerIsPlatformAware, _ := os.LookupEnv("PLATFORM_AWARE_DOCKER")
+
+	return dockerIsPlatformAware == "true"
+}
+
+func PullWithPlatformIfMissing(t *testing.T, docker dockercli.APIClient, ref string, platform ocispec.Platform) {
+	t.Helper()
+	_, err := docker.ImageInspect(context.TODO(), ref, dockercli.ImageInspectWithPlatform(&platform))
+	if err == nil {
+		return
+	}
+	if !cerrdefs.IsNotFound(err) {
+		t.Fatalf("failed inspecting image '%s' for platform '%v': %s", ref, platform, err)
+	}
+
+	pullOpts := dockercli.ImagePullOptions{Platforms: []ocispec.Platform{platform}}
+
+	rc, err := docker.ImagePull(context.Background(), ref, pullOpts)
+	if err != nil {
+		// Retry
+		rc, err = docker.ImagePull(context.Background(), ref, pullOpts)
 		AssertNil(t, err)
 	}
 	defer rc.Close()
