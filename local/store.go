@@ -458,9 +458,11 @@ func (s *Store) doDownloadLayersFor(identifier string) error {
 	}
 	// On failure, remove immediately. On success, keep until Save/SaveFile finishes reading layers.
 	keep := false
+	var addedDiffIDs []v1.Hash
 	defer func() {
 		if !keep {
 			_ = os.RemoveAll(tmpDir)
+			s.dropDownloadedLayerHandles(addedDiffIDs)
 		}
 	}()
 
@@ -500,7 +502,6 @@ func (s *Store) doDownloadLayersFor(identifier string) error {
 		return err
 	}
 
-	var addedDiffIDs []v1.Hash
 	for idx := range configFile.RootFS.DiffIDs {
 		layerPath := filepath.Join(tmpDir, manifest[0].Layers[idx])
 		layer, err := s.AddLayer(layerPath)
@@ -520,6 +521,12 @@ func (s *Store) doDownloadLayersFor(identifier string) error {
 	return nil
 }
 
+func (s *Store) dropDownloadedLayerHandles(ids []v1.Hash) {
+	for _, id := range ids {
+		delete(s.onDiskLayersByDiffID, id)
+	}
+}
+
 // cleanupDownloadDirs removes temp directories created by doDownloadLayersFor and drops
 // the corresponding layer handles. Layers registered via AddLayer from outside a download
 // (for example pack's create-builder-scratch artifacts) are left alone.
@@ -531,9 +538,7 @@ func (s *Store) cleanupDownloadDirs() {
 		_ = os.RemoveAll(dir)
 	}
 	s.downloadDirs = nil
-	for _, id := range s.downloadedDiffIDs {
-		delete(s.onDiskLayersByDiffID, id)
-	}
+	s.dropDownloadedLayerHandles(s.downloadedDiffIDs)
 	s.downloadedDiffIDs = nil
 	// Allow a future ensureLayers() to re-download if needed.
 	s.downloadOnce = &sync.Once{}

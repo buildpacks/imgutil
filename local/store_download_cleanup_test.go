@@ -58,6 +58,26 @@ func TestCleanupDownloadDirs(t *testing.T) {
 	}
 }
 
+func TestPartialDownloadDropsLayerHandles(t *testing.T) {
+	s := NewStore(nil)
+
+	downloadedID := v1.Hash{Algorithm: "sha256", Hex: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+	keptID := v1.Hash{Algorithm: "sha256", Hex: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
+	s.onDiskLayersByDiffID[downloadedID] = annotatedLayer{}
+	s.onDiskLayersByDiffID[keptID] = annotatedLayer{}
+
+	// Simulate AddLayer succeeding for the first extracted layer, then a later
+	// layer failing before downloadedDiffIDs is updated.
+	s.dropDownloadedLayerHandles([]v1.Hash{downloadedID})
+
+	if _, ok := s.onDiskLayersByDiffID[downloadedID]; ok {
+		t.Fatal("expected layer from a failed download to be dropped")
+	}
+	if _, ok := s.onDiskLayersByDiffID[keptID]; !ok {
+		t.Fatal("expected unrelated layer handle to be kept")
+	}
+}
+
 func TestCleanupDownloadDirsNoopWhenEmpty(t *testing.T) {
 	s := NewStore(nil)
 	// Should not panic or reset state when nothing was downloaded.
