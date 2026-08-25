@@ -168,7 +168,27 @@ func (h *CNBIndex) replaceDescriptor(digest name.Digest, withFun func(descriptor
 	if err != nil {
 		return err
 	}
-	mediaType := desc.MediaType
+	// Capture the index's own media type before mutating it below, so it can be
+	// restored afterwards. This must go through IndexManifest(), not
+	// h.ImageIndex.MediaType(): for an index freshly loaded from an OCI layout
+	// directory, go-containerregistry's layoutIndex.MediaType() hardcodes
+	// types.OCIImageIndex regardless of what index.json actually says, so it
+	// misreports a Docker manifest list as OCI. IndexManifest() parses the raw
+	// JSON and reflects the real value. desc.MediaType (the prior source) was a
+	// second bug on top: that's the per-manifest entry's *image* media type,
+	// never an *index* type, so it could never equal the post-mutation index
+	// media type below, and "restoring" to it left the index as neither OCI nor
+	// the original Docker type.
+	indexManifestBefore, err := getIndexManifest(h.ImageIndex)
+	if err != nil {
+		return err
+	}
+	mediaType := indexManifestBefore.MediaType
+	if mediaType == "" {
+		// The OCI Image Layout spec allows index.json to omit "mediaType"; per
+		// the spec, an absent value means an OCI Image Index.
+		mediaType = types.OCIImageIndex
+	}
 	if desc.Platform == nil {
 		desc.Platform = &v1.Platform{}
 	}
