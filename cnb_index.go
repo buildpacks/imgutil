@@ -1,6 +1,7 @@
 package imgutil
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -142,6 +143,11 @@ func (h *CNBIndex) SetAnnotations(digest name.Digest, annotations map[string]str
 	})
 }
 
+func (h *CNBIndex) SetIndexAnnotations(annotations map[string]string) (err error) {
+	h.ImageIndex = mutate.Annotations(h.ImageIndex, annotations).(v1.ImageIndex)
+	return nil
+}
+
 func (h *CNBIndex) SetArchitecture(digest name.Digest, arch string) (err error) {
 	return h.replaceDescriptor(digest, func(descriptor v1.Descriptor) (v1.Descriptor, error) {
 		descriptor.Platform.Architecture = arch
@@ -256,7 +262,7 @@ func (h *CNBIndex) SaveDir() error {
 	if len(errs.Errors) != 0 {
 		return errs
 	}
-	return nil
+	return writeIndexAnnotations(path, index.Annotations)
 }
 
 func appendManifest(desc v1.Descriptor, path layout.Path, errs *SaveError) {
@@ -270,6 +276,31 @@ func appendManifest(desc v1.Descriptor, path layout.Path, errs *SaveError) {
 			Cause: err,
 		})
 	}
+}
+
+func writeIndexAnnotations(path layout.Path, annotations map[string]string) error {
+	if len(annotations) == 0 {
+		return nil
+	}
+
+	imageIndex, err := path.ImageIndex()
+	if err != nil {
+		return err
+	}
+
+	index, err := imageIndex.IndexManifest()
+	if err != nil {
+		return err
+	}
+
+	index.Annotations = annotations
+
+	rawIndex, err := json.MarshalIndent(index, "", "   ")
+	if err != nil {
+		return err
+	}
+
+	return path.WriteFile("index.json", rawIndex, os.ModePerm)
 }
 
 func newEmptyLayoutPath(indexType types.MediaType, path string) (layout.Path, error) {
