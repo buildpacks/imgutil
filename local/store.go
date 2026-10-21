@@ -434,7 +434,12 @@ func (s *Store) doDownloadLayersFor(identifier string) error {
 	var imageReader client.ImageSaveResult
 	var err error
 
-	if s.platform != (imgutil.Platform{}) {
+	// The daemon rejects a partially specified platform with "both OS and
+	// Architecture must be provided", so only pass one through when both are
+	// known. s.platform is built from `docker inspect` of the base image, and
+	// images that were not built for a specific platform report an empty
+	// Architecture -- buildpack package images are a common case.
+	if s.platform.OS != "" && s.platform.Architecture != "" {
 		// Download right platform on platform-aware Docker
 		ociPlatform := ocispec.Platform{
 			Architecture: s.platform.Architecture,
