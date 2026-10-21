@@ -284,7 +284,10 @@ func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer, blankIdx int) (str
 	if err != nil {
 		return "", err
 	}
-	layerName = fmt.Sprintf("/%s.tar", layerDiffID.String())
+	// No leading slash: the daemon rejects absolute entry names with
+	// "invalid entry name", and manifest.json Layers paths are relative to the
+	// root of the tar, like the config entry and the blank layers above.
+	layerName = fmt.Sprintf("%s.tar", layerDiffID.String())
 
 	uncompressedSize, err := s.getLayerSize(layer)
 	if err != nil {
