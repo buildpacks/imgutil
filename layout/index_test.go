@@ -367,6 +367,17 @@ func testIndex(t *testing.T, when spec.G, it spec.S) {
 								h.AssertEq(t, len(index.Manifests[1].Annotations), 8)
 								h.AssertEq(t, index.Manifests[1].Annotations["some-key"], "some-value")
 							})
+
+							it("index media-type stays OCI after updating a manifest", func() {
+								annotations := map[string]string{
+									"some-key": "some-value",
+								}
+								h.AssertNil(t, idx.SetAnnotations(digest1, annotations))
+								h.AssertNil(t, idx.SaveDir())
+
+								index := h.ReadIndexManifest(t, localPath)
+								h.AssertEq(t, index.MediaType, types.OCIImageIndex)
+							})
 						})
 
 						when("docker media-type is used", func() {
