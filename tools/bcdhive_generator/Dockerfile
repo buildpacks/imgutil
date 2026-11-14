@@ -1,5 +1,5 @@
 ARG go_version
-FROM golang:${go_version}-bullseye
+FROM golang:${go_version}-bookworm
 
 RUN apt update \
     && apt install -y libhivex-dev libhivex-bin libwin-hivex-perl
