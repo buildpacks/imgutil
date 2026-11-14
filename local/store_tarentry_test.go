@@ -28,14 +28,16 @@ func (l fixedLayer) Uncompressed() (io.ReadCloser, error) {
 func (l fixedLayer) Size() (int64, error)                { return int64(len(l.content)), nil }
 func (l fixedLayer) MediaType() (types.MediaType, error) { return types.DockerLayer, nil }
 
-// The daemon rejects tar entries with an absolute name:
+// The daemon rejects tar entries whose name is not a valid relative file name:
 //
 //	embedded daemon response: invalid entry name "/sha256:<hex>.tar"
+//	embedded daemon response: invalid entry name "sha256:<hex>.tar"   (Windows)
 //
 // manifest.json Layers paths are relative to the root of the tar, so the entry
-// name written for a layer must be relative too -- as the config entry and the
-// blank layers already are.
-func TestAddLayerToTarEntryNameIsRelative(t *testing.T) {
+// name written for a layer must be relative, and must not contain the colon of
+// the "sha256:" prefix, which Windows does not allow in a file name. It is the
+// bare hex digest, like the config entry.
+func TestAddLayerToTarEntryNameIsPortable(t *testing.T) {
 	diffID := v1.Hash{
 		Algorithm: "sha256",
 		Hex:       "067833dadeca9180bb71a211248cbc0f6ada05499bfdef07dfb04e2eb96e7c82",
@@ -57,7 +59,10 @@ func TestAddLayerToTarEntryNameIsRelative(t *testing.T) {
 	if strings.HasPrefix(layerName, "/") {
 		t.Errorf("layer name recorded in manifest.json is absolute: %q", layerName)
 	}
-	if want := diffID.String() + ".tar"; layerName != want {
+	if strings.Contains(layerName, ":") {
+		t.Errorf("layer name recorded in manifest.json contains a colon: %q", layerName)
+	}
+	if want := diffID.Hex + ".tar"; layerName != want {
 		t.Errorf("layer name: got %q, want %q", layerName, want)
 	}
 
@@ -76,6 +81,9 @@ func TestAddLayerToTarEntryNameIsRelative(t *testing.T) {
 		names = append(names, hdr.Name)
 		if strings.HasPrefix(hdr.Name, "/") {
 			t.Errorf("tar entry name is absolute: %q", hdr.Name)
+		}
+		if strings.Contains(hdr.Name, ":") {
+			t.Errorf("tar entry name contains a colon: %q", hdr.Name)
 		}
 	}
 	if len(names) != 1 || names[0] != layerName {
