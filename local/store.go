@@ -19,7 +19,6 @@ import (
 	"github.com/moby/moby/api/types/image"
 	"github.com/moby/moby/api/types/jsonstream"
 	"github.com/moby/moby/client"
-	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/buildpacks/imgutil"
@@ -434,15 +433,8 @@ func (s *Store) doDownloadLayersFor(identifier string) error {
 	var imageReader client.ImageSaveResult
 	var err error
 
-	if s.platform != (imgutil.Platform{}) {
-		// Download right platform on platform-aware Docker
-		ociPlatform := ocispec.Platform{
-			Architecture: s.platform.Architecture,
-			OS:           s.platform.OS,
-			OSVersion:    s.platform.OSVersion,
-			Variant:      s.platform.Variant,
-		}
-		imageReader, err = s.dockerClient.ImageSave(ctx, []string{identifier}, client.ImageSaveWithPlatforms(ociPlatform))
+	if platform, ok := ociPlatform(s.platform); ok {
+		imageReader, err = s.dockerClient.ImageSave(ctx, []string{identifier}, client.ImageSaveWithPlatforms(platform))
 	} else {
 		imageReader, err = s.dockerClient.ImageSave(ctx, []string{identifier})
 	}

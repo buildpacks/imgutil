@@ -292,6 +292,24 @@ func testImage(t *testing.T, when spec.G, it spec.S) {
 					})
 				})
 
+				when("platform names only the OS", func() {
+					it("does not send the partial platform to the daemon", func() {
+						img, err := local.NewImage(
+							newTestImageName(),
+							dockerClient,
+							local.FromBaseImage(runnableBaseImageName),
+							local.WithDefaultPlatform(imgutil.Platform{OS: daemonOS}),
+						)
+						h.AssertNil(t, err)
+						h.AssertNil(t, img.Save())
+						defer h.DockerRmi(dockerClient, img.Name())
+
+						imgArch, err := img.Architecture()
+						h.AssertNil(t, err)
+						h.AssertEq(t, imgArch, daemonArchitecture)
+					})
+				})
+
 				platformAwareWhen := when.Pend
 				if h.DockerIsPlatformAware() {
 					platformAwareWhen = when
