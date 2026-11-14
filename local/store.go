@@ -284,7 +284,7 @@ func (s *Store) addLayerToTar(tw *tar.Writer, layer v1.Layer, blankIdx int) (str
 	if err != nil {
 		return "", err
 	}
-	layerName = fmt.Sprintf("/%s.tar", layerDiffID.String())
+	layerName = fmt.Sprintf("%s.tar", layerDiffID.Hex)
 
 	uncompressedSize, err := s.getLayerSize(layer)
 	if err != nil {
