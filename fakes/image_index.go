@@ -73,6 +73,11 @@ func (i ImageIndex) SetAnnotations(_ name.Digest, _ map[string]string) error {
 	panic("unimplemented")
 }
 
+// SetIndexAnnotations implements imgutil.ImageIndex.
+func (i ImageIndex) SetIndexAnnotations(_ map[string]string) error {
+	panic("unimplemented")
+}
+
 // SetArchitecture implements imgutil.ImageIndex.
 func (i ImageIndex) SetArchitecture(_ name.Digest, _ string) error {
 	panic("unimplemented")

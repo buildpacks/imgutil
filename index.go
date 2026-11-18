@@ -19,6 +19,7 @@ type ImageIndex interface {
 	// setters
 
 	SetAnnotations(digest name.Digest, annotations map[string]string) (err error)
+	SetIndexAnnotations(annotations map[string]string) (err error)
 	SetArchitecture(digest name.Digest, arch string) (err error)
 	SetOS(digest name.Digest, os string) (err error)
 	SetVariant(digest name.Digest, osVariant string) (err error)
